@@ -1,0 +1,170 @@
+/* components/withdraw-dialog/index.wxss */
+@import "../../app.wxss";
+
+/* --- Pro Max UI Styles (Migrated from Home) --- */
+
+/* Brand Colors */
+.text-brand { color: #2C68FF; }
+.bg-page { background-color: #F7F8FA; }
+.text-main { color: #1F2937; }
+.text-sub { color: #6B7280; }
+
+/* Header */
+.popup-header-home {
+  padding: 16px;
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #F3F4F6;
+  min-height: 24px;
+}
+.header-title-home {
+  font-size: 17px;
+  font-weight: 600;
+  color: #111827;
+}
+.header-title-home.abs-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+.header-right-action {
+  position: relative;
+  z-index: 10;
+  padding: 4px;
+  display: flex;
+}
+
+/* Scroll Area */
+.px-safe { padding-left: 16px; padding-right: 16px; }
+.pt-safe { padding-top: 10px; }
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
+
+/* Cards */
+.card-home {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 12px;
+}
+
+/* Typography */
+.font-din { font-family: 'DINAlternate-Bold', sans-serif; font-weight: bold; }
+.text-3xl { font-size: 32px; line-height: 1.1; }
+.text-lg { font-size: 17px; }
+.text-sm { font-size: 13px; }
+
+/* Input */
+.input-home-wrapper {
+  padding: 24px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  margin-bottom: 16px;
+}
+.input-home-row {
+  display: flex;
+  align-items: baseline;
+  border-bottom: 1px solid #E5E7EB;
+  padding-bottom: 8px;
+}
+.input-home {
+  flex: 1;
+  height: 48px;
+  font-size: 32px;
+  font-weight: 600;
+  color: #111827;
+  font-family: 'DINAlternate-Bold', sans-serif;
+  caret-color: #2C68FF;
+}
+.unit-text {
+  font-size: 16px;
+  color: #6B7280;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+/* Button */
+.btn-home {
+  background: #2C68FF;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: none;
+  box-shadow: 0 4px 12px rgba(44, 104, 255, 0.3);
+  width: 100%;
+}
+.btn-home:active {
+  background: #1A54E6;
+  opacity: 0.95;
+}
+
+/* Tags */
+.tag-brand-light {
+  background: #EFF6FF;
+  color: #2C68FF;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-gray {
+    background: #F3F4F6;
+    color: #4B5563;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Utilities */
+.flex-row { display: flex; flex-direction: row; }
+.flex-col { display: flex; flex-direction: column; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.mb-4 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 2px; }
+.mb-8 { margin-bottom: 8px; }
+.mr-8 { margin-right: 8px; }
+.mr-10 { margin-right: 10px; }
+.mt-4 { margin-top: 4px; }
+
+/* Recommendations & Warnings inside Card */
+.alert-box-green {
+    background-color: #F0FDF4;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+.text-alert-green { color: #15803D; font-size: 12px; }
+
+.alert-box-orange {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.text-alert-orange { color: #F97316; font-size: 12px; }
+
+.popup-footer-safe {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  background: #fff;
+  border-top: 1px solid #F3F4F6;
+  z-index: 999;
+}

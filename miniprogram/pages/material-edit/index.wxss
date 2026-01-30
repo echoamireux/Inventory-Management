@@ -1,0 +1,5 @@
+/* pages/material-edit/index.wxss */
+.field-label-bold .van-field__label {
+    font-weight: 600 !important;
+    color: #323233 !important;
+}

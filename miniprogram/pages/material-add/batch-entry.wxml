@@ -1,0 +1,73 @@
+<!--pages/material-add/batch-entry.wxml-->
+<view class="container pb-100">
+
+  <!-- 1. Top Action: Scan -->
+  <view class="scan-section bg-white p-4 mb-3 text-center">
+    <van-button icon="scan" type="primary" round block bind:click="onScan">继续扫码添加</van-button>
+    <view class="text-xs text-secondary mt-2">支持连续扫码，扫码后自动加入列表</view>
+  </view>
+
+  <!-- 2. Bulk Settings (Optional) -->
+  <van-cell-group title="批量设置 (应用于所有新扫码项)" inset>
+     <van-field
+        label="默认生产批号"
+        placeholder="选填"
+        value="{{ defaultBatchNo }}"
+        bind:change="onDefaultBatchChange"
+        right-icon="edit"
+     />
+     <van-cell title="默认过期时间" value="{{ defaultExpiry || '未设置' }}" is-link bind:click="showDatePicker" />
+  </van-cell-group>
+
+  <!-- 3. List of Items -->
+  <view class="list-section mt-3">
+    <view class="px-3 mb-2 text-sm text-secondary flex-row justify-between">
+       <text>待入库列表 ({{ list.length }})</text>
+       <text class="text-primary" bindtap="clearList" wx:if="{{ list.length > 0 }}">清空</text>
+    </view>
+
+    <block wx:if="{{ list.length > 0 }}">
+      <van-swipe-cell right-width="{{ 65 }}" wx:for="{{ list }}" wx:key="unique" class="mb-2 block">
+          <view class="bg-white p-3 rounded-md flex-row items-center border-b">
+             <!-- Icon/Image? -->
+             <view class="flex-1">
+                <view class="text-base font-bold">{{ item.material_name }} <text class="text-xs text-secondary ml-2">{{ item.product_code }}</text></view>
+                <view class="text-sm mt-1">
+                    <text>批号: {{ item.batch_number || '--' }}</text>
+                    <text class="ml-3">过期: {{ item.expiry_date_str || '--' }}</text>
+                </view>
+                <view class="mt-2 flex-row items-center">
+                    <text class="text-sm mr-2">数量:</text>
+                    <van-stepper value="{{ item.quantity.val }}" data-index="{{ index }}" bind:change="onQtyChange" step="1" button-size="20px" />
+                    <text class="text-sm ml-2">{{ item.quantity.unit }}</text>
+                </view>
+             </view>
+          </view>
+          <view slot="right" class="h-full flex-center bg-danger text-white w-65px font-bold" bindtap="onRemoveItem" data-index="{{ index }}" style="display: flex; justify-content: center; align-items: center; width: 65px; height: 100%; background-color: #ee0a24; color: #fff;">
+              删除
+          </view>
+      </van-swipe-cell>
+    </block>
+    <van-empty wx:else description="暂无条目，请点击上方扫码" />
+  </view>
+
+  <!-- 4. Footer Submit -->
+  <view class="fixed-bottom p-3 bg-white shadow-top safe-area-bottom">
+      <van-button type="info" block round bind:click="onSubmit" disabled="{{ list.length === 0 }}">
+          确认入库 ({{ list.length }})
+      </van-button>
+  </view>
+
+  <!-- Date Picker -->
+  <van-popup show="{{ showDate }}" position="bottom" bind:close="onDateClose">
+    <van-datetime-picker
+      type="date"
+      value="{{ currentDate }}"
+      bind:confirm="onDateConfirm"
+      bind:cancel="onDateClose"
+      min-date="{{ minDate }}"
+    />
+  </van-popup>
+
+  <van-toast id="van-toast" />
+</view>

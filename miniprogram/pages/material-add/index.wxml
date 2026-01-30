@@ -1,0 +1,298 @@
+<!--pages/material-add/index.wxml-->
+<view class="container">
+  <!-- 顶部 Tab 切换 -->
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
+    <van-tab title="化材入库" name="chemical"></van-tab>
+    <van-tab title="膜材入库" name="film"></van-tab>
+  </van-tabs>
+
+  <view class="p-15">
+    <!-- 0. 批量入库入口 -->
+    <view class="mb-15">
+        <van-button icon="apps-o" block plain type="primary" bind:click="goToBatchEntry">切换至批量扫码入库模式</van-button>
+    </view>
+
+    <!-- 1. 唯一码录入 (置顶) -->
+    <view class="form-card bg-white rounded-lg overflow-hidden shadow-sm mb-15">
+        <van-cell-group title="标签信息 (必填)">
+            <van-field
+                value="{{ form.unique_code }}"
+                label="标签编号"
+                placeholder="扫码/手动输入"
+                required
+                clearable
+                center
+                data-field="unique_code"
+                bind:change="onInput"
+                use-button-slot
+                class="scanning-field"
+                label-class="field-label-bold"
+            >
+                <van-button slot="button" size="mini" type="info" icon="scan" custom-class="scan-btn" bind:click="onScanCode">
+                    扫码
+                </van-button>
+            </van-field>
+        </van-cell-group>
+    </view>
+
+    <view class="form-card bg-white rounded-lg overflow-hidden shadow-sm">
+      <van-cell-group title="基础信息">
+        <!-- 1. 产品代码 (SKU) -->
+        <van-field
+          value="{{ form.product_code }}"
+          label="产品代码"
+          placeholder="请输入数字 (如 001)"
+          required
+          type="number"
+          data-field="product_code"
+          bind:change="onInput"
+          class="product-code-field {{ activeTab }}"
+          label-class="field-label-bold"
+        />
+
+        <!-- 2. 物料名称 -->
+        <van-field
+          value="{{ form.name }}"
+          label="物料名称"
+          placeholder="{{ activeTab === 'chemical' ? '请输入 (如: MEK电子级 / PVDF树脂)' : '请输入 (如: 50um PET基膜)' }}"
+          required
+          data-field="name"
+          bind:change="onInput"
+          label-class="field-label-bold"
+        />
+
+        <!-- 联想建议列表 -->
+        <view class="suggestion-box" wx:if="{{ suggestions.length > 0 }}">
+            <view class="suggestion-header">
+                <text>以下为可能匹配的物料</text>
+                <van-icon name="cross" bind:click="closeSuggestions" class="close-icon" />
+            </view>
+            <view class="suggestion-list">
+                <view class="suggestion-item border-bottom"
+                      wx:for="{{ suggestions }}" wx:key="product_code"
+                      bindtap="onSelectSuggestion"
+                      data-item="{{ item }}">
+                    <view class="flex-1">
+                        <view class="flex-row items-center mb-5">
+                            <text class="text-lg font-bold text-primary mr-5">{{ item.product_code }}</text>
+                            <view class="category-tag-pill">{{ item.sub_category || '常规' }}</view>
+                        </view>
+                        <view class="text-sm text-dark">{{ item.name }}</view>
+                        <view class="text-xs text-gray-400 mt-5" wx:if="{{item.supplier}}">供应商: {{ item.supplier }}</view>
+                    </view>
+                    <van-icon name="guide-o" color="#1989fa" size="18px" />
+                </view>
+            </view>
+        </view>
+
+        <!-- 3. 详细分类 -->
+        <van-cell
+            title="详细分类"
+            value="{{ form.sub_category || '请选择' }}"
+            is-link
+            bind:click="showSubCategorySheet"
+            required
+            title-class="field-label-bold"
+        />
+
+        <!-- 4. 供应商型号 -->
+        <van-field
+          value="{{ form.supplier_model }}"
+          label="原厂型号"
+          placeholder="供应商原始型号 (选填)"
+          data-field="supplier_model"
+          bind:change="onInput"
+        />
+
+        <!-- 5. 供应商 -->
+        <van-field
+          value="{{ form.supplier }}"
+          label="供应商"
+          placeholder="请输入供应商名称 (选填)"
+          data-field="supplier"
+          bind:change="onInput"
+        />
+
+        <!-- 6. 批号 -->
+        <van-field
+          value="{{ form.batch_number }}"
+          label="生产批号"
+          placeholder="无批号请填: 当前日期 (如 20260101)"
+          required
+          data-field="batch_number"
+          bind:change="onInput"
+          label-class="field-label-bold"
+        />
+
+        <!-- 7. 库位管理 -->
+        <van-cell
+            title="存储区域"
+            value="{{ form.location_zone || '请选择' }}"
+            is-link
+            bind:click="showLocationSheet"
+            required
+            title-class="field-label-bold"
+        />
+        <van-field
+          value="{{ form.location_detail }}"
+          label="详细坐标"
+          placeholder="层-列 (如: A-01)"
+          data-field="location_detail"
+          bind:change="onInput"
+        />
+      </van-cell-group>
+    </view>
+
+    <view class="mb-15">
+      <van-cell-group title="规格属性">
+        <!-- 化材规格 -->
+        <block wx:if="{{ activeTab === 'chemical' }}">
+          <!-- A+B. 净含量 + 单位 -->
+          <van-field
+            value="{{ form.net_content }}"
+            label="净含量"
+            type="digit"
+            placeholder="请输入数字"
+            required
+            data-field="net_content"
+            bind:change="onInput"
+            use-button-slot
+            label-class="field-label-bold"
+          >
+              <view slot="button" class="flex-row items-center" bindtap="showUnitSheet">
+                 <text class="mr-5">{{ form.unit || '单位' }}</text>
+                 <van-icon name="arrow-down" size="12px" />
+              </view>
+          </van-field>
+
+          <!-- C. 包装形式 -->
+          <van-cell
+            title="包装形式"
+            value="{{ form.package_type || '请选择' }}"
+            is-link
+            bind:click="showPackageTypeSheet"
+          />
+
+          <!-- D. Expiry -->
+          <van-cell title="过期日期" value="{{ form.expiry_date || '请选择' }}" is-link bind:click="showDatePicker" required title-class="field-label-bold" />
+        </block>
+
+        <!-- 膜材规格 -->
+        <block wx:else>
+            <van-field
+              value="{{ form.thickness_um }}"
+              label="厚度(μm)"
+              type="number"
+              placeholder="请输入"
+              required
+              data-field="thickness_um"
+              bind:change="onInput"
+              label-class="field-label-bold"
+            />
+            <van-field
+              value="{{ form.width_mm }}"
+              label="宽度(mm)"
+              type="number"
+              placeholder="请输入"
+              required
+              data-field="width_mm"
+              bind:change="onInput"
+              label-class="field-label-bold"
+            />
+            <van-field
+              value="{{ form.length_m }}"
+              label="长度(m)"
+              type="number"
+              placeholder="请输入"
+              required
+              data-field="length_m"
+              bind:change="onInput"
+              label-class="field-label-bold"
+            />
+        </block>
+      </van-cell-group>
+    </view>
+
+    <!-- 底部按钮 -->
+    <view style="margin-top: 15px; margin-bottom: 30px; padding-bottom: constant(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom);">
+      <van-button type="primary" block round loading="{{ loading }}" bind:click="onSubmit">
+        绑定标签并入库
+      </van-button>
+    </view>
+  </view>
+
+  <!-- 动作面板：单位选择 -->
+  <van-action-sheet
+    show="{{ showUnitSheet }}"
+    actions="{{ unitActions }}"
+    bind:close="onUnitClose"
+    bind:select="onUnitSelect"
+  />
+
+  <!-- 包装形式选择 -->
+  <van-action-sheet
+    show="{{ showPackageTypeSheet }}"
+    actions="{{ packageTypeActions }}"
+    bind:close="onPackageTypeClose"
+    bind:select="onPackageTypeSelect"
+  />
+
+  <!-- 详细分类选择器 -->
+  <van-action-sheet
+    show="{{ showSubCategorySheet }}"
+    actions="{{ subCategoryActions }}"
+    bind:close="onSubCategoryClose"
+    bind:select="onSubCategorySelect"
+  />
+
+  <!-- 库位区域选择器 -->
+  <van-action-sheet
+    show="{{ showLocationSheet }}"
+    actions="{{ locationZoneActions }}"
+    bind:close="onLocationClose"
+    bind:select="onLocationSelect"
+  />
+
+  <!-- 日期选择器 -->
+  <van-popup show="{{ showDatePicker }}" position="bottom" round>
+    <van-datetime-picker
+      type="date"
+      value="{{ currentDate }}"
+      min-date="{{ minDate }}"
+      bind:confirm="onDateConfirm"
+      bind:cancel="onDateCancel"
+    />
+  </van-popup>
+
+  <!-- 成功弹窗 -->
+  <van-dialog
+    use-slot
+    show="{{ showSuccessDialog }}"
+    show-confirm-button="{{ false }}"
+    show-cancel-button="{{ false }}"
+    width="300px"
+    custom-style="border-radius: 16px;"
+  >
+    <view class="success-dialog-body">
+      <!-- Icon & Text -->
+      <view class="text-center pt-30 pb-20">
+        <van-icon name="checked" color="#07c160" size="64px" />
+        <view class="mt-15 font-bold text-xl text-dark">入库成功</view>
+        <view class="mt-10 text-md text-dark">已绑定标签: <text class="font-bold">{{ form.unique_code }}</text></view>
+        <view class="text-xs text-gray-400 mt-5">数据已安全存入数据库</view>
+      </view>
+
+      <!-- Vertical Button Stack -->
+      <view class="p-20">
+        <van-button type="primary" block round bind:click="onNextOne" custom-class="mb-10 box-shadow-blue">
+          保存并继续
+        </van-button>
+        <van-button type="default" block round bind:click="onSuccessBack" custom-class="text-gray-dark bg-gray-light border-none">
+          返回首页
+        </van-button>
+      </view>
+    </view>
+  </van-dialog>
+
+  <van-toast id="van-toast" />
+</view>

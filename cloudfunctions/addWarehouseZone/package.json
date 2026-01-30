@@ -1,0 +1,11 @@
+{
+  "name": "addWarehouseZone",
+  "version": "1.0.0",
+  "description": "Add new warehouse zone",
+  "main": "index.js",
+  "author": "Antigravity",
+  "license": "ISC",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

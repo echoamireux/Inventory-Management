@@ -1,0 +1,563 @@
+// pages/material-add/index.js
+import Toast from '@vant/weapp/toast/toast';
+const db = require('../../utils/db'); // Use DB helper
+
+
+const defaultForm = {
+  unique_code: '',
+  name: '',
+  sub_category: '',
+  product_code: '',
+  supplier: '',
+  supplier_model: '', // New Field
+  batch_number: '',
+  location_zone: '', // New
+  location_detail: '', // New
+  location: '', // Deprecated in UI, constructed on submit
+
+  // 化材 / 通用
+  unit: '',
+  net_content: '', // Replaces `weight_kg`
+  package_type: '', // New
+
+  // 化材特有
+  expiry_date: '',
+
+  // 膜材
+  thickness_um: '',
+  width_mm: '',
+  length_m: ''
+};
+
+Page({
+  data: {
+    activeTab: 'chemical',
+    form: { ...defaultForm },
+    loading: false,
+
+    // UI状态
+    showUnitSheet: false,
+    showPackageTypeSheet: false, // New
+    showLocationSheet: false,
+    showDatePicker: false,
+    showSuccessDialog: false,
+
+    // 联想建议
+    suggestions: [],
+    suggestionTimer: null,
+
+    // 数据
+    currentSubCategories: [],
+    // Defaults Split
+    chemicalZonesDefaults: ['实验室1', '实验室2', '实验室3', '物料间'],
+    filmZonesDefaults: ['研发仓1', '研发仓2', '实验线'],
+    dbZones: [],
+
+    locationZones: [],
+    locationZoneActions: [],
+
+    // Updated Unit List
+    unitActions: [
+      { name: 'kg' },
+      { name: 'g' },
+      { name: 'L' },
+      { name: 'mL' },
+      { name: 'm' },
+      { name: 'm²' },
+      { name: 'pcs(个)' }
+    ],
+    // Package Types
+    packageTypeActions: [
+        { name: '瓶装' },
+        { name: '桶装' },
+        { name: '袋装' },
+        { name: '卷装' },
+        { name: '盒装' }
+    ],
+    // 预设分类选项 (Updated)
+    chemicalCategories: [
+        { name: '溶剂 (Solvent)', code: 'J', type: 'chemical' },
+        { name: '树脂 (Resin)', code: 'J', type: 'chemical' },
+        { name: '助剂 (Additive)', code: 'J', type: 'chemical' },
+        { name: '固化剂 (Hardener)', code: 'J', type: 'chemical' },
+        { name: '色浆 (Pigment)', code: 'J', type: 'chemical' },
+        { name: '胶水 (Adhesive)', code: 'J', type: 'chemical' },
+        { name: '其他 (Other)', code: 'J', type: 'chemical' }
+    ],
+    filmCategories: [
+        { name: '基材-PET', code: 'M', type: 'film' },
+        { name: '基材-PI', code: 'M', type: 'film' },
+        { name: '基材-PP/PE', code: 'M', type: 'film' },
+        { name: '离型膜', code: 'M', type: 'film' },
+        { name: '保护膜', code: 'M', type: 'film' },
+        { name: '光学膜', code: 'M', type: 'film' },
+        { name: '胶带', code: 'M', type: 'film' },
+        { name: '其他', code: 'M', type: 'film' }
+    ],
+
+    // UI binding
+    subCategoryActions: [],
+    showSubCategorySheet: false,
+
+    currentDate: new Date().getTime(),
+    minDate: new Date().getTime(),
+  },
+
+  onLoad(options) {
+      if (options) {
+          if (options.id) {
+              this.setData({ 'form.unique_code': options.id });
+          }
+          if (options.product_code) {
+              this.setData({ 'form.product_code': options.product_code });
+          }
+          if (options.tab) {
+              this.setData({ activeTab: options.tab });
+          }
+      }
+
+      this.updateSubCategoryActions(this.data.activeTab);
+
+      // Load Zones from DB
+      this.loadZones();
+  },
+
+  goToBatchEntry() {
+      wx.navigateTo({
+          url: '/pages/material-add/batch-entry'
+      });
+  },
+
+  async loadZones() {
+      try {
+          const res = await wx.cloud.database().collection('warehouse_zones')
+              .orderBy('order', 'asc')
+              .get();
+
+          const dbZones = res.data.map(z => z.name);
+          this.setData({ dbZones: dbZones });
+
+          this.updateZoneList();
+
+      } catch (err) {
+          console.error('Load zones failed', err);
+          this.updateZoneList(); // Fallback to defaults
+      }
+  },
+
+  updateZoneList() {
+      const { activeTab, chemicalZonesDefaults, filmZonesDefaults, dbZones } = this.data;
+
+      // 1. Base List
+      let list = activeTab === 'chemical' ? [...chemicalZonesDefaults] : [...filmZonesDefaults];
+
+      // 2. Merge DB Zones (deduplicate)
+      // We append DB zones that are NOT in defaults
+      const defaultsSet = new Set(list);
+      if (dbZones && dbZones.length > 0) {
+          dbZones.forEach(z => {
+              if(!defaultsSet.has(z)) list.push(z);
+          });
+      }
+
+      // 3. Add Create Option
+      list.push('+ 新建区域...');
+
+      this.setData({
+          locationZones: list,
+          locationZoneActions: list.map(z => ({ name: z }))
+      });
+  },
+
+  onTabChange(e) {
+    const tab = e.detail.name;
+
+    // resetForm logic
+    const { form } = this.data;
+    // Keep unique_code maybe? No requirement, but let's keep it if user scanned it
+    const cleanForm = {
+       ...form,
+       product_code: '',
+       name: '',
+       sub_category: '',
+       supplier: '',
+       supplier_model: '',
+       batch_number: '',
+       location: '',
+       // specs
+       unit: '', weight_kg: '', expiry_date: '',
+       thickness_um: '', width_mm: '', length_m: ''
+    };
+    // Actually simpler to reset to defaultForm but keep unique_code
+    // To match user Req: "Empty product_code, name, specs..."
+
+    this.setData({
+        activeTab: tab,
+        // Reset dynamic fields
+        'form.product_code': '',
+        'form.name': '',
+        'form.sub_category': '',
+        'form.supplier_model': '',
+        'form.batch_number': '',
+        // We can keep unique_code
+        suggestions: []
+    }, () => {
+        this.updateSubCategoryActions(tab);
+        this.updateZoneList(); // Refresh Zones
+    });
+  },
+
+  updateSubCategoryActions(tab) {
+      const list = tab === 'chemical' ? this.data.chemicalCategories : this.data.filmCategories;
+      this.setData({ subCategoryActions: list });
+  },
+
+  // Helper to get prefix
+  getPrefix(tab) {
+      return tab === 'chemical' ? 'J-' : 'M-';
+  },
+
+  onInput(e) {
+    const field = e.currentTarget.dataset.field;
+    this.setData({ [`form.${field}`]: e.detail });
+
+    // 联想输入逻辑: 改为监听 product_code
+    if (field === 'product_code') {
+        const val = e.detail; // This is purely numbers now
+        if (this.data.suggestionTimer) clearTimeout(this.data.suggestionTimer);
+
+        if (!val || val.length < 1) {
+            this.setData({ suggestions: [] });
+            return;
+        }
+
+        const prefix = this.getPrefix(this.data.activeTab);
+        const fullKeyword = prefix + val; // Concat prefix
+
+        // 防抖 500ms
+        this.setData({
+            suggestionTimer: setTimeout(() => {
+                this.searchSuggestions(fullKeyword);
+            }, 500)
+        });
+    }
+  },
+
+  // 分类选择
+  showSubCategorySheet() { this.setData({ showSubCategorySheet: true }); },
+  onSubCategoryClose() { this.setData({ showSubCategorySheet: false }); },
+  onSubCategorySelect(e) {
+      const item = e.detail;
+      this.setData({
+          'form.sub_category': item.name,
+          showSubCategorySheet: false
+      });
+  },
+
+  // 查询联想词 (By SKU or Name) - Moved to Cloud Function for Security
+  async searchSuggestions(keyword) {
+      if (!keyword) return;
+      try {
+          const res = await wx.cloud.callFunction({
+              name: 'searchInventory',
+              data: {
+                  keyword: keyword,
+                  type: 'suggestion'
+              }
+          });
+
+          if (res.result && res.result.success) {
+             this.setData({ suggestions: res.result.list });
+          }
+      } catch(err) {
+          console.error('[Suggestion Error]', err);
+      }
+  },
+
+  // 选中建议 (Auto-fill)
+  onSelectSuggestion(e) {
+      const item = e.currentTarget.dataset.item;
+      // Parse prefix
+      const prefix = this.getPrefix(this.data.activeTab);
+      let numberPart = '';
+      if (item.product_code.startsWith(prefix)) {
+          numberPart = item.product_code.replace(prefix, '');
+      } else {
+          numberPart = item.product_code.split('-')[1] || item.product_code;
+      }
+
+      const { form } = this.data;
+      const newForm = { ...form };
+
+      newForm.product_code = numberPart;
+      newForm.name = item.name;
+      newForm.supplier = item.supplier;
+      newForm.supplier_model = item.supplier_model || '';
+      newForm.sub_category = item.sub_category || '';
+
+      // Auto-fill Extended Info (Unit, Package, Content)
+      if (this.data.activeTab === 'chemical') {
+          newForm.unit = item.unit || 'kg';
+          newForm.package_type = item.package_type || '';
+
+          // Try to recover net content (weight)
+          let content = '';
+          if (item.dynamic_attrs && item.dynamic_attrs.weight_kg) {
+              content = item.dynamic_attrs.weight_kg;
+          } else if (item.quantity && item.quantity.val) {
+              content = item.quantity.val;
+          }
+          newForm.net_content = content;
+
+      } else {
+          // Film Specs
+          if (item.specs) {
+              newForm.thickness_um = item.specs.thickness_um || '';
+              newForm.width_mm = item.specs.standard_width_mm || '';
+          }
+      }
+
+      this.setData({
+          form: newForm,
+          suggestions: []
+      });
+  },
+
+  closeSuggestions() {
+      this.setData({ suggestions: [] });
+  },
+
+  // 扫码
+  onScanCode() {
+      wx.scanCode({
+          success: (res) => {
+              this.setData({ 'form.unique_code': res.result });
+              wx.showToast({ title: '扫码成功', icon: 'success' });
+          },
+          fail: (err) => {
+              console.error(err);
+          }
+      });
+  },
+
+  // 单位选择
+  showUnitSheet() { this.setData({ showUnitSheet: true }); },
+  onUnitClose() { this.setData({ showUnitSheet: false }); },
+  onUnitSelect(e) {
+    // e.detail.name is now just 'kg', 'g', etc.
+    this.setData({ 'form.unit': e.detail.name, showUnitSheet: false });
+  },
+
+  // 包装形式选择 (New)
+  showPackageTypeSheet() { this.setData({ showPackageTypeSheet: true }); },
+  onPackageTypeClose() { this.setData({ showPackageTypeSheet: false }); },
+  onPackageTypeSelect(e) {
+      this.setData({ 'form.package_type': e.detail.name, showPackageTypeSheet: false });
+  },
+
+  // 日期选择
+  showDatePicker() { this.setData({ showDatePicker: true }); },
+  onDateCancel() { this.setData({ showDatePicker: false }); },
+  onDateConfirm(e) {
+    const date = new Date(e.detail);
+    const formated = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    this.setData({ 'form.expiry_date': formated, showDatePicker: false });
+  },
+
+  // 库位区域选择 (New)
+  showLocationSheet() { this.setData({ showLocationSheet: true }); },
+  onLocationClose() { this.setData({ showLocationSheet: false }); },
+  onLocationSelect(e) {
+      const zone = e.detail.name;
+
+      if (zone === '+ 新建区域...') {
+          this.setData({ showLocationSheet: false });
+          wx.showModal({
+              title: '新建存储区域',
+              content: '',
+              editable: true,
+              placeholderText: '请输入区域名称 (如: 防爆柜)',
+              success: async (res) => {
+                  if (res.confirm && res.content) {
+                       const newName = res.content.trim();
+                       if(!newName) return;
+
+                       wx.showLoading({ title: '创建中...' });
+                       try {
+                           const callRes = await wx.cloud.callFunction({
+                               name: 'addWarehouseZone',
+                               data: { name: newName }
+                           });
+
+                           if (callRes.result.success) {
+                               wx.showToast({ title: '创建成功' });
+                               // Refresh and Select
+                               await this.loadZones();
+                               this.setData({ 'form.location_zone': newName });
+                           } else {
+                               wx.showToast({ title: callRes.result.msg, icon: 'none' });
+                           }
+                       } catch(err) {
+                           wx.showToast({ title: '创建失败', icon: 'none' });
+                       } finally {
+                           wx.hideLoading();
+                       }
+                  }
+              }
+          });
+      } else {
+          this.setData({
+              'form.location_zone': zone,
+              showLocationSheet: false
+          });
+      }
+  },
+
+  // SKU 校验
+  validateSKU(code, type) {
+      if (!code) return false;
+      const upper = code.toUpperCase();
+      if (type === 'chemical' && !upper.startsWith('J-')) return false;
+      if (type === 'film' && !upper.startsWith('M-')) return false;
+      return true;
+  },
+
+  async onSubmit() {
+    const { activeTab, form } = this.data;
+
+    // 1. 必填校验
+    if (!form.unique_code) return Toast.fail('标签编号必填');
+    if (!form.product_code) return Toast.fail('产品代码必填');
+    if (!form.name) return Toast.fail('物料名称必填');
+
+    // Construct Full Code
+    const prefix = this.getPrefix(activeTab);
+    const fullProductCode = prefix + form.product_code;
+
+    // 前缀校验 (Double Check)
+    if (!this.validateSKU(fullProductCode, activeTab)) {
+        const msg = activeTab === 'chemical' ? '化材代码必须以 J- 开头' : '膜材代码必须以 M- 开头';
+        return Toast.fail(msg);
+    }
+
+    if (!form.batch_number || !form.location_zone) {
+      return Toast.fail('请完善批号和存储区域');
+    }
+
+    // Construct Location: Zone | Detail
+    let fullLocation = form.location_zone;
+    if (form.location_detail) {
+        fullLocation += ` | ${form.location_detail}`;
+    }
+
+    // 2. 构造参数
+    let base = {
+      name: form.name,
+      category: activeTab,
+      sub_category: form.sub_category,
+      product_code: fullProductCode,
+      supplier: form.supplier,
+      supplier_model: form.supplier_model || '',
+      package_type: form.package_type || '' // New
+    };
+
+    let specs = {};
+    let inventory = {
+      batch_number: form.batch_number,
+      location: fullLocation, // Use constructed location
+    };
+
+    if (activeTab === 'chemical') {
+      if (!form.unit || !form.net_content || !form.expiry_date) {
+        return Toast.fail('请完善化材规格信息');
+      }
+      base.unit = form.unit;
+
+      // Map net_content to quantity_val
+      const qty = Number(form.net_content);
+      inventory.quantity_val = qty;
+      inventory.quantity_unit = form.unit;
+      inventory.weight_kg = qty; // Legacy support, or just generic weight
+      inventory.expiry_date = form.expiry_date;
+
+    } else {
+      if (!form.thickness_um || !form.width_mm || !form.length_m) {
+        return Toast.fail('请完善膜材规格信息');
+      }
+      base.unit = 'roll';
+      specs.thickness_um = Number(form.thickness_um);
+      specs.standard_width_mm = Number(form.width_mm);
+
+      inventory.quantity_val = 1;
+      inventory.quantity_unit = 'roll';
+      inventory.length_m = form.length_m;
+    }
+
+    this.setData({ loading: true });
+
+    try {
+      const app = getApp();
+      const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
+
+      const res = await wx.cloud.callFunction({
+        name: 'addMaterial',
+        data: {
+          base,
+          specs,
+          inventory,
+          unique_code: form.unique_code, // Pass code
+          operator_name: operator
+        }
+      });
+
+      if (res.result && res.result.success) {
+        this.setData({ showSuccessDialog: true });
+      } else {
+        throw new Error(res.result.msg || 'Unknown Error');
+      }
+
+    } catch (err) {
+      console.error(err);
+      Toast.fail('入库失败: ' + err.message);
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  // 连录下一桶：只重置动态信息
+  onNextOne() {
+      const { form } = this.data;
+      // 保留: name, supplier, location, unit, thickness, width, activeTab
+      // 保留: sub_category, product_code (通常同一种物料连录，这些都不变)
+      // 清空: unique_code (必须重新扫), batch_number (可能变), expiry (可能变), quantity (可能变)
+
+      // 实际上 batch number 和 expiry 很有可能是一样的，如果是一批进货的话。
+      // 用户需求："重置动态数据：标签编号、生产批号、过期日期、重量"
+      // 好的，遵照需求。
+
+      const nextForm = {
+          ...form,
+          unique_code: '',
+          batch_number: '',
+          expiry_date: '',
+          net_content: '', // Reset net content logic
+          length_m: '',  // length 每次都要量
+          location: '', // Deprecated
+          location_zone: form.location_zone, // Keep Zone
+          location_detail: form.location_detail // Keep Detail
+      };
+
+      this.setData({
+          form: nextForm,
+          showSuccessDialog: false
+      });
+
+      wx.pageScrollTo({ scrollTop: 0 }); // 回顶方便扫码
+  },
+
+  // 返回首页
+  onSuccessBack() {
+    this.setData({ showSuccessDialog: false });
+    wx.navigateBack();
+  }
+});

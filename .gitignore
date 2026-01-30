@@ -1,0 +1,66 @@
+# System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+# Note: package-lock.json is usually recommended to be committed,
+# but if you prefer to rely solely on package.json or use yarn/pnpm, you might ignore it.
+# However, for stability, standard practice is to KEEP package-lock.json.
+# I will NOT ignore package-lock.json by default unless requested.
+# If you want to ignore it, uncomment the line above.
+
+# WeChat Mini Program & Cloud Development
+# Installed npm packages within miniprogram directory (generated artifacts)
+miniprogram_npm/
+# Private configuration specific to the local machine/user (CRITICAL SECURITY)
+project.private.config.json
+# CI private keys
+*.key
+private.*.js
+ci-private.key
+
+# Cloud Functions
+cloudfunctions/**/node_modules/
+cloudfunctions/**/package-lock.json
+# Note: Cloud functions usually need their own node_modules uploaded or installed.
+# Identifying whether to ignore them depends on deployment strategy.
+# Usually, we ignore local node_modules and rely on cloud installation or upload.
+# But often we DO commit package-lock.json in cloud functions for consistent installs.
+# I will ignore node_modules but keep package-lock.json for cloud functions.
+
+# Editors & IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Environment Variables & Secrets (CRITICAL SECURITY)
+.env
+.env.local
+.env.*.local
+config/local.js
+secrets.js
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Temporary
+tmp/
+temp/

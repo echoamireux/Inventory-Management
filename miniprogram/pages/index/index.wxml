@@ -1,0 +1,250 @@
+<!--pages/index/index.wxml-->
+<view class="container pb-20">
+
+  <!-- 顶部搜索 (吸顶) -->
+  <view class="bg-white sticky-top z-index-10 border-bottom">
+     <van-search
+        placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+        shape="round"
+        background="#fff"
+        bind:search="onSearch"
+     />
+  </view>
+
+  <view class="p-20">
+    <!-- 扫码领料 (主操作 - 紧凑版) -->
+    <view class="scan-card bg-primary text-white p-20 shadow-lg relative rounded-xl overflow-hidden mb-15" bindtap="onScanWithdraw">
+       <view class="circle-bg"></view>
+       <view class="flex-row items-center justify-between z-relative">
+          <view>
+             <view class="text-xl font-bold mb-5">智能扫码</view>
+             <view class="text-xs opacity-80">入库 / 领料 / 查询</view>
+          </view>
+          <van-icon name="scan" size="32px" />
+       </view>
+    </view>
+
+    <!-- 检索领料 (独立辅助入口 - 按钮样式) -->
+    <view class="mb-15">
+      <view class="btn-retrieve" bindtap="onShowMaterialSelect" hover-class="btn-hover">
+        <van-icon name="search" class="mr-5" size="18px" /> 检索领料 (免扫码)
+      </view>
+    </view>
+
+    <!-- 统计数据 (2x2 网格 - 加高版) -->
+    <view class="mb-25">
+      <view class="text-md font-bold mb-10 text-dark">实时数据</view>
+      <van-row gutter="15">
+        <van-col span="12">
+          <view class="stat-card bg-blue-light p-20 mb-15 text-center active-opacity" bindtap="onStatTotal">
+            <view class="text-4xl font-bold">{{ stats.totalMaterials }}</view>
+            <view class="text-xs opacity-70 mt-5">总物料</view>
+          </view>
+        </van-col>
+        <van-col span="12">
+          <view class="stat-card bg-warning-light p-20 mb-15 text-center active-opacity" bindtap="onStatWarning">
+            <view class="text-4xl font-bold">{{ stats.lowStock }}</view>
+            <view class="text-xs opacity-70 mt-5">预警</view>
+          </view>
+        </van-col>
+        <van-col span="12">
+          <view class="stat-card bg-green-light p-20 text-center active-opacity" bindtap="onStatTodayIn">
+            <view class="text-4xl font-bold">{{ stats.todayIn }}</view>
+            <view class="text-xs opacity-70 mt-5">今日入库</view>
+          </view>
+        </van-col>
+        <van-col span="12">
+          <view class="stat-card bg-purple-light p-20 text-center active-opacity" bindtap="onStatTodayOut">
+            <view class="text-4xl font-bold">{{ stats.todayOut }}</view>
+            <view class="text-xs opacity-70 mt-5">今日出库</view>
+          </view>
+        </van-col>
+      </van-row>
+    </view>
+
+    <!-- 快捷入口列表 -->
+    <van-cell-group inset custom-class="shadow-sm">
+      <van-cell title="新增物料" icon="add-o" is-link url="/pages/material-add/index" />
+      <van-cell title="库存查询" icon="search" is-link url="/pages/inventory/index" />
+      <van-cell title="人员审核" icon="friends-o" is-link url="/pages/admin/user-list" wx:if="{{ isAdmin }}" info="New" />
+      <van-cell title="审计日志" icon="shield-o" is-link url="/pages/admin-logs/index" wx:if="{{ isAdmin }}" />
+      <van-cell title="操作日志" icon="orders-o" is-link url="/pages/logs/index" />
+    </van-cell-group>
+  </view>
+
+
+
+
+
+  <van-toast id="van-toast" />
+  <van-dialog id="van-dialog" />
+
+  <!-- 2. Select Popup (Unified Home Design) -->
+  <van-popup
+    show="{{ showSelectPopup }}"
+    position="bottom"
+    round
+    custom-style="height: 85%; background-color: #F7F8FA;"
+    bind:close="onCloseSelectPopup"
+  >
+    <view class="flex-col h-full bg-page">
+       <view class="bg-white sticky-top z-index-100">
+           <view class="popup-header-home relative">
+               <text class="header-title-home abs-center">物料检索</text>
+               <view class="header-right-action" bindtap="onCloseSelectPopup">
+                   <van-icon name="cross" size="20px" color="#9CA3AF" />
+               </view>
+           </view>
+
+           <view class="px-safe pb-5">
+              <van-search
+                 value="{{ selectSearchVal }}"
+                 placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+                 shape="round"
+                 background="#fff"
+                 bind:search="onSelectSearch"
+                 bind:change="onSelectSearch"
+              />
+           </view>
+
+           <van-tabs
+              id="tabs"
+              active="{{ selectActiveTab }}"
+              bind:change="onSelectTabChange"
+              color="#2C68FF"
+              line-width="30px"
+              border="{{ false }}"
+           >
+               <van-tab title="化材" name="chemical"></van-tab>
+               <van-tab title="膜材" name="film"></van-tab>
+           </van-tabs>
+       </view>
+
+       <scroll-view scroll-y style="flex: 1; height: 1px;" enable-back-to-top>
+           <view class="px-safe pt-safe pb-safe">
+              <view
+                  wx:for="{{ selectList }}"
+                  wx:key="_id"
+                  class="card-home mb-12"
+                  bindtap="onSelectAggregatedItem"
+                  data-item="{{ item }}"
+                  hover-class="card-home-hover"
+               >
+                  <!-- Case A: Chemical (Code First, Hierarchy Adjusted) -->
+                  <block wx:if="{{ item.category === 'chemical' }}">
+                      <!-- Row 1: Code (32px) + Qty (32px) -->
+                      <view class="flex-row justify-between items-baseline mb-4">
+                          <view class="text-brand font-din text-3xl">{{ item.product_code }}</view>
+                          <view class="text-brand font-din text-3xl">
+                              {{ item.totalQuantity }} <text class="text-sm text-brand font-normal">{{ item.unit }}</text>
+                          </view>
+                      </view>
+                      <!-- Row 2: Name (Standard Black) -->
+                      <view class="text-main font-bold text-lg mb-4 text-ellipsis">
+                          {{ item.material_name }}
+                      </view>
+                  </block>
+
+                  <!-- Case B: Film (Name First) -->
+                  <block wx:else>
+                      <!-- Row 1: Name (Large Black) + Qty -->
+                      <view class="flex-row justify-between items-baseline mb-4">
+                          <view class="text-main font-bold text-lg text-ellipsis" style="max-width: 65%;">
+                              {{ item.material_name }}
+                          </view>
+                          <view class="text-main font-din text-xl">
+                              {{ item.totalQuantity }} <text class="text-xs text-sub font-normal">{{ item.unit }}</text>
+                          </view>
+                      </view>
+                      <!-- Row 2: Code (Blue) -->
+                      <view class="text-brand font-din text-lg mb-4">
+                          {{ item.product_code }}
+                      </view>
+                  </block>
+
+                  <!-- Footer: Clean (No Supplier) -->
+                  <view class="flex-row items-center">
+                      <view class="tag-brand-light">
+                          {{ item.totalCount }} 批次
+                      </view>
+                  </view>
+              </view>
+
+              <van-empty wx:if="{{ selectList.length === 0 }}" description="暂无匹配" />
+              <view style="height: 40px;"></view>
+           </view>
+       </scroll-view>
+    </view>
+  </van-popup>
+
+  <!-- 3. Batch Selection Popup (Unified Home Design) -->
+  <van-popup
+    show="{{ showBatchPopup }}"
+    position="bottom"
+    round
+    custom-style="height: 70%; background-color: #F7F8FA;"
+    bind:close="onCloseBatchPopup"
+    z-index="1100"
+  >
+       <view class="flex-col h-full bg-page">
+           <view class="bg-white sticky-top z-index-100">
+               <view class="popup-header-home relative">
+                   <text class="header-title-home abs-center">选择批次</text>
+                   <view class="header-right-action" bindtap="onCloseBatchPopup">
+                       <van-icon name="cross" size="20px" color="#9CA3AF" />
+                   </view>
+               </view>
+               <view class="px-safe pb-10">
+                   <view class="context-bar-home">
+                       <text class="font-bold text-brand mr-5">{{ selectedAggItem.product_code }}</text>
+                       <text class="text-main flex-1 text-ellipsis">{{ selectedAggItem.material_name }}</text>
+                   </view>
+               </view>
+           </view>
+
+           <scroll-view scroll-y style="flex: 1; height: 1px;">
+               <view class="px-safe pt-safe pb-safe">
+                   <view
+                       wx:for="{{ batchList }}"
+                       wx:key="_id"
+                       class="card-home mb-10 flex-row items-center justify-between"
+                       bindtap="onSelectBatchItem"
+                       data-code="{{ item.unique_code }}"
+                       hover-class="card-home-hover"
+                   >
+                        <view class="flex-col flex-1">
+                            <view class="flex-row items-center mb-4">
+                                <text class="font-din text-lg text-main mr-8">{{ item.batch_number }}</text>
+                                <view wx:if="{{ item.isExpiring }}" class="badge-expiry-home">临期</view>
+                            </view>
+                            <view class="text-xs text-sub">
+                                有效期: {{ item.expiry }}
+                            </view>
+                            <view class="text-xs text-sub mt-2">
+                                库位: {{ item.location }}
+                            </view>
+                        </view>
+
+                        <view class="flex-col items-end pl-10">
+                            <!-- Removed Arrow, focused on Data -->
+                            <view class="font-din text-xl text-brand">
+                                {{ item.quantity.val }} <text class="text-xs text-brand">{{ item.quantity.unit }}</text>
+                            </view>
+                        </view>
+                   </view>
+                   <view style="height: 40px;"></view>
+               </view>
+           </scroll-view>
+       </view>
+  </van-popup>
+
+  <!-- 5. 领料弹窗 (Component) -->
+  <withdraw-dialog
+    show="{{ showWithdrawDialog }}"
+    item="{{ withdrawItem }}"
+    mode="{{ isSmartBatchMode ? 'batch' : 'scan' }}"
+    recommendedCode="{{ recommendedCode }}"
+    bind:close="onWithdrawClose"
+    bind:confirm="onWithdrawConfirmFn"
+  />
+</view>

@@ -1,0 +1,107 @@
+<!--pages/inventory-detail/index.wxml-->
+<view class="container page-container" wx:if="{{ item }}">
+
+  <!-- 1. 顶部差异化标题区 -->
+  <!-- 1. 顶部差异化标题区 -->
+  <view class="header-section">
+    <!-- Flex Container for Header -->
+    <view class="header-flex-container">
+        <!-- Left: Info -->
+        <view class="header-left">
+           <!-- Title Logic -->
+           <block wx:if="{{ item.category === 'chemical' }}">
+              <view class="header-title">{{ item.product_code || '无产品代码' }}</view>
+              <view class="header-subtitle">{{ item.material_name || '无物料名' }}</view>
+           </block>
+           <block wx:elif="{{ item.category === 'film' }}">
+              <view class="header-title">{{ item.material_name || '无物料名' }}</view>
+              <view class="header-subtitle">{{ item.product_code || '无产品代码' }}</view>
+           </block>
+           <block wx:else>
+              <view class="header-title">{{ item.material_name || '未知物料' }}</view>
+               <view class="header-subtitle">{{ item.product_code || '-' }}</view>
+           </block>
+
+           <!-- ID & Tag Row -->
+            <view class="header-meta-row">
+                 <van-tag type="{{ isExpiring ? 'warning' : 'success' }}" custom-class="mr-10">{{ isExpiring ? '即将过期' : '正常' }}</van-tag>
+                 <view class="info-id">标签编号: {{ item.unique_code }}</view>
+            </view>
+        </view>
+
+        <!-- Right: Quantity (Moved Here) -->
+        <view class="header-right">
+             <view class="qty-display-header">
+                <text class="qty-val-header">{{ item._qtyVal }}</text>
+                <text class="qty-unit-header">{{ item._qtyUnit }}</text>
+             </view>
+             <view class="text-xs opacity-70 text-right">当前库存</view>
+        </view>
+    </view>
+  </view>
+
+  <!-- 2. 核心资产卡片 (Location Only - Read Only) -->
+  <view class="asset-card">
+      <!-- Location (Static) -->
+      <view class="location-bar">
+          <van-icon name="location-o" size="18px" class="icon-location" />
+          <text class="location-text">{{ item.location }}</text>
+      </view>
+  </view>
+
+  <!-- 3. 分组列表详情 -->
+  <view class="detail-groups">
+      <!-- 溯源信息 -->
+      <van-cell-group inset custom-class="group-card">
+          <van-cell title="生产批号" value="{{ item.batch_number }}" />
+          <van-cell title="供应商" value="{{ item.supplier || '-' }}" />
+          <van-cell title="原厂型号" value="{{ item.supplier_model || '-' }}" />
+          <van-cell title="入库时间" value="{{ item._createdStr }}" />
+          <van-cell title="过期时间" value="{{ item._expiryStr }}" title-class="{{ isExpiring ? 'text-danger' : '' }}" value-class="{{ isExpiring ? 'text-danger' : '' }}" />
+          <van-cell title="物料分类" value="{{ item._categoryStr }}" />
+      </van-cell-group>
+
+      <!-- 规格属性 -->
+      <van-cell-group inset custom-class="group-card">
+          <block wx:if="{{ item.category === 'film' }}">
+              <van-cell title="厚度" value="{{ item.dynamic_attrs.thickness_um }} μm" />
+              <van-cell title="宽度" value="{{ item.dynamic_attrs.width_mm }} mm" />
+              <van-cell title="初始入库量" value="{{ item.inventory.length_m || '-' }} m" />
+          </block>
+          <block wx:else>
+              <van-cell title="初始入库量" value="{{ item.dynamic_attrs.weight_kg }} kg" />
+          </block>
+
+          <van-cell title="CAS号" value="{{ item.cas_number }}" wx:if="{{ item.cas_number }}" />
+          <van-cell title="涂层信息" value="{{ item.dynamic_attrs.coating_info }}" wx:if="{{ item.dynamic_attrs.coating_info }}" />
+          <van-cell title="备注" value="{{ item.remarks }}" wx:if="{{ item.remarks }}" />
+      </van-cell-group>
+  </view>
+
+  <!-- 4. 底部悬浮操作栏 -->
+  <view class="footer-bar safe-area-bottom">
+      <!-- Move Button -->
+      <view class="action-btn btn-move clickable" bindtap="onEdit" hover-class="btn-hover-opacity">
+        移库
+      </view>
+
+      <!-- Withdraw Button -->
+      <view class="action-btn btn-withdraw clickable" bindtap="showOutboundPopup" hover-class="btn-hover-opacity">
+        领用出库
+      </view>
+  </view>
+
+  <!-- 5. 领料弹窗 (Component) -->
+  <withdraw-dialog
+    show="{{ showWithdrawDialog }}"
+    item="{{ item }}"
+    mode="scan"
+    bind:close="onWithdrawClose"
+    bind:confirm="onWithdrawConfirmFn"
+  />
+
+</view>
+
+<view wx:if="{{ loading }}" class="loading-container">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+</view>

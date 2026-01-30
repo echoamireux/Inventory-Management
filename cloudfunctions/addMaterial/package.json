@@ -1,0 +1,12 @@
+{
+  "name": "add-material",
+  "version": "1.0.0",
+  "description": "Add new material and initial inventory",
+  "main": "index.js",
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

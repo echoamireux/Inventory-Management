@@ -1,0 +1,55 @@
+<!--pages/material-edit/index.wxml-->
+<view class="container p-15">
+  <view class="form-card bg-white rounded-lg shadow-sm p-15">
+    <view class="text-xl font-bold mb-15">编辑物料信息</view>
+
+    <!-- Non-Editable Infos -->
+    <van-cell-group custom-class="mb-15">
+        <van-cell title="物料名称" value="{{ form.material_name }}" />
+        <van-cell title="产品代码" value="{{ form.product_code || '-' }}" />
+        <van-cell title="标签编号" value="{{ form.unique_code }}" />
+    </van-cell-group>
+
+    <!-- Editable Fields -->
+    <van-cell-group title="存储信息">
+        <van-cell
+            title="存储区域"
+            value="{{ form.location_zone || '请选择' }}"
+            is-link
+            bind:click="showLocationSheet"
+            required
+            title-class="field-label-bold"
+        />
+        <van-field
+          value="{{ form.location_detail }}"
+          label="详细坐标"
+          placeholder="层-列 (如: A-01)"
+          data-field="location_detail"
+          bind:change="onInput"
+        />
+
+        <van-field
+          value="{{ form.batch_number }}"
+          label="生产批号"
+          placeholder="请输入"
+          data-field="batch_number"
+          bind:change="onInput"
+          label-class="field-label-bold"
+        />
+    </van-cell-group>
+  </view>
+
+  <view class="mt-30">
+      <van-button color="#1989fa" block round loading="{{ loading }}" bind:click="onSubmit">
+        保存修改
+      </van-button>
+  </view>
+
+  <!-- Zone Sheet -->
+  <van-action-sheet
+    show="{{ showLocationSheet }}"
+    actions="{{ locationZoneActions }}"
+    bind:close="onLocationClose"
+    bind:select="onLocationSelect"
+  />
+</view>

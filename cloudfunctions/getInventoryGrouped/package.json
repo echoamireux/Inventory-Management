@@ -1,0 +1,10 @@
+{
+  "name": "getInventoryGrouped",
+  "version": "1.0.0",
+  "description": "Get inventory items grouped by product code",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  },
+  "author": "Antigravity"
+}

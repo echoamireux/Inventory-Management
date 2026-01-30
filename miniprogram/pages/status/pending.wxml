@@ -1,0 +1,21 @@
+<!--pages/status/pending.wxml-->
+<view class="container flex-col items-center justify-center h-screen bg-white">
+  <van-icon name="clock-o" size="80px" color="#ff976a" class="mb-30" />
+
+  <view class="text-xl font-bold mb-10 text-dark">身份审核中</view>
+  <view class="text-sm text-secondary mb-40 text-center px-40">
+    您的身份申请已提交，请联系管理员激活您的账号。
+  </view>
+
+  <view class="w-half">
+    <van-button
+      type="default"
+      block
+      round
+      icon="replay"
+      bind:click="onRefresh"
+    >
+      刷新状态
+    </van-button>
+  </view>
+</view>

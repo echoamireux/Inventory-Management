@@ -1,0 +1,133 @@
+/* pages/material-add/index.wxss */
+.container {
+    padding-bottom: 50px;
+    background-color: #f7f8fa;
+    min-height: 100vh;
+}
+
+.p-15 { padding: 15px; }
+.mb-15 { margin-bottom: 15px; }
+.mt-15 { margin-top: 15px; }
+.pt-30 { padding-top: 30px; }
+.pb-20 { padding-bottom: 20px; }
+.p-20 { padding: 20px; }
+
+.text-center { text-align: center; }
+.font-bold { font-weight: bold; }
+.text-xl { font-size: 20px; }
+.text-lg { font-size: 16px; }
+.text-md { font-size: 14px; }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 10px; }
+.text-primary { color: #1989fa; }
+.text-dark { color: #323233; }
+.text-gray-400 { color: #969799; }
+
+.flex-row { display: flex; flex-direction: row; }
+.items-center { align-items: center; }
+.flex-1 { flex: 1; }
+.mr-5 { margin-right: 5px; }
+
+/* FIX: Remove aggressive scanning-field overrides that broke Button Layout */
+.scan-btn {
+    width: 64px !important;
+    padding: 0 !important;
+    height: 30px !important;
+    line-height: 28px !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    margin-left: 8px; /* Add spacing from input */
+}
+
+/* Suggestion Box - Premium Dropdown Style */
+.suggestion-box {
+    position: absolute;
+    top: 90px;
+    left: 16px;
+    right: 16px;
+    z-index: 999;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background-color: #f7f8fa;
+    border-bottom: 1px solid #ebedf0;
+    font-size: 12px;
+    color: #969799;
+}
+
+.suggestion-list {
+    overflow-y: auto;
+}
+
+.suggestion-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: #fff;
+    transition: background-color 0.2s;
+}
+
+.suggestion-item:active {
+    background-color: #f2f3f5;
+}
+
+.border-bottom {
+    border-bottom: 1px solid #f5f6f7;
+}
+
+.category-tag-pill {
+    font-size: 10px;
+    color: #1989fa;
+    background: rgba(25, 137, 250, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* FIX: Seamless Prefix Formatting */
+.product-code-field .van-field__body {
+    display: flex !important;
+    align-items: center;
+}
+
+.product-code-field .van-field__body::before {
+    margin-right: 0px;
+    font-size: 14px;
+    color: #323233;
+    font-weight: 400;
+    line-height: 24px;
+}
+
+.product-code-field.chemical .van-field__body::before { content: "J-"; }
+.product-code-field.film .van-field__body::before { content: "M-"; }
+
+/* Label Bold Style */
+/* Vant 'label-class' applies directly to the label element */
+.field-label-bold {
+    font-weight: 600 !important;
+    color: #323233 !important;
+}
+
+/* Success Dialog Buttons */
+.success-dialog-body { background: #fff; overflow: hidden; }
+.text-gray-dark { color: #646566 !important; }
+.bg-gray-light { background: #f7f8fa !important; }
+.border-none { border: none !important; }
+.box-shadow-blue { box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3); }
+.mb-10 { margin-bottom: 10px; }

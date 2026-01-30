@@ -1,0 +1,25 @@
+/* pages/stock-in-out/index.wxss */
+.scan-area {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.scan-icon-wrapper {
+  padding: 30px;
+  border-radius: 50%;
+  background-color: #f0f8ff;
+}
+
+.manual-input-area {
+  width: 100%;
+}
+
+.flex-row {
+  display: flex;
+}
+.block {
+  display: block;
+}

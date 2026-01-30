@@ -1,0 +1,74 @@
+<!--pages/material-detail/index.wxml-->
+<view class="container pb-20">
+  <block wx:if="{{ item }}">
+    <!-- 头部卡片 -->
+    <view class="header-card bg-white p-20 mb-10 shadow-sm">
+      <view class="text-xl font-bold mb-5">{{ item._displayTitle }}</view>
+      <view class="text-sm text-secondary mb-10" wx:if="{{ item._displaySubtitle }}">{{ item._displaySubtitle }}</view>
+
+      <view class="flex-row items-center mb-10">
+        <van-tag type="primary" size="medium" class="mr-10">{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
+        <view class="text-secondary flex-row items-center" bindtap="onCopyCode">
+            <text class="text-xs">ID: {{ item.unique_code }}</text>
+            <van-icon name="description" class="ml-5" />
+        </view>
+      </view>
+
+      <van-divider />
+
+      <van-row>
+        <van-col span="12">
+            <view class="text-sm text-secondary">当前库存</view>
+            <view class="text-xl font-bold text-primary">{{ item._displayQuantity }}</view>
+        </van-col>
+        <van-col span="12">
+            <view class="text-sm text-secondary">生产批号</view>
+            <view class="text-lg">{{ item.batch_number }}</view>
+        </van-col>
+      </van-row>
+    </view>
+
+    <!-- 详细属性 -->
+    <van-cell-group title="详细属性" class="mb-10">
+      <van-cell title="库位" value="{{ item.location }}" />
+      <block wx:if="{{ item.category === 'chemical' }}">
+         <van-cell title="危险等级" value="{{ item.dynamic_attrs.hazard_level || 'N/A' }}" />
+         <van-cell title="过期日期" value="{{ item.dynamic_attrs.expiry_date }}" />
+      </block>
+      <block wx:if="{{ item.category === 'film' }}">
+         <van-cell title="厚度" value="{{ item.dynamic_attrs.thickness_um }} μm" />
+         <van-cell title="宽度" value="{{ item.dynamic_attrs.width_mm }} mm" />
+      </block>
+    </van-cell-group>
+
+    <!-- 历史记录 -->
+    <view class="p-10 bg-white">
+      <view class="text-md font-bold mb-10">出入库记录</view>
+
+      <view class="logs-list">
+         <view wx:for="{{ logs }}" wx:key="_id" class="log-item border-l ml-10 relative">
+             <view class="dot bg-primary"></view>
+             <view class="log-content pl-15 pb-20">
+                 <view class="flex-row justify-between items-center mb-5">
+                     <text class="font-bold text-md">{{ item.type === 'inbound' ? '入库' : '领用' }}</text>
+                     <text class="text-xs text-secondary">{{ item._timeStr }}</text>
+                 </view>
+                 <view class="text-sm mb-5">{{ item._desc }}</view>
+                 <view class="text-xs text-secondary bg-light p-5 rounded" wx:if="{{ item.description || item.note }}">
+                    备注: {{ item.description || item.note }}
+                 </view>
+                 <view class="text-xs text-secondary mt-5">操作人: {{ item.operator || 'Unknown' }}</view>
+             </view>
+         </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{ loading }}" class="text-center p-20">
+      <van-loading />
+  </view>
+
+  <view class="p-20" wx:if="{{ isAdmin && item }}">
+      <van-button type="danger" block bind:click="onDelete" custom-class="shadow-sm">删除物料 (管理员)</van-button>
+  </view>
+</view>

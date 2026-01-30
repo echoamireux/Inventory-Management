@@ -1,0 +1,223 @@
+/* pages/inventory-detail/index.wxss */
+
+/* Page Container */
+.page-container {
+  padding-bottom: 120px;
+  background-color: #f7f8fa;
+  min-height: 100vh;
+}
+
+/* 1. Gradient Header */
+.header-section {
+  background: linear-gradient(135deg, #1989fa 0%, #0570db 100%);
+  color: #fff;
+  padding: 30rpx 40rpx 80rpx 40rpx; /* Reduced bottom padding slightly as card is smaller */
+  position: relative;
+  border-bottom-left-radius: 24rpx;
+  border-bottom-right-radius: 24rpx;
+}
+
+.header-flex-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-left {
+  flex: 1;
+  margin-right: 20rpx;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.header-title {
+  font-size: 48rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  font-size: 28rpx;
+  opacity: 0.85;
+  line-height: 1.4;
+  margin-bottom: 15rpx;
+}
+
+.header-meta-row {
+  display: flex;
+  align-items: center;
+  opacity: 0.9;
+}
+
+.info-id {
+  font-family: monospace;
+  font-size: 24rpx;
+  opacity: 0.8;
+}
+
+/* Quantity in Header */
+.qty-display-header {
+  display: flex;
+  align-items: baseline;
+}
+
+.qty-val-header {
+  font-size: 60rpx;
+  font-weight: bold;
+  line-height: 1;
+  margin-right: 8rpx;
+}
+
+.qty-unit-header {
+  font-size: 28rpx;
+  opacity: 0.9;
+}
+
+/* 2. Asset Card (Location Only) */
+.asset-card {
+  background-color: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  margin: -50rpx 30rpx 0 30rpx; /* Overlap */
+  padding: 20rpx; /* Reduced padding for single-row */
+  position: relative;
+  z-index: 10;
+}
+
+.location-bar {
+  display: flex;
+  align-items: center;
+  padding: 24rpx; /* More breathable */
+  background-color: #fff; /* White bg for clean look inside card, or maybe gray? */
+  /* User previous had gray bg inside, let's keep it clean or use light gray */
+  background-color: #f7f8fa;
+  border-radius: 16rpx;
+}
+
+.hover-bg {
+  background-color: #ebedf0;
+}
+
+.icon-location {
+  color: #1989fa; /* Blue icon */
+  margin-right: 15rpx;
+}
+
+.location-text {
+  flex: 1;
+  font-size: 32rpx; /* Larger text */
+  color: #323233;
+  font-weight: bold;
+  margin-right: 20rpx;
+}
+
+.icon-edit {
+  color: #969799;
+}
+
+/* 3. Detail Groups */
+.detail-groups {
+  margin-top: 30rpx;
+  padding: 0 30rpx;
+}
+
+.group-card {
+  margin-bottom: 30rpx !important;
+  border-radius: 16rpx !important;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+/* 4. Fixed Footer */
+.footer-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  padding: 24rpx 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.action-btn {
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  transition: opacity 0.2s;
+}
+
+.btn-move {
+  width: 35%;
+  background-color: #ebf5ff;
+  color: #1989fa;
+  margin-right: 20rpx;
+}
+
+.btn-withdraw {
+  width: 60%;
+  background-color: #1989fa;
+  color: #fff;
+  box-shadow: 0 4rpx 12rpx rgba(25, 137, 250, 0.3);
+}
+
+.btn-hover-opacity {
+  opacity: 0.8;
+}
+
+/* 5. Popup */
+.popup-content {
+  padding: 30rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-header {
+  text-align: center;
+  margin-bottom: 30rpx;
+  flex-shrink: 0;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+  color: #323233;
+}
+
+.popup-subtitle {
+  font-size: 24rpx;
+  color: #969799;
+}
+
+.popup-field {
+  margin-bottom: 30rpx;
+}
+
+.popup-confirm-btn {
+  margin-top: auto;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 100rpx 0;
+}

@@ -1,0 +1,80 @@
+<!--pages/stock-in-out/index.wxml-->
+<view class="container">
+
+  <!-- Step 1: 扫码/搜索 -->
+  <block wx:if="{{ step === 1 }}">
+    <view class="scan-area bg-white p-15 text-center mt-10">
+      <view class="scan-icon-wrapper" bindtap="onScan" wx:if="{{ mode === 'scan' }}">
+        <van-icon name="scan" size="80px" color="#1989fa" />
+        <text class="block text-secondary mt-10">点击扫码识别</text>
+      </view>
+
+      <view wx:else class="manual-input-area">
+        <van-field
+          value="{{ inputCode }}"
+          center
+          clearable
+          label="唯一码"
+          placeholder="输入物品唯一编码"
+          border="{{ false }}"
+          use-button-slot
+          data-field="inputCode"
+          bind:change="onInputChange"
+        >
+          <van-button slot="button" size="small" type="primary" bind:click="onManualSearch">
+            查询
+          </van-button>
+        </van-field>
+      </view>
+
+      <view class="mt-10">
+        <text class="text-primary text-sm" bindtap="toggleMode">
+          {{ mode === 'scan' ? '切换手动输入' : '切换扫码模式' }}
+        </text>
+      </view>
+    </view>
+  </block>
+
+  <!-- Step 2: 操作面板 -->
+  <block wx:if="{{ step === 2 && inventoryItem }}">
+    <view class="card p-15">
+      <view class="text-secondary text-sm mb-5">当前操作对象</view>
+      <view class="text-lg font-bold text-main mb-5">{{ inventoryItem.material_name }}</view>
+      <view class="text-sm text-secondary">当前库存: {{ inventoryItem.quantity.val }} {{ inventoryItem.quantity.unit }}</view>
+      <view class="text-sm text-secondary">库位: {{ inventoryItem.location }}</view>
+    </view>
+
+    <view class="card p-15">
+      <van-radio-group value="{{ actionType }}" bind:change="onActionChange" direction="horizontal">
+        <van-radio name="outbound">领用出库</van-radio>
+        <van-radio name="inbound" class="ml-10">补充入库</van-radio>
+      </van-radio-group>
+
+      <view class="mt-10">
+        <van-field
+          value="{{ changeValue }}"
+          type="number"
+          label="变动数量"
+          placeholder="请输入数量"
+          data-field="changeValue"
+          bind:change="onInputChange"
+          required
+        />
+        <van-field
+          value="{{ note }}"
+          label="备注"
+          placeholder="用途/原因"
+          data-field="note"
+          bind:change="onInputChange"
+        />
+      </view>
+    </view>
+
+    <view class="p-15 mt-10 flex-row">
+      <van-button style="flex:1; margin-right:10px;" block round plain bind:click="onBack">取消</van-button>
+      <van-button style="flex:2;" type="primary" block round loading="{{ loading }}" bind:click="onSubmit">确认提交</van-button>
+    </view>
+  </block>
+
+  <van-toast id="van-toast" />
+</view>

@@ -1,0 +1,13 @@
+{
+  "name": "exportData",
+  "version": "1.0.0",
+  "description": "Export inventory data to Excel",
+  "main": "index.js",
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "node-xlsx": "^0.21.0"
+  }
+}

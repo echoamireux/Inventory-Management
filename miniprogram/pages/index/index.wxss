@@ -1,0 +1,412 @@
+/* pages/index/index.wxss */
+.header {
+  margin-bottom: 10px;
+}
+.h1 {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--text-main);
+  display: block;
+}
+.p {
+  font-size: 14px;
+  margin-top: 5px;
+  display: block;
+}
+
+/* Scan Card */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+.text-white { color: #fff; }
+.scan-card {
+  border-radius: 12px;
+  /* box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3); */
+}
+.opacity-80 { opacity: 0.8; }
+.shadow-lg {
+  box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3);
+}
+
+.stat-card {
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.stat-num {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--text-main);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+
+.text-warning { color: var(--color-warning); }
+.text-success { color: var(--color-success); }
+.text-primary { color: var(--color-primary); }
+
+.warning-border {
+  border: 1px solid var(--color-warning);
+}
+
+/* Utilities */
+.flex-row { display: flex; flex-direction: row; }
+.flex-col { display: flex; flex-direction: column; }
+.h-full { height: 100%; box-sizing: border-box; }
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.ml-10 { margin-left: 10px; }
+.mr-5 { margin-right: 5px; }
+.mr-15 { margin-right: 15px; }
+.mt-5 { margin-top: 5px; }
+.mt-10 { margin-top: 10px; }
+.mb-10 { margin-bottom: 10px; }
+/* Spacing & Layout */
+.py-10 { padding-top: 10px; padding-bottom: 10px; }
+.p-15 { padding: 15px; }
+.p-20 { padding: 20px; }
+.p-30 { padding: 20px; } /* Compact: Reduced from 30px */
+.mb-10 { margin-bottom: 10px; }
+.mb-15 { margin-bottom: 15px; }
+.mb-20 { margin-bottom: 20px; }
+.mb-25 { margin-bottom: 15px; } /* Compact: Reduced from 25px */
+.mb-30 { margin-bottom: 30px; }
+.mb-40 { margin-bottom: 40px; }
+
+.text-center { text-align: center; }
+.font-bold { font-weight: bold; }
+.text-xl { font-size: 20px; }
+.text-xxl { font-size: 24px; font-family: 'DINAlternate-Bold', sans-serif; }
+/* Professional Large Stats Font */
+.text-4xl { font-size: 32px; font-family: 'DINAlternate-Bold', sans-serif; line-height: 1.2; } /* Compact: Reduced from 36px */
+.text-xs { font-size: 11px; } /* Compact: Slightly smaller */
+
+/* Enhanced Stats Colors */
+.bg-blue-light {
+  background-color: #e6f7ff;
+  color: #0050b3;
+  border: 1px solid #bae7ff;
+}
+.bg-warning-light {
+  background-color: #fff7e6;
+  color: #d46b08;
+  border: 1px solid #ffe7ba;
+}
+.bg-green-light {
+  background-color: #f6ffed;
+  color: #389e0d;
+  border: 1px solid #d9f7be;
+}
+.bg-purple-light {
+  background-color: #f9f0ff;
+  color: #531dab;
+  border: 1px solid #efdbff;
+}
+
+.btn-retrieve {
+  width: 70%; /* Not so wide */
+  background-color: #fff;
+  color: #1989fa;
+  border: 1px solid #e6f7ff;
+  box-shadow: 0 2px 8px rgba(25, 137, 250, 0.1);
+  border-radius: 24px; /* More rounded for smaller pill shape */
+  height: 44px; /* Smaller height */
+  line-height: 44px;
+  text-align: center;
+  font-size: 15px; /* Smaller font */
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 5px auto; /* Centered */
+  transition: all 0.2s;
+}
+.btn-retrieve:active {
+  background-color: #f0f9ff;
+  transform: scale(0.99);
+}
+/* --- Popup Polish V2 --- */
+
+/* --- Unified Home Design (Strict) --- */
+
+/* Brand Colors - Match Home Page */
+.text-brand { color: #2C68FF; }
+.bg-page { background-color: #F7F8FA; }
+.text-main { color: #1F2937; }
+.text-sub { color: #6B7280; }
+
+/* 1. Cards (Match Home) */
+.card-home {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 12px;
+}
+.card-home-hover {
+  background-color: #FAF9F8;
+}
+
+/* 2. Header (Clean & Centered) */
+.popup-header-home {
+  padding: 16px;
+  position: relative;
+  display: flex;
+  justify-content: flex-end; /* Icon on Right */
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #F3F4F6;
+  min-height: 24px;
+}
+.header-title-home {
+  font-size: 17px;
+  font-weight: 600;
+  color: #111827;
+}
+.header-title-home.abs-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+.header-right-action {
+  position: relative;
+  z-index: 10;
+  padding: 4px;
+  display: flex;
+}
+
+/* 3. Typography */
+.font-din {
+  font-family: 'DINAlternate-Bold', sans-serif;
+  font-weight: bold;
+}
+.text-3xl { font-size: 32px; line-height: 1.1; }
+.text-xxl { font-size: 24px; }
+.text-xl { font-size: 20px; }
+.text-lg { font-size: 17px; }
+.text-md { font-size: 15px; }
+.text-sm { font-size: 13px; }
+.text-xs { font-size: 11px; }
+
+/* 4. Input (Clean Standard) */
+.input-home-wrapper {
+  padding: 24px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  margin-bottom: 16px;
+}
+.input-home-row {
+  display: flex;
+  align-items: baseline;
+  border-bottom: 1px solid #E5E7EB;
+  padding-bottom: 8px;
+}
+.input-home {
+  flex: 1;
+  height: 48px;
+  font-size: 32px; /* Large readable */
+  font-weight: 600;
+  color: #111827;
+  font-family: 'DINAlternate-Bold', sans-serif;
+  caret-color: #2C68FF;
+}
+.unit-text {
+  font-size: 16px;
+  color: #6B7280;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+/* 5. Button (Standard & Centered) */
+.btn-home {
+  background: #2C68FF;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  height: 50px;
+  /* Flex Center for perfect alignment */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: none;
+  box-shadow: 0 4px 12px rgba(44, 104, 255, 0.3);
+  width: 100%;
+}
+.btn-home:active {
+  background: #1A54E6;
+  opacity: 0.95;
+}
+
+/* Footer Wrapper */
+.popup-footer-safe {
+  width: 100%;
+  box-sizing: border-box; /* Critical for correct width */
+  padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  background: #fff;
+  /* Use a subtle border instead of shadow for a cleaner, flatter look */
+  border-top: 1px solid #F3F4F6;
+  z-index: 999;
+}
+
+/* 6. Tags & Badges */
+.tag-brand-light {
+  background: #EFF6FF;
+  color: #2C68FF;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-expiry-home {
+    background: #FEF2F2;
+    color: #EF4444;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-left: 6px;
+}
+
+/* Search Override */
+.van-search__content { background-color: #F3F4F6 !important; }
+
+/* Popup Common */
+.pt-safe { padding-top: 10px; }
+.px-safe { padding-left: 16px; padding-right: 16px; }
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
+
+/* Context Bar */
+.context-bar-home {
+    background: #EFF6FF;
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+}
+
+/* Popups Common */
+.popup-close-corner {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    padding: 4px;
+}
+
+/* V5 List Clean Up */
+.card-v5 {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+    border: 1px solid rgba(0,0,0,0.01);
+}
+.text-title-main { font-size: 17px; font-weight: bold; color: #1F2937; }
+.bg-tag-light { background: #F3F4F6; color: #6B7280; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+/* Spacing */
+.mt-40 { margin-top: 40px; }
+.mb-20 { margin-bottom: 20px; }
+.pt-30 { padding-top: 30px; }
+.px-20 { padding-left: 20px; padding-right: 20px; }
+
+/* Utilities Extra */
+.text-ellipsis {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+}
+.rounded-full { border-radius: 999px; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.pl-15 { padding-left: 15px; }
+
+/* Refined Card Shadow */
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 16px; /* Increased vertical padding */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04); /* Softer, deeper shadow */
+  border: 1px solid rgba(0, 0, 0, 0.01);
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.card:active {
+  transform: scale(0.98);
+  background-color: #fafafa;
+}
+
+.text-main { color: #1f2937; }
+.text-secondary { color: #9ca3af; }
+
+/* Tags */
+.van-tag--primary.van-tag--plain {
+    color: #1989fa !important;
+    background-color: #eff6ff !important;
+    border: none !important;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* 3. Batch Item (In Batch Popup) */
+.search-result-item {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+/* 4. Stats Typography */
+.text-xxl {
+    font-size: 26px;
+    font-family: 'DINAlternate-Bold', -apple-system, sans-serif;
+    letter-spacing: -0.5px;
+}
+
+/* 5. Info Card in Withdraw */
+.info-card-light-blue {
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 25px;
+  text-align: center;
+  border: 1px solid rgba(25, 137, 250, 0.1);
+}
+
+.text-code-header {
+  font-size: 28px;
+  font-weight: bold;
+  color: #1989fa;
+  font-family: 'DINAlternate-Bold', sans-serif;
+  margin-right: 8px;
+}
+
+.input-large .van-field__input {
+    font-size: 28px !important;
+    font-weight: bold !important;
+    color: #111827 !important;
+    height: 50px !important;
+}

@@ -1,0 +1,28 @@
+<!--pages/admin/user-list.wxml-->
+<view class="container pb-20">
+  <view class="p-20">
+    <block wx:if="{{ list.length > 0 }}">
+      <view class="mb-10 text-secondary text-sm">待审核人员 ({{ list.length }})</view>
+
+      <block wx:for="{{ list }}" wx:key="_id">
+        <view class="bg-white p-20 mb-15 rounded shadow-sm flex-row justify-between items-center">
+          <view>
+            <view class="text-lg font-bold mb-5">{{ item.name }}</view>
+            <view class="text-xs text-secondary">申请时间: {{ item._timeStr }}</view>
+          </view>
+
+          <van-button
+            type="primary"
+            size="small"
+            bind:click="onApprove"
+            data-id="{{ item._id }}"
+          >
+            通过
+          </van-button>
+        </view>
+      </block>
+    </block>
+
+    <van-empty wx:else description="暂无待审核人员" />
+  </view>
+</view>

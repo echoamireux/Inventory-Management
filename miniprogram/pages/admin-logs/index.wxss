@@ -1,0 +1,8 @@
+/* pages/admin-logs/index.wxss */
+.log-card {
+  background: #fff;
+  border-radius: 8rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}

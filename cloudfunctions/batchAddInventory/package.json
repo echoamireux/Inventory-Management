@@ -1,0 +1,10 @@
+{
+  "name": "batchAddInventory",
+  "version": "1.0.0",
+  "description": "Batch add inventory items",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  },
+  "author": "Antigravity"
+}

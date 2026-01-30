@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/register/index",
+    "pages/material-add/index",
+    "pages/inventory/index",
+    "pages/stock-in-out/index",
+    "pages/logs/index",
+    "pages/material-detail/index",
+    "pages/inventory-detail/index",
+    "pages/material-edit/index",
+    "pages/admin-logs/index",
+    "pages/status/pending",
+    "pages/admin/user-list",
+    "pages/inventory/detail-list",
+    "pages/material-add/batch-entry"
+  ],
+  "window": {
+    "backgroundColor": "#F6F6F6",
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#F6F6F6",
+    "navigationBarTitleText": "实验室库存管理",
+    "navigationBarTextStyle": "black"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {
+      "van-button": "@vant/weapp/button/index",
+      "van-cell": "@vant/weapp/cell/index",
+      "van-cell-group": "@vant/weapp/cell-group/index",
+      "van-icon": "@vant/weapp/icon/index",
+      "van-image": "@vant/weapp/image/index",
+      "van-col": "@vant/weapp/col/index",
+      "van-row": "@vant/weapp/row/index",
+      "van-popup": "@vant/weapp/popup/index",
+      "van-toast": "@vant/weapp/toast/index",
+      "van-field": "@vant/weapp/field/index",
+      "van-picker": "@vant/weapp/picker/index",
+      "van-radio": "@vant/weapp/radio/index",
+      "van-radio-group": "@vant/weapp/radio-group/index",
+      "van-search": "@vant/weapp/search/index",
+      "van-tag": "@vant/weapp/tag/index",
+      "van-tab": "@vant/weapp/tab/index",
+      "van-tabs": "@vant/weapp/tabs/index",
+      "van-empty": "@vant/weapp/empty/index",
+      "van-dialog": "@vant/weapp/dialog/index",
+      "van-loading": "@vant/weapp/loading/index",
+      "van-card": "@vant/weapp/card/index",
+      "van-steps": "@vant/weapp/steps/index"
+  }
+}

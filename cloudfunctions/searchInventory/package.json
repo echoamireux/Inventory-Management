@@ -1,0 +1,10 @@
+{
+  "name": "searchInventory",
+  "version": "1.0.0",
+  "description": "Search inventory and materials",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  },
+  "author": "Antigravity"
+}

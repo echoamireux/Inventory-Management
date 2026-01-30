@@ -1,0 +1,11 @@
+{
+  "name": "getDashboardStats",
+  "version": "1.0.0",
+  "description": "Calculate dashboard statistics",
+  "main": "index.js",
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

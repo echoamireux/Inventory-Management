@@ -1,0 +1,14 @@
+.h-screen { height: 100vh; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.w-full { width: 100%; }
+.text-center { text-align: center; }
+.mb-10 { margin-bottom: 10px; }
+.mb-30 { margin-bottom: 30px; }
+.mb-40 { margin-bottom: 40px; }
+.p-30 { padding: 30px; }
+.px-20 { padding-left: 20px; padding-right: 20px; }
+.text-3xl { font-size: 28px; }
+.font-bold { font-weight: bold; }
+.text-dark { color: #323233; }
+.text-secondary { color: #969799; }
+.text-sm { font-size: 14px; }

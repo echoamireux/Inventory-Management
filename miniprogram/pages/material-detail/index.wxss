@@ -1,0 +1,48 @@
+/* pages/material-detail/index.wxss */
+.bg-white { background: #fff; }
+.shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.p-20 { padding: 20px; }
+.pb-20 { padding-bottom: 20px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-5 { margin-bottom: 5px; }
+
+.font-bold { font-weight: bold; }
+.text-xl { font-size: 20px; }
+.text-lg { font-size: 16px; }
+.text-sm { font-size: 14px; }
+.text-xs { font-size: 12px; }
+.text-primary { color: var(--primary-color, #1989fa); }
+.text-secondary { color: #969799; }
+
+/* Timeline simple style */
+.log-item {
+  border-left: 1px solid #ebedf0;
+  position: relative;
+}
+/* Last item should not have border if we want it to look perfect, but CSS :last-child border-left: none might break the line visual connecting to nothing. Keep it for now or adjust. */
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  left: -4.5px; /* Half width + border width */
+  top: 0;
+  z-index: 1;
+}
+
+.log-content {
+  position: relative;
+  top: -4px; /* Align text with dot */
+}
+
+.pl-15 { padding-left: 15px; }
+.pb-20 { padding-bottom: 20px; }
+.bg-light { background-color: #f7f8fa; }
+.rounded { border-radius: 4px; }
+.p-5 { padding: 5px; }
+
+.bg-primary { background-color: var(--primary-color, #1989fa); }
+.flex-row { display: flex; flex-direction: row; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }

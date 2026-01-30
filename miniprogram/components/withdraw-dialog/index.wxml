@@ -1,0 +1,118 @@
+<van-popup
+  show="{{ show }}"
+  position="bottom"
+  round
+  custom-style="max-height: 85%; background-color: #F7F8FA;"
+  bind:close="onClose"
+  z-index="1200"
+>
+  <view class="flex-col h-full bg-page">
+     <!-- Header -->
+     <view class="popup-header-home relative">
+         <text class="header-title-home abs-center">确认领料</text>
+         <view class="header-right-action" bindtap="onClose">
+             <van-icon name="cross" size="20px" color="#9CA3AF" />
+         </view>
+     </view>
+
+     <!-- Scrollable Area -->
+     <scroll-view scroll-y class="flex-1" enable-back-to-top>
+        <view class="px-safe pt-safe pb-safe">
+            <!-- Info Card (Code First) -->
+            <view class="card-home" style="margin-bottom: 12px;">
+                <view class="flex-row justify-between items-baseline mb-4">
+                    <!-- Code (Large Blue) -->
+                    <text class="text-brand font-din text-3xl">{{ item.product_code || item.material_name }}</text>
+                    <!-- Stock (Large Blue) -->
+                    <text class="text-brand font-din text-3xl">{{ displayStock }} <text class="text-sm font-normal text-brand">{{ item.quantity.unit || 'kg' }}</text></text>
+                </view>
+
+                <!-- Name (Secondary) -->
+                <view class="text-main font-bold text-lg mb-2">{{ item.material_name }}</view>
+
+                <view class="mt-4 flex-row items-center justify-between">
+                    <view class="flex-row items-center">
+                        <view class="tag-brand-light mr-8">当前批号</view>
+                        <text class="text-sub text-sm font-din">{{ item.batch_number }}</text>
+                    </view>
+                </view>
+
+                <view wx:if="{{ item.unique_code }}" class="mt-2 flex-row items-center">
+                     <view class="tag-brand-light mr-8" style="background-color: #F0FDF4; color: #16A34A;">标签编号</view>
+                     <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
+                </view>
+
+                <!-- Alerts / Recommendation -->
+                 <view wx:if="{{ mode === 'batch' && recommendedCode }}" class="mt-4 alert-box-green">
+                     <van-icon name="info-o" color="#15803D" size="14px" class="mr-8"/>
+                     <view class="text-alert-green">
+                        系统自动匹配: <text class="font-bold">{{ recommendedCode }}</text> (最早入库)
+                     </view>
+                 </view>
+
+                 <view wx:if="{{ item.isExpiring }}" class="mt-2 alert-box-orange">
+                    <van-icon name="warning-o" color="#F97316" size="14px" class="mr-8"/>
+                    <text class="text-alert-orange">该批次即将过期</text>
+                 </view>
+            </view>
+
+            <!-- Input Card (Pro Max Large Input) -->
+            <view class="input-home-wrapper" style="margin-bottom: 12px;">
+                 <view class="text-sub text-sm mb-4">本次领用数量</view>
+                 <view class="input-home-row">
+                     <input
+                        class="input-home"
+                        type="digit"
+                        value="{{ withdrawAmount }}"
+                        bindinput="onAmountInput"
+                        focus="{{ show }}"
+                        placeholder="0"
+                        placeholder-style="color:#E5E7EB;"
+                        always-embed="{{true}}"
+                     />
+                     <text class="unit-text">{{ item.quantity.unit || (item.category === 'film' ? '米' : 'kg') }}</text>
+                 </view>
+            </view>
+
+            <!-- Usage -->
+            <view class="card-home" style="padding: 0; overflow: hidden; margin-bottom: 0;">
+                 <van-cell
+                    title="领料用途"
+                    value="{{ selectedUsage || '请选择' }}"
+                    is-link
+                    title-class="font-bold text-main"
+                    value-class="{{ selectedUsage ? 'text-brand font-bold' : 'text-sub' }}"
+                    border="{{ false }}"
+                    custom-class="!py-4"
+                    bind:click="onUsageClick"
+                 />
+                 <block wx:if="{{ selectedUsage === '其他损耗' }}">
+                     <view style="height:1px; background:#f5f5f5; margin:0 16px;"></view>
+                     <van-field
+                        value="{{ usageDetail }}"
+                        placeholder="请输入具体损耗原因"
+                        border="{{ false }}"
+                        bind:change="onUsageDetailInput"
+                     />
+                 </block>
+            </view>
+        </view>
+     </scroll-view>
+
+     <!-- Footer Button (Clean) -->
+     <view class="popup-footer-safe">
+         <button class="btn-home" bindtap="onConfirm">确认领出</button>
+     </view>
+  </view>
+</van-popup>
+
+<!-- Usage Picker (Nested) -->
+<van-popup show="{{ showUsagePicker }}" position="bottom" round bind:close="onUsageCancel" z-index="2000">
+    <van-picker
+        columns="{{ usageOptions }}"
+        show-toolbar
+        title="选择用途"
+        bind:cancel="onUsageCancel"
+        bind:confirm="onUsageConfirm"
+    />
+</van-popup>

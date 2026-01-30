@@ -1,0 +1,35 @@
+<view class="container flex-center bg-white h-screen">
+  <view class="p-30 w-full">
+    <view class="text-center mb-40">
+      <view class="text-3xl font-bold mb-10 text-dark">身份绑定</view>
+      <view class="text-sm text-secondary">首次使用请绑定真实姓名，用于库存操作追溯</view>
+    </view>
+
+    <view class="mb-30">
+      <van-cell-group inset>
+        <van-field
+          value="{{ name }}"
+          label="真实姓名"
+          placeholder="请输入您的真实姓名"
+          border="{{ false }}"
+          bind:change="onNameInput"
+          custom-style="background-color: #f7f8fa; border-radius: 8px; padding: 15px;"
+        />
+      </van-cell-group>
+    </view>
+
+    <view class="px-20">
+      <van-button
+        type="primary"
+        block
+        round
+        size="large"
+        bind:click="onSubmit"
+        loading="{{ loading }}"
+        loading-text="注册中..."
+      >
+        提交申请
+      </van-button>
+    </view>
+  </view>
+</view>
