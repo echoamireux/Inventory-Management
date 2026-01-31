@@ -1,43 +1,26 @@
 // pages/material-add/index.js
 import Toast from '@vant/weapp/toast/toast';
-const db = require('../../utils/db'); // Use DB helper
-
-
-const defaultForm = {
-  unique_code: '',
-  name: '',
-  sub_category: '',
-  product_code: '',
-  supplier: '',
-  supplier_model: '', // New Field
-  batch_number: '',
-  location_zone: '', // New
-  location_detail: '', // New
-  location: '', // Deprecated in UI, constructed on submit
-
-  // 化材 / 通用
-  unit: '',
-  net_content: '', // Replaces `weight_kg`
-  package_type: '', // New
-
-  // 化材特有
-  expiry_date: '',
-
-  // 膜材
-  thickness_um: '',
-  width_mm: '',
-  length_m: ''
-};
+import {
+  CATEGORY_PREFIX,
+  CHEMICAL_CATEGORIES,
+  FILM_CATEGORIES,
+  UNIT_OPTIONS,
+  PACKAGE_TYPES,
+  DEFAULT_ZONES,
+  DEFAULT_FORM,
+  SEARCH_DEBOUNCE_MS
+} from '../../utils/constants';
+const db = require('../../utils/db');
 
 Page({
   data: {
     activeTab: 'chemical',
-    form: { ...defaultForm },
+    form: { ...DEFAULT_FORM },
     loading: false,
 
     // UI状态
     showUnitSheet: false,
-    showPackageTypeSheet: false, // New
+    showPackageTypeSheet: false,
     showLocationSheet: false,
     showDatePicker: false,
     showSuccessDialog: false,
@@ -48,52 +31,18 @@ Page({
 
     // 数据
     currentSubCategories: [],
-    // Defaults Split
-    chemicalZonesDefaults: ['实验室1', '实验室2', '实验室3', '物料间'],
-    filmZonesDefaults: ['研发仓1', '研发仓2', '实验线'],
+    chemicalZonesDefaults: DEFAULT_ZONES.chemical,
+    filmZonesDefaults: DEFAULT_ZONES.film,
     dbZones: [],
 
     locationZones: [],
     locationZoneActions: [],
 
-    // Updated Unit List
-    unitActions: [
-      { name: 'kg' },
-      { name: 'g' },
-      { name: 'L' },
-      { name: 'mL' },
-      { name: 'm' },
-      { name: 'm²' },
-      { name: 'pcs(个)' }
-    ],
-    // Package Types
-    packageTypeActions: [
-        { name: '瓶装' },
-        { name: '桶装' },
-        { name: '袋装' },
-        { name: '卷装' },
-        { name: '盒装' }
-    ],
-    // 预设分类选项 (Updated)
-    chemicalCategories: [
-        { name: '溶剂 (Solvent)', code: 'J', type: 'chemical' },
-        { name: '树脂 (Resin)', code: 'J', type: 'chemical' },
-        { name: '助剂 (Additive)', code: 'J', type: 'chemical' },
-        { name: '固化剂 (Hardener)', code: 'J', type: 'chemical' },
-        { name: '色浆 (Pigment)', code: 'J', type: 'chemical' },
-        { name: '胶水 (Adhesive)', code: 'J', type: 'chemical' },
-        { name: '其他 (Other)', code: 'J', type: 'chemical' }
-    ],
-    filmCategories: [
-        { name: '基材-PET', code: 'M', type: 'film' },
-        { name: '基材-PI', code: 'M', type: 'film' },
-        { name: '基材-PP/PE', code: 'M', type: 'film' },
-        { name: '离型膜', code: 'M', type: 'film' },
-        { name: '保护膜', code: 'M', type: 'film' },
-        { name: '光学膜', code: 'M', type: 'film' },
-        { name: '胶带', code: 'M', type: 'film' },
-        { name: '其他', code: 'M', type: 'film' }
-    ],
+    // 使用常量
+    unitActions: UNIT_OPTIONS,
+    packageTypeActions: PACKAGE_TYPES,
+    chemicalCategories: CHEMICAL_CATEGORIES,
+    filmCategories: FILM_CATEGORIES,
 
     // UI binding
     subCategoryActions: [],
@@ -212,9 +161,9 @@ Page({
       this.setData({ subCategoryActions: list });
   },
 
-  // Helper to get prefix
+  // Helper to get prefix - 使用常量
   getPrefix(tab) {
-      return tab === 'chemical' ? 'J-' : 'M-';
+      return CATEGORY_PREFIX[tab] || 'J-';
   },
 
   onInput(e) {

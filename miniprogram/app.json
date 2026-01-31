@@ -47,6 +47,9 @@
       "van-dialog": "@vant/weapp/dialog/index",
       "van-loading": "@vant/weapp/loading/index",
       "van-card": "@vant/weapp/card/index",
-      "van-steps": "@vant/weapp/steps/index"
+      "van-steps": "@vant/weapp/steps/index",
+      "withdraw-dialog": "/components/withdraw-dialog/index",
+      "popup-header": "/components/popup-header/index",
+      "item-card": "/components/item-card/index"
   }
 }

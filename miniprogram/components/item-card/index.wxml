@@ -1,0 +1,46 @@
+<!--components/item-card/index.wxml-->
+<view class="card-home {{ hoverClass }}" hover-class="card-home-hover" bindtap="onTap">
+  <!-- 化材：料号优先 -->
+  <block wx:if="{{ item.category === 'chemical' }}">
+    <!-- 第一行：料号 + 数量 -->
+    <view class="flex-row justify-between items-baseline mb-4">
+      <view class="text-brand font-din text-3xl">{{ item.product_code }}</view>
+      <view class="text-brand font-din text-3xl">
+        {{ item.totalQuantity || item.quantity.val }}
+        <text class="text-sm text-brand font-normal">{{ item.unit || item.quantity.unit }}</text>
+      </view>
+    </view>
+    <!-- 第二行：名称 -->
+    <view class="text-main font-bold text-lg mb-4 text-ellipsis">
+      {{ item.material_name }}
+    </view>
+  </block>
+
+  <!-- 膜材：名称优先 -->
+  <block wx:else>
+    <!-- 第一行：名称 + 数量 -->
+    <view class="flex-row justify-between items-baseline mb-4">
+      <view class="text-main font-bold text-lg text-ellipsis" style="max-width: 65%;">
+        {{ item.material_name }}
+      </view>
+      <view class="text-main font-din text-xl">
+        {{ item.totalQuantity || item.quantity.val }}
+        <text class="text-xs text-sub font-normal">{{ item.unit || item.quantity.unit }}</text>
+      </view>
+    </view>
+    <!-- 第二行：料号 -->
+    <view class="text-brand font-din text-lg mb-4">
+      {{ item.product_code }}
+    </view>
+  </block>
+
+  <!-- 底部：标签 -->
+  <view class="flex-row items-center" wx:if="{{ showTags }}">
+    <view class="tag-brand-light" wx:if="{{ item.totalCount }}">
+      {{ item.totalCount }} 批次
+    </view>
+    <view class="badge-expiry-home" wx:if="{{ item.isExpiring }}">
+      临期
+    </view>
+  </view>
+</view>

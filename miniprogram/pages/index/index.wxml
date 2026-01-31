@@ -89,12 +89,8 @@
   >
     <view class="flex-col h-full bg-page">
        <view class="bg-white sticky-top z-index-100">
-           <view class="popup-header-home relative">
-               <text class="header-title-home abs-center">物料检索</text>
-               <view class="header-right-action" bindtap="onCloseSelectPopup">
-                   <van-icon name="cross" size="20px" color="#9CA3AF" />
-               </view>
-           </view>
+           <!-- 使用公共组件 popup-header -->
+           <popup-header title="物料检索" bind:close="onCloseSelectPopup" />
 
            <view class="px-safe pb-5">
               <van-search
@@ -188,12 +184,8 @@
   >
        <view class="flex-col h-full bg-page">
            <view class="bg-white sticky-top z-index-100">
-               <view class="popup-header-home relative">
-                   <text class="header-title-home abs-center">选择批次</text>
-                   <view class="header-right-action" bindtap="onCloseBatchPopup">
-                       <van-icon name="cross" size="20px" color="#9CA3AF" />
-                   </view>
-               </view>
+               <!-- 使用公共组件 popup-header -->
+               <popup-header title="选择批次" bind:close="onCloseBatchPopup" />
                <view class="px-safe pb-10">
                    <view class="context-bar-home">
                        <text class="font-bold text-brand mr-5">{{ selectedAggItem.product_code }}</text>

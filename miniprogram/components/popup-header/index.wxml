@@ -1,0 +1,7 @@
+<!--components/popup-header/index.wxml-->
+<view class="popup-header-home relative">
+  <text class="header-title-home abs-center">{{ title }}</text>
+  <view class="header-right-action" bindtap="onClose">
+    <van-icon name="cross" size="20px" color="#9CA3AF" />
+  </view>
+</view>

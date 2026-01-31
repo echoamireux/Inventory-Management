@@ -8,6 +8,9 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
+// 浮点数精度阈值（用于库存量比较）
+const EPSILON = 0.001;
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { unique_code, product_code, batch_no, withdraw_amount, note } = event;
@@ -58,7 +61,7 @@ exports.main = async (event, context) => {
         let logs = [];
 
         for (let item of itemsToProcess) {
-            if (remainingNeed <= 0.0001) break;
+            if (remainingNeed <= EPSILON) break;
 
             // Determine Item Type & Current Stock
             let currentStock = 0;
@@ -117,7 +120,7 @@ exports.main = async (event, context) => {
             });
         }
 
-        if (remainingNeed > 0.001) {
+        if (remainingNeed > EPSILON) {
             // Rollback (throw error rolls back transaction)
             throw new Error(`库存不足，总可用: ${(totalNeed - remainingNeed).toFixed(2)}，需求: ${totalNeed}`);
         }

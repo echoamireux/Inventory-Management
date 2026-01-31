@@ -1,0 +1,4 @@
+/* components/popup-header/index.wxss */
+@import "../../app.wxss";
+
+/* 组件无额外样式，使用全局 .popup-header-home 等 */
