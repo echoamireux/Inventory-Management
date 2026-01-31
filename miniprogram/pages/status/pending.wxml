@@ -1,21 +1,43 @@
 <!--pages/status/pending.wxml-->
 <view class="container flex-col items-center justify-center h-screen bg-white">
-  <van-icon name="clock-o" size="80px" color="#ff976a" class="mb-30" />
+  <!-- 状态 icons -->
+  <van-icon name="{{ status === 'rejected' ? 'clear' : 'clock-o' }}" size="80px" color="{{ status === 'rejected' ? '#EF4444' : '#ff976a' }}" class="mb-30" />
 
-  <view class="text-xl font-bold mb-10 text-dark">身份审核中</view>
+  <!-- 标题 -->
+  <view class="text-xl font-bold mb-10 text-dark">{{ status === 'rejected' ? '申请被驳回' : '身份审核中' }}</view>
+
+  <!-- 描述/原因 -->
   <view class="text-sm text-secondary mb-40 text-center px-40">
-    您的身份申请已提交，请联系管理员激活您的账号。
+    <block wx:if="{{ status === 'rejected' }}">
+      <view class="mb-5 text-gray-500">驳回原因：</view>
+      <view class="font-bold text-danger">{{ reason || '管理员未注明原因' }}</view>
+    </block>
+    <block wx:else>
+      您的身份申请已提交，请联系管理员激活您的账号。
+    </block>
   </view>
 
   <view class="w-half">
-    <van-button
-      type="default"
-      block
-      round
-      icon="replay"
-      bind:click="onRefresh"
-    >
-      刷新状态
-    </van-button>
+    <block wx:if="{{ status === 'rejected' }}">
+      <van-button
+        type="primary"
+        block
+        round
+        bind:click="onModify"
+      >
+        修改资料并提交
+      </van-button>
+    </block>
+    <block wx:else>
+      <van-button
+        type="default"
+        block
+        round
+        icon="replay"
+        bind:click="onRefresh"
+      >
+        刷新状态
+      </van-button>
+    </block>
   </view>
 </view>

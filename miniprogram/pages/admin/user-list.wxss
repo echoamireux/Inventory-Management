@@ -1,1 +1,22 @@
 /* pages/admin/user-list.wxss */
+.relative {
+  position: relative;
+}
+.absolute {
+  position: absolute;
+}
+.left-0 {
+  left: 0;
+}
+.top-0 {
+  top: 0;
+}
+.bottom-0 {
+  bottom: 0;
+}
+.w-1 {
+  width: 4px;
+}
+.overflow-hidden {
+  overflow: hidden;
+}

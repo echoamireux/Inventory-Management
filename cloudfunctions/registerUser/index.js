@@ -21,7 +21,21 @@ exports.main = async (event, context) => {
     }).get();
 
     if (userRes.data.length > 0) {
-      return { success: true, msg: 'User already exists', user: userRes.data[0] };
+      const existingUser = userRes.data[0];
+      // 如果用户是被拒绝状态，允许重新提交 (更新资料并重置为 pending)
+      if (existingUser.status === 'rejected') {
+        await db.collection('users').doc(existingUser._id).update({
+          data: {
+            name: name,
+            mobile: event.mobile || '',
+            department: event.department || '',
+            status: 'pending',
+            update_time: db.serverDate()
+          }
+        });
+        return { success: true, msg: 'Re-submitted successfully', role: existingUser.role, userId: existingUser._id };
+      }
+      return { success: true, msg: 'User already exists', user: existingUser };
     }
 
     // 2. Check total user count to determine role
@@ -36,6 +50,8 @@ exports.main = async (event, context) => {
       data: {
         _openid: OPENID,
         name: name,
+        mobile: event.mobile || '',
+        department: event.department || '',
         role: role,
         status: status,
         create_time: db.serverDate()

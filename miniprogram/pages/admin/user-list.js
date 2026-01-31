@@ -28,10 +28,23 @@ Page({
         .orderBy('create_time', 'desc')
         .get();
 
-      const list = res.data.map(item => ({
-        ...item,
-        _timeStr: item.create_time ? new Date(item.create_time).toLocaleString() : ''
-      }));
+      const list = res.data.map(item => {
+        let timeStr = '';
+        if (item.create_time) {
+          const date = new Date(item.create_time);
+          const y = date.getFullYear();
+          const m = (date.getMonth() + 1).toString().padStart(2, '0');
+          const d = date.getDate().toString().padStart(2, '0');
+          const h = date.getHours().toString().padStart(2, '0');
+          const min = date.getMinutes().toString().padStart(2, '0');
+          const s = date.getSeconds().toString().padStart(2, '0');
+          timeStr = `${y}/${m}/${d} ${h}:${min}:${s}`;
+        }
+        return {
+          ...item,
+          _timeStr: timeStr
+        };
+      });
 
       this.setData({ list });
     } catch (err) {
@@ -40,6 +53,45 @@ Page({
     } finally {
       wx.hideLoading();
     }
+  },
+
+  onReject(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '拒绝申请',
+      content: '请输入拒绝/驳回原因',
+      editable: true,
+      placeholderText: '例如：非本实验室人员 / 信息填写错误',
+      success: async (res) => {
+        if (res.confirm) {
+          const reason = res.content;
+          if (!reason) {
+            wx.showToast({ title: '请填写原因', icon: 'none' });
+            return;
+          }
+
+          wx.showLoading({ title: '处理中...' });
+          try {
+            await wx.cloud.callFunction({
+              name: 'adminUpdateUserStatus',
+              data: {
+                userId: id,
+                status: 'rejected',
+                rejectReason: reason
+              }
+            });
+
+            wx.showToast({ title: '已驳回', icon: 'success' });
+            this.getList(); // Refresh list
+          } catch (err) {
+            console.error(err);
+            wx.showToast({ title: '操作失败', icon: 'none' });
+          } finally {
+            wx.hideLoading();
+          }
+        }
+      }
+    });
   },
 
   onApprove(e) {

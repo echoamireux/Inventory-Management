@@ -60,8 +60,14 @@ App({
            wx.showModal({
              title: '账号已禁用',
              content: '请联系管理员',
-             showCancel: false
            });
+        } else if (user.status === 'rejected') {
+           // D: 已拒绝
+           if (this.getActivePageName() !== 'pages/status/pending') {
+              wx.reLaunch({
+                url: `/pages/status/pending?status=rejected&reason=${encodeURIComponent(user.reject_reason || '')}`
+              });
+           }
         } else {
            // D: 已激活 -> 首页 (如果还在其他页面比如注册页，则跳转)
            // 如果已经在首页或其他业务页面，则不动

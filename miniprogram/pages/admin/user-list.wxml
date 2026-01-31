@@ -2,27 +2,88 @@
 <view class="container pb-20">
   <view class="p-20">
     <block wx:if="{{ list.length > 0 }}">
-      <view class="mb-10 text-secondary text-sm">待审核人员 ({{ list.length }})</view>
+      <view class="mb-12 flex-row justify-between items-center px-10">
+        <view class="text-secondary text-sm font-medium">待审核申请</view>
+        <van-tag type="warning" plain>Pending: {{ list.length }}</van-tag>
+      </view>
 
-      <block wx:for="{{ list }}" wx:key="_id">
-        <view class="bg-white p-20 mb-15 rounded shadow-sm flex-row justify-between items-center">
-          <view>
-            <view class="text-lg font-bold mb-5">{{ item.name }}</view>
-            <view class="text-xs text-secondary">申请时间: {{ item._timeStr }}</view>
-          </view>
+      <van-cell-group inset custom-class="!bg-transparent !p-0">
+        <block wx:for="{{ list }}" wx:key="_id">
+          <van-cell center use-label-slot custom-class="!mb-10 !rounded-lg !shadow-sm">
+            <!-- 头像 Slot -->
+            <view slot="icon" class="mr-10 relative">
+              <van-image
+                radius="6px"
+                width="44px"
+                height="44px"
+                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
+                fit="cover"
+              />
+            </view>
 
-          <van-button
-            type="primary"
-            size="small"
-            bind:click="onApprove"
-            data-id="{{ item._id }}"
-          >
-            通过
-          </van-button>
-        </view>
-      </block>
+            <!-- 标题 (姓名) -->
+            <view slot="title" class="font-bold text-base text-main">
+              {{ item.name || '未命名用户' }}
+            </view>
+
+            <!-- 描述 (部门/手机/时间) -->
+            <view slot="label" class="mt-4">
+              <!-- 部门与手机号 -->
+              <view class="flex-row items-center mb-4 text-xs text-info" wx:if="{{ item.department || item.mobile }}">
+                 <text wx:if="{{ item.department }}" class="mr-10 bg-gray-100 px-4 py-2 rounded text-secondary">{{ item.department }}</text>
+                 <text wx:if="{{ item.mobile }}">{{ item.mobile }}</text>
+              </view>
+
+              <!-- 时间 -->
+              <view class="flex-row items-center">
+                <van-icon name="clock-o" size="12px" color="#9CA3AF" class="mr-5"/>
+                <text class="text-xs text-sub">{{ item._timeStr }}</text>
+              </view>
+            </view>
+
+            <!-- 右侧按钮 Slot -->
+            <view slot="right-icon" class="flex-row items-center">
+              <van-button
+                type="danger"
+                size="small"
+                round
+                plain
+                custom-style="width: 50px; min-width: 0; height: 24px; padding: 0; font-size: 12px; margin-right: 8px;"
+                bind:click="onReject"
+                data-id="{{ item._id }}"
+              >
+                拒绝
+              </van-button>
+              <van-button
+                type="primary"
+                size="small"
+                round
+                color="#2C68FF"
+                custom-style="width: 50px; min-width: 0; height: 24px; padding: 0; font-size: 12px;"
+                bind:click="onApprove"
+                data-id="{{ item._id }}"
+              >
+                通过
+              </van-button>
+            </view>
+          </van-cell>
+        </block>
+      </van-cell-group>
     </block>
 
-    <van-empty wx:else description="暂无待审核人员" />
+    <van-empty
+      wx:else
+      description="暂无待审核人员"
+      image="search"
+    />
   </view>
 </view>
+
+<!-- 为了截取ID前几位，使用wxs简单处理 -->
+<wxs module="filter">
+  var substring = function(str, start, end) {
+    if (!str) return '';
+    return str.substring(start, end);
+  }
+  module.exports.substring = substring;
+</wxs>

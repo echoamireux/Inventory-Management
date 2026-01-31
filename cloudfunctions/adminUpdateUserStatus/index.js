@@ -23,6 +23,7 @@ exports.main = async (event, context) => {
     await db.collection('users').doc(userId).update({
       data: {
         status: status,
+        reject_reason: event.rejectReason || '',
         update_time: db.serverDate()
       }
     });

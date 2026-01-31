@@ -3,6 +3,10 @@ const db = require('../../utils/db');
 Page({
   data: {
     name: '',
+    mobile: '',
+    department: '',
+    showDept: false,
+    deptColumns: ['研发一部', '研发二部', '质量部', '生产部', '仓储部', '行政部', '其他'],
     loading: false
   },
 
@@ -14,21 +18,46 @@ Page({
     this.setData({ name: e.detail });
   },
 
+  onMobileInput(e) {
+    this.setData({ mobile: e.detail });
+  },
+
+  showDeptPopup() {
+    this.setData({ showDept: true });
+  },
+
+  onCloseDept() {
+    this.setData({ showDept: false });
+  },
+
+  onConfirmDept(e) {
+    const { value } = e.detail;
+    this.setData({
+      department: value,
+      showDept: false
+    });
+  },
+
   async onSubmit() {
     const name = this.data.name.trim();
     if (!name) {
       wx.showToast({ title: '请输入您的姓名', icon: 'none' });
       return;
     }
+    // 手机号虽是选填，但若填了如果想校验格式可以在这里加逻辑，暂时略过
 
     this.setData({ loading: true });
-    wx.showLoading({ title: '注册中...' });
+    wx.showLoading({ title: '提交中...' });
 
     try {
       // 1. 调用云函数注册 (安全分配角色)
       const res = await wx.cloud.callFunction({
         name: 'registerUser',
-        data: { name }
+        data: {
+          name,
+          mobile: this.data.mobile,
+          department: this.data.department
+        }
       });
 
       const { success, role, msg } = res.result;
