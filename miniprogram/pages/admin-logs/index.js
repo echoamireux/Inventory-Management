@@ -29,7 +29,13 @@ Page({
     ],
     operatorOptions: [
       { text: '全部操作人', value: 'all' }
-    ]
+    ],
+    // ActionSheet 状态
+    showActionSheet: false,
+    actionSheetActions: [
+      { name: '删除此条日志', color: '#ee0a24' }
+    ],
+    currentLogId: '',
   },
 
   onLoad: function (options) {
@@ -249,41 +255,51 @@ Page({
   onLongPressItem(e) {
     const item = e.detail && e.detail.item;
     if (!item) return;
-    this.confirmDeleteLog(item._id);
+    this.setData({
+      showActionSheet: true,
+      currentLogId: item._id
+    });
   },
 
-  confirmDeleteLog(id) {
-    wx.showActionSheet({
-      itemList: ['删除此条日志'],
-      itemColor: '#ee0a24',
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          wx.showModal({
-            title: '确认删除',
-            content: '确定要删除这条日志吗？这可能会影响审计溯源。',
-            confirmColor: '#ee0a24',
-            success: async (res) => {
-              if (res.confirm) {
-                wx.showLoading({ title: '删除中...' });
-                try {
-                  const callRes = await wx.cloud.callFunction({
-                    name: 'removeLog',
-                    data: { log_id: id }
-                  });
-                  if (callRes.result.success) {
-                    wx.showToast({ title: '已删除', icon: 'success' });
-                    this.getList(true);
-                  } else {
-                    throw new Error(callRes.result.msg);
-                  }
-                } catch (err) {
-                  wx.showToast({ title: '删除失败: ' + err.message, icon: 'none' });
-                } finally {
-                  wx.hideLoading();
-                }
-              }
+  onActionSheetClose() {
+    this.setData({ showActionSheet: false });
+  },
+
+  onActionSheetSelect(e) {
+    const { name } = e.detail;
+    if (name === '删除此条日志') {
+      this.confirmDeleteLog();
+    }
+  },
+
+  confirmDeleteLog() {
+    const id = this.data.currentLogId;
+    if (!id) return;
+
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除这条日志吗？这可能会影响审计溯源。',
+      confirmColor: '#ee0a24',
+      success: async (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          try {
+            const callRes = await wx.cloud.callFunction({
+              name: 'removeLog',
+              data: { log_id: id }
+            });
+            if (callRes.result.success) {
+              wx.showToast({ title: '已删除', icon: 'success' });
+              this.setData({ showActionSheet: false }); // Ensure close
+              this.getList(true);
+            } else {
+              throw new Error(callRes.result.msg);
             }
-          });
+          } catch (err) {
+            wx.showToast({ title: '删除失败: ' + err.message, icon: 'none' });
+          } finally {
+            wx.hideLoading();
+          }
         }
       }
     });

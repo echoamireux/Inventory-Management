@@ -38,4 +38,14 @@
       - 已无更多 -
     </view>
   </view>
+
+  <!-- 操作菜单 -->
+  <van-action-sheet
+    show="{{ showActionSheet }}"
+    actions="{{ actionSheetActions }}"
+    bind:close="onActionSheetClose"
+    bind:select="onActionSheetSelect"
+    cancel-text="取消"
+    bind:cancel="onActionSheetClose"
+  />
 </view>
