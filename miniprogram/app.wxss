@@ -507,7 +507,7 @@ page {
 /* 领料弹窗数量（右对齐，与标题行对齐） */
 .popup-qty-display {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 600;
   color: var(--color-brand);
   text-align: right;
