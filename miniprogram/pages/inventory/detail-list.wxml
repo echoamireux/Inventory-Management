@@ -1,38 +1,14 @@
 <!--pages/inventory/detail-list.wxml-->
 <view class="container p-3">
   <block wx:if="{{ list.length > 0 }}">
-    <view
-      class="inventory-card"
+    <!-- 使用统一批次卡片组件 -->
+    <batch-list-item
       wx:for="{{ list }}"
       wx:key="_id"
-      bindtap="goToDetail"
+      item="{{ item }}"
+      bind:tap="goToDetail"
       data-id="{{ item._id }}"
-    >
-        <!-- Similar to original card but simplified -->
-        <view class="card-left">
-            <!-- 1. Title -->
-            <view class="text-name">
-                {{ item.category === 'chemical' ? item.product_code : item.material_name }}
-            </view>
-            <!-- 2. Subtitle -->
-            <view class="text-code">
-                <block wx:if="{{ item.category === 'chemical' }}">
-                    {{ item.material_name }}
-                </block>
-                <block wx:else>
-                    <text style="margin-right: 8rpx; color: #1989fa;">#</text>{{ item.unique_code }}
-                </block>
-            </view>
-            <view class="tags-row">
-                <view class="status-tag">批: {{ item.batch_number }}</view>
-                <view class="status-tag warning" wx:if="{{ item.isExpiring }}">即将过期</view>
-            </view>
-        </view>
-        <view class="card-right">
-            <view class="text-qty">{{ item._qtyStr }}</view>
-            <view class="text-location">{{ item.location }}</view>
-        </view>
-    </view>
+    />
   </block>
   <van-empty wx:else description="暂无明细数据" />
 </view>

@@ -19,26 +19,29 @@
      <scroll-view scroll-y class="flex-1" enable-back-to-top>
         <view class="px-safe pt-safe pb-safe">
             <!-- Info Card (Code First) -->
-            <view class="card-home" style="margin-bottom: 12px;">
-                <view class="flex-row justify-between items-baseline mb-4">
-                    <!-- Code (Large Blue) -->
-                    <text class="text-brand font-din text-3xl">{{ item.product_code || item.material_name }}</text>
-                    <!-- Stock (Large Blue) -->
-                    <text class="text-brand font-din text-3xl">{{ displayStock }} <text class="text-sm font-normal text-brand">{{ item.quantity.unit || 'kg' }}</text></text>
-                </view>
+             <view class="card-home" style="margin-bottom: 12px;">
+                 <!-- 第一行：料号 + 数量（对齐） -->
+                 <view class="flex-row justify-between items-center mb-4">
+                     <!-- Code (缩小到 22px) -->
+                     <text class="popup-code-title">{{ item.product_code || item.material_name }}</text>
+                     <!-- Stock (18px，与标题对齐) -->
+                     <view class="popup-qty-display {{ item.isExpiring ? 'warning' : '' }}">
+                         {{ displayStock }} <text class="text-xs font-normal">{{ item.quantity.unit || 'kg' }}</text>
+                     </view>
+                 </view>
 
-                <!-- Name (Secondary) -->
-                <view class="text-main font-bold text-lg mb-2">{{ item.material_name }}</view>
+                 <!-- Name (Secondary, 14px) -->
+                 <view class="text-main font-medium text-base mb-2">{{ item.material_name }}</view>
 
                 <view class="mt-4 flex-row items-center justify-between">
                     <view class="flex-row items-center">
-                        <view class="tag-brand-light mr-8">当前批号</view>
+                        <view class="tag-base tag-brand mr-8">当前批号</view>
                         <text class="text-sub text-sm font-din">{{ item.batch_number }}</text>
                     </view>
                 </view>
 
                 <view wx:if="{{ item.unique_code }}" class="mt-2 flex-row items-center">
-                     <view class="tag-brand-light mr-8" style="background-color: #F0FDF4; color: #16A34A;">标签编号</view>
+                     <view class="tag-base tag-success mr-8">标签编号</view>
                      <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
                 </view>
 

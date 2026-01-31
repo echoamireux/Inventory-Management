@@ -1,4 +1,6 @@
 /* pages/stock-in-out/index.wxss */
+/* 使用 CSS 变量替换硬编码颜色 */
+
 .scan-area {
   min-height: 200px;
   display: flex;
@@ -10,7 +12,7 @@
 .scan-icon-wrapper {
   padding: 30px;
   border-radius: 50%;
-  background-color: #f0f8ff;
+  background-color: var(--color-brand-light);
 }
 
 .manual-input-area {
@@ -22,4 +24,12 @@
 }
 .block {
   display: block;
+}
+
+/* 卡片样式 */
+.card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  margin: 12px;
+  box-shadow: var(--shadow-sm);
 }

@@ -181,8 +181,8 @@ Page({
               data: {
                   inventory_id: id,
                   updates: {
-                      location: fullLocation,
-                      batch_number: form.batch_number
+                      location: fullLocation
+                      // 移库只修改位置，不修改批号
                   },
                   operator_name: operator
               }

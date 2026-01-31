@@ -216,59 +216,69 @@ Page({
           });
 
           if (res.result && res.result.success) {
-             this.setData({ suggestions: res.result.list });
+             // 注意：response.js 的 success() 函数返回的是 data 而不是 list
+             this.setData({ suggestions: res.result.data || [] });
           }
       } catch(err) {
           console.error('[Suggestion Error]', err);
       }
   },
 
-  // 选中建议 (Auto-fill)
+  // 选中建议 (Auto-fill) - 自动填入所有可用字段
   onSelectSuggestion(e) {
       const item = e.currentTarget.dataset.item;
       // Parse prefix
       const prefix = this.getPrefix(this.data.activeTab);
       let numberPart = '';
-      if (item.product_code.startsWith(prefix)) {
+      if (item.product_code && item.product_code.startsWith(prefix)) {
           numberPart = item.product_code.replace(prefix, '');
-      } else {
+      } else if (item.product_code) {
           numberPart = item.product_code.split('-')[1] || item.product_code;
       }
 
       const { form } = this.data;
       const newForm = { ...form };
 
+      // 基础信息
       newForm.product_code = numberPart;
-      newForm.name = item.name;
-      newForm.supplier = item.supplier;
+      newForm.name = item.name || '';
+      newForm.supplier = item.supplier || '';
       newForm.supplier_model = item.supplier_model || '';
       newForm.sub_category = item.sub_category || '';
 
-      // Auto-fill Extended Info (Unit, Package, Content)
+      // 化材特有字段
       if (this.data.activeTab === 'chemical') {
           newForm.unit = item.unit || 'kg';
           newForm.package_type = item.package_type || '';
 
-          // Try to recover net content (weight)
+          // 从 specs 或其他位置恢复净含量
           let content = '';
-          if (item.dynamic_attrs && item.dynamic_attrs.weight_kg) {
+          if (item.specs && item.specs.net_content) {
+              content = item.specs.net_content;
+          } else if (item.dynamic_attrs && item.dynamic_attrs.weight_kg) {
               content = item.dynamic_attrs.weight_kg;
-          } else if (item.quantity && item.quantity.val) {
-              content = item.quantity.val;
           }
-          newForm.net_content = content;
-
+          if (content) {
+              newForm.net_content = content;
+          }
       } else {
-          // Film Specs
+          // 膜材特有字段
           if (item.specs) {
               newForm.thickness_um = item.specs.thickness_um || '';
-              newForm.width_mm = item.specs.standard_width_mm || '';
+              newForm.width_mm = item.specs.standard_width_mm || item.specs.width_mm || '';
           }
       }
 
       this.setData({
           form: newForm,
           suggestions: []
+      });
+
+      // 用户反馈
+      wx.showToast({
+          title: '已填入物料信息',
+          icon: 'success',
+          duration: 1500
       });
   },
 

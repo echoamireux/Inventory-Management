@@ -138,3 +138,14 @@
   border-radius: 6px;
   font-weight: 500;
 }
+
+/* ========== 弹窗卡片紧凑样式 ========== */
+.card-home {
+  padding: 12px 14px !important;
+}
+
+/* 批次标签缩小 */
+.tag-brand-light {
+  font-size: 11px;
+  padding: 2px 8px;
+}

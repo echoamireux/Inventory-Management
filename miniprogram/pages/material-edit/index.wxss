@@ -1,5 +1,58 @@
 /* pages/material-edit/index.wxss */
-.field-label-bold .van-field__label {
-    font-weight: 600 !important;
-    color: #323233 !important;
+
+/* 物料信息卡片（只读） */
+.info-card {
+  background: var(--color-bg-page);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.info-card-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.info-code {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+.info-batch {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+}
+
+.info-name {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-top: 8px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+/* 表单卡片 */
+.form-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.form-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
 }

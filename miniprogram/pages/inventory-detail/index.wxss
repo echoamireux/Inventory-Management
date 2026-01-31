@@ -1,17 +1,18 @@
 /* pages/inventory-detail/index.wxss */
+/* 使用设计令牌统一颜色 */
 
 /* Page Container */
 .page-container {
   padding-bottom: 120px;
-  background-color: #f7f8fa;
+  background-color: var(--color-bg-page);
   min-height: 100vh;
 }
 
 /* 1. Gradient Header */
 .header-section {
-  background: linear-gradient(135deg, #1989fa 0%, #0570db 100%);
+  background: var(--color-brand-gradient);
   color: #fff;
-  padding: 30rpx 40rpx 80rpx 40rpx; /* Reduced bottom padding slightly as card is smaller */
+  padding: 30rpx 40rpx 80rpx 40rpx;
   position: relative;
   border-bottom-left-radius: 24rpx;
   border-bottom-right-radius: 24rpx;
@@ -55,7 +56,7 @@
 }
 
 .info-id {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 24rpx;
   opacity: 0.8;
 }
@@ -78,13 +79,13 @@
   opacity: 0.9;
 }
 
-/* 2. Asset Card (Location Only) */
+/* 2. Asset Card */
 .asset-card {
-  background-color: #fff;
-  border-radius: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
-  margin: -50rpx 30rpx 0 30rpx; /* Overlap */
-  padding: 20rpx; /* Reduced padding for single-row */
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  margin: -50rpx 30rpx 0 30rpx;
+  padding: 20rpx;
   position: relative;
   z-index: 10;
 }
@@ -92,32 +93,30 @@
 .location-bar {
   display: flex;
   align-items: center;
-  padding: 24rpx; /* More breathable */
-  background-color: #fff; /* White bg for clean look inside card, or maybe gray? */
-  /* User previous had gray bg inside, let's keep it clean or use light gray */
-  background-color: #f7f8fa;
-  border-radius: 16rpx;
+  padding: 24rpx;
+  background-color: var(--color-bg-page);
+  border-radius: var(--radius-lg);
 }
 
 .hover-bg {
-  background-color: #ebedf0;
+  background-color: var(--color-bg-hover);
 }
 
 .icon-location {
-  color: #1989fa; /* Blue icon */
+  color: var(--color-brand);
   margin-right: 15rpx;
 }
 
 .location-text {
   flex: 1;
-  font-size: 32rpx; /* Larger text */
-  color: #323233;
+  font-size: 32rpx;
+  color: var(--color-text-primary);
   font-weight: bold;
   margin-right: 20rpx;
 }
 
 .icon-edit {
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 /* 3. Detail Groups */
@@ -128,8 +127,8 @@
 
 .group-card {
   margin-bottom: 30rpx !important;
-  border-radius: 16rpx !important;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -139,7 +138,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #fff;
+  background-color: var(--color-bg-card);
   padding: 24rpx 32rpx;
   display: flex;
   align-items: center;
@@ -165,16 +164,16 @@
 
 .btn-move {
   width: 35%;
-  background-color: #ebf5ff;
-  color: #1989fa;
+  background-color: var(--color-brand-light);
+  color: var(--color-brand);
   margin-right: 20rpx;
 }
 
 .btn-withdraw {
   width: 60%;
-  background-color: #1989fa;
+  background-color: var(--color-brand);
   color: #fff;
-  box-shadow: 0 4rpx 12rpx rgba(25, 137, 250, 0.3);
+  box-shadow: var(--shadow-brand);
 }
 
 .btn-hover-opacity {
@@ -199,12 +198,12 @@
   font-size: 36rpx;
   font-weight: bold;
   margin-bottom: 10rpx;
-  color: #323233;
+  color: var(--color-text-primary);
 }
 
 .popup-subtitle {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .popup-field {

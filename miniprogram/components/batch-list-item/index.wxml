@@ -1,0 +1,23 @@
+<!-- 统一批次卡片组件 - 用于批次选择弹窗和库存详情页 -->
+<view class="batch-card" hover-class="batch-card-hover" bindtap="onTap">
+  <!-- 第一行：批号 + 临期标签 + 数量 -->
+  <view class="batch-card-row">
+    <view class="batch-code">{{ item.batch_number }}</view>
+    <view wx:if="{{ item.isExpiring }}" class="badge-expiry">{{ item.category === 'chemical' ? '临期' : '即将过期' }}</view>
+    <view class="flex-1"></view>
+    <view class="batch-qty {{ item.isExpiring ? 'warning' : '' }}">
+      <!-- 兼容多种数据格式 -->
+      <block wx:if="{{ item._qtyStr }}">{{ item._qtyStr }}</block>
+      <block wx:else>{{ item.quantity.val }}<text class="batch-qty-unit">{{ item.quantity.unit }}</text></block>
+    </view>
+  </view>
+
+  <!-- 第二行：名称 -->
+  <view class="batch-name">{{ item.material_name }}</view>
+
+  <!-- 第三行：辅助信息 -->
+  <view class="batch-info-row">
+    <text class="batch-info">有效期: {{ item.expiry || item.expiry_date || '长期有效' }}</text>
+    <text class="batch-info" style="margin-left: 16px;">库位: {{ item.location }}</text>
+  </view>
+</view>

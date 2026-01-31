@@ -2,24 +2,30 @@
 <view class="container">
   <!-- 顶部搜索与筛选 -->
   <view class="sticky-top bg-white z-index-10">
-    <van-search
-      value="{{ searchVal }}"
-      placeholder="搜索 名称 / 料号 / 批号 / 供应商"
-      shape="round"
-      bind:search="onSearch"
-      bind:change="onSearchChange"
-      bind:clear="onSearch"
-    />
-      <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa">
-        <van-tab title="全部" />
-        <van-tab title="化材" />
-        <van-tab title="膜材" />
+    <!-- 搜索栏 + 导出按钮 -->
+    <view class="flex-row items-center px-3">
+      <view class="flex-1">
+        <van-search
+          value="{{ searchVal }}"
+          placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+          shape="round"
+          bind:search="onSearch"
+          bind:change="onSearchChange"
+          bind:clear="onSearch"
+        />
+      </view>
+      <!-- 导出按钮 (圆形) -->
+      <view class="export-btn-circle" bindtap="onExport">
+        <van-icon name="description" color="#1989fa" size="18px" />
+      </view>
+    </view>
 
-        <!-- 导出按钮 (Tabs 右侧) -->
-        <view slot="nav-right" class="flex-row items-center h-full px-10" bindtap="onExport" style="display: flex; align-items: center;">
-            <van-icon name="description" color="#969799" size="20px" />
-        </view>
-      </van-tabs>
+    <!-- Tabs -->
+    <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa">
+      <van-tab title="全部" />
+      <van-tab title="化材" />
+      <van-tab title="膜材" />
+    </van-tabs>
 
       <!-- 预警筛选提示 (Notice Bar) -->
       <van-notice-bar
@@ -36,57 +42,15 @@
       <!-- 列表内容 -->
       <view class="list-container">
         <block wx:if="{{ list.length > 0 }}">
-          <view
-            class="inventory-card"
+          <!-- 使用统一组件 -->
+          <material-list-item
             wx:for="{{ list }}"
             wx:key="product_code"
-            bindtap="goToDetail"
+            item="{{ item }}"
+            showCategory="{{ false }}"
+            bind:tap="goToDetail"
             data-index="{{ index }}"
-          >
-             <!-- 左侧信息区 (卡片主体) -->
-             <view class="card-left">
-                <!-- 1. Title -->
-                <view class="text-name">
-                    {{ item.category === 'chemical' ? item.product_code : item.material_name }}
-                </view>
-                <!-- 2. Subtitle -->
-                <view class="text-code">
-                    <block wx:if="{{ item.category === 'chemical' }}">
-                        {{ item.material_name }}
-                    </block>
-                    <block wx:else>
-                        <text style="margin-right: 8rpx; color: #1989fa;">#</text>{{ item.product_code }}
-                    </block>
-                </view>
-                <!-- 3. Tags Row -->
-                <view class="tags-row">
-                    <!-- Category Tag -->
-                    <view class="status-tag {{ item.category === 'chemical' ? 'warning' : '' }}"
-                          style="background: {{ item.category === 'chemical' ? '#e6f7ff' : '#f9f0ff' }}; color: {{ item.category === 'chemical' ? '#1890ff' : '#722ed1' }}">
-                        {{ item.category === 'chemical' ? '化材' : '膜材' }}
-                    </view>
-                    <!-- Count Tag (Aggregated) -->
-                    <view class="status-tag" style="background: #e6f1fe; color: #1989fa;">
-                        共 {{ item.totalCount }} 件
-                    </view>
-                </view>
-             </view>
-
-             <!-- 右侧数据区 (库存 & 状态) -->
-             <view class="card-right">
-                 <!-- 1. Total Quantity -->
-                 <view class="text-qty">
-                     {{ item.totalQuantity }}<text class="text-unit">{{ item.unit }}</text>
-                 </view>
-                 <!-- 2. Action Hint / Expiry -->
-                 <view wx:if="{{ item.isExpiring }}" class="mt-4">
-                     <view class="status-tag danger">包含临期</view>
-                 </view>
-                 <view wx:else class="mt-4">
-                     <van-icon name="arrow" color="#ccc" />
-                 </view>
-             </view>
-          </view>
+          />
         </block>
         <van-empty wx:else description="暂无库存数据" />
       </view>

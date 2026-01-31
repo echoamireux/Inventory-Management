@@ -86,8 +86,16 @@ Page({
 
   // 点击分组卡片 -> 查看详情
   async goToDetail(e) {
-      const index = e.currentTarget.dataset.index;
-      const item = this.data.list[index];
+      // 支持两种模式：1. 直接 index  2. 组件返回的 item
+      let item;
+      if (e.detail && e.detail.item) {
+        // 来自 material-list-item 组件
+        item = e.detail.item;
+      } else {
+        // 传统方式
+        const index = e.currentTarget.dataset.index;
+        item = this.data.list[index];
+      }
       if (!item) return;
 
       // Navigate to detail list page (new idea: reuse this page or popup?)

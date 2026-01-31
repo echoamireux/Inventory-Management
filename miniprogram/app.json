@@ -50,6 +50,10 @@
       "van-steps": "@vant/weapp/steps/index",
       "withdraw-dialog": "/components/withdraw-dialog/index",
       "popup-header": "/components/popup-header/index",
-      "item-card": "/components/item-card/index"
+      "item-card": "/components/item-card/index",
+      "material-tag": "/components/material-tag/index",
+      "material-list-item": "/components/material-list-item/index",
+      "batch-list-item": "/components/batch-list-item/index",
+      "log-item": "/components/log-item/index"
   }
 }

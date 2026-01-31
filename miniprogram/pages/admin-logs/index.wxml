@@ -1,45 +1,40 @@
 <!--pages/admin-logs/index.wxml-->
-<view class="container pb-20">
+<!-- 审计日志页面 - 使用统一日志组件 + 筛选功能 -->
+<view class="page-container">
+  <!-- 搜索栏 -->
   <van-search
     value="{{ searchVal }}"
-    placeholder="搜索操作人 / 物料名称"
+    placeholder="搜索操作人 / 物料名称 / 代码"
     bind:search="onSearch"
     bind:change="onSearchChange"
     bind:clear="onClear"
     background="#f7f8fa"
   />
 
-  <view class="p-15">
+  <!-- 筛选器 -->
+  <van-dropdown-menu active-color="#1989fa">
+    <van-dropdown-item value="{{ dateFilter }}" options="{{ dateOptions }}" bind:change="onDateFilterChange" />
+    <van-dropdown-item value="{{ typeFilter }}" options="{{ typeOptions }}" bind:change="onTypeFilterChange" />
+    <van-dropdown-item value="{{ operatorFilter }}" options="{{ operatorOptions }}" bind:change="onOperatorFilterChange" />
+  </van-dropdown-menu>
+
+  <!-- 日志列表 -->
+  <view class="list-container">
     <block wx:for="{{ list }}" wx:key="_id">
-      <view class="log-card">
-        <view class="flex-row justify-between mb-10">
-          <view class="flex-row items-center">
-            <van-tag type="{{ item.typeColor }}" custom-class="mr-10">{{ item.typeText }}</van-tag>
-            <text class="font-bold text-md">{{ item.material_name }}</text>
-          </view>
-          <text class="text-xs text-secondary">{{ item.timeStr }}</text>
-        </view>
-
-        <view class="text-sm text-dark mb-5">
-           {{ item.description || '无描述' }}
-        </view>
-
-        <view class="flex-row justify-between items-center mt-10 border-top pt-10">
-           <text class="text-xs text-secondary">操作人: {{ item.operator }}</text>
-           <text class="text-sm font-bold {{ item.quantity_change > 0 ? 'text-success' : (item.quantity_change < 0 ? 'text-danger' : 'text-secondary') }}">
-              {{ item.quantity_change > 0 ? '+' : '' }}{{ item.quantity_change }}
-           </text>
-        </view>
-      </view>
+      <log-item
+        item="{{ item }}"
+        mode="full"
+        bind:longpress="onLongPressItem"
+      />
     </block>
 
     <van-empty wx:if="{{ !loading && list.length === 0 }}" description="暂无记录" />
 
-    <view wx:if="{{ loading }}" class="text-center p-20">
+    <view wx:if="{{ loading }}" class="loading-container">
       <van-loading size="24px">加载中...</van-loading>
     </view>
 
-    <view wx:if="{{ isEnd && list.length > 0 }}" class="text-center text-secondary text-sm p-10">
+    <view wx:if="{{ isEnd && list.length > 0 }}" class="end-text">
       - 已无更多 -
     </view>
   </view>

@@ -1,0 +1,76 @@
+/* 批次卡片组件 - 统一样式 */
+
+.batch-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.batch-card-hover {
+  background: #f9fafb;
+}
+
+/* 第一行布局 */
+.batch-card-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* 批号 - 蓝色 16px */
+.batch-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+/* 临期徽章 - 橙色 */
+.badge-expiry {
+  font-size: 10px;
+  color: #fff;
+  background: var(--color-warning);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+/* 数量 - 蓝色 16px，临期橙色 */
+.batch-qty {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+.batch-qty.warning {
+  color: var(--color-warning);
+}
+
+.batch-qty-unit {
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+/* 名称 - 14px 灰色 */
+.batch-name {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-top: 8px;
+}
+
+/* 辅助信息行 */
+.batch-info-row {
+  display: flex;
+  flex-direction: row;
+  margin-top: 8px;
+}
+
+/* 辅助信息 - 12px 浅灰 */
+.batch-info {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}

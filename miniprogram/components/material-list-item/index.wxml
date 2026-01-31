@@ -1,0 +1,49 @@
+<!-- 统一物料列表项组件 - 适用于库存聚合列表和物料检索弹窗 -->
+<view class="material-card" hover-class="material-card-hover" bindtap="onTap">
+
+  <!-- 化材：代码优先 -->
+  <block wx:if="{{ item.category === 'chemical' }}">
+    <!-- 第一行：料号 + 数量 -->
+    <view class="material-card-row">
+      <view class="material-code">{{ item.product_code }}</view>
+      <view class="material-qty {{ item.isExpiring ? 'warning' : '' }}">
+        {{ item.totalQuantity }}
+        <text class="material-qty-unit">{{ item.unit }}</text>
+      </view>
+    </view>
+    <!-- 第二行：名称 -->
+    <view class="material-subtitle-tag">{{ item.material_name }}</view>
+  </block>
+
+  <!-- 膜材：名称优先 -->
+  <block wx:else>
+    <!-- 第一行：名称 + 数量 -->
+    <view class="material-card-row">
+      <view class="material-name-primary text-ellipsis">{{ item.material_name }}</view>
+      <view class="material-qty {{ item.isExpiring ? 'warning' : '' }}">
+        {{ item.totalQuantity }}
+        <text class="material-qty-unit">{{ item.unit }}</text>
+      </view>
+    </view>
+    <!-- 第二行：料号 -->
+    <view class="material-subtitle-tag"><text class="text-brand">#</text>{{ item.product_code }}</view>
+  </block>
+
+  <!-- 第三行：标签区 -->
+  <view class="tags-row">
+    <!-- 批次数量 -->
+    <material-tag
+      wx:if="{{ item.totalCount }}"
+      type="brand"
+      text="{{ item.totalCount }} 批次"
+    />
+
+    <!-- 临期警告 -->
+    <material-tag
+      wx:if="{{ item.isExpiring }}"
+      type="warning"
+      text="包含临期"
+      style="margin-left: 6px;"
+    />
+  </view>
+</view>

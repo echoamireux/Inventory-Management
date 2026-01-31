@@ -56,9 +56,19 @@ Page({
               .get();
 
           const list = res.data.map(item => {
+              // Format expiry date
+              let expiryStr = '长期有效';
+              if (item.expiry_date) {
+                  const d = new Date(item.expiry_date);
+                  if (!isNaN(d.getTime())) {
+                      expiryStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  }
+              }
+
               // Format for UI
               return {
                   ...item,
+                  expiry: expiryStr,
                   _qtyStr: item.category === 'film'
                     ? `${item.dynamic_attrs.current_length_m} m`
                     : `${item.quantity.val} ${item.quantity.unit}`,
@@ -89,7 +99,8 @@ Page({
   },
 
   goToDetail(e) {
-      const id = e.currentTarget.dataset.id;
+      // 支持两种模式：组件返回 item 或 dataset
+      const id = (e.detail && e.detail.item && e.detail.item._id) || e.currentTarget.dataset.id;
       if (!id) return;
       wx.navigateTo({
           url: `/pages/inventory-detail/index?id=${id}`

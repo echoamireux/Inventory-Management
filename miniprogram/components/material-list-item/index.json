@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "material-tag": "../material-tag/index",
+    "van-icon": "@vant/weapp/icon/index"
+  }
+}

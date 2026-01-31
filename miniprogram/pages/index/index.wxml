@@ -118,53 +118,16 @@
 
        <scroll-view scroll-y style="flex: 1; height: 1px;" enable-back-to-top>
            <view class="px-safe pt-safe pb-safe">
-              <view
-                  wx:for="{{ selectList }}"
-                  wx:key="_id"
-                  class="card-home mb-12"
-                  bindtap="onSelectAggregatedItem"
-                  data-item="{{ item }}"
-                  hover-class="card-home-hover"
-               >
-                  <!-- Case A: Chemical (Code First, Hierarchy Adjusted) -->
-                  <block wx:if="{{ item.category === 'chemical' }}">
-                      <!-- Row 1: Code (32px) + Qty (32px) -->
-                      <view class="flex-row justify-between items-baseline mb-4">
-                          <view class="text-brand font-din text-3xl">{{ item.product_code }}</view>
-                          <view class="text-brand font-din text-3xl">
-                              {{ item.totalQuantity }} <text class="text-sm text-brand font-normal">{{ item.unit }}</text>
-                          </view>
-                      </view>
-                      <!-- Row 2: Name (Standard Black) -->
-                      <view class="text-main font-bold text-lg mb-4 text-ellipsis">
-                          {{ item.material_name }}
-                      </view>
-                  </block>
-
-                  <!-- Case B: Film (Name First) -->
-                  <block wx:else>
-                      <!-- Row 1: Name (Large Black) + Qty -->
-                      <view class="flex-row justify-between items-baseline mb-4">
-                          <view class="text-main font-bold text-lg text-ellipsis" style="max-width: 65%;">
-                              {{ item.material_name }}
-                          </view>
-                          <view class="text-main font-din text-xl">
-                              {{ item.totalQuantity }} <text class="text-xs text-sub font-normal">{{ item.unit }}</text>
-                          </view>
-                      </view>
-                      <!-- Row 2: Code (Blue) -->
-                      <view class="text-brand font-din text-lg mb-4">
-                          {{ item.product_code }}
-                      </view>
-                  </block>
-
-                  <!-- Footer: Clean (No Supplier) -->
-                  <view class="flex-row items-center">
-                      <view class="tag-brand-light">
-                          {{ item.totalCount }} 批次
-                      </view>
-                  </view>
-              </view>
+               <!-- 使用统一列表项组件 -->
+               <material-list-item
+                   wx:for="{{ selectList }}"
+                   wx:key="_id"
+                   item="{{ item }}"
+                   showCategory="{{ false }}"
+                   showArrow="{{ false }}"
+                   bind:tap="onSelectAggregatedItem"
+                   data-item="{{ item }}"
+               />
 
               <van-empty wx:if="{{ selectList.length === 0 }}" description="暂无匹配" />
               <view style="height: 40px;"></view>
@@ -195,38 +158,18 @@
            </view>
 
            <scroll-view scroll-y style="flex: 1; height: 1px;">
-               <view class="px-safe pt-safe pb-safe">
-                   <view
-                       wx:for="{{ batchList }}"
-                       wx:key="_id"
-                       class="card-home mb-10 flex-row items-center justify-between"
-                       bindtap="onSelectBatchItem"
-                       data-code="{{ item.unique_code }}"
-                       hover-class="card-home-hover"
-                   >
-                        <view class="flex-col flex-1">
-                            <view class="flex-row items-center mb-4">
-                                <text class="font-din text-lg text-main mr-8">{{ item.batch_number }}</text>
-                                <view wx:if="{{ item.isExpiring }}" class="badge-expiry-home">临期</view>
-                            </view>
-                            <view class="text-xs text-sub">
-                                有效期: {{ item.expiry }}
-                            </view>
-                            <view class="text-xs text-sub mt-2">
-                                库位: {{ item.location }}
-                            </view>
-                        </view>
-
-                        <view class="flex-col items-end pl-10">
-                            <!-- Removed Arrow, focused on Data -->
-                            <view class="font-din text-xl text-brand">
-                                {{ item.quantity.val }} <text class="text-xs text-brand">{{ item.quantity.unit }}</text>
-                            </view>
-                        </view>
-                   </view>
-                   <view style="height: 40px;"></view>
-               </view>
-           </scroll-view>
+                <view class="px-safe pt-safe pb-safe">
+                    <!-- 使用统一批次卡片组件 -->
+                    <batch-list-item
+                        wx:for="{{ batchList }}"
+                        wx:key="_id"
+                        item="{{ item }}"
+                        bind:tap="onSelectBatchItem"
+                        data-code="{{ item.unique_code }}"
+                    />
+                    <view style="height: 40px;"></view>
+                </view>
+            </scroll-view>
        </view>
   </van-popup>
 

@@ -1,0 +1,31 @@
+<!-- 统一日志卡片组件 - 优化视觉层级 -->
+<view style="background: #fff; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+
+  <!-- 第一行：类型标签 + 产品代码 + 时间（主视觉层级） -->
+  <view style="display: flex; flex-direction: row; align-items: center; margin-bottom: 12px;">
+    <view class="log-type-tag {{ typeColorClass }}" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; margin-right: 8px;">
+      {{ item._typeText || item._actionText || item.typeText || '操作' }}
+    </view>
+    <view style="font-size: 14px; font-weight: 600; color: #1989fa;">{{ item._displayCode || item.product_code || '' }}</view>
+    <view style="flex: 1;"></view>
+    <view style="font-size: 12px; color: #969799;">{{ item._timeStr || item.timeStr || '' }}</view>
+  </view>
+
+  <!-- 第二行：物料名称 + 数量（次视觉层级） -->
+  <view style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+    <view style="font-size: 14px; font-weight: 400; color: #323233;">{{ item._displayName || item.material_name || '未命名' }}</view>
+    <view class="{{ item._sign === '+' ? 'qty-success' : 'qty-danger' }}" style="font-size: 16px; font-weight: 600;">
+      {{ item._sign || '' }}{{ item.quantity || item.quantity_change || 0 }} {{ item.unit || '' }}
+    </view>
+  </view>
+
+  <!-- 第三行：备注 + 操作人（辅助信息） -->
+  <view style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #f0f0f0;">
+    <view style="font-size: 12px; color: #969799; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.note || item.description || '无备注' }}</view>
+    <view style="display: flex; flex-direction: row; align-items: center; font-size: 12px; color: #969799;">
+      <view style="margin-right: 4px;">👤</view>
+      <view>{{ item.operator || item.operator_name || '未知' }}</view>
+    </view>
+  </view>
+
+</view>

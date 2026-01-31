@@ -1,0 +1,4 @@
+/* material-list-item 组件 - 使用全局样式 */
+.material-card-hover {
+  background: #F9FAFB;
+}

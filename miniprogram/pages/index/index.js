@@ -135,9 +135,14 @@ Page({
 
   // Modified to handle Smart Batch Selection
   onSelectBatchItem(e) {
-    const code = e.currentTarget.dataset.code;
-    // Find the clicked item to get Batch No
-    const item = this.data.batchList.find((b) => b.unique_code === code);
+    // 支持两种模式：组件返回 item 或 dataset.code
+    let item;
+    if (e.detail && e.detail.item) {
+      item = e.detail.item;
+    } else {
+      const code = e.currentTarget.dataset.code;
+      item = this.data.batchList.find((b) => b.unique_code === code);
+    }
     if (!item) return;
 
     const selectedBatchNo = item.batch_number;
@@ -443,7 +448,8 @@ Page({
 
   // === 批次选择逻辑 ===
   async onSelectAggregatedItem(e) {
-    const item = e.currentTarget.dataset.item;
+    // 支持两种模式：1. dataset.item  2. 组件返回的 e.detail.item
+    const item = (e.detail && e.detail.item) || e.currentTarget.dataset.item;
     this.setData({ selectedAggItem: item });
 
     wx.showLoading({ title: "加载批次..." });

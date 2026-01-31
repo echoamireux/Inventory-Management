@@ -362,3 +362,156 @@ page {
 
 /* ========== 搜索覆盖 ========== */
 .van-search__content { background-color: #F3F4F6 !important; }
+
+/* ========== 统一列表项规范 ========== */
+/* 物料卡片 - 通用列表项 */
+.material-card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.material-card:active {
+  background: #F9FAFB;
+}
+
+/* 物料卡片 - 标题行 */
+.material-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+/* 物料卡片 - 料号 (始终蓝色) */
+.material-code {
+  font-family: var(--font-mono);
+  font-size: 16px; /* 与库存聚合列表 32rpx 一致 */
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+/* 物料卡片 - 名称 */
+.material-name {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+/* 物料卡片 - 次标题 (灰色背景标签样式，与库存聚合列表一致) */
+.material-subtitle-tag {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  margin-top: 6px;
+  margin-bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-bg-page);
+  padding: 2px 8px;
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+/* 物料卡片 - 数量 (正常=蓝，临期=橙) */
+.material-qty {
+  font-family: var(--font-mono);
+  font-size: 16px; /* 与料号一致 */
+  font-weight: 600;
+  color: var(--color-brand);
+}
+.material-qty.warning {
+  color: var(--color-warning);
+}
+.material-qty-unit {
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+/* ========== 统一标签规范 ========== */
+.tag-base {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 蓝色标签 (分类/批次/数量) */
+.tag-brand {
+  background: var(--color-brand-light);
+  color: var(--color-brand);
+}
+
+/* 警告标签 (临期) */
+.tag-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* 成功标签 */
+.tag-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+/* 灰色标签 (辅助信息) */
+.tag-gray {
+  background: #F3F4F6;
+  color: var(--color-text-secondary);
+}
+
+/* 临期徽章 */
+.badge-expiry {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ========== 膜材专用样式 ========== */
+/* 膜材：名称作为主标题 */
+.material-name-primary {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex: 1;
+  max-width: 60%;
+}
+
+/* 膜材：料号作为副标题 */
+.material-code-secondary {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-brand);
+  margin-bottom: 6px;
+}
+
+/* ========== 弹窗标题规范 ========== */
+/* 领料弹窗料号（缩小） */
+.popup-code-title {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+/* 领料弹窗数量（右对齐，与标题行对齐） */
+.popup-qty-display {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-brand);
+  text-align: right;
+}
+.popup-qty-display.warning {
+  color: var(--color-warning);
+}

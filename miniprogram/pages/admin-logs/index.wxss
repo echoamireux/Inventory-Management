@@ -1,8 +1,20 @@
-/* pages/admin-logs/index.wxss */
-.log-card {
-  background: #fff;
-  border-radius: 8rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  margin-bottom: 20rpx;
-  padding: 24rpx;
+.page-container {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.list-container {
+  padding: 12px;
+}
+
+.loading-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.end-text {
+  text-align: center;
+  color: #969799;
+  font-size: 12px;
+  padding: 10px;
 }
