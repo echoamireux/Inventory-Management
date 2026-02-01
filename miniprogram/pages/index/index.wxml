@@ -7,7 +7,7 @@
   <view wx:else>
 
   <!-- 顶部搜索 (吸顶) -->
-  <view class="sticky-top z-index-10 border-bottom search-transparent">
+  <view class="sticky-top z-index-10 search-transparent">
      <van-search
         placeholder="搜索 名称 / 料号 / 批号 / 供应商"
         shape="round"
