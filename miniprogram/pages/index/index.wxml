@@ -172,19 +172,20 @@
                         data-batch="{{ item }}"
                         bind:tap="onSelectBatchItem"
                     >
-                        <view class="flex-row justify-between items-center">
-                            <view class="flex-col">
-                                <view class="flex-row items-center mb-4">
-                                    <text class="text-primary font-bold text-base mr-8">{{ item.batch_number }}</text>
-                                    <van-tag type="warning" plain wx:if="{{ item.isExpiring }}">临期</van-tag>
-                                </view>
-                                <text class="text-secondary text-sm">有效期: {{ item.expiry }} · {{ item.location }}</text>
+                        <!-- 第一行：批号 + 数量 -->
+                        <view class="flex-row justify-between items-center mb-4">
+                            <view class="flex-row items-center" style="flex: 1;">
+                                <text class="text-primary font-bold text-base mr-8">{{ item.batch_number }}</text>
+                                <van-tag type="warning" plain wx:if="{{ item.isExpiring }}" custom-class="mr-6">临期</van-tag>
+                                <van-tag type="default" plain wx:if="{{ item.isArchived }}" color="#6B7280">已归档停用</van-tag>
                             </view>
-                            <view class="text-right">
+                            <view class="flex-row items-baseline">
                                 <text class="text-primary font-bold text-lg">{{ item.totalQuantity }}</text>
                                 <text class="text-secondary text-sm ml-4">{{ item.unit }}</text>
                             </view>
                         </view>
+                        <!-- 第二行：有效期 + 库位 -->
+                        <text class="text-secondary text-sm">有效期: {{ item.expiry }} · {{ item.location }}</text>
                     </view>
                     <view style="height: 40px;"></view>
                 </view>

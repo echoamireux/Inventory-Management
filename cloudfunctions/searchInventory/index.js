@@ -98,6 +98,25 @@ exports.main = async (event, context) => {
         console.log('[searchInventory] First item fields:', Object.keys(uniqueList[0]));
       }
 
+      // 检查物料归档状态
+      const productCodes = uniqueList.map(item => item.product_code).filter(Boolean);
+      if (productCodes.length > 0) {
+        const materialsRes = await db.collection('materials')
+          .where({ product_code: _.in(productCodes) })
+          .field({ product_code: true, status: true })
+          .get();
+
+        const archivedSet = new Set(
+          materialsRes.data
+            .filter(m => m.status === 'archived')
+            .map(m => m.product_code)
+        );
+
+        uniqueList.forEach(item => {
+          item.isArchived = archivedSet.has(item.product_code);
+        });
+      }
+
       return success(uniqueList);
     }
 

@@ -76,6 +76,25 @@ Page({
               };
           });
 
+          // 检查物料归档状态
+          const productCodes = [...new Set(list.map(item => item.product_code).filter(Boolean))];
+          if (productCodes.length > 0) {
+              const matRes = await db.collection('materials')
+                  .where({ product_code: _.in(productCodes) })
+                  .field({ product_code: true, status: true })
+                  .get();
+
+              const archivedSet = new Set(
+                  matRes.data
+                      .filter(m => m.status === 'archived')
+                      .map(m => m.product_code)
+              );
+
+              list.forEach(item => {
+                  item.isArchived = archivedSet.has(item.product_code);
+              });
+          }
+
           this.setData({ list });
 
       } catch (err) {

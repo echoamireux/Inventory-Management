@@ -1,108 +1,149 @@
 /* pages/admin/material-list.wxss */
 
-/* 布局类 */
+/* 容器 */
 .container {
   min-height: 100vh;
   background-color: #f7f8fa;
 }
 
-.flex-row {
+.pb-100 {
+  padding-bottom: 200rpx;
+}
+
+/* 顶部栏 */
+.top-bar {
   display: flex;
   flex-direction: row;
-}
-
-.flex-1 {
-  flex: 1;
-  min-width: 0;
-}
-
-.justify-between {
   justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx;
 }
 
-.justify-center {
-  justify-content: center;
+.count-text {
+  font-size: 26rpx;
+  color: #969799;
+  font-weight: bold;
 }
 
-.items-center {
+.top-btns {
+  display: flex;
+  flex-direction: row;
   align-items: center;
 }
 
-.items-start {
-  align-items: flex-start;
+/* 列表容器 */
+.list-wrapper {
+  padding: 0 24rpx;
 }
 
-/* 间距类 */
-.p-20 { padding: 20rpx; }
-.px-20 { padding-left: 20rpx; padding-right: 20rpx; }
-.py-10 { padding-top: 10rpx; padding-bottom: 10rpx; }
-.px-16 { padding-left: 16rpx; padding-right: 16rpx; }
-.py-20 { padding-top: 20rpx; padding-bottom: 20rpx; }
-.pb-20 { padding-bottom: 20rpx; }
-
-.m-10 { margin: 10rpx; }
-.mr-10 { margin-right: 10rpx; }
-.mr-16 { margin-right: 16rpx; }
-.mb-4 { margin-bottom: 4rpx; }
-.mb-6 { margin-bottom: 6rpx; }
-.mb-12 { margin-bottom: 12rpx; }
-
-/* 文本类 */
-.text-xs { font-size: 20rpx; }
-.text-sm { font-size: 24rpx; }
-.text-base { font-size: 28rpx; }
-.text-lg { font-size: 32rpx; }
-.text-xl { font-size: 36rpx; }
-
-.font-bold { font-weight: bold; }
-
-.text-center { text-align: center; }
-
-.text-primary { color: #1989fa; }
-.text-secondary { color: #969799; }
-.text-main { color: #323233; }
-
-/* 组件类 */
-.material-card {
+/* 卡片 */
+.card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
   margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
-/* 强制 flex 布局生效，防止按钮挤压左侧 */
-.flex-row {
-  display: flex !important;
-  flex-direction: row !important;
+.card-selected {
+  background: #e6f4ff;
+  border: 2rpx solid #1989fa;
+  box-shadow: 0 4rpx 16rpx rgba(25, 137, 250, 0.15);
 }
 
-/* 左侧内容：自适应，必须设置 overflow 防止撑开 */
-/* 左侧内容 */
-.flex-1 {
+.card-checkbox {
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+/* 卡片内容区 */
+.card-content {
   flex: 1;
   min-width: 0;
-  margin-right: 20rpx;
-  /* 关键：防止长文本撑开 */
-  word-break: break-all;
-  white-space: normal;
-}
-
-/* 右侧按钮组：不许压缩，且强制内容宽度 */
-.flex-shrink-0 {
-  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  width: auto !important; /* 防止被拉伸 */
+  flex-wrap: wrap;
+  margin-bottom: 8rpx;
 }
 
-/* 强制 Van Button 宽度自适应文本 */
-van-button {
-  width: auto !important;
-  min-width: auto !important;
-  display: inline-block !important;
+.code {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #1989fa;
+  margin-right: 12rpx;
 }
 
-van-button button {
-  padding: 0 16rpx !important; /* Vant 内部 button 样式覆盖 */
+.name {
+  font-size: 28rpx;
+  color: #323233;
+  margin-bottom: 6rpx;
+}
+
+.supplier {
+  font-size: 24rpx;
+  color: #969799;
+}
+
+.ml-8 {
+  margin-left: 8rpx;
+}
+
+/* 操作按钮区 */
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+/* 底部文字 */
+.end-text {
+  text-align: center;
+  color: #c8c9cc;
+  font-size: 24rpx;
+  padding: 30rpx 0;
+}
+
+/* 批量操作栏 */
+.batch-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.batch-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.batch-text {
+  margin-left: 12rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #323233;
+}
+
+.batch-right {
+  display: flex;
+  flex-direction: row;
 }

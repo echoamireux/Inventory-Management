@@ -195,7 +195,8 @@ Page({
         inputLabel,
         quantity: { val: totalQty, unit },
         location: batch.location,
-        unique_code: recommendedCode  // 添加推荐的 unique_code
+        unique_code: recommendedCode,  // 添加推荐的 unique_code
+        isArchived: batch.isArchived || this.data.selectedAggItem?.isArchived || false  // 传递归档状态
       },
       withdrawAmount: "",
       selectedUsage: "",
@@ -259,7 +260,22 @@ Page({
 
       const item = list[0];
 
-      // 2. 准备弹窗数据
+      // 2. 检查物料归档状态
+      let isArchived = false;
+      if (item.product_code) {
+        try {
+          const matRes = await wx.cloud.database().collection('materials')
+            .where({ product_code: item.product_code })
+            .field({ status: true })
+            .limit(1)
+            .get();
+          if (matRes.data && matRes.data.length > 0) {
+            isArchived = matRes.data[0].status === 'archived';
+          }
+        } catch(e) { console.warn('Material lookup failed', e); }
+      }
+
+      // 3. 准备弹窗数据
       let currentStockDesc = "";
       let inputLabel = "";
 
@@ -274,7 +290,7 @@ Page({
       }
 
       this.setData({
-        withdrawItem: { ...item, currentStockDesc, inputLabel },
+        withdrawItem: { ...item, currentStockDesc, inputLabel, isArchived },
         withdrawAmount: "",
         selectedUsage: "", // Reset usage
         usageDetail: "", // Reset detail
@@ -493,7 +509,8 @@ Page({
           location: b.location,
           unit: b.unit,
           product_code: b.product_code,
-          material_name: b.material_name
+          material_name: b.material_name,
+          isArchived: item.isArchived || false  // 从聚合项传递归档状态
         };
       });
 

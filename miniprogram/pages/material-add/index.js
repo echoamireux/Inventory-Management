@@ -308,17 +308,40 @@ Page({
           if (res.result && res.result.success) {
              const list = res.result.list;
 
-             // MDM 强管控：如果没有匹配到任何结果 -> 阻断
+             // MDM 强管控：如果没有匹配到任何结果 -> 检查是否为归档物料 or 阻断
              if (!list || list.length === 0) {
+                  // Check Archive Status with Debug Logs
+                  try {
+                      console.log('[Debug] Checking status for:', keyword);
+                      const checkRes = await wx.cloud.callFunction({
+                          name: 'manageMaterial',
+                          data: { action: 'checkStatus', data: { product_code: keyword } }
+                      });
+                      console.log('[Debug] checkStatus res:', checkRes);
+
+                      if (checkRes.result.success && checkRes.result.isArchived) {
+                          this.setData({
+                              suggestions: [],
+                              isUnknownCode: true,
+                              isArchived: true,
+                              archiveReason: checkRes.result.reason
+                          });
+                          return;
+                      }
+                  } catch(e) {
+                      console.error('[Debug] checkStatus failed:', e);
+                  }
+
                  this.setData({
                      suggestions: [],
-                     isUnknownCode: true
+                     isUnknownCode: true,
+                     isArchived: false
                  });
                  return;
              }
 
              // 匹配到了 -> 解除阻断
-             this.setData({ isUnknownCode: false });
+             this.setData({ isUnknownCode: false, isArchived: false });
 
              // 将主数据结果映射为建议格式
              const suggestions = list.map(m => ({

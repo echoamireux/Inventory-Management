@@ -38,8 +38,6 @@ exports.main = async (event, context) => {
         return await restoreMaterial(data, OPENID);
       case 'checkStatus':
         return await checkMaterialStatus(data);
-      case 'checkHistory':
-        return await checkMaterialHistory(data);
       default:
         return { success: false, msg: '未知操作' };
     }
@@ -53,18 +51,9 @@ exports.main = async (event, context) => {
  * 获取物料列表
  */
 async function listMaterials(params = {}) {
-  const { searchVal, category, status, page = 1, pageSize = 20 } = params;
+  const { searchVal, category, page = 1, pageSize = 20 } = params;
 
-  // Default to non-archived if status not specified
-  // If status === 'archived', query archived
-  // If status === 'active', query active (which is status!=archived AND status!=deleted, but here assume 'active' or undefined for simplicity)
-
-  let query = {};
-  if (status === 'archived') {
-      query.status = 'archived';
-  } else {
-      query.status = _.neq('archived');
-  }
+  let query = { status: _.neq('archived') };
 
   if (category) {
     query.category = category;
@@ -439,16 +428,9 @@ async function checkMaterialStatus(data) {
   const { product_code } = data;
   if (!product_code) return { success: false };
 
-  // 构造可能的前缀组合
-  const codes = [product_code];
-  if (!product_code.startsWith('J-') && !product_code.startsWith('M-')) {
-    codes.push(`J-${product_code}`);
-    codes.push(`M-${product_code}`);
-  }
-
-  // 使用 in 查询匹配任意一种情况
+  // 仅查询归档物料
   const res = await db.collection('materials').where({
-    product_code: db.command.in(codes),
+    product_code: product_code,
     status: 'archived'
   }).get();
 
@@ -456,53 +438,9 @@ async function checkMaterialStatus(data) {
     return {
       success: true,
       isArchived: true,
-      product_code: res.data[0].product_code,
       reason: res.data[0].archive_reason || '未说明'
     };
   }
 
   return { success: true, isArchived: false };
-}
-
-/**
- * 检查物料历史记录 (用于删除/归档前的确认)
- * 返回 toDelete (无历史记录) 和 toArchive (有历史记录) 两个列表
- */
-async function checkMaterialHistory(data) {
-  const { ids } = data;
-  if (!ids || ids.length === 0) return { success: false, msg: '缺少参数' };
-
-  const toDelete = [];
-  const toArchive = [];
-
-  for (const id of ids) {
-    try {
-      // 获取物料信息
-      const materialRes = await db.collection('materials').doc(id).get();
-      if (!materialRes.data) continue;
-
-      const material = materialRes.data;
-
-      // 检查是否有库存记录
-      const inventoryCount = await db.collection('inventory')
-        .where({ product_code: material.product_code })
-        .count();
-
-      if (inventoryCount.total > 0) {
-        // 有历史记录 -> 归档
-        toArchive.push({ _id: id, product_code: material.product_code });
-      } else {
-        // 无历史记录 -> 可删除
-        toDelete.push({ _id: id, product_code: material.product_code });
-      }
-    } catch (err) {
-      console.error('Check history error for id:', id, err);
-    }
-  }
-
-  return {
-    success: true,
-    toDelete,
-    toArchive
-  };
 }

@@ -252,7 +252,7 @@ page {
 .input-home {
   flex: 1;
   height: 48px;
-  font-size: 32px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
@@ -298,6 +298,14 @@ page {
 .badge-expiry-home {
   background: var(--color-danger-light);
   color: var(--color-danger);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  margin-left: 6px;
+}
+.badge-archived-home {
+  background: #F3F4F6;
+  color: #6B7280;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   font-size: 10px;
@@ -354,6 +362,17 @@ page {
   margin-bottom: 4px;
 }
 .text-alert-orange { color: var(--color-warning); font-size: 12px; }
+
+.alert-box-gray {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  background: #F9FAFB;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  margin-top: 8px;
+}
+.text-alert-gray { color: #6B7280; font-size: 12px; }
 
 /* ========== 上下文栏 ========== */
 .context-bar-home {

@@ -101,6 +101,24 @@ exports.main = async (event, context) => {
         };
     });
 
+    // 4. Check if materials are archived (动态标记已停用)
+    const productCodes = list.map(item => item.product_code);
+    const materialsRes = await db.collection('materials')
+        .where({ product_code: _.in(productCodes) })
+        .field({ product_code: true, status: true })
+        .get();
+
+    const archivedSet = new Set(
+        materialsRes.data
+            .filter(m => m.status === 'archived')
+            .map(m => m.product_code)
+    );
+
+    // Add isArchived flag to each item
+    list.forEach(item => {
+        item.isArchived = archivedSet.has(item.product_code);
+    });
+
     return { success: true, list };
 
   } catch (err) {

@@ -30,18 +30,37 @@ Page({
         const res = await db.collection('inventory').doc(id).get();
         if (res.data) {
             let item = res.data;
+            let isArchived = false;
+
             // Fetch material info (Supplier, Model, Specs)
             if (item.material_id) {
                 try {
                     const matRes = await db.collection('materials').doc(item.material_id).get();
                     if (matRes.data) {
+                        // Check if material is archived
+                        isArchived = matRes.data.status === 'archived';
                         // Merge: Material Info (Base) < Inventory Info (Specific)
                         // Ensure we don't overwrite inventory _id
                         const invId = item._id;
-                        item = { ...matRes.data, ...item, _id: invId };
+                        item = { ...matRes.data, ...item, _id: invId, isArchived };
                     }
                 } catch(e) { console.warn('Material info not found', e); }
             }
+
+            // Also check by product_code if material_id not available
+            if (!item.material_id && item.product_code) {
+                try {
+                    const matQuery = await db.collection('materials')
+                        .where({ product_code: item.product_code })
+                        .limit(1)
+                        .get();
+                    if (matQuery.data && matQuery.data.length > 0) {
+                        isArchived = matQuery.data[0].status === 'archived';
+                        item.isArchived = isArchived;
+                    }
+                } catch(e) { console.warn('Material lookup by code failed', e); }
+            }
+
             this.processData(item);
         } else {
             wx.showToast({ title: '物料不存在', icon: 'none' });

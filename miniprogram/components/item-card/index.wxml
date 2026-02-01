@@ -40,7 +40,10 @@
       {{ item.totalCount }} 批次
     </view>
     <view class="badge-expiry-home" wx:if="{{ item.isExpiring }}">
-      临期
+      包含临期
+    </view>
+    <view class="badge-archived-home" wx:if="{{ item.isArchived }}">
+      已归档停用
     </view>
   </view>
 </view>

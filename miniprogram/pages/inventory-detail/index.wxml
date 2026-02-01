@@ -25,6 +25,7 @@
            <!-- ID & Tag Row -->
             <view class="header-meta-row">
                  <van-tag type="{{ isExpiring ? 'warning' : 'success' }}" custom-class="mr-10">{{ isExpiring ? '即将过期' : '正常' }}</van-tag>
+                 <van-tag wx:if="{{ item.isArchived }}" type="default" custom-class="mr-10" color="#6B7280">已归档停用</van-tag>
                  <view class="info-id">标签编号: {{ item.unique_code }}</view>
             </view>
         </view>

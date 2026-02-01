@@ -38,8 +38,6 @@ exports.main = async (event, context) => {
         return await restoreMaterial(data, OPENID);
       case 'checkStatus':
         return await checkMaterialStatus(data);
-      case 'checkHistory':
-        return await checkMaterialHistory(data);
       default:
         return { success: false, msg: '未知操作' };
     }
@@ -462,47 +460,4 @@ async function checkMaterialStatus(data) {
   }
 
   return { success: true, isArchived: false };
-}
-
-/**
- * 检查物料历史记录 (用于删除/归档前的确认)
- * 返回 toDelete (无历史记录) 和 toArchive (有历史记录) 两个列表
- */
-async function checkMaterialHistory(data) {
-  const { ids } = data;
-  if (!ids || ids.length === 0) return { success: false, msg: '缺少参数' };
-
-  const toDelete = [];
-  const toArchive = [];
-
-  for (const id of ids) {
-    try {
-      // 获取物料信息
-      const materialRes = await db.collection('materials').doc(id).get();
-      if (!materialRes.data) continue;
-
-      const material = materialRes.data;
-
-      // 检查是否有库存记录
-      const inventoryCount = await db.collection('inventory')
-        .where({ product_code: material.product_code })
-        .count();
-
-      if (inventoryCount.total > 0) {
-        // 有历史记录 -> 归档
-        toArchive.push({ _id: id, product_code: material.product_code });
-      } else {
-        // 无历史记录 -> 可删除
-        toDelete.push({ _id: id, product_code: material.product_code });
-      }
-    } catch (err) {
-      console.error('Check history error for id:', id, err);
-    }
-  }
-
-  return {
-    success: true,
-    toDelete,
-    toArchive
-  };
 }

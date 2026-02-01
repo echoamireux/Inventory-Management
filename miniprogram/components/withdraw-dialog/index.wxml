@@ -57,6 +57,12 @@
                     <van-icon name="warning-o" color="#F97316" size="14px" class="mr-8"/>
                     <text class="text-alert-orange">该批次即将过期</text>
                  </view>
+
+                 <!-- 归档警告 -->
+                 <view wx:if="{{ item.isArchived }}" class="mt-2 alert-box-gray">
+                    <van-icon name="info-o" color="#6B7280" size="14px" class="mr-8"/>
+                    <text class="text-alert-gray">该物料已从标准库移除，建议尽快消耗</text>
+                 </view>
             </view>
 
             <!-- Input Card (Pro Max Large Input) -->

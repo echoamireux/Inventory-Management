@@ -1,7 +1,13 @@
 <!--pages/admin/material-list.wxml-->
-<view class="container pb-20">
+<view class="container pb-100">
+  <!-- 顶部状态筛选 -->
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
+    <van-tab title="活跃物料" name="active"></van-tab>
+    <van-tab title="已归档" name="archived"></van-tab>
+  </van-tabs>
+
   <!-- 搜索栏 -->
-  <view class="search-transparent">
+  <view class="search-transparent bg-white">
     <van-search
         value="{{ searchVal }}"
         placeholder="搜索产品代码/名称/供应商"
@@ -13,107 +19,65 @@
   </view>
 
   <!-- 顶部统计与操作按钮 -->
-  <view class="flex-row justify-between items-center px-20 py-10">
-    <view class="text-secondary text-sm flex-shrink-0 font-bold ml-4">{{ total }} 种</view>
-    <view class="flex-row items-center">
-      <van-button
-        type="default"
-        size="small"
-        round
-        icon="upgrade"
-        custom-style="padding: 0 12px; margin-right: 8px; min-width: 70px;"
-        bind:click="onImport"
-      >
-        导入
-      </van-button>
-      <van-button
-        type="primary"
-        size="small"
-        round
-        icon="plus"
-        custom-style="padding: 0 12px; min-width: 70px;"
-        bind:click="onAdd"
-      >
-        新增
-      </van-button>
+  <view class="top-bar">
+    <text class="count-text">{{ total }} 种{{ activeTab === 'archived' ? ' (已归档)' : '' }}</text>
+    <view class="top-btns" wx:if="{{ !isEditMode && activeTab === 'active' }}">
+      <van-button type="default" size="small" round icon="upgrade" custom-style="margin-right: 8px;" bind:click="onImport">导入</van-button>
+      <van-button type="primary" size="small" round icon="plus" bind:click="onAdd">新增</van-button>
+    </view>
+    <view class="top-btns" wx:if="{{ isEditMode }}">
+      <van-button type="default" size="small" round plain bind:click="toggleEditMode">取消</van-button>
     </view>
   </view>
 
   <!-- 物料列表 -->
-  <view class="px-16" wx:if="{{ list.length > 0 }}">
+  <view class="list-wrapper" wx:if="{{ list.length > 0 }}">
     <block wx:for="{{ list }}" wx:key="_id">
-      <view class="material-card mb-12">
-        <view class="flex-row justify-between items-start">
-          <!-- 左侧信息 -->
-          <view class="flex-1">
-            <view class="flex-row items-center mb-6">
-              <text class="text-lg font-bold text-primary mr-10">{{ item.product_code }}</text>
-              <van-tag
-                type="{{ item.category === 'chemical' ? 'primary' : 'success' }}"
-                plain
-                size="medium"
-              >
-                {{ item.category === 'chemical' ? '化材' : '膜材' }}
-              </van-tag>
-            </view>
-            <view class="text-base text-main mb-4">{{ item.material_name }}</view>
-            <view class="flex-row items-center text-sm text-secondary">
-              <text wx:if="{{ item.supplier }}" class="mr-16">{{ item.supplier }}</text>
-              <text wx:if="{{ item.default_unit }}">默认单位: {{ item.default_unit }}</text>
-            </view>
-          </view>
+      <view
+        class="card {{ item.checked ? 'card-selected' : '' }}"
+        bind:longpress="onLongPress"
+        bind:tap="onItemClick"
+        data-id="{{ item._id }}"
+      >
+        <!-- Checkbox (编辑模式) -->
+        <van-checkbox wx:if="{{ isEditMode }}" value="{{ item.checked }}" custom-class="card-checkbox" catch:tap="noop" />
 
-          <!-- 右侧操作按钮：强制不许压缩，且给最大宽度限制 -->
-          <view class="flex-row items-center flex-shrink-0" style="max-width: 40%;">
-            <van-button
-              type="primary"
-              size="mini"
-              plain
-              round
-              custom-style="width: auto; padding: 0 12px; margin-right: 8px; white-space: nowrap;"
-              data-id="{{ item._id }}"
-              bind:click="onEdit"
-            >
-              编辑
-            </van-button>
-            <van-button
-              type="danger"
-              size="mini"
-              plain
-              round
-              custom-style="width: auto; padding: 0 12px; white-space: nowrap;"
-              data-id="{{ item._id }}"
-              bind:click="onArchive"
-            >
-              归档
-            </van-button>
+        <!-- 主内容区 -->
+        <view class="card-content">
+          <view class="card-header">
+            <text class="code">{{ item.product_code }}</text>
+            <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain size="medium">{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
+            <van-tag wx:if="{{ item.status === 'archived' }}" type="warning" plain size="medium" custom-class="ml-8">归档</van-tag>
           </view>
+          <text class="name">{{ item.material_name }}</text>
+          <text class="supplier" wx:if="{{ item.supplier }}">{{ item.supplier }}</text>
+        </view>
+
+        <!-- 操作按钮 (非编辑模式 + 活跃Tab) -->
+        <view class="card-actions" wx:if="{{ !isEditMode && activeTab === 'active' }}">
+          <van-button plain type="primary" size="mini" round custom-style="margin-bottom: 8rpx;" catch:tap="onEdit" data-id="{{ item._id }}">编辑</van-button>
+          <van-button plain type="danger" size="mini" round catch:tap="onArchive" data-id="{{ item._id }}">归档</van-button>
         </view>
       </view>
     </block>
   </view>
 
   <!-- 空状态 -->
-  <van-empty
-    wx:if="{{ !loading && list.length === 0 }}"
-    description="暂无物料数据"
-  >
-    <van-button type="primary" size="small" round bind:click="onAdd">
-      添加第一个物料
-    </van-button>
-  </van-empty>
+  <van-empty wx:if="{{ !loading && list.length === 0 }}" description="{{ activeTab === 'archived' ? '暂无归档物料' : '暂无物料数据' }}" />
 
-  <!-- 加载状态 -->
-  <view wx:if="{{ loading }}" class="flex-row justify-center py-20">
-    <van-loading type="spinner">加载中...</van-loading>
+  <view class="end-text" wx:if="{{ isEnd && list.length > 0 }}">- 到底了 -</view>
+
+  <!-- 底部批量操作栏 -->
+  <view class="batch-bar" wx:if="{{ isEditMode }}">
+    <view class="batch-left" bindtap="onSelectAll">
+      <van-checkbox value="{{ isAllSelected }}" catch:tap="noop" />
+      <text class="batch-text">全选</text>
+    </view>
+    <view class="batch-right">
+      <van-button wx:if="{{ activeTab === 'active' }}" type="danger" round bind:click="onBatchDelete">删除/归档 ({{ selectedCount }})</van-button>
+      <van-button wx:else type="primary" round bind:click="onRestore">还原 ({{ selectedCount }})</van-button>
+    </view>
   </view>
-
-  <!-- 到底提示 -->
-  <view wx:if="{{ isEnd && list.length > 0 }}" class="text-center text-sm text-secondary py-20">
-    没有更多了
-  </view>
-
-  <!-- Toast & Dialog -->
-  <van-toast id="van-toast" />
-  <van-dialog id="van-dialog" />
 </view>
+
+<van-dialog id="van-dialog" />

@@ -45,5 +45,13 @@
       text="包含临期"
       style="margin-left: 6px;"
     />
+
+    <!-- 已停用标签 -->
+    <material-tag
+      wx:if="{{ item.isArchived }}"
+      type="gray"
+      text="已归档停用"
+      style="margin-left: 6px;"
+    />
   </view>
 </view>
