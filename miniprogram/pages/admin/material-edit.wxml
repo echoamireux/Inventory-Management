@@ -24,7 +24,7 @@
           <text class="code-prefix" wx:if="{{ codePrefix }}">{{ codePrefix }}</text>
           <input
             class="code-number-input"
-            type="text"
+            type="number"
             placeholder="{{ categoryIndex === null ? '' : '请输入产品代码' }}"
             value="{{ form.product_code_number }}"
             disabled="{{ categoryIndex === null }}"

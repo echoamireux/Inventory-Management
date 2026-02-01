@@ -150,6 +150,7 @@ page {
 .text-brand { color: var(--color-brand); }
 .text-main { color: var(--color-text-primary); }
 .text-sub { color: var(--color-text-secondary); }
+.text-tertiary { color: #9CA3AF; }
 .text-placeholder { color: var(--color-text-placeholder); }
 .text-success { color: var(--color-success); }
 .text-warning { color: var(--color-warning); }
@@ -394,6 +395,14 @@ page {
 .material-card:active {
   background: #F9FAFB;
 }
+/* P3 优化: 临期预警卡片左侧边框强化 */
+.material-card-expiring {
+  border-left: 3px solid var(--color-warning);
+  background: linear-gradient(90deg, var(--color-warning-light) 0%, var(--color-bg-card) 8%);
+}
+.material-card-expiring:active {
+  background: linear-gradient(90deg, #FFEDD5 0%, #F9FAFB 8%);
+}
 
 /* 物料卡片 - 标题行 */
 .material-card-row {
@@ -534,3 +543,19 @@ page {
 .popup-qty-display.warning {
   color: var(--color-warning);
 }
+
+/* ========== P3 优化: 空状态组件定制 ========== */
+.van-empty {
+  padding: 40px 20px !important;
+}
+.van-empty__image {
+  width: 120px !important;
+  height: 120px !important;
+  opacity: 0.6;
+}
+.van-empty__description {
+  color: var(--color-text-secondary) !important;
+  font-size: 14px !important;
+  margin-top: 12px !important;
+}
+

@@ -12,6 +12,12 @@
   background: #f9fafb;
 }
 
+/* 临期预警 - 左侧边框强化 */
+.batch-card-expiring {
+  border-left: 3px solid var(--color-warning);
+  background: linear-gradient(90deg, var(--color-warning-light) 0%, #fff 8%);
+}
+
 /* 第一行布局 */
 .batch-card-row {
   display: flex;

@@ -21,6 +21,13 @@
   overflow: hidden;
   background: var(--color-brand-gradient) !important;
   box-shadow: 0 4px 12px rgba(44, 104, 255, 0.3) !important;
+  /* P3 优化: 添加呼吸动效 */
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+.scan-card:active {
+  animation: none;
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(44, 104, 255, 0.4) !important;
 }
 .scan-card .circle-bg {
   position: absolute;
@@ -30,6 +37,16 @@
   height: 120px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
+}
+
+/* P3 优化: 呼吸动效 keyframes */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(44, 104, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(44, 104, 255, 0.5);
+  }
 }
 
 /* bg-primary 备用 */
@@ -53,6 +70,13 @@
   box-shadow: var(--shadow-sm);
   height: 100%;
   box-sizing: border-box;
+  /* P3 优化: 添加过渡效果 */
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* P3 优化: 点击缩放反馈 */
+.stat-card:active {
+  transform: scale(0.96);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* 统计背景色 */
@@ -167,7 +191,13 @@
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin: 0 16px;
+  margin: 0 8px 12px 8px;  /* 减小左右边距，增加底部间距 */
+}
+
+/* 批次卡片临期预警 */
+.batch-card.expiring {
+  border-left: 3px solid var(--color-warning);
+  background: linear-gradient(90deg, var(--color-warning-light) 0%, #fff 8%);
 }
 
 .text-primary {

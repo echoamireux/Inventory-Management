@@ -150,7 +150,7 @@ Page({
   },
 
   // 处理批次级领用
-  handleBatchWithdraw(batch) {
+  async handleBatchWithdraw(batch) {
     const totalQty = batch.totalQuantity;
     const unit = batch.unit || 'kg';
     const category = this.data.selectedAggItem?.category || this.data.selectActiveTab;
@@ -163,6 +163,28 @@ Page({
       inputLabel = "领用长度 (米)";
     }
 
+    // 查询该批次下 FIFO 推荐的第一条库存记录
+    let recommendedCode = '';
+    try {
+      const db = wx.cloud.database();
+      const res = await db.collection('inventory')
+        .where({
+          batch_number: batch.batch_number,
+          product_code: batch.product_code,
+          status: 'in_stock'
+        })
+        .orderBy('expiry_date', 'asc')  // 临期优先
+        .orderBy('created_at', 'asc')   // 最早入库优先
+        .limit(1)
+        .get();
+
+      if (res.data.length > 0) {
+        recommendedCode = res.data[0].unique_code || '';
+      }
+    } catch (err) {
+      console.warn('获取推荐标签失败', err);
+    }
+
     this.setData({
       withdrawItem: {
         product_code: batch.product_code,
@@ -172,12 +194,13 @@ Page({
         currentStockDesc,
         inputLabel,
         quantity: { val: totalQty, unit },
-        location: batch.location
+        location: batch.location,
+        unique_code: recommendedCode  // 添加推荐的 unique_code
       },
       withdrawAmount: "",
       selectedUsage: "",
       usageDetail: "",
-      recommendedCode: "", // 批次模式不推荐具体标签
+      recommendedCode: recommendedCode,
       showUsagePicker: false,
       showWithdrawDialog: true,
       isSmartBatchMode: true, // Enable Batch Mode for FIFO

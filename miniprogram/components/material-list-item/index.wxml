@@ -1,5 +1,5 @@
 <!-- 统一物料列表项组件 - 适用于库存聚合列表和物料检索弹窗 -->
-<view class="material-card" hover-class="material-card-hover" bindtap="onTap">
+<view class="material-card {{ item.isExpiring ? 'material-card-expiring' : '' }}" hover-class="material-card-hover" bindtap="onTap">
 
   <!-- 化材：代码优先 -->
   <block wx:if="{{ item.category === 'chemical' }}">

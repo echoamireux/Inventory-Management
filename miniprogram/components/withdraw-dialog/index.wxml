@@ -40,18 +40,18 @@
                     </view>
                 </view>
 
-                <view wx:if="{{ item.unique_code }}" class="mt-2 flex-row items-center">
+                <!-- 非批次模式（扫码/详情页）：显示标签编号 -->
+                <view wx:if="{{ mode !== 'batch' && item.unique_code }}" class="mt-2 flex-row items-center">
                      <view class="tag-base tag-success mr-8">标签编号</view>
                      <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
                 </view>
 
-                <!-- Alerts / Recommendation -->
-                 <view wx:if="{{ mode === 'batch' && recommendedCode }}" class="mt-4 alert-box-green">
-                     <van-icon name="info-o" color="#15803D" size="14px" class="mr-8"/>
-                     <view class="text-alert-green">
-                        系统自动匹配: <text class="font-bold">{{ recommendedCode }}</text> (最早入库)
-                     </view>
-                 </view>
+                <!-- 批次模式：显示系统推荐 -->
+                <view wx:if="{{ mode === 'batch' && item.unique_code }}" class="mt-2 flex-row items-center">
+                    <view class="tag-base tag-warning mr-8">系统推荐</view>
+                    <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
+                    <text class="text-sub text-sm ml-8">(FIFO 原则)</text>
+                </view>
 
                  <view wx:if="{{ item.isExpiring }}" class="mt-2 alert-box-orange">
                     <van-icon name="warning-o" color="#F97316" size="14px" class="mr-8"/>

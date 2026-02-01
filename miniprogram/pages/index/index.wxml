@@ -168,7 +168,7 @@
                     <view
                         wx:for="{{ batchList }}"
                         wx:key="batch_number"
-                        class="batch-card mb-10"
+                        class="batch-card {{ item.isExpiring ? 'expiring' : '' }}"
                         data-batch="{{ item }}"
                         bind:tap="onSelectBatchItem"
                     >

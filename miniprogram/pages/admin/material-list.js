@@ -27,6 +27,14 @@ Page({
     this.getList();
   },
 
+  // 页面显示时刷新列表（从编辑页返回后能看到最新数据）
+  onShow() {
+    // 仅当已有数据时才刷新，避免 onLoad 和 onShow 重复加载
+    if (this.data.list.length > 0) {
+      this.getList(true);
+    }
+  },
+
   onPullDownRefresh() {
     this.getList(true);
     wx.stopPullDownRefresh();

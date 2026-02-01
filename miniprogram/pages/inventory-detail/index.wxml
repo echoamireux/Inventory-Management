@@ -69,7 +69,7 @@
               <van-cell title="初始入库量" value="{{ item.inventory.length_m || '-' }} m" />
           </block>
           <block wx:else>
-              <van-cell title="初始入库量" value="{{ item.dynamic_attrs.weight_kg }} kg" />
+              <van-cell title="初始入库量" value="{{ item.quantity.val }} {{ item.quantity.unit || 'kg' }}" />
           </block>
 
           <van-cell title="CAS号" value="{{ item.cas_number }}" wx:if="{{ item.cas_number }}" />
