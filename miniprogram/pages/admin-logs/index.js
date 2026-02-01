@@ -383,27 +383,22 @@ Page({
       Toast.loading({ message: '删除中...', forbidClick: true });
 
       try {
-        let successCount = 0;
-        for (const id of selectedIds) {
-          try {
-            const res = await wx.cloud.callFunction({
-              name: 'removeLog',
-              data: { log_id: id }
-            });
-            if (res.result.success) successCount++;
-          } catch (e) {
-            console.error('Delete failed for:', id, e);
-          }
-        }
-
-        Toast.success(`已删除 ${successCount} 条`);
-        this.setData({
-          isSelectMode: false,
-          selectedIds: []
+        // 批量删除优化：一次调用删除所有选中项
+        const res = await wx.cloud.callFunction({
+          name: 'batchRemoveLog',
+          data: { log_ids: selectedIds }
         });
-        this.getList(true);
+
+        if (res.result.success) {
+          Toast.success(`已删除 ${selectedIds.length} 条`);
+          this.exitSelectMode();
+          this.getList(true);
+        } else {
+          throw new Error(res.result.msg || '删除失败');
+        }
       } catch (err) {
-        Toast.fail('删除失败');
+        console.error(err);
+        Toast.fail('删除失败: ' + (err.message || '未知错误'));
       }
     }).catch(() => {});
   }

@@ -7,9 +7,10 @@
   </van-tabs>
 
   <view class="p-15">
-    <!-- 0. 批量入库入口 -->
-    <view class="mb-15">
-        <van-button icon="apps-o" block plain type="primary" bind:click="goToBatchEntry">切换至批量扫码入库模式</van-button>
+    <!-- 0. 顶部操作区 -->
+    <view class="mb-15 flex-row justify-between items-center">
+        <van-button icon="apps-o" plain type="primary" size="small" bind:click="goToBatchEntry" custom-style="flex: 1; margin-right: 10px;">批量模式</van-button>
+        <van-button icon="records" plain type="info" size="small" bind:click="goToMyRequests" custom-style="flex: 1;">我的申请</van-button>
     </view>
 
     <!-- 1. 唯一码录入 (置顶) -->
@@ -35,7 +36,23 @@
         </van-cell-group>
     </view>
 
-    <view class="form-card bg-white rounded-lg overflow-hidden shadow-sm">
+    <!-- 强管控：未知代码阻断 -->
+    <view wx:if="{{isUnknownCode}}" class="bg-white rounded-lg shadow-sm p-20 text-center mb-15">
+        <van-icon name="warning-o" size="48px" color="#ee0a24" />
+        <view class="text-lg font-bold mt-10 text-dark">非标物料阻断</view>
+        <view class="text-sm text-secondary mt-10 mb-20 text-left">
+            代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在标准库中找到。
+            <view class="mt-5">根据实验室 MDM 规范，禁止随意录入非标物料。</view>
+            <view>请先提交建档申请，管理员审批通过后方可入库。</view>
+        </view>
+        <view class="flex-row">
+            <van-button type="info" block round bind:click="showRequestPopup" custom-class="flex-1 mr-10">立即申请建档</van-button>
+            <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
+        </view>
+    </view>
+
+    <!-- 正常填单区域 (只有代码已知时显示) -->
+    <view wx:else class="form-card bg-white rounded-lg overflow-hidden shadow-sm">
       <van-cell-group title="基础信息">
         <!-- 1. 产品代码 (SKU) -->
         <van-field
@@ -54,8 +71,9 @@
         <van-field
           value="{{ form.name }}"
           label="物料名称"
-          placeholder="{{ activeTab === 'chemical' ? '请输入 (如: MEK电子级 / PVDF树脂)' : '请输入 (如: 50um PET基膜)' }}"
+          placeholder="{{ activeTab === 'chemical' ? '匹配主数据后自动填入' : '匹配主数据后自动填入' }}"
           required
+          readonly
           data-field="name"
           bind:change="onInput"
           label-class="field-label-bold"
@@ -86,20 +104,20 @@
         </view>
 
         <!-- 3. 详细分类 -->
-        <van-cell
-            title="详细分类"
-            value="{{ form.sub_category || '请选择' }}"
-            is-link
-            bind:click="showSubCategorySheet"
+        <van-field
+            label="子类别"
+            value="{{ form.sub_category }}"
+            placeholder="自动填入"
+            readonly
             required
-            title-class="field-label-bold"
+            label-class="field-label-bold"
         />
 
         <!-- 4. 供应商型号 -->
         <van-field
           value="{{ form.supplier_model }}"
           label="原厂型号"
-          placeholder="供应商原始型号 (选填)"
+          placeholder="请输入 (选填)"
           data-field="supplier_model"
           bind:change="onInput"
         />
@@ -108,7 +126,7 @@
         <van-field
           value="{{ form.supplier }}"
           label="供应商"
-          placeholder="请输入供应商名称 (选填)"
+          placeholder="请输入 (选填)"
           data-field="supplier"
           bind:change="onInput"
         />
@@ -141,8 +159,8 @@
           bind:change="onInput"
         />
       </van-cell-group>
-    </view>
 
+    <!-- 规格属性 (Hidden if Unknown Code) -->
     <view class="mb-15">
       <van-cell-group title="规格属性">
         <!-- 化材规格 -->
@@ -209,6 +227,7 @@
               bind:change="onInput"
               label-class="field-label-bold"
             />
+            <van-cell title="过期日期" value="{{ form.expiry_date || '请选择' }}" is-link bind:click="showDatePicker" required title-class="field-label-bold" />
         </block>
       </van-cell-group>
     </view>
@@ -219,7 +238,8 @@
         绑定标签并入库
       </van-button>
     </view>
-  </view>
+    </view>
+    </view>
 
   <!-- 动作面板：单位选择 -->
   <van-action-sheet
@@ -264,6 +284,15 @@
     />
   </van-popup>
 
+  <!-- 申请建档-专用小类选择 -->
+  <van-action-sheet
+    show="{{ showRequestSubCategorySheet }}"
+    actions="{{ requestSubCategoryActions }}"
+    z-index="10000"
+    bind:close="onRequestSubCategoryClose"
+    bind:select="onRequestSubCategorySelect"
+  />
+
   <!-- 成功弹窗 -->
   <van-dialog
     use-slot
@@ -293,6 +322,64 @@
       </view>
     </view>
   </van-dialog>
+
+  <!-- 申请建档弹窗 -->
+  <van-popup
+    show="{{ showRequestPopup }}"
+    position="bottom"
+    round
+    custom-style="max-height: 80%;"
+    z-index="5000"
+    bind:close="onCloseRequestPopup"
+  >
+      <view class="pb-30 pt-20">
+        <view class="text-center text-lg font-bold mb-20 text-dark">申请建立新档案</view>
+
+        <van-cell-group>
+          <van-field label="大类(自动)" value="{{ activeTab === 'chemical' ? '化材' : '膜材' }}" readonly />
+          <van-field label="代码(自动)" value="{{ form.product_code }}" readonly />
+
+          <van-field
+            label="物料名称"
+            value="{{ requestForm.name }}"
+            placeholder="请输入物料名称 (必填)"
+            required
+            data-field="name"
+            bind:change="onRequestInput"
+          />
+
+          <van-cell
+              title="建议子类别"
+              value="{{ requestForm.sub_category || '请选择' }}"
+              is-link
+              required
+              bind:click="showRequestSubCategorySheet"
+          />
+
+          <!-- 选择了"其他"时显示输入框：兼容两种数据格式 -->
+          <van-field
+            wx:if="{{ requestForm.sub_category === '其他' || requestForm.sub_category === '其他 (Other)' }}"
+            label="建议子类别名称"
+            value="{{ requestForm.suggested_sub_category }}"
+            placeholder="请输入建议的小类名称 (选填)"
+            data-field="suggested_sub_category"
+            bind:change="onRequestInput"
+          />
+
+          <van-field
+            label="参考供应商"
+            value="{{ requestForm.supplier }}"
+            placeholder="请输入供应商 (选填)"
+            data-field="supplier"
+            bind:change="onRequestInput"
+          />
+        </van-cell-group>
+
+        <view class="pb-30" style="margin-top: 50px;">
+          <van-button type="info" block round bind:click="onSubmitRequest" loading="{{ requestLoading }}">提交申请</van-button>
+        </view>
+    </view>
+  </van-popup>
 
   <van-toast id="van-toast" />
 </view>

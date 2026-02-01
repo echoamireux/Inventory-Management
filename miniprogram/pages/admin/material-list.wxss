@@ -1,20 +1,108 @@
 /* pages/admin/material-list.wxss */
 
+/* 布局类 */
+.container {
+  min-height: 100vh;
+  background-color: #f7f8fa;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-start {
+  align-items: flex-start;
+}
+
+/* 间距类 */
+.p-20 { padding: 20rpx; }
+.px-20 { padding-left: 20rpx; padding-right: 20rpx; }
+.py-10 { padding-top: 10rpx; padding-bottom: 10rpx; }
+.px-16 { padding-left: 16rpx; padding-right: 16rpx; }
+.py-20 { padding-top: 20rpx; padding-bottom: 20rpx; }
+.pb-20 { padding-bottom: 20rpx; }
+
+.m-10 { margin: 10rpx; }
+.mr-10 { margin-right: 10rpx; }
+.mr-16 { margin-right: 16rpx; }
+.mb-4 { margin-bottom: 4rpx; }
+.mb-6 { margin-bottom: 6rpx; }
+.mb-12 { margin-bottom: 12rpx; }
+
+/* 文本类 */
+.text-xs { font-size: 20rpx; }
+.text-sm { font-size: 24rpx; }
+.text-base { font-size: 28rpx; }
+.text-lg { font-size: 32rpx; }
+.text-xl { font-size: 36rpx; }
+
+.font-bold { font-weight: bold; }
+
+.text-center { text-align: center; }
+
+.text-primary { color: #1989fa; }
+.text-secondary { color: #969799; }
+.text-main { color: #323233; }
+
+/* 组件类 */
 .material-card {
   background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  margin-bottom: 20rpx;
 }
 
-.text-primary {
-  color: var(--primary-color, #4F46E5);
+/* 强制 flex 布局生效，防止按钮挤压左侧 */
+.flex-row {
+  display: flex !important;
+  flex-direction: row !important;
 }
 
-.text-main {
-  color: #1F2937;
+/* 左侧内容：自适应，必须设置 overflow 防止撑开 */
+/* 左侧内容 */
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+  margin-right: 20rpx;
+  /* 关键：防止长文本撑开 */
+  word-break: break-all;
+  white-space: normal;
 }
 
-.text-secondary {
-  color: #6B7280;
+/* 右侧按钮组：不许压缩，且强制内容宽度 */
+.flex-shrink-0 {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  width: auto !important; /* 防止被拉伸 */
+}
+
+/* 强制 Van Button 宽度自适应文本 */
+van-button {
+  width: auto !important;
+  min-width: auto !important;
+  display: inline-block !important;
+}
+
+van-button button {
+  padding: 0 16rpx !important; /* Vant 内部 button 样式覆盖 */
 }

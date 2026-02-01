@@ -1,0 +1,72 @@
+/* pages/admin/approval-center/index.wxss */
+.container {
+  min-height: 100vh;
+  background-color: #f7f8fa;
+}
+
+.bg-white {
+  background-color: #fff;
+}
+
+.bg-gray-100 {
+  background-color: #f7f8fa;
+}
+
+.text-dark {
+  color: #323233;
+}
+
+.text-gray-600 {
+  color: #666;
+}
+
+.text-gray-400 {
+  color: #999;
+}
+
+.text-orange-500 {
+  color: #ff976a;
+}
+
+.rounded-lg {
+  border-radius: 8px;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.border-b {
+  border-bottom: 1px solid #ebedf0;
+}
+
+.border-t {
+  border-top: 1px solid #ebedf0;
+}
+
+/* Flex Utilities override if needed */
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.mb-10 { margin-bottom: 10px; }
+.mb-5 { margin-bottom: 5px; }
+.mr-10 { margin-right: 10px; }
+.mt-15 { margin-top: 15px; }
+.mt-10 { margin-top: 10px; }
+.p-15 { padding: 15px; }
+.pb-10 { padding-bottom: 10px; }
+.pt-10 { padding-top: 10px; }

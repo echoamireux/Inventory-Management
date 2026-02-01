@@ -1,4 +1,15 @@
 /* pages/index/index.wxss */
+.full-screen-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 /* 注意：大部分工具类和通用样式已移至 app.wxss，此文件仅保留页面特有样式 */
 
 /* ========== 页面特有样式 ========== */

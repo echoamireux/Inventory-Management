@@ -110,7 +110,7 @@ exports.main = async (event, context) => {
 };
 
 function checkExpiring(dateStr, category) {
-    if (category !== 'chemical' || !dateStr) return false;
+    if (!dateStr) return false;
     const now = new Date();
     const target = new Date(dateStr);
     const diff = target - now;

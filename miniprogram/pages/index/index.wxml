@@ -1,5 +1,10 @@
 <!--pages/index/index.wxml-->
 <view class="container pb-20">
+  <!-- Access Control Mask -->
+  <view wx:if="{{ !isUserReady }}" class="full-screen-mask bg-white flex-center">
+     <van-loading type="spinner" vertical>身份校验中...</van-loading>
+  </view>
+  <view wx:else>
 
   <!-- 顶部搜索 (吸顶) -->
   <view class="bg-white sticky-top z-index-10 border-bottom">
@@ -66,7 +71,7 @@
     <van-cell-group inset custom-class="shadow-sm">
       <van-cell title="新增物料" icon="add-o" is-link url="/pages/material-add/index" />
       <van-cell title="库存查询" icon="search" is-link url="/pages/inventory/index" />
-      <van-cell title="人员审核" icon="friends-o" is-link url="/pages/admin/user-list" wx:if="{{ isAdmin }}" info="New" />
+      <van-cell title="审批中心" icon="todo-list-o" is-link url="/pages/admin/approval-center/index" wx:if="{{ isAdmin }}" />
       <van-cell title="物料管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
       <van-cell title="审计日志" icon="shield-o" is-link url="/pages/admin-logs/index" wx:if="{{ isAdmin }}" />
       <van-cell title="操作日志" icon="orders-o" is-link url="/pages/logs/index" />
@@ -197,4 +202,5 @@
     bind:close="onWithdrawClose"
     bind:confirm="onWithdrawConfirmFn"
   />
+  </view>
 </view>

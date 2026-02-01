@@ -1,0 +1,48 @@
+<!--pages/my-requests/index.wxml-->
+<view class="container p-15">
+  <block wx:if="{{ loading }}">
+    <view class="text-center p-30">
+      <van-loading type="spinner" />
+    </view>
+  </block>
+
+  <block wx:elif="{{ list.length === 0 }}">
+    <van-empty description="暂无申请记录" />
+  </block>
+
+  <block wx:else>
+    <view class="mb-15" wx:for="{{ list }}" wx:key="_id">
+      <view class="bg-white rounded-lg shadow-sm overflow-hidden p-15">
+        <!-- Header: Code + Status -->
+        <view class="flex-row justify-between mb-10 border-b pb-10 border-gray-100">
+             <view class="font-bold text-lg text-dark">产品代码：{{ item.product_code }}</view>
+             <van-tag type="{{ item.status === 'approved' ? 'success' : (item.status === 'rejected' ? 'danger' : 'warning') }}">
+                {{ item.statusText }}
+             </van-tag>
+        </view>
+
+        <!-- Body Rows -->
+        <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">物料名称：</text>{{ item.material_name }}
+        </view>
+
+        <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">子类别：</text>{{ item.category === 'chemical' ? '化材' : '膜材' }} / {{ item.sub_category }}
+            <text wx:if="{{item.suggested_sub_category}}" class="text-orange-500"> (建议: {{item.suggested_sub_category}})</text>
+        </view>
+
+        <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">供应商：</text>{{ item.supplier || '未填写' }}
+        </view>
+
+        <!-- Footer: Time & Reject Reason -->
+        <view class="text-xs text-gray-400 mt-10 pt-10 border-t border-gray-100">
+            <view>申请时间: {{ item.date }}</view>
+            <view wx:if="{{ item.reject_reason }}" class="text-danger mt-5 font-bold">
+                驳回原因: {{ item.reject_reason }}
+            </view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

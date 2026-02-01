@@ -45,45 +45,30 @@ exports.main = async (event, context) => {
     }
 
     return await db.runTransaction(async transaction => {
-      // 2. 写入 Materials 集合
-      // 现在的逻辑：每次扫码都是一个"实例"。
-      // 但如果这个物料名之前存在过，是否应该复用 Materials 记录？
-      // 用户需求暗示："同一种胶水进货5桶"，意味着 "胶水" (Material) 是一个，而 "桶" (Inventory) 是5个。
-      // 所以我们应该先查 Materials 表有没有同名的？
-
-      // OPTIMIZATION: 现在的 addMaterial 实际上是 "Create Material + Stock In".
-      // 如果用户希望 "联想输入"，说明 Materials 表应该存的是 "模板"。
-      // 但目前的架构是 Material 和 Inventory 1:1 强绑定吗？
-      // 看代码：invData.material_id = materialId.
-      // 如果我们想复用 Material，就需要先查名。
+      // 2. 写入/验证 Materials 集合
+      // MDM 强管控模式：必须查到已有主数据，否则报错
+      const materialQuery = await db.collection('materials').where({
+          product_code: base.product_code
+      }).get();
 
       let materialId;
+      if (materialQuery.data.length > 0) {
+          // 已存在：复用该主数据 ID
+          materialId = materialQuery.data[0]._id;
+      } else {
+          // 不存在：禁止入库！
+          throw new Error(`物料代码 ${base.product_code} 未在标准库中，请先申请建档`);
+      }
 
-      // 尝试查找同名、同供应商、同规格的现有物料
-      // 由于事务限制，这里简化逻辑：总是新建 Material 记录作为快照，
-      // 或者，我们依然由于 "一物一码" 的设计，每个 inventory 对应一个 material record (snapshot style) 也没问题。
-      // 但为了数据整洁，最好是复用。
-
-      // 鉴于用户说 "输入乙酸匹配到乙酸乙酯，自动填入..."，这说明前端做了复用逻辑。
-      // 后端这里，我们可以简单点，每次都存一个新的 Material 记录作为 "实例的元数据" 也可以，
-      // 或者尝试复用。为了不破坏现有结构，我们暂时保持 "每次新建 Material" (或者视作快照)。
-      // 只要 Inventory 里的 unique_code 是唯一的就行。
-
+      /* 废弃：不再自动新建主数据
       const materialRes = await transaction.collection('materials').add({
         data: {
           ...base,
-          supplier: base.supplier || '',
-          // 新增字段
-          product_code: base.product_code || '', // 产品代码 (SKU)
-          sub_category: base.sub_category || '', // 详细分类
-          supplier_model: base.supplier_model || '', // 供应商原始型号
-          specs: specs,
-          create_time: db.serverDate(),
-          update_time: db.serverDate(),
-          creator: OPENID
+          // ...
         }
       });
       materialId = materialRes._id;
+      */
 
       // 4. 写入 Inventory 集合
       const invData = {
@@ -93,6 +78,8 @@ exports.main = async (event, context) => {
         sub_category: base.sub_category || '', // 冗余存一份方便筛选
         product_code: base.product_code || '', // 冗余存一份方便列表展示
         unique_code: unique_code, // 使用传入的 code
+        supplier: base.supplier || '', // Save instance supplier
+        supplier_model: base.supplier_model || '', // Save instance model
         location: inventory.location,
         status: 'in_stock',
         quantity: {
@@ -103,11 +90,12 @@ exports.main = async (event, context) => {
         update_time: db.serverDate()
       };
 
-      if (base.category === 'chemical') {
+      if (inventory.expiry_date) {
+        invData.expiry_date = new Date(inventory.expiry_date);
+    }
+
+    if (base.category === 'chemical') {
         invData.batch_number = inventory.batch_number;
-        if (inventory.expiry_date) {
-            invData.expiry_date = new Date(inventory.expiry_date);
-        }
         // 化材动态属性: 重量
         if (inventory.weight_kg) {
              invData.dynamic_attrs = { weight_kg: Number(inventory.weight_kg) };

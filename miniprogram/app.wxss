@@ -180,6 +180,9 @@ page {
 /* ========== 边框工具类 ========== */
 .border-bottom { border-bottom: 1px solid var(--color-border-light); }
 .border-top { border-top: 1px solid var(--color-border-light); }
+.border-b { border-bottom: 1px solid #ebedf0; }
+.border-t { border-top: 1px solid #ebedf0; }
+.border-gray-100 { border-color: #ebedf0; }
 
 /* ========== 通用卡片样式 ========== */
 .card {

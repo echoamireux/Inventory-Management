@@ -1,0 +1,10 @@
+{
+  "usingComponents": {
+    "van-card": "@vant/weapp/card/index",
+    "van-tag": "@vant/weapp/tag/index",
+    "van-empty": "@vant/weapp/empty/index",
+    "van-loading": "@vant/weapp/loading/index"
+  },
+  "navigationBarTitleText": "我的申请记录",
+  "enablePullDownRefresh": true
+}

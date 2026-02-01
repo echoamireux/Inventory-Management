@@ -1,0 +1,179 @@
+<van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#2C68FF">
+
+  <!-- Tab 1: 物料审批 -->
+  <van-tab title="物料审批" name="material">
+    <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
+
+      <block wx:if="{{ materialLoading }}">
+        <view class="p-20 text-center text-gray-500">加载中...</view>
+      </block>
+
+      <block wx:elif="{{ materialList.length === 0 }}">
+        <van-empty description="暂无待审核物料" />
+      </block>
+
+      <block wx:else>
+        <view wx:for="{{ materialList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm">
+          <view class="flex-row justify-between mb-10 border-b pb-10 border-gray-100">
+             <view class="font-bold text-lg text-dark">产品代码：{{ item.product_code }}</view>
+             <van-tag type="primary">{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
+          </view>
+
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">物料名称：</text>{{ item.material_name }}
+          </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">子类别：</text>{{ item.sub_category }}
+            <text wx:if="{{ item.suggested_sub_category }}" class="text-orange-500"> (建议: {{ item.suggested_sub_category }})</text>
+          </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">供应商：</text>{{ item.supplier || '未填写' }}
+          </view>
+          <view class="text-xs text-gray-400 mt-10">
+            申请人: <text class="text-dark font-bold">{{ item.applicant_name || '未知' }}</text> <text class="ml-5">(ID: {{ item._openid }})</text>
+          </view>
+          <view class="text-xs text-gray-400">
+            申请时间: {{ item._timeStr }}
+          </view>
+
+          <view class="flex-row justify-end mt-15 pt-10 border-t border-gray-100">
+            <van-button
+              size="small"
+              type="danger"
+              plain
+              custom-class="mr-10"
+              data-id="{{ item._id }}"
+              data-type="material"
+              bind:click="onReject"
+            >驳回</van-button>
+            <van-button
+              size="small"
+              type="primary"
+              data-id="{{ item._id }}"
+              data-type="material"
+              bind:click="onApprove"
+            >通过</van-button>
+          </view>
+        </view>
+      </block>
+    </view>
+  </van-tab>
+
+  <!-- Tab 2: 人员审批 -->
+  <van-tab title="人员审批" name="user">
+    <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
+
+      <block wx:if="{{ userLoading }}">
+        <view class="p-20 text-center text-gray-500">加载中...</view>
+      </block>
+
+      <block wx:elif="{{ userList.length === 0 }}">
+        <van-empty description="暂无待审核人员" />
+      </block>
+
+      <block wx:else>
+         <view wx:for="{{ userList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm flex-row items-center">
+
+            <view class="mr-15">
+              <van-image
+                width="50"
+                height="50"
+                radius="8"
+                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
+              />
+            </view>
+
+            <view class="flex-1">
+              <view class="flex-row justify-between mb-5">
+                 <view class="font-bold text-lg text-dark">{{ item.name }}</view>
+                 <van-tag type="warning" plain>待审核</van-tag>
+              </view>
+              <view class="text-sm text-gray-600 mb-2">
+                 部门：{{ item.department || '未填写' }}
+              </view>
+               <view class="text-sm text-gray-600 mb-2">
+                 手机：{{ item.mobile || '未填写' }}
+              </view>
+              <view class="text-xs text-gray-400">
+                 申请时间：{{ item._timeStr }}
+              </view>
+            </view>
+         </view>
+
+         <!-- Action Buttons separate line for clarity on mobile -->
+         <view class="flex-row justify-end w-full mt-10" wx:for-item="item" >
+            <!-- Note: accessing item outside scope? No, need to move buttons inside the card above -->
+         </view>
+
+         <!-- Re-structure user list item for buttons -->
+         <!-- Let's rewrite the loop content slightly -->
+      </block>
+
+      <!-- Better structure for User List -->
+      <view wx:for="{{ userList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm">
+         <view class="flex-row items-center mb-10">
+            <van-image
+                width="40"
+                height="40"
+                radius="4"
+                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
+                custom-class="mr-10"
+              />
+            <view>
+               <view class="font-bold">{{ item.name }}</view>
+               <view class="text-xs text-gray-500">{{ item.department }} | {{ item.mobile }}</view>
+            </view>
+         </view>
+         <view class="flex-row justify-end border-t border-gray-100 pt-10">
+             <van-button
+              size="small"
+              type="danger"
+              plain
+              custom-class="mr-10"
+              data-id="{{ item._id }}"
+              data-type="user"
+              bind:click="onReject"
+            >驳回</van-button>
+            <van-button
+              size="small"
+              type="primary"
+              data-id="{{ item._id }}"
+              data-type="user"
+              bind:click="onApprove"
+            >通过(激活)</van-button>
+         </view>
+      </view>
+
+    </view>
+  </van-tab>
+</van-tabs>
+
+<van-dialog id="van-dialog" />
+
+<!-- Reject Dialog (Custom Popup for Perfect Symmetry) -->
+<van-popup
+  show="{{ showRejectDialog }}"
+  round
+  custom-style="width: 80%; border-radius: 12px; overflow: hidden;"
+  bind:close="onCancelReject"
+>
+  <view class="text-center pt-20 pb-5 text-lg font-bold">确认驳回</view>
+
+  <view class="p-20">
+       <view class="text-sm text-gray-500 mb-10 text-center">请输入驳回原因，该原因将展示给申请人</view>
+       <van-field
+        value="{{ rejectReason }}"
+        type="textarea"
+        placeholder="请输入驳回理由 (选填)"
+        border="{{ false }}"
+        autosize
+        bind:change="onRejectReasonInput"
+        custom-style="background: #f7f8fa; border-radius: 8px; padding: 10px; height: 80px;"
+      />
+  </view>
+
+  <view class="flex-row border-t border-gray-100" style="height: 56px;">
+      <view class="flex-1 flex-row justify-center items-center text-lg active-opacity text-black" style="border-right: 1px solid #ebedf0; height: 100%;" bindtap="onCancelReject">取消</view>
+      <view class="flex-1 flex-row justify-center items-center text-lg font-bold text-danger active-opacity" style="height: 100%;" bindtap="onConfirmReject">驳回</view>
+  </view>
+</van-popup>

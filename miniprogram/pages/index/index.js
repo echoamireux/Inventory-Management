@@ -35,11 +35,11 @@ Page({
     batchList: [],
     selectedAggItem: null,
 
-    // Smart Suggestion
     isSmartBatchMode: false,
     recommendedCode: "",
 
     isAdmin: false,
+    isUserReady: false, // Access Control
   },
 
   onLoad: function (options) {
@@ -47,10 +47,12 @@ Page({
 
     // Check if user data is already ready
     if (app.globalData.user) {
+      this.setData({ isUserReady: true });
       this.checkAdminStatus();
     } else {
       // Wait for callback
       app.userReadyCallback = (user) => {
+        this.setData({ isUserReady: true });
         this.checkAdminStatus();
       };
     }

@@ -54,6 +54,7 @@
       <van-cell
         title="子类别"
         is-link
+        required
         value="{{ form.sub_category || '请选择' }}"
         bind:click="onShowSubCategoryPicker"
       >
@@ -69,6 +70,17 @@
           新增
         </van-button>
       </van-cell>
+
+      <!-- Custom Sub-category Input -->
+      <van-field
+        wx:if="{{ form.sub_category === '其他' || form.sub_category === '其他 (Other)' }}"
+        label="自定义子类"
+        placeholder="请输入子类别名称"
+        value="{{ form.custom_sub_category }}"
+        data-field="custom_sub_category"
+        bind:change="onInputChange"
+        required
+      />
     </van-cell-group>
   </view>
 

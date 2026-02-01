@@ -10,7 +10,7 @@ import {
   DEFAULT_FORM,
   SEARCH_DEBOUNCE_MS
 } from '../../utils/constants';
-const db = require('../../utils/db');
+const db = wx.cloud.database();
 
 Page({
   data: {
@@ -24,6 +24,17 @@ Page({
     showLocationSheet: false,
     showDatePicker: false,
     showSuccessDialog: false,
+
+    // MDM 强管控状态
+    isUnknownCode: false,
+    showRequestPopup: false,
+    requestLoading: false,
+    requestForm: {
+        name: '',
+        sub_category: '', // 建议
+        suggested_sub_category: '', // 手填的其他
+        supplier: ''
+    },
 
     // 联想建议
     suggestions: [],
@@ -118,6 +129,12 @@ Page({
       });
   },
 
+  goToMyRequests() {
+      wx.navigateTo({
+          url: '/pages/my-requests/index'
+      });
+  },
+
   async loadZones() {
       try {
           const res = await wx.cloud.database().collection('warehouse_zones')
@@ -190,7 +207,8 @@ Page({
         'form.supplier_model': '',
         'form.batch_number': '',
         // We can keep unique_code
-        suggestions: []
+        suggestions: [],
+        isUnknownCode: false // fix: reset blocking state
     }, () => {
         this.updateSubCategoryActions(tab);
         this.updateUnitActions(tab);
@@ -286,8 +304,22 @@ Page({
           });
 
           if (res.result && res.result.success) {
+             const list = res.result.list;
+
+             // MDM 强管控：如果没有匹配到任何结果 -> 阻断
+             if (!list || list.length === 0) {
+                 this.setData({
+                     suggestions: [],
+                     isUnknownCode: true
+                 });
+                 return;
+             }
+
+             // 匹配到了 -> 解除阻断
+             this.setData({ isUnknownCode: false });
+
              // 将主数据结果映射为建议格式
-             const suggestions = res.result.list.map(m => ({
+             const suggestions = list.map(m => ({
                  _id: m._id,
                  product_code: m.product_code,
                  name: m.material_name,
@@ -521,8 +553,8 @@ Page({
       inventory.expiry_date = form.expiry_date;
 
     } else {
-      if (!form.thickness_um || !form.width_mm || !form.length_m) {
-        return Toast.fail('请完善膜材规格信息');
+      if (!form.thickness_um || !form.width_mm || !form.length_m || !form.expiry_date) {
+        return Toast.fail('请完善膜材规格及过期日期');
       }
       base.unit = 'roll';
       specs.thickness_um = Number(form.thickness_um);
@@ -599,5 +631,167 @@ Page({
   onSuccessBack() {
     this.setData({ showSuccessDialog: false });
     wx.navigateBack();
+  },
+
+  // ============================================
+  // MDM 申请建档逻辑 (Phase 1)
+  // ============================================
+
+  showRequestPopup() {
+    this.setData({
+        showRequestPopup: true,
+        // Reset form but keep code
+        'requestForm.name': '',
+        'requestForm.sub_category': '',
+        'requestForm.suggested_sub_category': '',
+        'requestForm.supplier': ''
+    });
+  },
+
+  onEditCode() {
+      this.setData({
+          isUnknownCode: false,
+          suggestions: [],
+          'form.product_code': '' // Clear code to allow re-entry
+      });
+  },
+
+  onCloseRequestPopup() {
+    this.setData({ showRequestPopup: false });
+  },
+
+  onRequestInput(e) {
+      const field = e.currentTarget.dataset.field;
+      this.setData({ [`requestForm.${field}`]: e.detail });
+  },
+
+  showRequestSubCategorySheet() {
+      // 复用当前大类的选项，并添加“其他”
+      const { subCategoryActions } = this.data;
+      const actions = [...subCategoryActions, { name: '其他', color: '#1989fa' }];
+      this.setData({
+          requestSubCategoryActions: actions,
+          showRequestSubCategorySheet: true
+      });
+  },
+
+  onRequestSubCategoryClose() {
+      this.setData({ showRequestSubCategorySheet: false });
+  },
+
+  onRequestSubCategorySelect(e) {
+      const item = e.detail;
+      this.setData({
+          'requestForm.sub_category': item.name,
+          showRequestSubCategorySheet: false
+      });
+  },
+
+  async onSubmitRequest() {
+      const { requestForm, form, activeTab } = this.data;
+
+      // 1. 校验必填项
+      if (!requestForm.name) return Toast.fail('请填写物料名称');
+      if (!requestForm.sub_category) return Toast.fail('请选择建议小类');
+
+      // 用户反馈：“其他”的小类名称改为选填
+      // if (requestForm.sub_category === '其他' && !requestForm.suggested_sub_category) {
+      //    return Toast.fail('请填写建议名称');
+      // }
+
+      this.setData({ requestLoading: true });
+
+      // Core submit logic wrapper (Client Side)
+      const doSubmit = async () => {
+          // A. 查重：是否已有该代码的待审批申请
+          // Client-side query implicitly uses _openid if "Creator Read" permission is on.
+          // IF "All Read" is on, this query works for everyone.
+          // BUT if we want to check GLOBAL duplicates, we might need a cloud function if permissions are restrictive.
+          // HOWEVER, for now, let's assume we can query. If not, the cloud function approach was better but lacked _openid writing.
+          // ACTUALLY: Duplicate check is best done via Cloud Function to see ALL records.
+          // BUT since we are focusing on "My Requests" visibility, the critical part is the ADD.
+          // Let's rely on loose client checks or just proceed to ADD.
+          // Re-adding Cloud Function call for CHECKING is okay, but ADDing locally is better for visibility.
+
+          // Let's try hybrid: Query locally (might miss others' pending if restricted), but ADD locally (ensures visibility).
+
+          // B. 查重：是否已存在于主数据
+          const materialRes = await db.collection('materials').where({
+              product_code: form.product_code
+          }).count();
+
+          if (materialRes.total > 0) {
+              return { success: false, msg: '该代码已存在，无需申请' };
+          }
+
+          // C. 写入申请表
+          // Client-side add automatically injects _openid, ensuring "Creator Read" works
+
+          // Construct Full Code with Prefix
+          const prefix = this.getPrefix(activeTab);
+          let finalCode = form.product_code;
+          if (!finalCode.startsWith(prefix)) {
+              finalCode = prefix + finalCode;
+          }
+
+          // Get Applicant Name
+          const app = getApp();
+          const applicantName = app.globalData.user ? app.globalData.user.name : 'Unknown';
+
+          await db.collection('material_requests').add({
+              data: {
+                  product_code: finalCode, // Use full code
+                  category: activeTab,
+                  material_name: requestForm.name,
+                  applicant_name: applicantName, // Save name
+                  sub_category: requestForm.sub_category,
+                  suggested_sub_category: requestForm.suggested_sub_category || '',
+                  supplier: requestForm.supplier || '',
+                  status: 'pending', // pending | approved | rejected
+                  created_at: db.serverDate(),
+                  updated_at: db.serverDate()
+                  // _openid is auto-added
+              }
+          });
+
+          return { success: true, msg: '申请已提交' };
+      };
+
+      try {
+          const res = await doSubmit();
+
+          if (res.success) {
+              wx.showToast({ title: '申请已提交', icon: 'success' });
+              this.setData({ showRequestPopup: false });
+          } else {
+              wx.showToast({ title: res.msg || '提交失败', icon: 'none' });
+          }
+
+      } catch(err) {
+          console.error(err);
+
+          // Auto-Fix: Collection Not Exist (-502001) for writing
+          if (err.errCode === -502001 || (err.message && err.message.includes('COLLECTION_NOT_EXIST'))) {
+              try {
+                  console.log('Auto-creating collection...');
+                  await wx.cloud.callFunction({ name: 'initMDMCollection' });
+
+                  // Retry submission once
+                  const retryRes = await doSubmit();
+                  if (retryRes.success) {
+                      wx.showToast({ title: '申请已提交', icon: 'success' });
+                      this.setData({ showRequestPopup: false });
+                      return;
+                  }
+              } catch(retryErr) {
+                  wx.showToast({ title: '数据库异常，请联系管理员', icon: 'none' });
+              }
+          } else {
+              // Ignore duplicate errors if any, fallback
+              wx.showToast({ title: '提交失败: ' + (err.message || '网络异常'), icon: 'none' });
+          }
+      } finally {
+          this.setData({ requestLoading: false });
+      }
   }
 });

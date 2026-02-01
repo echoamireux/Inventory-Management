@@ -16,6 +16,7 @@ Page({
       material_name: '',
       category: '',  // 必选，不设默认值
       sub_category: '',
+      custom_sub_category: '', // NEW: For 'Other' input
       supplier: '',
       supplier_model: '',
       default_unit: '',
@@ -155,9 +156,28 @@ Page({
         const subCategoryIndex = this.data.subCategoryOptions.indexOf(data.sub_category);
         const unitIndex = this.data.unitOptions.indexOf(data.default_unit);
 
+        // Parse product code
+        let codePrefix = '';
+        let codeNumber = '';
+        if (data.product_code) {
+             if (data.product_code.startsWith('J-')) {
+                 codePrefix = 'J-';
+                 codeNumber = data.product_code.substring(2);
+             } else if (data.product_code.startsWith('M-')) {
+                 codePrefix = 'M-';
+                 codeNumber = data.product_code.substring(2);
+             } else {
+                 codeNumber = data.product_code;
+             }
+        } else {
+             // Fallback based on category
+             codePrefix = data.category === 'film' ? 'M-' : 'J-';
+        }
+
         this.setData({
           form: {
             product_code: data.product_code || '',
+            product_code_number: codeNumber, // Set extracted number
             material_name: data.material_name || '',
             category: data.category || '',
             sub_category: data.sub_category || '',
@@ -167,6 +187,7 @@ Page({
             shelf_life_days: data.shelf_life_days ? String(data.shelf_life_days) : ''
           },
           categoryIndex,
+          codePrefix: codePrefix, // Set prefix
           subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : 0,
           unitIndex: unitIndex >= 0 ? unitIndex : 0
         });
@@ -450,6 +471,42 @@ Page({
     this.setData({ showAddUnit: false });
   },
 
+  // Helper: Save custom sub-category to DB settings (Fire and Forget)
+  async saveCustomSubCategory(name) {
+      if (!name) return;
+      const { customSubCategories, subCategoryOptions, form } = this.data;
+
+      // If already exists in options, skip
+      if (subCategoryOptions.includes(name)) return;
+
+      try {
+          const db = wx.cloud.database();
+          const category = form.category;
+          const newCustom = { ...customSubCategories };
+          newCustom[category] = [...(newCustom[category] || []), name];
+
+          // Optimistically update local options to avoid re-save
+          const newOptions = [...subCategoryOptions, name];
+          this.setData({
+              customSubCategories: newCustom,
+              subCategoryOptions: newOptions
+          });
+
+          // Save to DB
+          await db.collection('settings').doc('custom_sub_categories').update({
+              data: { data: newCustom }
+          }).catch(async () => {
+              // If doc doesn't exist, create it
+               await db.collection('settings').doc('custom_sub_categories').set({
+                  data: { data: newCustom }
+              });
+          });
+          console.log('Custom sub-category auto-saved:', name);
+      } catch (err) {
+          console.error('Failed to auto-save custom sub-category', err);
+      }
+  },
+
   // 提交表单
   async onSubmit() {
     const { form, isEdit, id } = this.data;
@@ -467,6 +524,23 @@ Page({
       Toast.fail('请选择类别');
       return;
     }
+    if (!form.sub_category) {
+      Toast.fail('请选择子类别');
+      return;
+    }
+
+    // Handle Custom Sub-category
+    let finalSubCategory = form.sub_category;
+    if (form.sub_category === '其他' || form.sub_category === '其他 (Other)') {
+        if (!form.custom_sub_category || !form.custom_sub_category.trim()) {
+            Toast.fail('请输入自定义子类名称');
+            return;
+        }
+        finalSubCategory = form.custom_sub_category.trim();
+
+        // Auto-add to options (Fire and Forget)
+        this.saveCustomSubCategory(finalSubCategory);
+    }
 
     this.setData({ submitting: true });
     Toast.loading({ message: '保存中...', forbidClick: true });
@@ -475,6 +549,7 @@ Page({
       const action = isEdit ? 'update' : 'create';
       const data = {
         ...form,
+        sub_category: finalSubCategory, // Override with custom value
         shelf_life_days: form.shelf_life_days ? parseInt(form.shelf_life_days) : null
       };
 

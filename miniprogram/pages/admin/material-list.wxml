@@ -47,14 +47,14 @@
             </view>
           </view>
 
-          <!-- 右侧操作按钮 -->
-          <view class="flex-row items-center">
+          <!-- 右侧操作按钮：强制不许压缩，且给最大宽度限制 -->
+          <view class="flex-row items-center flex-shrink-0" style="max-width: 40%;">
             <van-button
               type="primary"
               size="mini"
               plain
               round
-              custom-style="margin-right: 8px;"
+              custom-style="width: auto; padding: 0 12px; margin-right: 8px; white-space: nowrap;"
               data-id="{{ item._id }}"
               bind:click="onEdit"
             >
@@ -65,6 +65,7 @@
               size="mini"
               plain
               round
+              custom-style="width: auto; padding: 0 12px; white-space: nowrap;"
               data-id="{{ item._id }}"
               bind:click="onArchive"
             >
