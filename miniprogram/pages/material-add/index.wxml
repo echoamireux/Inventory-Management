@@ -323,6 +323,29 @@
     </view>
   </van-dialog>
 
+  <!-- 新建区域弹窗 (UI 优化版) -->
+  <van-dialog
+    use-slot
+    title="新建存储区域"
+    show="{{ showCreateZoneDialog }}"
+    show-cancel-button
+    bind:close="onCreateZoneConfirm"
+    confirm-button-color="#2C68FF"
+  >
+    <view class="p-20">
+       <view class="bg-page rounded-md p-10 mb-10">
+           <van-field
+            value="{{ newZoneName }}"
+            placeholder="请输入区域名称 (如: 防爆柜)"
+            border="{{ false }}"
+            bind:change="onCreateZoneInput"
+            custom-style="background: transparent; padding: 0;"
+           />
+       </view>
+       <view class="text-xs text-secondary text-center">新区域将自动添加至列表</view>
+    </view>
+  </van-dialog>
+
   <!-- 申请建档弹窗 -->
   <van-popup
     show="{{ showRequestPopup }}"

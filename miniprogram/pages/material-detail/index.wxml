@@ -71,4 +71,5 @@
   <view class="p-20" wx:if="{{ isAdmin && item }}">
       <van-button type="danger" block bind:click="onDelete" custom-class="shadow-sm">删除物料 (管理员)</van-button>
   </view>
+  <van-dialog id="van-dialog" />
 </view>

@@ -1,5 +1,6 @@
 // pages/material-detail/index.js
 const db = require('../../utils/db');
+import Dialog from '@vant/weapp/dialog/dialog';
 
 Page({
   data: {
@@ -94,13 +95,11 @@ Page({
   },
 
   onDelete() {
-    wx.showModal({
+    Dialog.confirm({
       title: '确认删除',
-      content: '确定要彻底删除该物料吗？',
-      confirmColor: '#FF0000',
-      success: async (res) => {
-        if (!res.confirm) return;
-
+      message: '确定要彻底删除该物料吗？此操作不可逆。',
+      confirmButtonColor: '#FF0000'
+    }).then(async () => {
         wx.showLoading({ title: '执行中...' });
         try {
             const app = getApp();
@@ -115,11 +114,7 @@ Page({
 
             if (!invId) {
                 wx.hideLoading();
-                wx.showModal({
-                    title: '错误',
-                    content: '严重错误：无法获取 Inventory ID，程序无法继续。请截图反馈此信息。',
-                    showCancel: false
-                });
+                Dialog.alert({ title: '错误', message: '严重错误：无法获取 Inventory ID，程序无法继续。' });
                 return;
             }
 
@@ -146,13 +141,10 @@ Page({
         } catch (err) {
             console.error(err);
             wx.hideLoading();
-            wx.showModal({
-                title: '删除失败',
-                content: '云函数报错: ' + err.message,
-                showCancel: false
-            });
+            Dialog.alert({ title: '删除失败', message: '云函数报错: ' + err.message });
         }
-      }
+    }).catch(() => {
+        // Cancel logic
     });
   }
 });

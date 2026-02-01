@@ -221,15 +221,15 @@ Page({
 
       if (!list || list.length === 0) {
         // 分支 A: 标签不存在 -> 提示入库
-        wx.showModal({
+        Dialog.confirm({
           title: "标签未录入",
-          content: `标签 ${code} 尚未绑定物料，是否立即入库？`,
-          confirmText: "去入库",
-          success: (res) => {
-            if (res.confirm) {
-              wx.navigateTo({ url: `/pages/material-add/index?id=${code}` });
-            }
-          },
+          message: `标签 ${code} 尚未绑定物料，是否立即入库？`,
+          confirmButtonText: "去入库",
+          confirmButtonColor: "#2C68FF"
+        }).then(() => {
+            wx.navigateTo({ url: `/pages/material-add/index?id=${code}` });
+        }).catch(() => {
+            // Cancel
         });
         return;
       }

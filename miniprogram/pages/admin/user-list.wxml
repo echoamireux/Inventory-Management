@@ -77,6 +77,32 @@
       image="search"
     />
   </view>
+
+  <van-dialog id="van-dialog" />
+
+  <!-- 拒绝原因弹窗 -->
+  <van-dialog
+    use-slot
+    title="拒绝申请"
+    show="{{ showRejectDialog }}"
+    show-cancel-button
+    bind:close="onRejectConfirm"
+    confirm-button-color="#ee0a24"
+  >
+    <view class="p-20">
+        <view class="bg-page rounded-md p-10">
+          <van-field
+            value="{{ rejectReason }}"
+            placeholder="请输入拒绝/驳回原因 (必填)"
+            border="{{ false }}"
+            bind:change="onRejectInput"
+            type="textarea"
+            autosize
+            custom-style="background: transparent; padding: 0;"
+          />
+        </view>
+    </view>
+  </van-dialog>
 </view>
 
 <!-- 为了截取ID前几位，使用wxs简单处理 -->

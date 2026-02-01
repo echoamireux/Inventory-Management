@@ -24,6 +24,8 @@ Page({
     showLocationSheet: false,
     showDatePicker: false,
     showSuccessDialog: false,
+    showCreateZoneDialog: false,
+    newZoneName: '',
 
     // MDM 强管控状态
     isUnknownCode: false,
@@ -443,45 +445,64 @@ Page({
       const zone = e.detail.name;
 
       if (zone === '+ 新建区域...') {
-          this.setData({ showLocationSheet: false });
-          wx.showModal({
-              title: '新建存储区域',
-              content: '',
-              editable: true,
-              placeholderText: '请输入区域名称 (如: 防爆柜)',
-              success: async (res) => {
-                  if (res.confirm && res.content) {
-                       const newName = res.content.trim();
-                       if(!newName) return;
-
-                       wx.showLoading({ title: '创建中...' });
-                       try {
-                           const callRes = await wx.cloud.callFunction({
-                               name: 'addWarehouseZone',
-                               data: { name: newName }
-                           });
-
-                           if (callRes.result.success) {
-                               wx.showToast({ title: '创建成功' });
-                               // Refresh and Select
-                               await this.loadZones();
-                               this.setData({ 'form.location_zone': newName });
-                           } else {
-                               wx.showToast({ title: callRes.result.msg, icon: 'none' });
-                           }
-                       } catch(err) {
-                           wx.showToast({ title: '创建失败', icon: 'none' });
-                       } finally {
-                           wx.hideLoading();
-                       }
-                  }
-              }
+          this.setData({
+              showLocationSheet: false,
+              showCreateZoneDialog: true,
+              newZoneName: '' // Reset input
           });
       } else {
           this.setData({
               'form.location_zone': zone,
               showLocationSheet: false
           });
+      }
+  },
+
+  // 新建区域弹窗逻辑
+  onCreateZoneInput(e) {
+      this.setData({ newZoneName: e.detail });
+  },
+
+  async onCreateZoneConfirm(action, done) {
+      if (action === 'confirm') {
+          const newName = this.data.newZoneName.trim();
+          if (!newName) {
+              Toast.fail('请输入区域名称');
+              done(false); // 阻止关闭
+              return;
+          }
+
+          // 允许关闭，显示loading
+          // Note: van-dialog async close is tricky with await inside.
+          // Better to manage loading manually, but let's try standard flow.
+          // Or just do logic here.
+          done(false); // Keep open while loading
+
+          wx.showLoading({ title: '创建中...' });
+          try {
+                const callRes = await wx.cloud.callFunction({
+                    name: 'addWarehouseZone',
+                    data: { name: newName }
+                });
+
+                if (callRes.result.success) {
+                    wx.showToast({ title: '创建成功' });
+                    // Refresh and Select
+                    await this.loadZones();
+                    this.setData({
+                        'form.location_zone': newName,
+                        showCreateZoneDialog: false // Close manually
+                    });
+                } else {
+                    wx.showToast({ title: callRes.result.msg, icon: 'none' });
+                }
+            } catch(err) {
+                wx.showToast({ title: '创建失败', icon: 'none' });
+            } finally {
+                wx.hideLoading();
+            }
+      } else {
+          this.setData({ showCreateZoneDialog: false });
       }
   },
 

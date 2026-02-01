@@ -1,9 +1,13 @@
 // pages/admin/user-list.js
 const db = require('../../utils/db');
+import Dialog from '@vant/weapp/dialog/dialog';
 
 Page({
   data: {
-    list: []
+    list: [],
+    showRejectDialog: false,
+    rejectTargetId: '',
+    rejectReason: ''
   },
 
   onLoad: function (options) {
@@ -55,69 +59,81 @@ Page({
     }
   },
 
+  // 拒绝相关逻辑
   onReject(e) {
     const id = e.currentTarget.dataset.id;
-    wx.showModal({
-      title: '拒绝申请',
-      content: '请输入拒绝/驳回原因',
-      editable: true,
-      placeholderText: '例如：非本实验室人员 / 信息填写错误',
-      success: async (res) => {
-        if (res.confirm) {
-          const reason = res.content;
+    this.setData({
+        showRejectDialog: true,
+        rejectTargetId: id,
+        rejectReason: ''
+    });
+  },
+
+  onRejectInput(e) {
+      this.setData({ rejectReason: e.detail });
+  },
+
+  async onRejectConfirm(action, done) {
+      if (action === 'confirm') {
+          const reason = this.data.rejectReason;
           if (!reason) {
-            wx.showToast({ title: '请填写原因', icon: 'none' });
-            return;
+              wx.showToast({ title: '请填写原因', icon: 'none' });
+              done(false);
+              return;
           }
 
+          done(false); // Keep open
           wx.showLoading({ title: '处理中...' });
+
           try {
             await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
               data: {
-                userId: id,
+                userId: this.data.rejectTargetId,
                 status: 'rejected',
                 rejectReason: reason
               }
             });
 
             wx.showToast({ title: '已驳回', icon: 'success' });
-            this.getList(); // Refresh list
+            this.setData({ showRejectDialog: false });
+            this.getList();
           } catch (err) {
             console.error(err);
             wx.showToast({ title: '操作失败', icon: 'none' });
           } finally {
             wx.hideLoading();
           }
-        }
+      } else {
+          this.setData({ showRejectDialog: false });
       }
-    });
   },
 
   onApprove(e) {
     const id = e.currentTarget.dataset.id;
-    wx.showModal({
+    const name = e.currentTarget.dataset.name || '该用户'; // Bonus UX
+
+    Dialog.confirm({
       title: '确认通过',
-      content: '是否批准该用户加入？',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '处理中...' });
-          try {
+      message: '是否批准该用户加入？',
+      confirmButtonText: '批准加入',
+      confirmButtonColor: '#2C68FF' // Brand Color
+    }).then(async () => {
+        wx.showLoading({ title: '处理中...' });
+        try {
             await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
               data: { userId: id, status: 'active' }
             });
 
             wx.showToast({ title: '已通过', icon: 'success' });
-            this.getList(); // Refresh list
-          } catch (err) {
+            this.getList();
+        } catch (err) {
             console.error(err);
             wx.showToast({ title: '操作失败', icon: 'none' });
-          } finally {
+        } finally {
             wx.hideLoading();
-          }
         }
-      }
-    });
+    }).catch(() => {});
   }
 });
