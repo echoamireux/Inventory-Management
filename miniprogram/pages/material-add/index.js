@@ -44,6 +44,10 @@ Page({
     chemicalCategories: CHEMICAL_CATEGORIES,
     filmCategories: FILM_CATEGORIES,
 
+    // 自定义选项（从数据库加载）
+    customSubCategories: { chemical: [], film: [] },
+    customUnits: { chemical: [], film: [] },
+
     // UI binding
     subCategoryActions: [],
     showSubCategorySheet: false,
@@ -69,6 +73,43 @@ Page({
 
       // Load Zones from DB
       this.loadZones();
+
+      // Load custom options from settings
+      this.loadCustomOptions();
+  },
+
+  // 加载自定义子类别和单位选项
+  async loadCustomOptions() {
+    try {
+      const db = wx.cloud.database();
+      // 尝试读取 settings 表，如果表或记录不存在会返回空数组
+      const res = await db.collection('settings')
+        .where({
+          _id: db.command.in(['custom_sub_categories', 'custom_units'])
+        })
+        .get()
+        .catch(() => ({ data: [] })); // 表不存在时返回空
+
+      if (res.data && res.data.length > 0) {
+        res.data.forEach(item => {
+          if (item._id === 'custom_sub_categories') {
+            this.setData({ customSubCategories: item.data || { chemical: [], film: [] } });
+          } else if (item._id === 'custom_units') {
+            this.setData({ customUnits: item.data || { chemical: [], film: [] } });
+          }
+        });
+      }
+
+      // 刷新子类别列表
+      this.updateSubCategoryActions(this.data.activeTab);
+      // 刷新单位列表
+      this.updateUnitActions(this.data.activeTab);
+    } catch (err) {
+      console.warn('加载自定义选项失败，使用默认值:', err);
+      // 静默失败，仍然刷新默认选项
+      this.updateSubCategoryActions(this.data.activeTab);
+      this.updateUnitActions(this.data.activeTab);
+    }
   },
 
   goToBatchEntry() {
@@ -152,13 +193,38 @@ Page({
         suggestions: []
     }, () => {
         this.updateSubCategoryActions(tab);
+        this.updateUnitActions(tab);
         this.updateZoneList(); // Refresh Zones
     });
   },
 
   updateSubCategoryActions(tab) {
-      const list = tab === 'chemical' ? this.data.chemicalCategories : this.data.filmCategories;
-      this.setData({ subCategoryActions: list });
+      const baseList = tab === 'chemical' ? this.data.chemicalCategories : this.data.filmCategories;
+      const customList = this.data.customSubCategories[tab] || [];
+
+      // 合并基础选项和自定义选项
+      const mergedList = [
+        ...baseList,
+        ...customList.map(name => ({ name, code: tab === 'chemical' ? 'J' : 'M', type: tab }))
+      ];
+
+      this.setData({ subCategoryActions: mergedList });
+  },
+
+  // 更新单位列表（合并自定义选项）
+  updateUnitActions(tab) {
+      const customList = this.data.customUnits[tab] || [];
+      const baseList = [...UNIT_OPTIONS];
+
+      // 添加自定义单位（去重）
+      const existingNames = new Set(baseList.map(u => u.name));
+      customList.forEach(name => {
+        if (!existingNames.has(name)) {
+          baseList.push({ name });
+        }
+      });
+
+      this.setData({ unitActions: baseList });
   },
 
   // Helper to get prefix - 使用常量
@@ -203,21 +269,36 @@ Page({
       });
   },
 
-  // 查询联想词 (By SKU or Name) - Moved to Cloud Function for Security
+  // 查询联想词 (从主数据表查询)
   async searchSuggestions(keyword) {
       if (!keyword) return;
       try {
           const res = await wx.cloud.callFunction({
-              name: 'searchInventory',
+              name: 'manageMaterial',
               data: {
-                  keyword: keyword,
-                  type: 'suggestion'
+                  action: 'list',
+                  data: {
+                      searchVal: keyword,
+                      category: this.data.activeTab,
+                      pageSize: 10
+                  }
               }
           });
 
           if (res.result && res.result.success) {
-             // 注意：response.js 的 success() 函数返回的是 data 而不是 list
-             this.setData({ suggestions: res.result.data || [] });
+             // 将主数据结果映射为建议格式
+             const suggestions = res.result.list.map(m => ({
+                 _id: m._id,
+                 product_code: m.product_code,
+                 name: m.material_name,
+                 supplier: m.supplier,
+                 supplier_model: m.supplier_model,
+                 sub_category: m.sub_category,
+                 unit: m.default_unit,
+                 category: m.category,
+                 shelf_life_days: m.shelf_life_days
+             }));
+             this.setData({ suggestions });
           }
       } catch(err) {
           console.error('[Suggestion Error]', err);

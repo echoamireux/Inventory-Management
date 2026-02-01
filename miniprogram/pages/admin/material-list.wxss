@@ -1,0 +1,20 @@
+/* pages/admin/material-list.wxss */
+
+.material-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.text-primary {
+  color: var(--primary-color, #4F46E5);
+}
+
+.text-main {
+  color: #1F2937;
+}
+
+.text-secondary {
+  color: #6B7280;
+}

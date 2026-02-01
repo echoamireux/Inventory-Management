@@ -3,10 +3,95 @@
   background: #f7f8fa;
 }
 
+/* 多选工具栏 */
+.select-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #ebedf0;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.toolbar-left text {
+  margin-left: 10px;
+  font-size: 14px;
+  color: #323233;
+}
+
+.selected-info {
+  font-size: 13px;
+  color: #1989fa;
+  margin-right: 16px;
+}
+
+.cancel-btn {
+  font-size: 14px;
+  color: #969799;
+}
+
+/* 圆形复选框 */
+.round-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #c8c9cc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition: all 0.15s ease;
+}
+
+.round-check.checked {
+  border-color: #1989fa;
+  background: #1989fa;
+}
+
+/* 列表 */
 .list-container {
   padding: 12px;
 }
 
+.list-container.with-bottom-bar {
+  padding-bottom: 80px;
+}
+
+/* 多选模式行 */
+.select-row {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.15s ease;
+}
+
+.select-row.selected {
+  background: #e6f7ff;
+  box-shadow: 0 0 0 2px #1989fa, 0 2px 8px rgba(25,137,250,0.15);
+}
+
+.check-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.content-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 加载提示 */
 .loading-container {
   text-align: center;
   padding: 20px;
@@ -17,4 +102,17 @@
   color: #969799;
   font-size: 12px;
   padding: 10px;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid #ebedf0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 }

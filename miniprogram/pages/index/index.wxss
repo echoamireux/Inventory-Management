@@ -149,3 +149,20 @@
   font-size: 11px;
   padding: 2px 8px;
 }
+
+/* 批次选择卡片 */
+.batch-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin: 0 16px;
+}
+
+.text-primary {
+  color: var(--color-brand, #4F46E5);
+}
+
+.text-secondary {
+  color: #6B7280;
+}

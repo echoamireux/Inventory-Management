@@ -67,6 +67,7 @@
       <van-cell title="新增物料" icon="add-o" is-link url="/pages/material-add/index" />
       <van-cell title="库存查询" icon="search" is-link url="/pages/inventory/index" />
       <van-cell title="人员审核" icon="friends-o" is-link url="/pages/admin/user-list" wx:if="{{ isAdmin }}" info="New" />
+      <van-cell title="物料管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
       <van-cell title="审计日志" icon="shield-o" is-link url="/pages/admin-logs/index" wx:if="{{ isAdmin }}" />
       <van-cell title="操作日志" icon="orders-o" is-link url="/pages/logs/index" />
     </van-cell-group>
@@ -159,14 +160,28 @@
 
            <scroll-view scroll-y style="flex: 1; height: 1px;">
                 <view class="px-safe pt-safe pb-safe">
-                    <!-- 使用统一批次卡片组件 -->
-                    <batch-list-item
+                    <!-- 批次级卡片 -->
+                    <view
                         wx:for="{{ batchList }}"
-                        wx:key="_id"
-                        item="{{ item }}"
+                        wx:key="batch_number"
+                        class="batch-card mb-10"
+                        data-batch="{{ item }}"
                         bind:tap="onSelectBatchItem"
-                        data-code="{{ item.unique_code }}"
-                    />
+                    >
+                        <view class="flex-row justify-between items-center">
+                            <view class="flex-col">
+                                <view class="flex-row items-center mb-4">
+                                    <text class="text-primary font-bold text-base mr-8">{{ item.batch_number }}</text>
+                                    <van-tag type="warning" plain wx:if="{{ item.isExpiring }}">临期</van-tag>
+                                </view>
+                                <text class="text-secondary text-sm">有效期: {{ item.expiry }} · {{ item.location }}</text>
+                            </view>
+                            <view class="text-right">
+                                <text class="text-primary font-bold text-lg">{{ item.totalQuantity }}</text>
+                                <text class="text-secondary text-sm ml-4">{{ item.unit }}</text>
+                            </view>
+                        </view>
+                    </view>
                     <view style="height: 40px;"></view>
                 </view>
             </scroll-view>

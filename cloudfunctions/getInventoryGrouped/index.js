@@ -60,28 +60,26 @@ exports.main = async (event, context) => {
         };
     }
 
-    // 2. Build Pipeline
+    // 2. Build Pipeline - 仅按 product_code 聚合
     const result = await db.collection('inventory').aggregate()
       .match(matchObj)
       .group({
-        // Group by product_code. If missing, fallback to name.
-        _id: {
-            code: '$product_code',
-            name: '$material_name',
-            category: '$category'
-        },
+        // Group by product_code only (解决名称不一致导致重复聚合问题)
+        _id: '$product_code',
         // Aggregate Data
         totalQuantity: $.sum('$quantity.val'),
         totalCount: $.sum(1),
         minExpiry: $.min('$expiry_date'),
         locations: $.addToSet('$location'), // Unique locations
-        // Basic Info (Should be same for group)
+        // Basic Info (取第一个记录的值)
+        material_name: $.first('$material_name'),
+        category: $.first('$category'),
         unit: $.first('$quantity.unit'),
         sub_category: $.first('$sub_category')
       })
       .sort({
           minExpiry: 1, // Prioritize expiring items
-          '_id.code': 1
+          '_id': 1
       })
       .limit(50)
       .end();
@@ -89,9 +87,9 @@ exports.main = async (event, context) => {
     // 3. Format Output
     const list = result.list.map(item => {
         return {
-            product_code: item._id.code || '无代码',
-            material_name: item._id.name,
-            category: item._id.category,
+            product_code: item._id || '无代码',
+            material_name: item.material_name,
+            category: item.category,
             sub_category: item.sub_category,
             totalQuantity: parseFloat(item.totalQuantity.toFixed(2)),
             totalCount: item.totalCount,
@@ -99,7 +97,7 @@ exports.main = async (event, context) => {
             minExpiry: item.minExpiry,
             locations: item.locations,
             // Calculate status
-            isExpiring: checkExpiring(item.minExpiry, item._id.category)
+            isExpiring: checkExpiring(item.minExpiry, item.category)
         };
     });
 

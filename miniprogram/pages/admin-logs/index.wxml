@@ -1,5 +1,5 @@
 <!--pages/admin-logs/index.wxml-->
-<!-- 审计日志页面 - 使用统一日志组件 + 筛选功能 -->
+<!-- 审计日志页面 -->
 <view class="page-container">
   <!-- 搜索栏 -->
   <van-search
@@ -11,21 +11,52 @@
     background="#f7f8fa"
   />
 
-  <!-- 筛选器 -->
-  <van-dropdown-menu active-color="#1989fa">
+  <!-- 筛选器（非多选模式） -->
+  <van-dropdown-menu active-color="#1989fa" wx:if="{{ !isSelectMode }}">
     <van-dropdown-item value="{{ dateFilter }}" options="{{ dateOptions }}" bind:change="onDateFilterChange" />
     <van-dropdown-item value="{{ typeFilter }}" options="{{ typeOptions }}" bind:change="onTypeFilterChange" />
     <van-dropdown-item value="{{ operatorFilter }}" options="{{ operatorOptions }}" bind:change="onOperatorFilterChange" />
   </van-dropdown-menu>
 
+  <!-- 多选模式工具栏 -->
+  <view wx:if="{{ isSelectMode }}" class="select-toolbar">
+    <view class="toolbar-left" bind:tap="onSelectAll">
+      <view class="round-check {{ selectedIds.length === list.length && list.length > 0 ? 'checked' : '' }}">
+        <van-icon wx:if="{{ selectedIds.length === list.length && list.length > 0 }}" name="success" size="14px" color="#fff" />
+      </view>
+      <text>全选</text>
+    </view>
+    <text class="selected-info">已选 {{ selectedIds.length }} 条</text>
+    <text class="cancel-btn" bind:tap="exitSelectMode">取消</text>
+  </view>
+
   <!-- 日志列表 -->
-  <view class="list-container">
-    <block wx:for="{{ list }}" wx:key="_id">
-      <log-item
-        item="{{ item }}"
-        mode="full"
-        bind:longpress="onLongPressItem"
-      />
+  <view class="list-container {{ isSelectMode ? 'with-bottom-bar' : '' }}">
+    <!-- 非多选模式 -->
+    <block wx:if="{{ !isSelectMode && list.length > 0 }}">
+      <view wx:for="{{ list }}" wx:key="_id" data-id="{{ item._id }}" bind:longpress="onLongPressItem">
+        <log-item item="{{ item }}" mode="full" />
+      </view>
+    </block>
+
+    <!-- 多选模式 -->
+    <block wx:if="{{ isSelectMode && list.length > 0 }}">
+      <view
+        wx:for="{{ list }}"
+        wx:key="_id"
+        class="select-row {{ item._selected ? 'selected' : '' }}"
+        data-id="{{ item._id }}"
+        bind:tap="onSelectItem"
+      >
+        <view class="check-col">
+          <view class="round-check {{ item._selected ? 'checked' : '' }}">
+            <van-icon wx:if="{{ item._selected }}" name="success" size="14px" color="#fff" />
+          </view>
+        </view>
+        <view class="content-col">
+          <log-item item="{{ item }}" mode="full" transparent="{{ true }}" />
+        </view>
+      </view>
     </block>
 
     <van-empty wx:if="{{ !loading && list.length === 0 }}" description="暂无记录" />
@@ -39,7 +70,20 @@
     </view>
   </view>
 
-  <!-- 操作菜单 -->
+  <!-- 底部操作栏（多选模式） -->
+  <view wx:if="{{ isSelectMode }}" class="bottom-bar">
+    <van-button
+      type="danger"
+      block
+      round
+      disabled="{{ selectedIds.length === 0 }}"
+      bind:click="onBatchDelete"
+    >
+      删除 ({{ selectedIds.length }})
+    </van-button>
+  </view>
+
+  <!-- 长按菜单 -->
   <van-action-sheet
     show="{{ showActionSheet }}"
     actions="{{ actionSheetActions }}"
@@ -49,7 +93,6 @@
     bind:cancel="onActionSheetClose"
   />
 
-  <!-- Toast & Dialog Containers -->
   <van-toast id="van-toast" />
   <van-dialog id="van-dialog" />
 </view>

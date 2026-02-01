@@ -133,98 +133,52 @@ Page({
     }
   },
 
-  // Modified to handle Smart Batch Selection
+  // Modified to handle Batch Aggregated Selection
   onSelectBatchItem(e) {
-    // 支持两种模式：组件返回 item 或 dataset.code
-    let item;
-    if (e.detail && e.detail.item) {
-      item = e.detail.item;
-    } else {
-      const code = e.currentTarget.dataset.code;
-      item = this.data.batchList.find((b) => b.unique_code === code);
-    }
-    if (!item) return;
-
-    const selectedBatchNo = item.batch_number;
-
-    // Filter all items with this batch number in the current list
-    const batchItems = this.data.batchList.filter(
-      (b) => b.batch_number === selectedBatchNo,
-    );
-
-    // Calculate Total Aggregated Stock for this Batch
-    let totalQty = 0;
-    let isFilm = item.category === "film";
-
-    batchItems.forEach((b) => {
-      if (isFilm) {
-        totalQty += (b.dynamic_attrs && b.dynamic_attrs.current_length_m) || 0;
-      } else {
-        totalQty += b.quantity.val;
-      }
-    });
+    // 从 dataset.batch 获取批次聚合数据
+    const batch = e.currentTarget.dataset.batch;
+    if (!batch) return;
 
     this.setData({
       showBatchPopup: false,
       showSelectPopup: false,
     });
 
-    this.handleSmartBatchResult(item, totalQty, batchItems);
+    this.handleBatchWithdraw(batch);
   },
 
-  handleSmartBatchResult(item, totalQty, batchItems = []) {
-    let currentStockDesc = "";
-    let inputLabel = "";
+  // 处理批次级领用
+  handleBatchWithdraw(batch) {
+    const totalQty = batch.totalQuantity;
+    const unit = batch.unit || 'kg';
+    const category = this.data.selectedAggItem?.category || this.data.selectActiveTab;
 
-    totalQty = Number(totalQty.toFixed(3));
+    let currentStockDesc = `${totalQty} ${unit} (批次总计)`;
+    let inputLabel = `领用量 (${unit})`;
 
-    if (item.category === "chemical") {
-      currentStockDesc = `${totalQty} ${item.quantity.unit} (批次总计)`;
-      inputLabel = `领用重量 (${item.quantity.unit})`;
-    } else {
+    if (category === 'film') {
       currentStockDesc = `${totalQty} 米 (批次总计)`;
       inputLabel = "领用长度 (米)";
     }
 
-    console.log("Smart Batch Items:", batchItems);
-    // Calculate Recommendation: Oldest Item (FIFO)
-    // Calculate Recommendation: Oldest Item (FIFO)
-    let recommend = "";
-    if (batchItems && batchItems.length > 0) {
-      const sorted = [...batchItems].sort((a, b) => {
-        const getTime = (d) => {
-          if (!d) return 0;
-          // Handle Firestore Timestamp
-          if (typeof d.toDate === "function") return d.toDate().getTime();
-          // Handle Date object
-          if (d instanceof Date) return d.getTime();
-          // Handle String or Number
-          return new Date(d).getTime();
-        };
-
-        const tA = getTime(a.created_at);
-        const tB = getTime(b.created_at);
-        return tA - tB;
-      });
-      recommend = sorted[0].unique_code;
-    }
-    console.log("Calculated Recommendation:", recommend);
-
     this.setData({
       withdrawItem: {
-        ...item,
+        product_code: batch.product_code,
+        material_name: batch.material_name,
+        batch_number: batch.batch_number,
+        category: category,
         currentStockDesc,
         inputLabel,
-        // Override val for display purposes
-        quantity: { ...item.quantity, val: totalQty },
+        quantity: { val: totalQty, unit },
+        location: batch.location
       },
       withdrawAmount: "",
       selectedUsage: "",
       usageDetail: "",
-      recommendedCode: recommend, // Ensure this is set
+      recommendedCode: "", // 批次模式不推荐具体标签
       showUsagePicker: false,
       showWithdrawDialog: true,
-      isSmartBatchMode: true, // Enable Smart Mode
+      isSmartBatchMode: true, // Enable Batch Mode for FIFO
     });
   },
 
@@ -459,53 +413,46 @@ Page({
     wx.showLoading({ title: "加载批次..." });
     try {
       const db = wx.cloud.database();
-      // Query actual inventory items for this group
-      // Grouped by: product_code OR material_name (depending heavily on how getInventoryGrouped works)
-      // Actually getInventoryGrouped groups by product_code + material_name roughly
-      // Let's use product_code if available, else name?
-      // The aggregated item has `product_code` and `material_name`.
+      const $ = db.command.aggregate;
 
-      let query = {
+      let matchQuery = {
         status: "in_stock",
         category: this.data.selectActiveTab,
       };
 
       if (item.product_code) {
-        query.product_code = item.product_code;
+        matchQuery.product_code = item.product_code;
       } else {
-        query.material_name = item.material_name; // Fallback
+        matchQuery.material_name = item.material_name;
       }
 
-      const res = await db
-        .collection("inventory")
-        .where(query)
-        .orderBy("batch_number", "asc") // FIFO preferred? or Expiry?
-        .get();
+      // 按批次聚合，计算每个批次的总库存
+      const result = await db.collection("inventory").aggregate()
+        .match(matchQuery)
+        .group({
+          _id: "$batch_number",
+          totalQuantity: $.sum("$quantity.val"),
+          itemCount: $.sum(1),
+          minExpiry: $.min("$expiry_date"),
+          location: $.first("$location"),
+          unit: $.first("$quantity.unit"),
+          product_code: $.first("$product_code"),
+          material_name: $.first("$material_name")
+        })
+        .sort({ minExpiry: 1 }) // 临期优先(FIFO)
+        .end();
 
       // Format for display
       const now = new Date();
-      const batches = res.data.map((b) => {
+      const batches = result.list.map((b) => {
         let expiry = "长期有效";
         let isExpiring = false;
 
-        // Check root level first, then dynamic_attrs
-        const rawDate =
-          b.expiry_date || (b.dynamic_attrs && b.dynamic_attrs.expiry_date);
-
-        if (rawDate) {
-          let expDate = null;
-          if (rawDate instanceof Date) {
-            expDate = rawDate;
-            expiry = rawDate.toISOString().split("T")[0];
-          } else if (typeof rawDate === "string") {
-            expDate = new Date(rawDate);
-            expiry = rawDate.split("T")[0];
-          }
-
-          // Validate date
-          if (expDate && !isNaN(expDate.getTime())) {
-            const diffTime = expDate - now;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (b.minExpiry) {
+          const expDate = new Date(b.minExpiry);
+          if (!isNaN(expDate.getTime())) {
+            expiry = b.minExpiry.split ? b.minExpiry.split("T")[0] : expDate.toISOString().split("T")[0];
+            const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
             if (diffDays <= 30) {
               isExpiring = true;
             }
@@ -513,9 +460,15 @@ Page({
         }
 
         return {
-          ...b,
+          batch_number: b._id || "无批号",
+          totalQuantity: parseFloat(b.totalQuantity.toFixed(2)),
+          itemCount: b.itemCount,
           expiry,
           isExpiring,
+          location: b.location,
+          unit: b.unit,
+          product_code: b.product_code,
+          material_name: b.material_name
         };
       });
 

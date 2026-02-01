@@ -1,0 +1,232 @@
+<!--pages/admin/material-edit.wxml-->
+<view class="container pb-40">
+  <view class="form-section">
+    <view class="section-title">基础信息</view>
+
+    <van-cell-group inset>
+      <!-- 类别必须先选 -->
+      <van-cell
+        title="类别"
+        required
+        is-link
+        value="{{ categoryIndex !== null ? categoryOptions[categoryIndex] : '请先选择' }}"
+        bind:click="onShowCategoryPicker"
+      />
+
+      <!-- 产品代码：前缀自动 + 数字手动 -->
+      <van-field
+        label="产品代码"
+        required
+        disabled="{{ categoryIndex === null }}"
+        placeholder="{{ categoryIndex === null ? '请先选择类别' : '输入数字部分' }}"
+      >
+        <view slot="input" class="code-input-wrapper" style="width: 100%;">
+          <text class="code-prefix" wx:if="{{ codePrefix }}">{{ codePrefix }}</text>
+          <input
+            class="code-number-input"
+            type="text"
+            placeholder="{{ categoryIndex === null ? '' : '如 059' }}"
+            value="{{ form.product_code_number }}"
+            disabled="{{ categoryIndex === null }}"
+            bindinput="onCodeNumberInput"
+          />
+          <van-loading wx:if="{{ checkingDuplicate }}" size="16px" />
+        </view>
+      </van-field>
+
+      <!-- 重复提示 -->
+      <view wx:if="{{ duplicateStatus === 'exists' }}" class="duplicate-hint success">
+        ✓ 该物料已存在：{{ existingMaterial.material_name }}
+      </view>
+      <view wx:elif="{{ duplicateStatus === 'new' }}" class="duplicate-hint info">
+        新物料，请完善信息后创建
+      </view>
+
+      <van-field
+        label="物料名称"
+        placeholder="如 下保主胶"
+        required
+        value="{{ form.material_name }}"
+        data-field="material_name"
+        bind:change="onInputChange"
+      />
+      <!-- 子类别：支持选择或新增 -->
+      <van-cell
+        title="子类别"
+        is-link
+        value="{{ form.sub_category || '请选择' }}"
+        bind:click="onShowSubCategoryPicker"
+      >
+        <van-button
+          slot="right-icon"
+          type="primary"
+          size="mini"
+          plain
+          round
+          custom-style="margin-left: 8px;"
+          catch:tap="onShowAddSubCategory"
+        >
+          新增
+        </van-button>
+      </van-cell>
+    </van-cell-group>
+  </view>
+
+  <view class="form-section">
+    <view class="section-title">供应商信息</view>
+
+    <van-cell-group inset>
+      <van-field
+        label="供应商"
+        placeholder="供应商名称"
+        value="{{ form.supplier }}"
+        data-field="supplier"
+        bind:change="onInputChange"
+      />
+      <van-field
+        label="厂家型号"
+        placeholder="原厂型号"
+        value="{{ form.supplier_model }}"
+        data-field="supplier_model"
+        bind:change="onInputChange"
+      />
+    </van-cell-group>
+  </view>
+
+  <view class="form-section">
+    <view class="section-title">规格参数</view>
+
+    <van-cell-group inset>
+      <!-- 单位：支持选择或新增 -->
+      <van-cell
+        title="默认单位"
+        is-link
+        value="{{ form.default_unit || '请选择' }}"
+        bind:click="onShowUnitPicker"
+      >
+        <van-button
+          slot="right-icon"
+          type="primary"
+          size="mini"
+          plain
+          round
+          custom-style="margin-left: 8px;"
+          catch:tap="onShowAddUnit"
+        >
+          新增
+        </van-button>
+      </van-cell>
+      <van-field
+        label="保质期"
+        placeholder="天数（可选）"
+        type="number"
+        value="{{ form.shelf_life_days }}"
+        data-field="shelf_life_days"
+        bind:change="onInputChange"
+      >
+        <view slot="right-icon" class="text-secondary">天</view>
+      </van-field>
+    </van-cell-group>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-btn-container">
+    <van-button
+      type="primary"
+      block
+      round
+      size="large"
+      loading="{{ submitting }}"
+      disabled="{{ submitting }}"
+      bind:click="onSubmit"
+    >
+      {{ isEdit ? '保存修改' : '创建物料' }}
+    </van-button>
+  </view>
+
+  <!-- 类别选择器 -->
+  <van-popup
+    show="{{ showCategoryPicker }}"
+    position="bottom"
+    round
+    bind:close="onCategoryCancel"
+  >
+    <van-picker
+      columns="{{ categoryOptions }}"
+      default-index="{{ categoryIndex || 0 }}"
+      show-toolbar
+      bind:confirm="onCategoryConfirm"
+      bind:cancel="onCategoryCancel"
+    />
+  </van-popup>
+
+  <!-- 子类别选择器 -->
+  <van-popup
+    show="{{ showSubCategoryPicker }}"
+    position="bottom"
+    round
+    bind:close="onSubCategoryCancel"
+  >
+    <van-picker
+      columns="{{ subCategoryOptions }}"
+      default-index="{{ subCategoryIndex }}"
+      show-toolbar
+      bind:confirm="onSubCategoryConfirm"
+      bind:cancel="onSubCategoryCancel"
+    />
+  </van-popup>
+
+  <!-- 新增子类别弹窗 -->
+  <van-dialog
+    use-slot
+    title="新增子类别"
+    show="{{ showAddSubCategory }}"
+    show-cancel-button
+    bind:confirm="onAddSubCategoryConfirm"
+    bind:cancel="onAddSubCategoryCancel"
+  >
+    <van-field
+      value="{{ newSubCategory }}"
+      placeholder="输入新的子类别名称"
+      bind:change="onNewSubCategoryInput"
+      custom-style="margin: 16px;"
+    />
+  </van-dialog>
+
+  <!-- 单位选择器 -->
+  <van-popup
+    show="{{ showUnitPicker }}"
+    position="bottom"
+    round
+    bind:close="onUnitCancel"
+  >
+    <van-picker
+      columns="{{ unitOptions }}"
+      default-index="{{ unitIndex }}"
+      show-toolbar
+      bind:confirm="onUnitConfirm"
+      bind:cancel="onUnitCancel"
+    />
+  </van-popup>
+
+  <!-- 新增单位弹窗 -->
+  <van-dialog
+    use-slot
+    title="新增单位"
+    show="{{ showAddUnit }}"
+    show-cancel-button
+    bind:confirm="onAddUnitConfirm"
+    bind:cancel="onAddUnitCancel"
+  >
+    <van-field
+      value="{{ newUnit }}"
+      placeholder="输入新的单位名称"
+      bind:change="onNewUnitInput"
+      custom-style="margin: 16px;"
+    />
+  </van-dialog>
+
+  <!-- Toast & Dialog -->
+  <van-toast id="van-toast" />
+  <van-dialog id="van-dialog" />
+</view>

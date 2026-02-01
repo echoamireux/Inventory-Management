@@ -8,6 +8,10 @@ Component({
     mode: {
       type: String,
       value: 'full' // compact | full
+    },
+    transparent: {
+      type: Boolean,
+      value: false
     }
   },
 

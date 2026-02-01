@@ -12,6 +12,8 @@
     "pages/admin-logs/index",
     "pages/status/pending",
     "pages/admin/user-list",
+    "pages/admin/material-list",
+    "pages/admin/material-edit",
     "pages/inventory/detail-list",
     "pages/material-add/batch-entry"
   ],
