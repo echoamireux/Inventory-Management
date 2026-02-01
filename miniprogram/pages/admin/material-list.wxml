@@ -12,18 +12,31 @@
     />
   </view>
 
-  <!-- 顶部统计与新增按钮 -->
+  <!-- 顶部统计与操作按钮 -->
   <view class="flex-row justify-between items-center px-20 py-10">
-    <view class="text-secondary text-sm">共 {{ total }} 种物料</view>
-    <van-button
-      type="primary"
-      size="small"
-      round
-      icon="plus"
-      bind:click="onAdd"
-    >
-      新增物料
-    </van-button>
+    <view class="text-secondary text-sm flex-shrink-0 font-bold ml-4">{{ total }} 种</view>
+    <view class="flex-row items-center">
+      <van-button
+        type="default"
+        size="small"
+        round
+        icon="upgrade"
+        custom-style="padding: 0 12px; margin-right: 8px; min-width: 70px;"
+        bind:click="onImport"
+      >
+        导入
+      </van-button>
+      <van-button
+        type="primary"
+        size="small"
+        round
+        icon="plus"
+        custom-style="padding: 0 12px; min-width: 70px;"
+        bind:click="onAdd"
+      >
+        新增
+      </van-button>
+    </view>
   </view>
 
   <!-- 物料列表 -->

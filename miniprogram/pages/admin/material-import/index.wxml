@@ -1,0 +1,142 @@
+<!--pages/admin/material-import/index.wxml-->
+<view class="container pb-40">
+  <!-- 操作说明卡片 -->
+  <view class="bg-indigo-50 p-20 rounded-lg mb-20 mx-20 mt-20">
+    <view class="flex-row items-center mb-12">
+      <van-icon name="info-o" color="#4F46E5" size="18px" class="mr-8" />
+      <view class="text-base font-bold text-primary">使用说明</view>
+    </view>
+    <view class="text-sm text-secondary leading-loose">
+      <view>1. 请使用管理员分发的<text class="font-bold text-main">《标准物料导入模板》</text></view>
+      <view>2. 填写完成后，请将文件<text class="font-bold text-main">另存为 CSV 格式</text></view>
+      <view>3. 点击下方按钮上传 CSV 文件完成导入</view>
+    </view>
+  </view>
+
+  <!-- 操作区域 -->
+  <view class="px-20">
+    <!-- 步骤 1：获取模板 (备用) -->
+    <view class="bg-white p-20 rounded-lg mb-16 shadow-sm" bind:tap="onDownloadTemplate">
+      <view class="flex-row items-center mb-8">
+        <view class="w-40 h-40 rounded-full flex-center bg-gray-50 mr-12">
+          <van-icon name="records" size="20px" color="#6B7280" />
+        </view>
+        <view class="flex-1">
+          <view class="text-base font-bold text-main">没有模板？</view>
+          <view class="text-xs text-secondary mt-4">点击复制简易结构，适用于临时通过 Excel/Numbers 创建</view>
+        </view>
+        <van-icon name="arrow" color="#C8C9CC" />
+      </view>
+    </view>
+
+    <!-- 步骤 2：上传文件 -->
+    <view class="bg-white p-20 rounded-lg shadow-sm" bind:tap="onChooseFile">
+      <view class="flex-row items-center mb-8">
+        <view class="w-40 h-40 rounded-full flex-center bg-emerald-50 mr-12">
+          <van-icon name="add-o" size="20px" color="#10B981" />
+        </view>
+        <view class="flex-1">
+          <view class="text-base font-bold text-main">第二步：上传 CSV</view>
+          <view class="text-xs text-secondary mt-4">{{ selectedFile ? selectedFile.name : '选择编辑好的 CSV 文件导入' }}</view>
+        </view>
+        <van-icon name="arrow" color="#C8C9CC" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 解析状态 -->
+  <view wx:if="{{ parsing }}" class="parsing-card">
+    <van-loading size="24px" />
+    <text class="ml-12">正在解析文件...</text>
+  </view>
+
+  <!-- 预览区域 -->
+  <view wx:if="{{ previewData.length > 0 }}" class="preview-section">
+    <view class="section-header">
+      <text class="section-title">数据预览</text>
+      <text class="section-count">共 {{ previewData.length }} 条</text>
+    </view>
+
+    <!-- 统计信息 -->
+    <view class="stats-row">
+      <view class="stat-item success">
+        <text class="stat-num">{{ validCount }}</text>
+        <text class="stat-label">有效</text>
+      </view>
+      <view class="stat-item error" wx:if="{{ errorCount > 0 }}">
+        <text class="stat-num">{{ errorCount }}</text>
+        <text class="stat-label">错误</text>
+      </view>
+    </view>
+
+    <!-- 预览列表 -->
+    <scroll-view scroll-y class="preview-list">
+      <view
+        wx:for="{{ previewData }}"
+        wx:key="index"
+        class="preview-item {{ item.error ? 'has-error' : '' }}"
+      >
+        <view class="preview-row">
+          <text class="preview-code">{{ item.product_code }}</text>
+          <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain>
+            {{ item.category === 'chemical' ? '化材' : '膜材' }}
+          </van-tag>
+        </view>
+        <view class="preview-name">{{ item.material_name }}</view>
+        <view class="preview-sub">{{ item.sub_category }} · {{ item.default_unit || '默认单位' }}</view>
+        <view wx:if="{{ item.error }}" class="preview-error">
+          <van-icon name="warning-o" size="12px" /> {{ item.error }}
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 空状态 -->
+  <van-empty
+    wx:if="{{ !selectedFile && !parsing }}"
+    image="search"
+    description="请先选择 Excel 文件"
+    custom-class="mt-40"
+  />
+</view>
+
+<!-- 底部按钮 -->
+<view wx:if="{{ previewData.length > 0 }}" class="footer-bar safe-area-bottom">
+  <van-button
+    type="primary"
+    block
+    round
+    size="large"
+    loading="{{ importing }}"
+    disabled="{{ importing || validCount === 0 }}"
+    bind:click="onImport"
+  >
+    确认导入 ({{ validCount }} 条)
+  </van-button>
+</view>
+
+<van-toast id="van-toast" />
+<van-dialog id="van-dialog" />
+
+<!-- 自定义模板说明弹窗 -->
+<van-dialog
+  use-slot
+  title="简易结构已复制"
+  show="{{ showTemplateDialog }}"
+  show-confirm-button="{{ false }}"
+>
+  <view class="p-20 text-sm text-secondary leading-loose">
+    <view>此内容仅包含最基础的列名结构。</view>
+    <view class="mt-8 mb-20">建议您优先使用管理员分发的<text class="font-bold text-main">《标准物料导入模板》</text>，以获得更好的填写体验（包含下拉选项和校验）。</view>
+
+    <view class="flex-center border-t pt-10">
+      <view
+        class="w-full text-center py-10 text-lg font-bold"
+        style="color: #576B95;"
+        bind:tap="onCloseTemplateDialog"
+      >
+        我知道了
+      </view>
+    </view>
+  </view>
+</van-dialog>

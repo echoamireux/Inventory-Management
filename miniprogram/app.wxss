@@ -559,3 +559,29 @@ page {
   margin-top: 12px !important;
 }
 
+
+/* ========== 全局修复 Vant Dialog 按钮样式 ========== */
+/* 强制按钮区域居中 */
+.van-dialog__footer {
+  text-align: center !important;
+}
+.van-dialog__footer--buttons {
+  display: flex !important;
+  justify-content: center !important;
+}
+.van-dialog__button {
+  display: block !important;
+  text-align: center !important;
+}
+.van-button {
+  text-align: center !important;
+}
+.van-button__text {
+  display: block !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+/* 确认按钮使用标准蓝色 */
+.van-dialog__confirm {
+  color: #1989FA !important;
+}

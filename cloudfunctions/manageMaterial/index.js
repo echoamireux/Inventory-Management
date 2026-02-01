@@ -30,6 +30,8 @@ exports.main = async (event, context) => {
         return await updateMaterial(data, OPENID);
       case 'archive':
         return await archiveMaterial(data, OPENID);
+      case 'batchCreate':
+        return await batchCreateMaterials(data, OPENID);
       default:
         return { success: false, msg: '未知操作' };
     }
@@ -236,4 +238,86 @@ async function logMaterialChange(logData) {
   } catch (err) {
     console.error('记录物料日志失败:', err);
   }
+}
+
+/**
+ * 批量创建物料
+ */
+async function batchCreateMaterials(data, openid) {
+  const { items } = data;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return { success: false, msg: '无有效数据' };
+  }
+
+  // 限制单次最多导入 100 条
+  if (items.length > 100) {
+    return { success: false, msg: '单次最多导入 100 条' };
+  }
+
+  let created = 0;
+  let skipped = 0;
+  let errors = 0;
+  const now = db.serverDate();
+
+  for (const item of items) {
+    try {
+      // 跳过有错误的数据
+      if (item.error) {
+        errors++;
+        continue;
+      }
+
+      const { product_code, material_name, category, sub_category, default_unit, supplier, supplier_model, shelf_life_days } = item;
+
+      // 检查是否已存在
+      const existing = await db.collection('materials')
+        .where({ product_code })
+        .count();
+
+      if (existing.total > 0) {
+        skipped++;
+        continue;
+      }
+
+      // 创建物料
+      const newMaterial = {
+        product_code,
+        material_name,
+        category,
+        sub_category,
+        default_unit: default_unit || (category === 'film' ? 'm' : 'kg'),
+        supplier: supplier || '',
+        supplier_model: supplier_model || '',
+        shelf_life_days: shelf_life_days || null,
+        status: 'active',
+        created_by: openid,
+        created_at: now,
+        updated_by: openid,
+        updated_at: now
+      };
+
+      await db.collection('materials').add({ data: newMaterial });
+      created++;
+
+    } catch (err) {
+      console.error('创建物料失败:', item.product_code, err);
+      errors++;
+    }
+  }
+
+  // 记录批量导入日志
+  await logMaterialChange({
+    action: 'batch_create',
+    operator: openid,
+    changes: { total: items.length, created, skipped, errors }
+  });
+
+  return {
+    success: true,
+    created,
+    skipped,
+    errors,
+    msg: `成功导入 ${created} 条`
+  };
 }

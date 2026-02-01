@@ -102,6 +102,11 @@ Page({
     this.getList(true);
   },
 
+  // 导入物料
+  onImport() {
+    wx.navigateTo({ url: '/pages/admin/material-import/index' });
+  },
+
   // 新增物料
   onAdd() {
     wx.navigateTo({ url: '/pages/admin/material-edit' });

@@ -14,6 +14,7 @@
     "pages/admin/user-list",
     "pages/admin/material-list",
     "pages/admin/material-edit",
+    "pages/admin/material-import/index",
     "pages/inventory/detail-list",
     "pages/material-add/batch-entry",
     "pages/my-requests/index",
