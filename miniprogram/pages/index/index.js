@@ -370,10 +370,14 @@ Page({
       });
 
       if (res.result && res.result.success) {
-        // Smart mode implies we might have fully used some items, partial used others.
-        // The remaining returned is probably not useful for "Batch Total".
-        // Maybe just success message.
-        Toast.success("领用成功");
+        // 统一反馈格式
+        const remaining = res.result.remaining;
+        const unit = res.result.unit || '';
+        if (remaining !== undefined) {
+          Toast.success(`领用成功，剩余: ${remaining} ${unit}`);
+        } else {
+          Toast.success("领用成功");
+        }
         this.refreshStats(); // 刷新数据
       } else {
         throw new Error(res.result.msg || "Error");

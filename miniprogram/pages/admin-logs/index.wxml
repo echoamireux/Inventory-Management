@@ -48,4 +48,8 @@
     cancel-text="取消"
     bind:cancel="onActionSheetClose"
   />
+
+  <!-- Toast & Dialog Containers -->
+  <van-toast id="van-toast" />
+  <van-dialog id="van-dialog" />
 </view>

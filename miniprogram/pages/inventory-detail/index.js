@@ -216,7 +216,9 @@ Page({
           });
 
           if (res.result && res.result.success) {
-              Toast.success(`剩余: ${res.result.remaining}`);
+              const remaining = res.result.remaining;
+              const unit = res.result.unit || '';
+              Toast.success(`领用成功，剩余: ${remaining !== undefined ? remaining + ' ' + unit : '--'}`);
               // Refresh details
               setTimeout(() => {
                   this.fetchDetail(this.data.id);

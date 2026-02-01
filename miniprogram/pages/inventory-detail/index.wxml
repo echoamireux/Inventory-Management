@@ -105,3 +105,7 @@
 <view wx:if="{{ loading }}" class="loading-container">
     <van-loading type="spinner" vertical>加载中...</van-loading>
 </view>
+
+<!-- Toast & Dialog Containers -->
+<van-toast id="van-toast" />
+<van-dialog id="van-dialog" />

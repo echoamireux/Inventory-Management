@@ -1,4 +1,6 @@
 // pages/admin-logs/index.js
+import Dialog from '@vant/weapp/dialog/dialog';
+import Toast from '@vant/weapp/toast/toast';
 const db = require('../../utils/db');
 
 Page({
@@ -24,7 +26,7 @@ Page({
       { text: '全部类型', value: 'all' },
       { text: '入库', value: 'inbound' },
       { text: '领用', value: 'outbound' },
-      { text: '移库', value: 'edit' },
+      { text: '移库', value: 'transfer' },
       { text: '删除', value: 'delete' }
     ],
     operatorOptions: [
@@ -195,7 +197,7 @@ Page({
         switch(item.type) {
           case 'inbound': case 'create': typeText = '入库'; typeColor = 'success'; break;
           case 'outbound': typeText = '领用'; typeColor = 'warning'; break;
-          case 'edit': case 'update': typeText = '移库'; typeColor = 'primary'; break;
+          case 'edit': case 'update': case 'transfer': typeText = '移库'; typeColor = 'primary'; break;
           case 'delete': typeText = '删除'; typeColor = 'danger'; break;
         }
 
@@ -276,32 +278,30 @@ Page({
     const id = this.data.currentLogId;
     if (!id) return;
 
-    wx.showModal({
+    Dialog.confirm({
       title: '确认删除',
-      content: '确定要删除这条日志吗？这可能会影响审计溯源。',
-      confirmColor: '#ee0a24',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '删除中...' });
-          try {
-            const callRes = await wx.cloud.callFunction({
-              name: 'removeLog',
-              data: { log_id: id }
-            });
-            if (callRes.result.success) {
-              wx.showToast({ title: '已删除', icon: 'success' });
-              this.setData({ showActionSheet: false }); // Ensure close
-              this.getList(true);
-            } else {
-              throw new Error(callRes.result.msg);
-            }
-          } catch (err) {
-            wx.showToast({ title: '删除失败: ' + err.message, icon: 'none' });
-          } finally {
-            wx.hideLoading();
-          }
+      message: '确定要删除这条日志吗？这可能会影响审计溯源。',
+      confirmButtonColor: '#ee0a24'
+    }).then(async () => {
+      // 用户点击确认
+      Toast.loading({ message: '删除中...', forbidClick: true });
+      try {
+        const callRes = await wx.cloud.callFunction({
+          name: 'removeLog',
+          data: { log_id: id }
+        });
+        if (callRes.result.success) {
+          Toast.success('已删除');
+          this.setData({ showActionSheet: false });
+          this.getList(true);
+        } else {
+          throw new Error(callRes.result.msg);
         }
+      } catch (err) {
+        Toast.fail('删除失败: ' + err.message);
       }
+    }).catch(() => {
+      // 用户点击取消
     });
   }
 });

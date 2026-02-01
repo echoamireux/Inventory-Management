@@ -130,7 +130,31 @@ exports.main = async (event, context) => {
             await transaction.collection('inventory_log').add({ data: log });
         }
 
-        return { success: true };
+        // --- Step 4: Calculate Total Remaining (聚合剩余量) ---
+        let totalRemaining = 0;
+        let unit = 'kg';
+        for (let item of itemsToProcess) {
+            let isFilm = item.category === 'film';
+            let currentStock = 0;
+
+            if (isFilm) {
+                currentStock = (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
+                unit = 'm';
+            } else {
+                currentStock = item.quantity.val;
+                unit = item.quantity.unit || 'kg';
+            }
+
+            // Find the deduction we made for this item from logs
+            const logForItem = logs.find(l => l.inventory_id === item._id);
+            if (logForItem) {
+                currentStock = currentStock + logForItem.quantity_change; // quantity_change is negative
+            }
+
+            totalRemaining += currentStock;
+        }
+
+        return { success: true, remaining: Number(totalRemaining.toFixed(2)), unit: unit };
     });
 
     return result;

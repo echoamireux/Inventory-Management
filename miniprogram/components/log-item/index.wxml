@@ -14,8 +14,10 @@
   <!-- 第二行：物料名称 + 数量（次视觉层级） -->
   <view style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px;">
     <view style="font-size: 14px; font-weight: 400; color: #323233;">{{ item._displayName || item.material_name || '未命名' }}</view>
-    <view class="{{ item._sign === '+' ? 'qty-success' : 'qty-danger' }}" style="font-size: 16px; font-weight: 600;">
-      {{ item._sign || '' }}{{ item.quantity || item.quantity_change || 0 }} {{ item.unit || '' }}
+    <!-- 对于移库操作，不显示数量，用 '-' 表示不适用 -->
+    <view class="{{ item._sign === '+' ? 'qty-success' : (item._sign === '-' ? 'qty-danger' : '') }}" style="font-size: 16px; font-weight: 600;">
+      <block wx:if="{{ item._typeText === '移库' }}">-</block>
+      <block wx:else>{{ item._sign || '' }}{{ item.quantity || item.quantity_change || 0 }} {{ item.unit || '' }}</block>
     </view>
   </view>
 

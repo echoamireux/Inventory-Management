@@ -14,7 +14,9 @@
     "van-goods-action": "@vant/weapp/goods-action/index",
     "van-goods-action-icon": "@vant/weapp/goods-action-icon/index",
     "van-goods-action-button": "@vant/weapp/goods-action-button/index",
-    "withdraw-dialog": "../../components/withdraw-dialog/index"
+    "withdraw-dialog": "../../components/withdraw-dialog/index",
+    "van-toast": "@vant/weapp/toast/index",
+    "van-dialog": "@vant/weapp/dialog/index"
   },
   "navigationBarTitleText": "库存详情"
 }
