@@ -17,35 +17,31 @@ const $ = db.command.aggregate;
 exports.main = async (event, context) => {
   try {
     const now = new Date();
-    // Start of Today (00:00:00)
-    // Note: Cloud Functions use UTC usually, but we operate in +8.
-    // Ideally we shift based on timezone. For simplicity, we use server time offset if possible.
-    // Assuming server matches local, or we just rely on system date.
-    // China Time is UTC+8.
-    const chinaTimeOffset = 8 * 60 * 60 * 1000;
-    const todayStart = new Date(new Date().setHours(0,0,0,0));
-    // Better robustness for timezones:
-    // const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    // const todayStart = new Date(utc + (3600000 * 8));
-    // todayStart.setHours(0,0,0,0);
+
+    // 修复: 使用 UTC+8 时区计算今日起始时间
+    // 云函数运行环境通常是 UTC，需要手动偏移到中国时区
+    const CHINA_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const chinaTime = new Date(utcNow + CHINA_OFFSET_MS);
+
+    // 计算中国时区的今日 00:00:00
+    const startOfDay = new Date(chinaTime);
+    startOfDay.setHours(0, 0, 0, 0);
+    // 转换回 UTC 时间用于数据库查询
+    const startOfDayUTC = new Date(startOfDay.getTime() - CHINA_OFFSET_MS + (now.getTimezoneOffset() * 60000));
 
     // Future Date for Expiry (30 Days)
     const future30d = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-
-
-    // 2. Today In/Out Logs
-    const startOfDay = new Date();
-    startOfDay.setHours(0,0,0,0);
-
+    // 2. Today In/Out Logs (使用修复后的时区计算)
     const inboundCount = await db.collection('inventory_log').where({
         type: 'inbound',
-        timestamp: _.gte(startOfDay)
+        timestamp: _.gte(startOfDayUTC)
     }).count();
 
     const outboundCount = await db.collection('inventory_log').where({
         type: _.or(_.eq('withdraw'), _.eq('outbound')),
-        timestamp: _.gte(startOfDay)
+        timestamp: _.gte(startOfDayUTC)
     }).count();
 
     // 3. Alerts & Total Calculation (JS Memory Processing)

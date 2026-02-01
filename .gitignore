@@ -64,3 +64,6 @@ coverage/
 # Temporary
 tmp/
 temp/
+
+# Agent
+.agent/

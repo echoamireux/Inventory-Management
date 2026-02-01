@@ -52,10 +52,20 @@ Component({
         if (!item) return;
 
         let displayStock = '0';
+
+        // 修复: 批次模式下 quantity.val 已是批次总量，直接使用
+        // 单件扫码模式下才需要区分化材和膜材的不同库存字段
         if (item.category === 'chemical') {
-            displayStock = String(item.quantity.val);
+            displayStock = String(item.quantity?.val ?? 0);
         } else {
-            displayStock = String((item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0);
+            // 膜材: 单件模式用 dynamic_attrs.current_length_m，批次模式用 quantity.val
+            const dynamicLength = item.dynamic_attrs?.current_length_m;
+            if (dynamicLength !== undefined && dynamicLength !== null) {
+                displayStock = String(dynamicLength);
+            } else {
+                // 批次模式下 quantity.val 是总量
+                displayStock = String(item.quantity?.val ?? 0);
+            }
         }
 
         this.setData({

@@ -58,7 +58,7 @@
         <van-field
           value="{{ form.product_code }}"
           label="产品代码"
-          placeholder="请输入数字 (如 001)"
+          placeholder="请输入产品代码"
           required
           type="number"
           data-field="product_code"

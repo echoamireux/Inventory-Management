@@ -61,7 +61,7 @@ exports.main = async (event, context) => {
                       inventory_id: res._id,
                       unique_code: item.unique_code,
                       material_name: item.material_name,
-                      action: 'inbound', // 批量入库
+                      type: 'inbound', // 修复: 使用 type 而非 action，与其他云函数保持一致
                       quantity_change: item.quantity.val,
                       operator: operator_name || 'Admin',
                       timestamp: new Date(),

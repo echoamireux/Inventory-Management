@@ -39,15 +39,17 @@ exports.main = async (event, context) => {
       }
 
       // 2. Soft delete inventory (using inventory_id or material_id)
+      // 修复: 先读取再更新，避免事务中先 update 后 get 的潜在问题
       if (inventory_id) {
-        await transaction.collection('inventory').doc(inventory_id).update({
-          data: { status: 'deleted', update_time: db.serverDate() }
-        });
-        // If we didn't get material name yet, try getting it from inventory
+        // 先获取 inventory 信息（在更新之前）
         if (materialName === 'Unknown Material') {
            const invRes = await transaction.collection('inventory').doc(inventory_id).get();
            if (invRes.data) materialName = invRes.data.material_name || materialName;
         }
+        // 再执行软删除
+        await transaction.collection('inventory').doc(inventory_id).update({
+          data: { status: 'deleted', update_time: db.serverDate() }
+        });
       } else if (material_id) {
         await transaction.collection('inventory').where({ material_id: material_id }).update({
           data: { status: 'deleted', update_time: db.serverDate() }

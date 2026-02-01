@@ -25,7 +25,7 @@
           <input
             class="code-number-input"
             type="text"
-            placeholder="{{ categoryIndex === null ? '' : '如 059' }}"
+            placeholder="{{ categoryIndex === null ? '' : '请输入产品代码' }}"
             value="{{ form.product_code_number }}"
             disabled="{{ categoryIndex === null }}"
             bindinput="onCodeNumberInput"
@@ -44,7 +44,7 @@
 
       <van-field
         label="物料名称"
-        placeholder="如 下保主胶"
+        placeholder="请输入物料名称"
         required
         value="{{ form.material_name }}"
         data-field="material_name"

@@ -59,6 +59,8 @@ exports.main = async (event, context) => {
         // --- Step 2: Calculate & Deduct ---
         let remainingNeed = totalNeed;
         let logs = [];
+        // 修复: 记录每个 item 扣减后的新库存值，用于步骤4计算
+        let newStockMap = new Map();
 
         for (let item of itemsToProcess) {
             if (remainingNeed <= EPSILON) break;
@@ -81,6 +83,9 @@ exports.main = async (event, context) => {
 
             let newStock = currentStock - deduct;
             remainingNeed -= deduct;
+
+            // 修复: 存储新库存值
+            newStockMap.set(item._id, { newStock, isFilm, unit: item.quantity.unit });
 
             // Prepared Update Data
             let updateData = { update_time: db.serverDate() };
@@ -131,27 +136,27 @@ exports.main = async (event, context) => {
         }
 
         // --- Step 4: Calculate Total Remaining (聚合剩余量) ---
+        // 修复: 直接使用 newStockMap 中存储的新库存值，而非从原始 item 重新计算
         let totalRemaining = 0;
         let unit = 'kg';
+
         for (let item of itemsToProcess) {
-            let isFilm = item.category === 'film';
-            let currentStock = 0;
-
-            if (isFilm) {
-                currentStock = (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-                unit = 'm';
+            const stockInfo = newStockMap.get(item._id);
+            if (stockInfo) {
+                // 已处理的 item，使用新库存值
+                totalRemaining += stockInfo.newStock;
+                unit = stockInfo.isFilm ? 'm' : (stockInfo.unit || 'kg');
             } else {
-                currentStock = item.quantity.val;
-                unit = item.quantity.unit || 'kg';
+                // 未处理的 item（库存充足时提前退出循环），使用原始值
+                let isFilm = item.category === 'film';
+                if (isFilm) {
+                    totalRemaining += (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
+                    unit = 'm';
+                } else {
+                    totalRemaining += item.quantity.val;
+                    unit = item.quantity.unit || 'kg';
+                }
             }
-
-            // Find the deduction we made for this item from logs
-            const logForItem = logs.find(l => l.inventory_id === item._id);
-            if (logForItem) {
-                currentStock = currentStock + logForItem.quantity_change; // quantity_change is negative
-            }
-
-            totalRemaining += currentStock;
         }
 
         return { success: true, remaining: Number(totalRemaining.toFixed(2)), unit: unit };
