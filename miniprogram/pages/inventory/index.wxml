@@ -1,7 +1,7 @@
 <!--pages/inventory/index.wxml-->
 <view class="container">
   <!-- 顶部搜索与筛选 -->
-  <view class="sticky-top bg-white z-index-10">
+  <view class="sticky-top bg-page z-index-10 search-transparent">
     <!-- 搜索栏 + 导出按钮 -->
     <view class="flex-row items-center px-3">
       <view class="flex-1">

@@ -1,13 +1,16 @@
 <!--pages/admin/material-list.wxml-->
 <view class="container pb-20">
   <!-- 搜索栏 -->
-  <van-search
-    value="{{ searchVal }}"
-    placeholder="搜索产品代码/名称/供应商"
-    bind:search="onSearch"
-    bind:clear="onSearchClear"
-    bind:change="onSearch"
-  />
+  <view class="search-transparent">
+    <van-search
+        value="{{ searchVal }}"
+        placeholder="搜索产品代码/名称/供应商"
+        shape="round"
+        bind:search="onSearch"
+        bind:clear="onSearchClear"
+        bind:change="onSearch"
+    />
+  </view>
 
   <!-- 顶部统计与新增按钮 -->
   <view class="flex-row justify-between items-center px-20 py-10">

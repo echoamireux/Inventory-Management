@@ -363,8 +363,24 @@ page {
   align-items: center;
 }
 
-/* ========== 搜索覆盖 ========== */
-.van-search__content { background-color: #F3F4F6 !important; }
+/* ========== 搜索覆盖 (专业化通用样式) ========== */
+/*
+   .search-transparent: 用于页面背景为灰色时，搜索框背景透出页面底色，
+   且输入框内部为白色，形成卡片式悬浮感
+*/
+.search-transparent .van-search {
+  background-color: transparent !important;
+  padding: 10px 16px !important;
+}
+.search-transparent .van-search__content {
+  background-color: var(--color-bg-card) !important;
+  border-radius: var(--radius-full) !important;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+}
+
+/* 之前的老样式覆盖，暂时保留以免影响未迁移页面，但建议通过类名控制 */
+/* .van-search__content { background-color: #F3F4F6 !important; } */
 
 /* ========== 统一列表项规范 ========== */
 /* 物料卡片 - 通用列表项 */

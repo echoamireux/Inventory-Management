@@ -2,14 +2,17 @@
 <!-- 审计日志页面 -->
 <view class="page-container">
   <!-- 搜索栏 -->
-  <van-search
-    value="{{ searchVal }}"
-    placeholder="搜索操作人 / 物料名称 / 代码"
-    bind:search="onSearch"
-    bind:change="onSearchChange"
-    bind:clear="onClear"
-    background="#f7f8fa"
-  />
+  <!-- 搜索栏 -->
+  <view class="search-transparent">
+    <van-search
+        value="{{ searchVal }}"
+        placeholder="搜索操作人 / 物料名称 / 代码"
+        shape="round"
+        bind:search="onSearch"
+        bind:change="onSearchChange"
+        bind:clear="onClear"
+    />
+  </view>
 
   <!-- 筛选器（非多选模式） -->
   <van-dropdown-menu active-color="#1989fa" wx:if="{{ !isSelectMode }}">
