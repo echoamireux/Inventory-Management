@@ -98,10 +98,28 @@ chmod +x sync_shared.sh
 
 > _该脚本会自动将 `_shared/alert-config.js` 分发到各个云函数及小程序前端目录，确保全系统配置统一。_
 
-### 3. 部署云函数
+### 3. 配置云环境
 
-1. 在微信开发者工具中，右键 `cloudfunctions/getDashboardStats` 等核心函数 -> **"上传并部署：云端安装依赖"**。
-2. 建议全量重新部署一次以确保依赖更新。
+1.  在微信开发者工具中开通 **云开发** 并获取 **环境 ID (Env ID)**。
+2.  进入 `miniprogram` 目录，复制配置模板：
+    ```bash
+    cd miniprogram
+    cp env.example.js env.js
+    ```
+3.  编辑 `miniprogram/env.js`，填入你的真实 ID：
+
+    ```javascript
+    module.exports = {
+      env: "YOUR-REAL-ENV-ID", // 填入环境 ID
+      traceUser: true,
+    };
+    ```
+
+    > 注意：`env.js` 已被 `.gitignore` 忽略，不会上传到代码仓库，确保你的环境 ID 安全。
+
+4.  **部署云函数**:
+    - 在开发者工具中，右键点击 `cloudfunctions` 文件夹下的每个云函数目录，选择 **"上传并部署：云端安装依赖"**。
+5.  建议全量重新部署一次以确保依赖更新。
 
 ### 4. 数据库索引
 

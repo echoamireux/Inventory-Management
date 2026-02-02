@@ -47,13 +47,9 @@ cloudfunctions/**/package-lock.json
 *.sublime-workspace
 
 # Environment Variables & Secrets (CRITICAL SECURITY)
-.env
-.env.local
-.env.*.local
-config/local.js
-secrets.js
+miniprogram/env.js
+moniprogram/env.js
 
-# Logs
 logs
 *.log
 npm-debug.log*

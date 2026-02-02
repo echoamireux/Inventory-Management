@@ -4,11 +4,17 @@ App({
     if (!wx.cloud) {
       console.error("请使用 2.2.3 或以上的基础库以使用云能力");
     } else {
+      // 尝试加载私有配置，若不存在则提示
+      let envConfig = {};
+      try {
+        envConfig = require('./env');
+      } catch (e) {
+        console.error('未找到 miniprogram/env.js 配置文件，请复制 env.example.js 并重命名为 env.js');
+      }
+
       wx.cloud.init({
-        // env 参数说明：
-        //   env 参数决定接下来小程序发起的云开发调用（wx.cloud.xxx）会默认请求到哪个云环境的资源
-        //   此处请填入环境 ID, 环境 ID 可打开云控制台查看
-        env: 'cloud1-0g363gh06ec517ce',
+        // 优先使用配置文件中的 env ID
+        env: envConfig.env || 'YOUR-ENV-ID-HERE',
         traceUser: true,
       });
     }
