@@ -51,36 +51,52 @@ exports.main = async (event, context) => {
       // `collection.add` does NOT support array of objects in wx-server-sdk typically.
       // We must loop or use `Promise.all`.
 
-      const tasks = valid_items.map(item => {
-          return db.collection('inventory').add({
-              data: item
-          }).then(res => {
-              // Add log
-              return db.collection('inventory_log').add({
+      // 2. Batch Insert with Transaction (Atomic)
+      const result = await db.runTransaction(async transaction => {
+          const ids = [];
+
+          for (const item of valid_items) {
+              // 2.1 Check for duplicates (Atomicity Check)
+              if (item.unique_code) {
+                  const exist = await transaction.collection('inventory').where({
+                      unique_code: item.unique_code
+                  }).get();
+
+                  if (exist.data.length > 0) {
+                      throw new Error(`冲突：标签号 ${item.unique_code} 已存在，批量操作已回滚`);
+                  }
+              }
+
+              // 2.2 Insert Inventory
+              const res = await transaction.collection('inventory').add({
+                  data: item
+              });
+
+              // 2.3 Insert Log
+              await transaction.collection('inventory_log').add({
                   data: {
                       inventory_id: res._id,
                       unique_code: item.unique_code,
                       material_name: item.material_name,
-                      type: 'inbound', // 修复: 使用 type 而非 action，与其他云函数保持一致
+                      type: 'inbound',
                       quantity_change: item.quantity.val,
                       operator: operator_name || 'Admin',
                       timestamp: new Date(),
                       note: '批量入库'
                   }
-              }).then(() => res._id);
-          }).catch(err => {
-              console.error('Add failed', err);
-              throw err;
-          });
+              });
+
+              ids.push(res._id);
+          }
+
+          return {
+              success: true,
+              total: ids.length,
+              ids: ids
+          };
       });
 
-      const ids = await Promise.all(tasks);
-
-      return {
-          success: true,
-          total: ids.length,
-          ids: ids
-      };
+      return result;
 
   } catch (err) {
       console.error(err);

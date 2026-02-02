@@ -8,6 +8,7 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const $ = db.command.aggregate;
+const ALERT_CONFIG = require('./alert-config');
 
 exports.main = async (event, context) => {
   const { searchVal, category } = event;
@@ -127,11 +128,30 @@ exports.main = async (event, context) => {
   }
 };
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
+
 function checkExpiring(dateStr, category) {
     if (!dateStr) return false;
+
+    // 1. Current Time (Shifted to CST View)
+    // We add 8 hours to UTC time so that "08:00 UTC" becomes "16:00 CST" (numeric value shift)
+    // But importantly, "00:00 UTC" becomes "08:00 CST".
+    // Wait, we want to align with "Target Date String".
+    // "2023-12-31" parses to "2023-12-31 00:00:00 UTC".
+    // In our "Shifted View", this represents "2023-12-31 00:00:00 Beijing".
+    // So we need to shift NOW by 8 hours to match this "View".
+
     const now = new Date();
+    const currentRescaled = now.getTime() + OFFSET_MS;
+
     const target = new Date(dateStr);
-    const diff = target - now;
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days <= 30;
+    if (isNaN(target.getTime())) return false;
+
+    // 2. Calc Diff in "Shifted/Visual" Timeline
+    // Target (Visual 00:00) - Now (Visual CST Time)
+    const diff = target.getTime() - currentRescaled;
+
+    const days = Math.ceil(diff / ONE_DAY_MS);
+    return days <= ALERT_CONFIG.EXPIRY_DAYS;
 }

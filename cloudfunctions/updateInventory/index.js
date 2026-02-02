@@ -10,6 +10,7 @@ const _ = db.command;
 
 // 浮点数精度阈值（用于库存量比较）
 const EPSILON = 0.001;
+const PRECISION = 1000; // 3 decimal places for calculation safety
 
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
@@ -46,9 +47,12 @@ exports.main = async (event, context) => {
              });
 
              // Sort: FIFO (Oldest Created First)
-             // Optimization: If we had an 'opened' status, sort by that first.
+             // FIX: used 'created_at' which is undefined. Changed to 'create_time'.
              itemsToProcess.sort((a, b) => {
-                 return new Date(a.created_at) - new Date(b.created_at);
+                 // Handle serverDate() or Date object or timestamp
+                 const dateA = a.create_time instanceof Date ? a.create_time : new Date(a.create_time);
+                 const dateB = b.create_time instanceof Date ? b.create_time : new Date(b.create_time);
+                 return dateA - dateB;
              });
         }
 
@@ -78,11 +82,19 @@ exports.main = async (event, context) => {
             // How much to take from this item?
             let deduct = Math.min(currentStock, remainingNeed);
 
+            // Fix Floating Point: Round to avoid 0.00000001 issues
+            deduct = Math.floor(deduct * PRECISION) / PRECISION;
+
             // If deduct is negligible (floating point), skip
             if (deduct <= 0) continue;
 
             let newStock = currentStock - deduct;
+            // Fix: Clean up newStock precision
+            newStock = Math.round(newStock * PRECISION) / PRECISION;
+
             remainingNeed -= deduct;
+            // Fix: Clean up remainingNeed precision to prevent loop sticking
+            remainingNeed = Math.round(remainingNeed * PRECISION) / PRECISION;
 
             // 修复: 存储新库存值
             newStockMap.set(item._id, { newStock, isFilm, unit: item.quantity.unit });

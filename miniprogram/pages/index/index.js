@@ -2,6 +2,7 @@
 import Dialog from "@vant/weapp/dialog/dialog";
 import Toast from "@vant/weapp/toast/toast";
 const db = require("../../utils/db");
+const alertConfig = require("../../utils/alert-config");
 
 Page({
   data: {
@@ -37,6 +38,7 @@ Page({
 
     isSmartBatchMode: false,
     recommendedCode: "",
+    alertConfig: alertConfig,
 
     isAdmin: false,
     isUserReady: false, // Access Control
@@ -174,7 +176,7 @@ Page({
           status: 'in_stock'
         })
         .orderBy('expiry_date', 'asc')  // 临期优先
-        .orderBy('created_at', 'asc')   // 最早入库优先
+        .orderBy('create_time', 'asc')   // 最早入库优先
         .limit(1)
         .get();
 
@@ -494,7 +496,7 @@ Page({
           if (!isNaN(expDate.getTime())) {
             expiry = b.minExpiry.split ? b.minExpiry.split("T")[0] : expDate.toISOString().split("T")[0];
             const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 30) {
+            if (diffDays <= alertConfig.EXPIRY_DAYS) {
               isExpiring = true;
             }
           }

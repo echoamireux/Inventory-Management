@@ -8,6 +8,7 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const $ = db.command.aggregate;
+const ALERT_CONFIG = require('./alert-config');
 
 // Industry Standard Logic
 // 1. Total Materials: Distinct Product Count
@@ -18,20 +19,24 @@ exports.main = async (event, context) => {
   try {
     const now = new Date();
 
-    // 修复: 使用 UTC+8 时区计算今日起始时间
-    // 云函数运行环境通常是 UTC，需要手动偏移到中国时区
-    const CHINA_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
-    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const chinaTime = new Date(utcNow + CHINA_OFFSET_MS);
+    // 修复: 使用纯数学方法计算 UTC+8 的今日 00:00:00
+    // 这种写法不依赖服务器本地时区 (无论是 UTC+0 还是 UTC+8 还是 UTC-5)
+    // 逻辑：
+    // 1. 获取当前绝对时间戳 (UTC)
+    // 2. 加上 8 小时偏移量，得到 "CST 视角的毫秒数"
+    // 3. 对一天 (24h) 取模并减去，相当于 "抹零" 到 CST 的 00:00:00
+    // 4. 再减回 8 小时偏移量，得到该时刻对应的 UTC 时间戳
 
-    // 计算中国时区的今日 00:00:00
-    const startOfDay = new Date(chinaTime);
-    startOfDay.setHours(0, 0, 0, 0);
-    // 转换回 UTC 时间用于数据库查询
-    const startOfDayUTC = new Date(startOfDay.getTime() - CHINA_OFFSET_MS + (now.getTimezoneOffset() * 60000));
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
 
-    // Future Date for Expiry (30 Days)
-    const future30d = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const currentRescaled = now.getTime() + OFFSET_MS;
+    const startOfCstDayRescaled = currentRescaled - (currentRescaled % ONE_DAY_MS);
+
+    const startOfDayUTC = new Date(startOfCstDayRescaled - OFFSET_MS);
+
+    // Future Date for Expiry (Use Config)
+    const future30d = new Date(now.getTime() + ALERT_CONFIG.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     // 2. Today In/Out Logs (使用修复后的时区计算)
     const inboundCount = await db.collection('inventory_log').where({
@@ -67,7 +72,7 @@ exports.main = async (event, context) => {
     const riskyProducts = new Set();
 
     const nowTime = now.getTime();
-    const future30dTime = nowTime + (30 * 24 * 60 * 60 * 1000);
+    const future30dTime = nowTime + (ALERT_CONFIG.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     for (const item of list) {
         const pCode = item.product_code || 'UNKNOWN';
@@ -101,10 +106,10 @@ exports.main = async (event, context) => {
         if (!isRisky) {
             const qty = (item.quantity && item.quantity.val) || 0;
             if (item.category === 'chemical') {
-                if (qty <= 0.5) isRisky = true;
+                if (qty <= ALERT_CONFIG.LOW_STOCK.chemical) isRisky = true;
             } else if (item.category === 'film') {
                  const len = (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-                 if (len <= 50) isRisky = true;
+                 if (len <= ALERT_CONFIG.LOW_STOCK.film) isRisky = true;
             }
         }
 

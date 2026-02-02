@@ -27,6 +27,12 @@ exports.main = async (event, context) => {
     return { success: false, msg: 'Missing required info: name, category, or unique_code' };
   }
 
+  // 1.2 数量有效性校验 (Security Fix)
+  const quantityVal = Number(inventory.quantity_val);
+  if (isNaN(quantityVal) || quantityVal <= 0) {
+      return { success: false, msg: '错误：入库数量必须为有效的正数' };
+  }
+
   try {
     const result = await db.runTransaction(async transaction => {
       // 1.1 唯一码查重 (必须全局唯一)
@@ -41,7 +47,8 @@ exports.main = async (event, context) => {
     }).count();
 
     if (existCode.total > 0) {
-        return { success: false, msg: `标签号 ${unique_code} 已存在，请勿重复录入` };
+        // Explicit Chinese error for better user understanding
+        return { success: false, msg: `冲突：标签号 ${unique_code} 已被占用，请尝试重新生成或检查网络` };
     }
 
     return await db.runTransaction(async transaction => {
