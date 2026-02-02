@@ -1,9 +1,0 @@
-{
-  "name": "managematerial",
-  "version": "1.0.0",
-  "description": "物料主数据管理 - 增删改查",
-  "main": "index.js",
-  "dependencies": {
-    "wx-server-sdk": "~2.6.3"
-  }
-}
