@@ -245,6 +245,20 @@
               bind:change="onInput"
               label-class="field-label-bold"
             />
+            <van-field
+              value="{{ form.unit || 'm' }}"
+              label="计价单位"
+              readonly
+              required
+              data-field="unit"
+              use-button-slot
+              label-class="field-label-bold"
+            >
+              <view slot="button" class="flex-row items-center" bindtap="showUnitSheet">
+                 <text class="mr-5 text-primary">切换单位</text>
+                 <van-icon name="arrow-down" size="12px" color="#1989fa" />
+              </view>
+            </van-field>
             <van-cell title="过期日期" value="{{ form.expiry_date || '请选择' }}" is-link bind:click="showDatePicker" required title-class="field-label-bold" />
         </block>
       </van-cell-group>

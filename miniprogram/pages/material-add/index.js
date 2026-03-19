@@ -208,6 +208,7 @@ Page({
         'form.sub_category': '',
         'form.supplier_model': '',
         'form.batch_number': '',
+        'form.unit': tab === 'film' ? 'm' : '',
         // We can keep unique_code
         suggestions: [],
         isUnknownCode: false // fix: reset blocking state
@@ -401,6 +402,7 @@ Page({
           }
       } else {
           // 膜材特有字段
+          newForm.unit = item.unit || 'm'; // Make sure suggestion populates unit
           if (item.specs) {
               newForm.thickness_um = item.specs.thickness_um || '';
               newForm.width_mm = item.specs.standard_width_mm || item.specs.width_mm || '';
@@ -600,13 +602,24 @@ Page({
       if (!form.thickness_um || !form.width_mm || !form.length_m || !form.expiry_date) {
         return Toast.fail('请完善膜材规格及过期日期');
       }
-      base.unit = 'roll';
+      base.unit = form.unit || 'm';
       specs.thickness_um = Number(form.thickness_um);
       specs.standard_width_mm = Number(form.width_mm);
 
-      inventory.quantity_val = 1;
-      inventory.quantity_unit = 'roll';
-      inventory.length_m = form.length_m;
+      const length_m = Number(form.length_m);
+      inventory.length_m = length_m;
+      inventory.quantity_unit = base.unit;
+
+      const unitLower = base.unit.toLowerCase();
+      if (unitLower === 'm' || unitLower === '米') {
+          inventory.quantity_val = length_m;
+      } else if (unitLower === '㎡' || unitLower === 'm2' || base.unit === '平方米') {
+          inventory.quantity_val = length_m * (specs.standard_width_mm / 1000);
+      } else if (unitLower === 'roll' || base.unit === '卷') {
+          inventory.quantity_val = 1;
+      } else {
+          inventory.quantity_val = 1;
+      }
     }
 
     this.setData({ loading: true });
