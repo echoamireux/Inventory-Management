@@ -19,7 +19,7 @@ Page({
 
     const app = getApp();
     const user = app.globalData.user;
-    if (user && user.role === 'admin') {
+    if (user && ['admin', 'super_admin'].includes(user.role)) {
       this.setData({ isAdmin: true });
     }
   },

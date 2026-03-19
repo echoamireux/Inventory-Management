@@ -21,7 +21,7 @@ Page({
 
   onLoad() {
     const app = getApp();
-    if (!app.globalData.user || app.globalData.user.role !== 'admin') {
+    if (!app.globalData.user || !['admin', 'super_admin'].includes(app.globalData.user.role)) {
       wx.showModal({
         title: '无权限',
         content: '该页面仅限管理员访问',

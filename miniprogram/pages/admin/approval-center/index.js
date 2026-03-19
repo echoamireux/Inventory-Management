@@ -30,7 +30,7 @@ Page({
   checkAdmin() {
     const app = getApp();
     const user = app.globalData.user;
-    if (!user || user.role !== 'admin') {
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
       wx.showModal({
         title: '无权限',
         content: '该页面仅限管理员访问',
