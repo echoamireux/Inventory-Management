@@ -68,7 +68,13 @@ exports.main = async (event, context) => {
         // Group by product_code only (解决名称不一致导致重复聚合问题)
         _id: '$product_code',
         // Aggregate Data
-        totalQuantity: $.sum('$quantity.val'),
+        totalQuantity: $.sum(
+            $.cond({
+                if: $.eq(['$category', 'film']),
+                then: $.ifNull(['$dynamic_attrs.current_length_m', '$quantity.val']),
+                else: '$quantity.val'
+            })
+        ),
         totalCount: $.sum(1),
         minExpiry: $.min('$expiry_date'),
         locations: $.addToSet('$location'), // Unique locations
