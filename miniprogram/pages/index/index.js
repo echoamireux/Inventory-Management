@@ -469,12 +469,18 @@ Page({
         matchQuery.material_name = item.material_name;
       }
 
-      // 按批次聚合，计算每个批次的总库存
+      // 按批次聚合，计算每个批次的动态或初始总库存
       const result = await db.collection("inventory").aggregate()
         .match(matchQuery)
         .group({
           _id: "$batch_number",
-          totalQuantity: $.sum("$quantity.val"),
+          totalQuantity: $.sum(
+            $.cond({
+                if: $.eq(['$category', 'film']),
+                then: $.ifNull(['$dynamic_attrs.current_length_m', '$quantity.val']),
+                else: '$quantity.val'
+            })
+          ),
           itemCount: $.sum(1),
           minExpiry: $.min("$expiry_date"),
           location: $.first("$location"),

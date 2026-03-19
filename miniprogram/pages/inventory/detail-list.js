@@ -22,13 +22,10 @@ Page({
         category: cat
     });
 
-    let title = decodedName;
-    if (cat === 'chemical' && decodedCode) {
-        title = decodedCode;
-    }
+    let title = decodedCode || decodedName || '库存详情';
 
     wx.setNavigationBarTitle({
-        title: title || '库存详情'
+        title: title
     });
 
     this.getList();
