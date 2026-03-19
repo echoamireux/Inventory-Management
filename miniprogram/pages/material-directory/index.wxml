@@ -1,0 +1,49 @@
+<view class="container pb-50">
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
+    <van-tab title="全部" name="all"></van-tab>
+    <van-tab title="化材" name="chemical"></van-tab>
+    <van-tab title="膜材" name="film"></van-tab>
+  </van-tabs>
+
+  <view class="search-transparent bg-white">
+    <van-search
+        value="{{ searchVal }}"
+        placeholder="搜索产品代码 / 名称 / 供应商"
+        shape="round"
+        bind:search="onSearch"
+        bind:clear="onSearchClear"
+        bind:change="onSearch"
+    />
+  </view>
+
+  <view class="px-15 py-10 text-secondary text-sm">
+    <text>共找到 {{ total }} 种物料</text>
+  </view>
+
+  <view class="list-wrapper" wx:if="{{ list.length > 0 }}">
+    <block wx:for="{{ list }}" wx:key="_id">
+      <view class="card shadow-sm" bind:tap="onItemClick" data-id="{{ item._id }}" hover-class="card-hover">
+        <view class="flex-row justify-between items-baseline mb-5">
+            <view class="text-brand font-din font-bold" style="font-size: 18px;">{{ item.product_code }}</view>
+            <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain>{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
+        </view>
+        <view class="text-main font-bold mb-5 text-ellipsis" style="font-size: 15px;">
+            {{ item.material_name }}
+        </view>
+        <view class="text-xs text-secondary mt-5 flex-row justify-between">
+            <text>基本单位: {{ item.default_unit || '-' }}</text>
+            <text wx:if="{{ item.supplier }}">供应商: {{ item.supplier }}</text>
+            <text wx:elif="{{ item.shelf_life_days }}">有效期: {{ item.shelf_life_days }} 天</text>
+            <text wx:else>有效期: 长期有效</text>
+        </view>
+        <view class="mt-5" wx:if="{{ item.status === 'archived' }}">
+             <van-tag type="warning" plain>已归档停用</van-tag>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <van-empty wx:if="{{ !loading && list.length === 0 }}" description="暂无相关物料主数据" />
+  <view class="text-center text-secondary text-xs my-20" wx:if="{{ isEnd && list.length > 0 }}">- 到底了 -</view>
+</view>
+<van-toast id="van-toast" />

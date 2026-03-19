@@ -1,0 +1,17 @@
+.list-wrapper {
+  padding: 0 15px;
+}
+.card {
+  background: #ffffff;
+  padding: 15px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  position: relative;
+}
+.card-hover {
+  opacity: 0.8;
+  background: #fcfcfc;
+}
+.search-transparent {
+  padding: 8px 0;
+}
