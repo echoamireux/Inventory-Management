@@ -65,8 +65,12 @@ Page({
 
   checkAdminStatus() {
     const app = getApp();
-    if (app.globalData.user && app.globalData.user.role === "admin") {
-      this.setData({ isAdmin: true });
+    if (app.globalData.user) {
+      const role = app.globalData.user.role;
+      this.setData({
+        isAdmin: role === "admin" || role === "super_admin",
+        isSuperAdmin: role === "super_admin"
+      });
     }
   },
 

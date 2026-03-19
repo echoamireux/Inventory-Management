@@ -1,0 +1,102 @@
+<!--pages/super-admin/user-manage/index.wxml-->
+<view class="container pb-20">
+  <view class="p-20">
+    <!-- Header -->
+    <view class="mb-12 flex-row justify-between items-center px-10">
+      <view class="text-secondary text-sm font-medium">全域正式用户</view>
+      <van-tag type="primary" plain>Total: {{ list.length }}</van-tag>
+    </view>
+
+    <!-- 搜索功能预留（先只做前端过滤或暂去） -->
+    <view class="mb-10 bg-white rounded-lg shadow-sm">
+        <van-search
+            value="{{ searchVal }}"
+            placeholder="搜索姓名或手机号"
+            bind:change="onSearch"
+            shape="round"
+        />
+    </view>
+
+    <!-- List -->
+    <block wx:if="{{ filteredList.length > 0 }}">
+      <van-cell-group inset custom-class="!bg-transparent !p-0">
+        <block wx:for="{{ filteredList }}" wx:key="_id">
+          <van-cell center use-label-slot custom-class="!mb-10 !rounded-lg !shadow-sm">
+            <!-- 头像 -->
+            <view slot="icon" class="mr-10 relative">
+              <van-image
+                radius="6px"
+                width="44px"
+                height="44px"
+                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
+                fit="cover"
+              />
+            </view>
+
+            <!-- 姓名与身份标识 -->
+            <view slot="title" class="flex-row items-center">
+              <text class="font-bold text-base text-main mr-5">{{ item.name || '未命名' }}</text>
+              <view class="role-badge {{ item.role === 'super_admin' ? 'role-super' : (item.role === 'admin' ? 'role-admin' : 'role-user') }}">
+                  {{ item.role === 'super_admin' ? '超管' : (item.role === 'admin' ? '管理员' : '普通用') }}
+              </view>
+            </view>
+
+            <!-- 描述 -->
+            <view slot="label" class="mt-4">
+              <view class="flex-row items-center text-xs text-info mb-4" wx:if="{{ item.department || item.mobile }}">
+                 <text wx:if="{{ item.department }}" class="mr-10 bg-gray-100 px-4 py-2 rounded text-secondary">{{ item.department }}</text>
+                 <text wx:if="{{ item.mobile }}">{{ item.mobile }}</text>
+              </view>
+              <view class="flex-row items-center">
+                <van-icon name="clock-o" size="12px" color="#9CA3AF" class="mr-5"/>
+                <text class="text-xs text-sub">加入于 {{ item._timeStr }}</text>
+              </view>
+            </view>
+
+            <!-- 操作区: 超管无法降级超管，自己不能操作自己 -->
+            <view slot="right-icon" class="flex-col items-end" wx:if="{{ item.role !== 'super_admin' }}">
+              <!-- Dropdown / Action Sheet trigger -->
+              <van-button
+                  wx:if="{{ item.role === 'user' }}"
+                  type="primary"
+                  size="small"
+                  round
+                  plain
+                  custom-style="width: 60px; height: 26px; padding: 0; font-size: 12px;"
+                  data-id="{{ item._id }}"
+                  data-name="{{ item.name }}"
+                  data-role="admin"
+                  bind:click="onChangeRole"
+              >
+                  设为管理
+              </van-button>
+              
+              <van-button
+                  wx:if="{{ item.role === 'admin' }}"
+                  type="danger"
+                  size="small"
+                  round
+                  plain
+                  custom-style="width: 60px; height: 26px; padding: 0; font-size: 12px;"
+                  data-id="{{ item._id }}"
+                  data-name="{{ item.name }}"
+                  data-role="user"
+                  bind:click="onChangeRole"
+              >
+                  取消管理
+              </van-button>
+            </view>
+          </van-cell>
+        </block>
+      </van-cell-group>
+    </block>
+
+    <van-empty
+      wx:else
+      description="无匹配人员"
+    />
+  </view>
+
+  <van-dialog id="van-dialog" />
+  <van-toast id="van-toast" />
+</view>

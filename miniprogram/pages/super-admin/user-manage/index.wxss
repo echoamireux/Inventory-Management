@@ -1,0 +1,20 @@
+/* pages/super-admin/user-manage/index.wxss */
+.role-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    display: inline-block;
+}
+.role-super {
+    background: #FFD700;
+    color: #8B6508;
+}
+.role-admin {
+    background: #E0E7FF;
+    color: #4F46E5;
+}
+.role-user {
+    background: #F3F4F6;
+    color: #6B7280;
+}

@@ -71,6 +71,7 @@
       <van-cell title="新增物料" icon="add-o" is-link url="/pages/material-add/index" />
       <van-cell title="库存查询" icon="search" is-link url="/pages/inventory/index" />
       <van-cell title="物料查询" icon="bookmark-o" is-link url="/pages/material-directory/index" />
+      <van-cell title="人员与权限" icon="manager-o" is-link url="/pages/super-admin/user-manage/index" wx:if="{{ isSuperAdmin }}" />
       <van-cell title="审批中心" icon="todo-list-o" is-link url="/pages/admin/approval-center/index" wx:if="{{ isAdmin }}" />
       <van-cell title="物料管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
       <van-cell title="审计日志" icon="shield-o" is-link url="/pages/admin-logs/index" wx:if="{{ isAdmin }}" />
