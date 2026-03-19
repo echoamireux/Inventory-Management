@@ -30,14 +30,9 @@ Page({
       const itemRes = await wx.cloud.database().collection('inventory').doc(id).get();
       const item = itemRes.data;
 
-      // Display Logic: Chemical -> Product Code; Film -> Material Name
-      let displayTitle = item.material_name || '未命名';
-      let displaySubtitle = item.product_code || item.unique_code || '';
-
-      if (item.category === 'chemical' && item.product_code) {
-          displayTitle = item.product_code;
-          displaySubtitle = item.material_name;
-      }
+      // Display Logic (Unified! ALWAYS Product Code first)
+      let displayTitle = item.product_code || item.unique_code || '未命名';
+      let displaySubtitle = item.material_name || '';
 
       item._displayTitle = displayTitle;
       item._displaySubtitle = displaySubtitle;

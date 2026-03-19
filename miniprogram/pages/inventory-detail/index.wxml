@@ -8,19 +8,9 @@
     <view class="header-flex-container">
         <!-- Left: Info -->
         <view class="header-left">
-           <!-- Title Logic -->
-           <block wx:if="{{ item.category === 'chemical' }}">
-              <view class="header-title">{{ item.product_code || '无产品代码' }}</view>
-              <view class="header-subtitle">{{ item.material_name || '无物料名' }}</view>
-           </block>
-           <block wx:elif="{{ item.category === 'film' }}">
-              <view class="header-title">{{ item.material_name || '无物料名' }}</view>
-              <view class="header-subtitle">{{ item.product_code || '无产品代码' }}</view>
-           </block>
-           <block wx:else>
-              <view class="header-title">{{ item.material_name || '未知物料' }}</view>
-               <view class="header-subtitle">{{ item.product_code || '-' }}</view>
-           </block>
+           <!-- Title Logic (Unified) -->
+           <view class="header-title">{{ item.product_code || '无产品代码' }}</view>
+           <view class="header-subtitle">{{ item.material_name || '无物料名' }}</view>
 
            <!-- ID & Tag Row -->
             <view class="header-meta-row">
