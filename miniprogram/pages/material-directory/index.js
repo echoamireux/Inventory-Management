@@ -106,12 +106,5 @@ Page({
   onSearchClear() {
     this.setData({ searchVal: '' });
     this.getList(true);
-  },
-
-  onItemClick(e) {
-      const id = e.currentTarget.dataset.id;
-      wx.navigateTo({
-        url: `/pages/material-detail/index?id=${id}`,
-      });
   }
 });

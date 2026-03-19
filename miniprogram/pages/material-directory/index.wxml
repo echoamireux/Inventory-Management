@@ -22,7 +22,7 @@
 
   <view class="list-wrapper" wx:if="{{ list.length > 0 }}">
     <block wx:for="{{ list }}" wx:key="_id">
-      <view class="card shadow-sm" bind:tap="onItemClick" data-id="{{ item._id }}" hover-class="card-hover">
+      <view class="card shadow-sm" data-id="{{ item._id }}">
         <view class="flex-row justify-between items-baseline mb-5">
             <view class="text-brand font-din font-bold" style="font-size: 18px;">{{ item.product_code }}</view>
             <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain>{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
@@ -31,7 +31,7 @@
             {{ item.material_name }}
         </view>
         <view class="text-xs text-secondary mt-5 flex-row justify-between">
-            <text>基本单位: {{ item.default_unit || '-' }}</text>
+            <text>子类别: {{ item.sub_category || '-' }}</text>
             <text wx:if="{{ item.supplier }}">供应商: {{ item.supplier }}</text>
             <text wx:elif="{{ item.shelf_life_days }}">有效期: {{ item.shelf_life_days }} 天</text>
             <text wx:else>有效期: 长期有效</text>
