@@ -182,34 +182,29 @@ Page({
   },
 
   async handleUserAction(id, action, reason = '') {
-      // 简单处理：Client Update (仅供 MVP，正规应走云函数)
       wx.showLoading({ title: '处理中...' });
       try {
-          const updateData = {
-              status: action === 'approve' ? 'active' : 'rejected',
-              // approved_at: db.serverDate() // 如果schema支持
-          };
-
-          if (action === 'reject' && reason) {
-              updateData.reject_reason = reason;
-          }
-
-          if (action === 'approve') {
-              // 默认激活为操作员
-              // updateData.role = 'operator';
-          }
-
-          await db.collection('users').doc(id).update({
-              data: updateData
+          const res = await wx.cloud.callFunction({
+              name: 'adminUpdateUserStatus',
+              data: {
+                  userId: id,
+                  status: action === 'approve' ? 'active' : 'rejected',
+                  rejectReason: action === 'reject' ? reason : ''
+              }
           });
 
           wx.hideLoading();
-          wx.showToast({ title: '操作成功', icon: 'success' });
-          this.fetchUsers(); // Reload
+
+          if (res.result && res.result.success) {
+              wx.showToast({ title: '操作成功', icon: 'success' });
+              this.fetchUsers(); // Reload
+          } else {
+              wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
+          }
       } catch(err) {
           wx.hideLoading();
+          wx.showToast({ title: '网络异常', icon: 'none' });
           console.error(err);
-          wx.showToast({ title: '操作失败', icon: 'none' });
       }
   },
 

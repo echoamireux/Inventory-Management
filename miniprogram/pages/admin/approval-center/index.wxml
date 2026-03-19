@@ -72,77 +72,45 @@
       </block>
 
       <block wx:else>
-         <view wx:for="{{ userList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm flex-row items-center">
-
-            <view class="mr-15">
-              <van-image
-                width="50"
-                height="50"
-                radius="8"
-                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
-              />
+         <view wx:for="{{ userList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm">
+            <view class="flex-row items-center mb-10">
+               <van-image
+                   width="45"
+                   height="45"
+                   radius="4"
+                   src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
+                   custom-class="mr-15"
+                 />
+               <view class="flex-1">
+                  <view class="flex-row justify-between mb-5">
+                    <view class="font-bold text-lg text-dark">{{ item.name }}</view>
+                    <van-tag type="warning" plain>待审核</van-tag>
+                  </view>
+                  <view class="text-xs text-gray-500 mb-2">{{ item.department || '无部门' }} | {{ item.mobile || '无手机号' }}</view>
+                  <view class="text-xs text-gray-400">申请时间：{{ item._timeStr }}</view>
+               </view>
             </view>
-
-            <view class="flex-1">
-              <view class="flex-row justify-between mb-5">
-                 <view class="font-bold text-lg text-dark">{{ item.name }}</view>
-                 <van-tag type="warning" plain>待审核</van-tag>
-              </view>
-              <view class="text-sm text-gray-600 mb-2">
-                 部门：{{ item.department || '未填写' }}
-              </view>
-               <view class="text-sm text-gray-600 mb-2">
-                 手机：{{ item.mobile || '未填写' }}
-              </view>
-              <view class="text-xs text-gray-400">
-                 申请时间：{{ item._timeStr }}
-              </view>
+            <view class="flex-row justify-end border-t border-gray-100 pt-10 mt-5">
+                <van-button
+                  size="small"
+                  type="danger"
+                  plain
+                  custom-class="mr-10"
+                  data-id="{{ item._id }}"
+                  data-type="user"
+                  bind:click="onReject"
+                >驳回</van-button>
+               <van-button
+                  size="small"
+                  type="primary"
+                  data-id="{{ item._id }}"
+                  data-type="user"
+                  bind:click="onApprove"
+                >通过(激活)</van-button>
             </view>
          </view>
-
-         <!-- Action Buttons separate line for clarity on mobile -->
-         <view class="flex-row justify-end w-full mt-10" wx:for-item="item" >
-            <!-- Note: accessing item outside scope? No, need to move buttons inside the card above -->
-         </view>
-
-         <!-- Re-structure user list item for buttons -->
-         <!-- Let's rewrite the loop content slightly -->
       </block>
 
-      <!-- Better structure for User List -->
-      <view wx:for="{{ userList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm">
-         <view class="flex-row items-center mb-10">
-            <van-image
-                width="40"
-                height="40"
-                radius="4"
-                src="https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwBHtRSMIC7toToxqbNF7PbRfjlykCLjsQ6h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6l2h6/0"
-                custom-class="mr-10"
-              />
-            <view>
-               <view class="font-bold">{{ item.name }}</view>
-               <view class="text-xs text-gray-500">{{ item.department }} | {{ item.mobile }}</view>
-            </view>
-         </view>
-         <view class="flex-row justify-end border-t border-gray-100 pt-10">
-             <van-button
-              size="small"
-              type="danger"
-              plain
-              custom-class="mr-10"
-              data-id="{{ item._id }}"
-              data-type="user"
-              bind:click="onReject"
-            >驳回</van-button>
-            <van-button
-              size="small"
-              type="primary"
-              data-id="{{ item._id }}"
-              data-type="user"
-              bind:click="onApprove"
-            >通过(激活)</van-button>
-         </view>
-      </view>
 
     </view>
   </van-tab>
