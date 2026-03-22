@@ -66,6 +66,10 @@ cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 echo "   -> Updating log-search.js..."
 cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js
 
+echo "   -> Updating inventory-allocation.js..."
+cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/getInventoryBatches/inventory-allocation.js
+cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/updateInventory/inventory-allocation.js
+
 echo "   -> Updating material-template.js..."
 cp cloudfunctions/_shared/material-template.js cloudfunctions/exportMaterialTemplate/material-template.js
 

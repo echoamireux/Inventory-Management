@@ -5,6 +5,7 @@ const {
   getFilmDisplayQuantityFromBaseLength,
   roundNumber
 } = require('./film-quantity');
+const { sortInventoryAllocationCandidates } = require('./inventory-allocation');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -53,28 +54,14 @@ exports.main = async (event, context) => {
              const res = await transaction.collection('inventory').where({ unique_code }).get();
              if (res.data.length > 0) itemsToProcess.push(res.data[0]);
         } else if (product_code && batch_no) {
-             // Mode B: Smart FIFO (Batch Select)
+             // Mode B: Smart FEFO (Batch Select)
              const res = await transaction.collection('inventory').where({
                  product_code: product_code,
-                 batch_number: batch_no
+                 batch_number: batch_no,
+                 status: 'in_stock'
              }).get();
 
-             // Filter for available stock
-             itemsToProcess = res.data.filter(i => {
-                 const stock = i.category === 'film'
-                    ? (i.dynamic_attrs && i.dynamic_attrs.current_length_m)
-                    : i.quantity.val;
-                 return i.status !== 'used' && stock > 0;
-             });
-
-             // Sort: FIFO (Oldest Created First)
-             // FIX: used 'created_at' which is undefined. Changed to 'create_time'.
-             itemsToProcess.sort((a, b) => {
-                 // Handle serverDate() or Date object or timestamp
-                 const dateA = a.create_time instanceof Date ? a.create_time : new Date(a.create_time);
-                 const dateB = b.create_time instanceof Date ? b.create_time : new Date(b.create_time);
-                 return dateA - dateB;
-             });
+             itemsToProcess = sortInventoryAllocationCandidates(res.data || []);
         }
 
         if (itemsToProcess.length === 0) {

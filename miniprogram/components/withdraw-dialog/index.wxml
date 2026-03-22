@@ -50,7 +50,7 @@
                 <view wx:if="{{ mode === 'batch' && item.unique_code }}" class="mt-2 flex-row items-center">
                     <view class="tag-base tag-warning mr-8">系统推荐</view>
                     <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
-                    <text class="text-sub text-sm ml-8">(FIFO 原则)</text>
+                    <text class="text-sub text-sm ml-8">(效期优先)</text>
                 </view>
 
                  <view wx:if="{{ item.isExpiring }}" class="mt-2 alert-box-orange">

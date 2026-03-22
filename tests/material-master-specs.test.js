@@ -114,6 +114,21 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
   assert.match(file, /withdraw_amount/);
 });
 
+test('home batch recommendation and batch-mode deduction share one FEFO allocation contract', () => {
+  const homeIndex = read('miniprogram/pages/index/index.js');
+  const batchCf = read('cloudfunctions/getInventoryBatches/index.js');
+  const updateInventory = read('cloudfunctions/updateInventory/index.js');
+  const withdrawDialogWxml = read('miniprogram/components/withdraw-dialog/index.wxml');
+
+  assert.match(batchCf, /recommendedCode/);
+  assert.match(batchCf, /pickPreferredAllocationItem|sortInventoryAllocationCandidates/);
+  assert.match(updateInventory, /sortInventoryAllocationCandidates/);
+  assert.match(updateInventory, /status:\s*'in_stock'/);
+  assert.match(homeIndex, /batch\.recommendedCode/);
+  assert.doesNotMatch(homeIndex, /orderBy\('expiry_date', 'asc'\)/);
+  assert.match(withdrawDialogWxml, /效期优先|FEFO/);
+});
+
 test('log pages no longer expose delete actions or call destructive log cloud functions', () => {
   const logsJs = read('miniprogram/pages/logs/index.js');
   const logsWxml = read('miniprogram/pages/logs/index.wxml');
