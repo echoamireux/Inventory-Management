@@ -275,7 +275,7 @@
             </view>
             <van-field
               value="{{ form.width_mm }}"
-              label="宽度(mm)"
+              label="幅宽(mm)"
               type="number"
               placeholder="请输入"
               required
@@ -295,7 +295,7 @@
             />
             <van-field
               value="{{ form.unit || 'm' }}"
-              label="计价单位"
+              label="默认单位"
               readonly
               required
               data-field="unit"

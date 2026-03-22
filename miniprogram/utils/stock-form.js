@@ -27,7 +27,7 @@ function getCategorySpecificValidationMessage(category, form = {}) {
     }
 
     if (!hasFilledValue(form.width_mm)) {
-      return '请填写宽度';
+      return '请填写幅宽';
     }
 
     if (!hasFilledValue(form.length_m)) {
@@ -35,7 +35,7 @@ function getCategorySpecificValidationMessage(category, form = {}) {
     }
 
     if (!hasFilledValue(form.unit)) {
-      return '请选择计价单位';
+      return '请选择默认单位';
     }
 
     if (!hasExplicitValidity) {

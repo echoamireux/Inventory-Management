@@ -65,6 +65,30 @@ test('film submit validation reports the first missing spec field precisely', ()
   );
 });
 
+test('film submit validation uses unified 幅宽 and 默认单位 wording', () => {
+  assert.equal(
+    getCategorySpecificValidationMessage('film', {
+      thickness_um: '25',
+      width_mm: '',
+      length_m: '',
+      unit: '',
+      expiry_date: ''
+    }),
+    '请填写幅宽'
+  );
+
+  assert.equal(
+    getCategorySpecificValidationMessage('film', {
+      thickness_um: '25',
+      width_mm: '1200',
+      length_m: '1000',
+      unit: '',
+      expiry_date: ''
+    }),
+    '请选择默认单位'
+  );
+});
+
 test('film submit validation reports expiry date after dimensions are present', () => {
   assert.equal(
     getCategorySpecificValidationMessage('film', {

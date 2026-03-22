@@ -78,7 +78,7 @@ exports.main = async (event, context) => {
             throw new Error(authResult.msg);
           }
         } else {
-          const authResult = assertAdminAccess(operator, '仅管理员可修正膜材批次幅宽');
+          const authResult = assertAdminAccess(operator, '仅管理员可修正膜材幅宽');
           if (!authResult.ok) {
             throw new Error(authResult.msg);
           }
@@ -92,12 +92,12 @@ exports.main = async (event, context) => {
         const item = invRes.data;
         if (isWidthUpdate) {
           if (item.category !== 'film') {
-            throw new Error('仅膜材批次支持修正幅宽');
+            throw new Error('仅膜材记录支持修正幅宽');
           }
 
           const nextWidthMm = Number(updates.width_mm);
           if (!Number.isFinite(nextWidthMm) || nextWidthMm <= 0) {
-            throw new Error('请输入有效的批次幅宽');
+            throw new Error('请输入有效的幅宽');
           }
 
           const oldWidthMm = Number(item.dynamic_attrs && item.dynamic_attrs.width_mm) || 0;
@@ -141,7 +141,7 @@ exports.main = async (event, context) => {
               quantity_change: 0,
               action: '修正幅宽',
               spec_change_unit: quantityUnit,
-              description: `批次幅宽由 [${oldWidthMm || '--'} mm] 修正为 [${nextWidthMm} mm]${reasonText}`,
+              description: `幅宽由 [${oldWidthMm || '--'} mm] 修正为 [${nextWidthMm} mm]${reasonText}`,
               operator: event.operator_name || 'System',
               operator_id: OPENID,
               _openid: OPENID,

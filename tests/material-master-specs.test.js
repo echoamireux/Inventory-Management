@@ -13,7 +13,11 @@ test('admin material edit page exposes governed master spec fields for chemical 
 
   assert.match(wxml, /title="包装形式"/);
   assert.match(wxml, /label="厚度\(μm\)"/);
+  assert.match(wxml, /label="厚度\(μm\)"[\s\S]*?label-width="[^"]+"/);
   assert.match(wxml, /label="默认幅宽\(mm\)"/);
+  assert.match(wxml, /label="默认幅宽\(mm\)"[\s\S]*?placeholder="请输入默认幅宽"/);
+  assert.match(wxml, /label="默认幅宽\(mm\)"[\s\S]*?label-width="[^"]+"/);
+  assert.match(wxml, /title="默认单位"/);
   assert.doesNotMatch(wxml, /保质期/);
   assert.doesNotMatch(js, /shelf_life_days/);
   assert.match(js, /showPackageTypePicker/);
@@ -64,8 +68,15 @@ test('inventory batch, label, and detail layers all keep film display units alig
 test('inventory detail exposes admin-only film width correction entry and keeps it out of the chemical path', () => {
   const detailWxml = read('miniprogram/pages/inventory-detail/index.wxml');
   const detailJs = read('miniprogram/pages/inventory-detail/index.js');
+  const editInventoryJs = read('cloudfunctions/editInventory/index.js');
 
-  assert.match(detailWxml, /修正批次幅宽/);
+  assert.match(detailWxml, /title="幅宽"/);
+  assert.match(detailWxml, /修正幅宽/);
+  assert.doesNotMatch(detailWxml, /修正批次幅宽/);
+  assert.match(detailJs, /请输入有效的幅宽/);
+  assert.match(detailJs, /幅宽已修正/);
+  assert.match(editInventoryJs, /请输入有效的幅宽/);
+  assert.match(editInventoryJs, /幅宽由 \[/);
   assert.match(detailJs, /canAdjustFilmWidth/);
   assert.match(detailJs, /onShowWidthAdjustPopup/);
   assert.match(detailJs, /onAdjustFilmWidthConfirm/);
@@ -79,6 +90,10 @@ test('single stock-in page handles film thickness as governed input and fixes sq
   assert.match(pageJs, /thickness_locked/);
   assert.match(pageWxml, /readonly="\{\{ form\.thickness_locked \}\}"/);
   assert.match(pageWxml, /厚度以主数据为准/);
+  assert.match(pageWxml, /label="幅宽\(mm\)"/);
+  assert.match(pageWxml, /label="默认单位"/);
+  assert.doesNotMatch(pageWxml, /label="宽度\(mm\)"/);
+  assert.doesNotMatch(pageWxml, /label="计价单位"/);
 });
 
 test('material add top action bar uses a centered single-button layout for managers and keeps dual buttons for normal users', () => {

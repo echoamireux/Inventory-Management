@@ -57,10 +57,10 @@
       <van-cell-group inset custom-class="group-card">
           <block wx:if="{{ item.category === 'film' }}">
               <van-cell title="厚度" value="{{ item._thicknessLabel }}" />
-              <van-cell title="宽度" value="{{ item._widthLabel }}" />
+              <van-cell title="幅宽" value="{{ item._widthLabel }}" />
               <view wx:if="{{ canAdjustFilmWidth }}" class="width-adjust-entry">
-                <button class="width-adjust-btn" bindtap="onShowWidthAdjustPopup">修正批次幅宽</button>
-                <text class="width-adjust-tip">仅修正当前批次实际幅宽，不影响物料主数据默认幅宽</text>
+                <button class="width-adjust-btn" bindtap="onShowWidthAdjustPopup">修正幅宽</button>
+                <text class="width-adjust-tip">仅修正当前标签的幅宽，不影响物料主数据默认幅宽</text>
               </view>
               <van-cell title="初始入库长度" value="{{ item._initialLengthLabel }}" />
           </block>
@@ -106,16 +106,16 @@
   >
     <view class="popup-content">
       <view class="popup-header">
-        <view class="popup-title">修正批次幅宽</view>
-        <view class="popup-subtitle">仅管理员可操作，修正后当前批次的膜材显示会按新幅宽重算</view>
+        <view class="popup-title">修正幅宽</view>
+        <view class="popup-subtitle">仅管理员可操作，修正后当前标签的膜材显示会按新幅宽重算</view>
       </view>
 
       <van-field
         custom-class="popup-field"
         type="digit"
-        label="批次幅宽"
+        label="幅宽"
         value="{{ adjustWidthValue }}"
-        placeholder="请输入实际幅宽"
+        placeholder="请输入幅宽"
         bind:change="onAdjustWidthValueInput"
       >
         <view slot="right-icon" class="text-secondary">mm</view>

@@ -357,7 +357,7 @@ Page({
       }
       const nextWidth = Number(adjustWidthValue);
       if (!Number.isFinite(nextWidth) || nextWidth <= 0) {
-          Toast.fail('请输入有效的批次幅宽');
+          Toast.fail('请输入有效的幅宽');
           return;
       }
 
@@ -381,7 +381,7 @@ Page({
 
           if (res.result && res.result.success) {
               getApp().globalData.inventoryChangedAt = Date.now();
-              Toast.success('批次幅宽已修正');
+              Toast.success('幅宽已修正');
               this.setData({
                   showWidthAdjustPopup: false,
                   adjustWidthValue: '',
