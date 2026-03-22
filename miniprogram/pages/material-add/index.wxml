@@ -8,9 +8,13 @@
 
   <view class="p-15">
     <!-- 0. 顶部操作区 -->
-    <view class="mb-15 flex-row justify-between items-center">
-        <van-button icon="apps-o" plain type="primary" size="small" bind:click="goToBatchEntry" custom-style="flex: 1; {{ !isManager ? 'margin-right: 10px;' : '' }}">批量模式</van-button>
-        <van-button wx:if="{{ !isManager }}" icon="records" plain type="info" size="small" bind:click="goToMyRequests" custom-style="flex: 1;">我的申请</van-button>
+    <view class="mb-15 top-action-bar {{ isManager ? 'top-action-bar--single' : 'top-action-bar--dual' }}">
+        <view class="top-action-bar__item top-action-bar__item--primary">
+            <van-button icon="apps-o" plain type="primary" size="small" bind:click="goToBatchEntry" custom-style="width: 100%;">批量模式</van-button>
+        </view>
+        <view wx:if="{{ !isManager }}" class="top-action-bar__item">
+            <van-button icon="records" plain type="info" size="small" bind:click="goToMyRequests" custom-style="width: 100%;">我的申请</van-button>
+        </view>
     </view>
 
     <!-- 1. 唯一码录入 (置顶) -->

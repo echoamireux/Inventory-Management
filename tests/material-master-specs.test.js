@@ -81,6 +81,21 @@ test('single stock-in page handles film thickness as governed input and fixes sq
   assert.match(pageWxml, /厚度以主数据为准/);
 });
 
+test('material add top action bar uses a centered single-button layout for managers and keeps dual buttons for normal users', () => {
+  const pageWxml = read('miniprogram/pages/material-add/index.wxml');
+  const pageWxss = read('miniprogram/pages/material-add/index.wxss');
+
+  assert.match(pageWxml, /class="mb-15 top-action-bar \{\{ isManager \? 'top-action-bar--single' : 'top-action-bar--dual' \}\}"/);
+  assert.match(pageWxml, /class="top-action-bar__item top-action-bar__item--primary"/);
+  assert.match(pageWxml, /wx:if="\{\{ !isManager \}\}" class="top-action-bar__item"/);
+  assert.doesNotMatch(pageWxml, /custom-style="flex: 1; \{\{ !isManager \? 'margin-right: 10px;' : '' \}\}"/);
+
+  assert.match(pageWxss, /\.top-action-bar\s*\{/);
+  assert.match(pageWxss, /\.top-action-bar--single\s*\{/);
+  assert.match(pageWxss, /\.top-action-bar--single \.top-action-bar__item--primary\s*\{/);
+  assert.match(pageWxss, /\.top-action-bar--dual \.top-action-bar__item \+ \.top-action-bar__item\s*\{/);
+});
+
 test('admin update user status cloud function still gates target roles through the managed-role whitelist', () => {
   const file = read('cloudfunctions/adminUpdateUserStatus/index.js');
 

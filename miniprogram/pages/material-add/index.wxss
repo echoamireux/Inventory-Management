@@ -7,6 +7,38 @@
   min-height: 100vh;
 }
 
+.top-action-bar {
+  display: flex;
+  align-items: center;
+}
+
+.top-action-bar__item {
+  min-width: 0;
+}
+
+.top-action-bar--dual {
+  justify-content: space-between;
+}
+
+.top-action-bar--dual .top-action-bar__item {
+  flex: 1;
+}
+
+.top-action-bar--dual .top-action-bar__item + .top-action-bar__item {
+  margin-left: 10px;
+}
+
+.top-action-bar--single {
+  justify-content: center;
+}
+
+.top-action-bar--single .top-action-bar__item--primary {
+  flex: none;
+  width: calc((100% - 10px) / 2);
+  min-width: 280rpx;
+  max-width: 420rpx;
+}
+
 /* 扫码按钮 */
 .scan-btn {
   width: 64px !important;
