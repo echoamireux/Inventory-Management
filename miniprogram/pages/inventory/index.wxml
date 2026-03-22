@@ -41,7 +41,10 @@
 
       <!-- 列表内容 -->
       <view class="list-container">
-        <block wx:if="{{ list.length > 0 }}">
+        <view wx:if="{{ loading && !hasLoadedOnce }}" class="page-loading-state">
+          <van-loading size="24px" vertical>加载中...</van-loading>
+        </view>
+        <block wx:elif="{{ list.length > 0 }}">
           <!-- 使用统一组件 -->
           <material-list-item
             wx:for="{{ list }}"
@@ -52,10 +55,10 @@
             data-index="{{ index }}"
           />
         </block>
-        <van-empty wx:else description="暂无库存数据" />
+        <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无库存数据" />
       </view>
 
-  <view wx:if="{{ loading }}" class="text-center p-10">
+  <view wx:if="{{ loading && hasLoadedOnce }}" class="text-center p-10">
     <van-loading size="24px">加载中...</van-loading>
   </view>
   <view wx:if="{{ isEnd && list.length > 0 }}" class="text-center p-10 text-secondary text-xs">

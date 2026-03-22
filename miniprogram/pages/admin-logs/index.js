@@ -2,6 +2,7 @@
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
 const db = require('../../utils/db');
+const { getCstRange } = require('../../utils/cst');
 
 Page({
   data: {
@@ -153,18 +154,7 @@ Page({
       // 日期筛选
       const { dateFilter } = this.data;
       if (dateFilter !== 'all') {
-        const now = new Date();
-        let startDate;
-
-        if (dateFilter === 'today') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else if (dateFilter === 'week') {
-          const dayOfWeek = now.getDay();
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-        } else if (dateFilter === 'month') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-
+        const { start: startDate } = getCstRange(dateFilter, new Date());
         if (startDate) {
           conditions.push({ timestamp: _.gte(startDate) });
         }
@@ -238,7 +228,7 @@ Page({
           _displayName: displayName,
           _sign: sign,
           quantity: Math.abs(qty),
-          unit: item.unit || ''
+          unit: item.spec_change_unit || item.unit || ''
         };
       });
 

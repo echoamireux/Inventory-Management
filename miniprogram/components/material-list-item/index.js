@@ -12,10 +12,24 @@ Component({
   options: {
     addGlobalClass: true
   },
+  data: {
+    display: {
+      materialName: '',
+      subcategoryLabel: '',
+      batchCountLabel: '',
+      locationSummary: ''
+    }
+  },
   properties: {
     item: {
       type: Object,
-      value: {}
+      value: {},
+      observer(item) {
+        const { buildGroupedInventoryCardState } = require('../../utils/inventory-display');
+        this.setData({
+          display: buildGroupedInventoryCardState(item)
+        });
+      }
     },
     showCategory: {
       type: Boolean,

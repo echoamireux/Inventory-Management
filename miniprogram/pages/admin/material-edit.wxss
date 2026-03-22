@@ -72,3 +72,14 @@
   background: #EFF6FF;
   color: #2563EB;
 }
+
+.zone-manage-entry {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 12px;
+}
+
+.zone-manage-link {
+  color: #2563eb;
+  font-size: 13px;
+}

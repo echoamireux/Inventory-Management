@@ -1,6 +1,11 @@
 // pages/admin/approval-center/index.js
 const db = wx.cloud.database();
 import Dialog from '@vant/weapp/dialog/dialog';
+const { listSubcategoryRecords } = require('../../../utils/subcategory-service');
+const {
+  buildSubcategoryMap,
+  resolveSubcategoryDisplay
+} = require('../../../utils/material-subcategory');
 
 Page({
   data: {
@@ -62,13 +67,22 @@ Page({
   async fetchMaterials() {
     this.setData({ materialLoading: true });
     try {
-        const res = await db.collection('material_requests')
-            .where({ status: 'pending' })
-            .orderBy('created_at', 'desc')
-            .get();
+        const [chemicalSubcategories, filmSubcategories, res] = await Promise.all([
+            listSubcategoryRecords('chemical', true).catch(() => []),
+            listSubcategoryRecords('film', true).catch(() => []),
+            db.collection('material_requests')
+                .where({ status: 'pending' })
+                .orderBy('created_at', 'desc')
+                .get()
+        ]);
+        const subcategoryMap = buildSubcategoryMap([
+            ...chemicalSubcategories,
+            ...filmSubcategories
+        ]);
 
         const list = res.data.map(item => ({
             ...item,
+            _subcategoryDisplay: resolveSubcategoryDisplay(item, subcategoryMap) || item.sub_category || '-',
             _timeStr: this.formatTime(item.created_at)
         }));
         this.setData({ materialList: list });

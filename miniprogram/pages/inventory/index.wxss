@@ -10,6 +10,13 @@
   padding: 24rpx;
 }
 
+.page-loading-state {
+  min-height: 420rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 库存卡片 */
 .inventory-card {
   background-color: var(--color-bg-card);

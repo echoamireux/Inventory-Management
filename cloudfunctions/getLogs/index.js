@@ -1,5 +1,6 @@
 // cloudfunctions/getLogs/index.js
 const cloud = require('wx-server-sdk');
+const { getCstRange } = require('./cst-time');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -26,13 +27,11 @@ exports.main = async (event, context) => {
 
       // 1. queryCode 筛选（特殊筛选，如今日入库）
       if (queryCode === 'today_in') {
-          const today = new Date();
-          today.setHours(0,0,0,0);
+          const { start: today } = getCstRange('today', new Date());
           conditions.push({ type: _.in(['inbound', 'create', 'IN', 'CREATE']) });
           conditions.push({ timestamp: _.gte(today) });
       } else if (queryCode === 'today_out') {
-          const today = new Date();
-          today.setHours(0,0,0,0);
+          const { start: today } = getCstRange('today', new Date());
           conditions.push({ type: _.in(['outbound', 'OUT']) });
           conditions.push({ timestamp: _.gte(today) });
       } else if (queryCode) {
@@ -58,18 +57,7 @@ exports.main = async (event, context) => {
 
       // 3. 日期筛选
       if (dateFilter && dateFilter !== 'all') {
-          const now = new Date();
-          let startDate;
-
-          if (dateFilter === 'today') {
-              startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          } else if (dateFilter === 'week') {
-              const dayOfWeek = now.getDay();
-              startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-          } else if (dateFilter === 'month') {
-              startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          }
-
+          const { start: startDate } = getCstRange(dateFilter, new Date());
           if (startDate) {
               conditions.push({ timestamp: _.gte(startDate) });
           }

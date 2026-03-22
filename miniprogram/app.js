@@ -21,7 +21,8 @@ App({
 
     this.globalData = {
       userInfo: null,
-      user: null // 存储 { name, openid, role }
+      user: null, // 存储 { name, openid, role }
+      inventoryChangedAt: 0
     };
 
     this.checkUserStatus();

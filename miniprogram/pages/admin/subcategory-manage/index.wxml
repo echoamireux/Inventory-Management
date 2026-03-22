@@ -1,0 +1,41 @@
+<view class="zone-page">
+  <view class="zone-header">
+    <view class="zone-toolbar__title">{{ title }}</view>
+    <view class="zone-toolbar__hint">
+      子类别会影响申请建档、主数据和库存显示。改名后新旧记录都会优先跟随最新名称；停用后新表单不再显示，但历史数据仍可回显。
+    </view>
+    <van-button type="primary" round block bind:click="onCreateSubcategory">新建子类别</van-button>
+  </view>
+
+  <view class="zone-hint">
+    当前只开放化材和膜材各自的子类别配置，不开放大类自定义。建议先用停用替代删除，避免影响测试中的引用数据。
+  </view>
+
+  <view wx:if="{{ loading }}" class="zone-loading">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <view wx:else class="zone-list">
+    <block wx:for="{{ subcategories }}" wx:key="subcategory_key">
+      <view class="zone-card {{ item.status === 'disabled' ? 'zone-card--disabled' : '' }}">
+        <view class="zone-card__main">
+          <view class="zone-card__name">{{ item.name }}</view>
+          <view class="zone-card__meta">
+            <van-tag plain type="primary" wx:if="{{ item.is_builtin }}">默认</van-tag>
+            <van-tag plain type="success" wx:else>自定义</van-tag>
+            <van-tag plain color="#6b7280" wx:if="{{ item.status === 'disabled' }}">已停用</van-tag>
+            <text class="zone-card__scope">{{ item.parent_category === 'film' ? '膜材' : '化材' }}</text>
+          </view>
+        </view>
+        <view class="zone-card__actions">
+          <van-button size="mini" plain type="primary" bind:click="onRenameSubcategory" data-index="{{ index }}">改名</van-button>
+          <van-button size="mini" plain bind:click="onToggleSubcategory" data-index="{{ index }}">
+            {{ item.status === 'disabled' ? '启用' : '停用' }}
+          </van-button>
+          <van-button size="mini" plain bind:click="onMoveUp" data-index="{{ index }}" disabled="{{ index === 0 }}">上移</van-button>
+          <van-button size="mini" plain bind:click="onMoveDown" data-index="{{ index }}" disabled="{{ index === subcategories.length - 1 }}">下移</van-button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

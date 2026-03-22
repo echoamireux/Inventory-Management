@@ -22,6 +22,9 @@
       bind:click="showLocationSheet"
       required
     />
+    <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
+      <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
+    </view>
 
     <van-field
       value="{{ form.location_detail }}"

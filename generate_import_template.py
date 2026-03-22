@@ -4,6 +4,32 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 import os
 
+
+CHEMICAL_SUBCATEGORIES = [
+    '主胶',
+    '树脂',
+    '溶剂',
+    '助剂',
+    '色浆',
+    '固化剂'
+]
+
+FILM_SUBCATEGORIES = [
+    '基材-PET',
+    '基材-BOPP',
+    '基材-PE',
+    '基材-PO',
+    '基材-PI',
+    '离型膜',
+    '保护膜',
+    '胶带',
+    '硬化膜'
+]
+
+CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL']
+FILM_UNITS = ['m', 'm²']
+
+
 def create_template():
     wb = openpyxl.Workbook()
     
@@ -28,7 +54,7 @@ def create_template():
     # ==========================
     # 2. 绘制列头
     # ==========================
-    headers = ["产品代码", "物料名称", "类别", "子类别", "子类别说明", "默认单位", "供应商", "厂家型号", "保质期(天)"]
+    headers = ["产品代码", "物料名称", "类别", "子类别", "默认单位", "供应商", "厂家型号"]
     ws.append(headers)
 
     for col_num, header in enumerate(headers, 1):
@@ -37,14 +63,14 @@ def create_template():
         cell.font = header_font
         cell.alignment = center_align
 
-    widths = [12, 30, 10, 20, 25, 12, 20, 25, 12]
+    widths = [12, 30, 10, 22, 12, 20, 25]
     for i, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
     # 只把前 50 行的边框画出来作为视觉体验，否则文件会变大
     for row in range(2, 51):
         ws[f'A{row}'].number_format = '@'
-        for col in range(1, 10):
+        for col in range(1, 8):
             cell = ws.cell(row=row, column=col)
             cell.border = thin_border
             cell.alignment = Alignment(vertical="center")
@@ -56,10 +82,10 @@ def create_template():
     config_ws.sheet_state = 'hidden'
 
     config_data = {
-        "化材_子类": ['溶剂 (Solvent)', '树脂 (Resin)', '助剂 (Additive)', '固化剂 (Hardener)', '色浆 (Pigment)', '胶水 (Adhesive)', '其他'],
-        "膜材_子类": ['基材-PET', '基材-PI', '基材-PP/PE', '离型膜', '保护膜', '光学膜', '胶带', '其他'],
-        "化材_单位": ['kg', 'g', 'L', 'mL'],
-        "膜材_单位": ['m', 'm²', '卷', '张', 'pcs(个)']
+        "化材_子类": CHEMICAL_SUBCATEGORIES,
+        "膜材_子类": FILM_SUBCATEGORIES,
+        "化材_单位": CHEMICAL_UNITS,
+        "膜材_单位": FILM_UNITS
     }
 
     from openpyxl.workbook.defined_name import DefinedName
@@ -74,6 +100,13 @@ def create_template():
         new_name = DefinedName(name, attr_text=ref)
         wb.defined_names.add(new_name)
         col_idx += 1
+
+    config_ws.protection.sheet = True
+    config_ws.protection.enable()
+    config_ws.protection.formatColumns = False
+    config_ws.protection.formatRows = False
+    config_ws.protection.insertColumns = False
+    config_ws.protection.insertRows = False
 
     # ==========================
     # 4. 强力校验规则 (覆盖 3000 行)
@@ -107,7 +140,7 @@ def create_template():
     dv_unit.errorTitle = "单位无效"
     dv_unit.error = "⚠️ 请从下拉菜单中选择该类型允许的标准单位！"
     ws.add_data_validation(dv_unit)
-    dv_unit.add(f'F2:F{base_max_row}')
+    dv_unit.add(f'E2:E{base_max_row}')
 
     # ==========================
     # 5. 独立的填写说明和示例呈现区 (Sheet 2)
@@ -130,13 +163,14 @@ def create_template():
         "3. 安全防呆校验规则已经扩展足足覆盖了 3000 行，再多也不怕！",
         "",
         "▶ 各列字段详述：（带 ★ 代表必填项）",
-        "★ 产品代码：仅填 3 位的纯数字。不足 3 位系统拦住会报错！系统入账时会自动前置加上化材或膜材专属字母（J- / M-）。",
+        "★ 产品代码：模板校验要求填写 3 位纯数字（如 001）。系统导入时也能兼容 1 / 01 / J-001 这类输入，但最终都会统一成标准编码。",
         "★ 物料名称：物料对外的正式中文全称。",
         "★ 类别：点开下拉菜单，只能从“化材”和“膜材”里点选。",
-        "★ 子类别：【黑科技联动】它会根据你刚才选的具体类别，自动变更自己的候选项目！完全贴合层级。",
-        "  子类别说明：非必填。但如果你子类别选了“其他”，这一框就必须写长难字解释了。",
-        "  默认单位：一样也是【黑科技联动】，跟着化材膜材自动变。",
-        "  供应商 / 厂家型号 / 保质期：全选填。",
+        "★ 子类别：它会根据你刚才选的类别联动变化，但只允许选择系统内已启用的正式子类别。",
+        "  如果现有子类别不适用，请先由管理员在系统的“子类别管理”里新增正式子类别，再重新填写模板。",
+        "  请不要手工修改隐藏的 Config 页来新增子类别，系统不会接受模板里私自扩展的分类。",
+        "  默认单位：一样也是联动变化，且只允许化材 kg/g/L/mL，膜材 m/m²。",
+        "  供应商 / 厂家型号：全选填。",
         "",
         "▶ 最后给你看一下长啥样的标准示范参考："
     ]
@@ -154,10 +188,10 @@ def create_template():
 
     # 样例区域
     exam_start = len(instructions) + 1
-    exam_headers = ["产品代码", "物料名称", "类别", "子类别", "子类别说明", "默认单位", "供应商", "厂家型号", "保质期(天)"]
+    exam_headers = ["产品代码", "物料名称", "类别", "子类别", "默认单位", "供应商", "厂家型号"]
     exam_data = [
-        ['001', '异丙醇', '化材', '溶剂 (Solvent)', '', 'L', '国药', 'IPA-99', '365'],
-        ['002', 'PET保护膜', '膜材', '保护膜', '', 'm', '东丽', 'T100', '730']
+        ['001', '异丙醇', '化材', '溶剂', 'L', '国药', 'IPA-99'],
+        ['002', 'PET保护膜', '膜材', '保护膜', 'm', '东丽', 'T100']
     ]
 
     for c, val in enumerate(exam_headers, 1):

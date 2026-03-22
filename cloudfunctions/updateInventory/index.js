@@ -1,5 +1,10 @@
 // cloudfunctions/updateInventory/index.js
 const cloud = require('wx-server-sdk');
+const {
+  getFilmDisplayState,
+  getFilmDisplayQuantityFromBaseLength,
+  roundNumber
+} = require('./film-quantity');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -25,6 +30,7 @@ exports.main = async (event, context) => {
   try {
     const result = await db.runTransaction(async transaction => {
         let itemsToProcess = [];
+        let preferredFilmUnit = '';
 
         // --- Step 1: Query Items ---
         if (unique_code) {
@@ -60,6 +66,21 @@ exports.main = async (event, context) => {
             throw new Error('No available inventory found for this selection.');
         }
 
+        const firstFilmItem = itemsToProcess.find(item => item.category === 'film' && item.product_code);
+        if (firstFilmItem) {
+            try {
+                const materialRes = await transaction.collection('materials')
+                    .where({ product_code: firstFilmItem.product_code })
+                    .limit(1)
+                    .get();
+                if (materialRes.data && materialRes.data.length > 0) {
+                    preferredFilmUnit = String(materialRes.data[0].default_unit || '').trim();
+                }
+            } catch (materialErr) {
+                console.warn('Load film default unit failed', materialErr);
+            }
+        }
+
         // --- Step 2: Calculate & Deduct ---
         let remainingNeed = totalNeed;
         let logs = [];
@@ -90,14 +111,20 @@ exports.main = async (event, context) => {
 
             let newStock = currentStock - deduct;
             // Fix: Clean up newStock precision
-            newStock = Math.round(newStock * PRECISION) / PRECISION;
+            newStock = roundNumber(newStock);
 
             remainingNeed -= deduct;
             // Fix: Clean up remainingNeed precision to prevent loop sticking
             remainingNeed = Math.round(remainingNeed * PRECISION) / PRECISION;
 
             // 修复: 存储新库存值
-            newStockMap.set(item._id, { newStock, isFilm, unit: item.quantity.unit });
+            newStockMap.set(item._id, {
+                newStock,
+                isFilm,
+                unit: item.quantity.unit,
+                widthMm: item.dynamic_attrs && item.dynamic_attrs.width_mm,
+                initialLengthM: item.dynamic_attrs && item.dynamic_attrs.initial_length_m
+            });
 
             // Prepared Update Data
             let updateData = { update_time: db.serverDate() };
@@ -105,6 +132,12 @@ exports.main = async (event, context) => {
 
             if (isFilm) {
                 updateData['dynamic_attrs.current_length_m'] = newStock;
+                updateData['quantity.val'] = getFilmDisplayQuantityFromBaseLength(
+                  newStock,
+                  item.quantity.unit,
+                  item.dynamic_attrs && item.dynamic_attrs.width_mm,
+                  item.dynamic_attrs && item.dynamic_attrs.initial_length_m
+                );
                 if (newStock <= 0.1) newStatus = 'used';
             } else {
                 updateData['quantity.val'] = newStock;
@@ -128,7 +161,8 @@ exports.main = async (event, context) => {
                 unique_code: item.unique_code,
                 type: 'outbound',
                 quantity_change: -deduct,
-                unit: item.quantity.unit || (isFilm ? 'm' : 'kg'),
+                unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
+                spec_change_unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
                 operator: event.operator_name || 'System',
                 operator_id: OPENID,
                 _openid: OPENID,
@@ -151,27 +185,53 @@ exports.main = async (event, context) => {
         // 修复: 直接使用 newStockMap 中存储的新库存值，而非从原始 item 重新计算
         let totalRemaining = 0;
         let unit = 'kg';
+        let displayRemaining = 0;
+        let displayUnit = 'kg';
 
         for (let item of itemsToProcess) {
             const stockInfo = newStockMap.get(item._id);
             if (stockInfo) {
                 // 已处理的 item，使用新库存值
                 totalRemaining += stockInfo.newStock;
-                unit = stockInfo.isFilm ? 'm' : (stockInfo.unit || 'kg');
+                if (stockInfo.isFilm) {
+                    displayRemaining += getFilmDisplayQuantityFromBaseLength(
+                      stockInfo.newStock,
+                      preferredFilmUnit || stockInfo.unit,
+                      stockInfo.widthMm,
+                      stockInfo.initialLengthM
+                    );
+                    displayUnit = preferredFilmUnit || stockInfo.unit || 'm';
+                    unit = 'm';
+                } else {
+                    displayRemaining += stockInfo.newStock;
+                    displayUnit = stockInfo.unit || 'kg';
+                    unit = stockInfo.unit || 'kg';
+                }
             } else {
                 // 未处理的 item（库存充足时提前退出循环），使用原始值
                 let isFilm = item.category === 'film';
                 if (isFilm) {
-                    totalRemaining += (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
+                    const filmState = getFilmDisplayState(item, preferredFilmUnit || item.default_unit || item.quantity.unit);
+                    totalRemaining += filmState.baseLengthM;
+                    displayRemaining += filmState.displayQuantity;
+                    displayUnit = filmState.displayUnit;
                     unit = 'm';
                 } else {
                     totalRemaining += item.quantity.val;
+                    displayRemaining += item.quantity.val;
+                    displayUnit = item.quantity.unit || 'kg';
                     unit = item.quantity.unit || 'kg';
                 }
             }
         }
 
-        return { success: true, remaining: Number(totalRemaining.toFixed(2)), unit: unit };
+        return {
+          success: true,
+          remaining: Number(totalRemaining.toFixed(2)),
+          unit: unit,
+          displayRemaining: Number(displayRemaining.toFixed(2)),
+          displayUnit: displayUnit
+        };
     });
 
     return result;

@@ -33,8 +33,7 @@
         <view class="text-xs text-secondary mt-5 flex-row justify-between">
             <text>子类别: {{ item.sub_category || '-' }}</text>
             <text wx:if="{{ item.supplier }}">供应商: {{ item.supplier }}</text>
-            <text wx:elif="{{ item.shelf_life_days }}">有效期: {{ item.shelf_life_days }} 天</text>
-            <text wx:else>有效期: 长期有效</text>
+            <text wx:else>主数据已启用</text>
         </view>
         <view class="mt-5" wx:if="{{ item.status === 'archived' }}">
              <van-tag type="warning" plain>已归档停用</van-tag>

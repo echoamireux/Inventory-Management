@@ -1,6 +1,10 @@
 // pages/stock-in-out/index.js
 import Toast from '@vant/weapp/toast/toast';
 const db = require('../../utils/db');
+const {
+  normalizeLabelCodeInput,
+  isValidLabelCode
+} = require('../../utils/label-code');
 
 Page({
   data: {
@@ -37,16 +41,23 @@ Page({
 
   // 手动查询
   onManualSearch() {
-    if (!this.data.inputCode) return Toast.fail('请输入编码');
-    this.handleCode(this.data.inputCode);
+    const normalizedLabelCode = normalizeLabelCodeInput(this.data.inputCode);
+    if (!normalizedLabelCode) return Toast.fail('请输入标签编号');
+    if (!isValidLabelCode(normalizedLabelCode)) return Toast.fail('标签编号应为 L + 6位数字');
+    this.setData({ inputCode: normalizedLabelCode });
+    this.handleCode(normalizedLabelCode);
   },
 
   // 处理唯一码查询
   async handleCode(code) {
+    const normalizedLabelCode = normalizeLabelCodeInput(code);
+    if (!isValidLabelCode(normalizedLabelCode)) {
+      return Toast.fail('标签编号应为 L + 6位数字');
+    }
     Toast.loading({ message: '查询中...', forbidClick: true });
     try {
       // 1. 尝试在库存表查找 (是否存在)
-      const invRes = await db.inventory.getList({ unique_code: code }, 1, 1);
+      const invRes = await db.inventory.getList({ unique_code: normalizedLabelCode }, 1, 1);
 
       if (invRes && invRes.length > 0) {
         // 已存在库存 -> 进入操作模式 (出库/盘点/增补)
@@ -132,7 +143,10 @@ Page({
 
   onInputChange(e) {
     const field = e.currentTarget.dataset.field;
-    this.setData({ [field]: e.detail });
+    const value = field === 'inputCode'
+      ? normalizeLabelCodeInput(e.detail)
+      : e.detail;
+    this.setData({ [field]: value });
   },
 
   onBack() {

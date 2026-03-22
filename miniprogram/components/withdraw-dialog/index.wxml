@@ -26,7 +26,7 @@
                      <text class="popup-code-title">{{ item.product_code || item.material_name }}</text>
                      <!-- Stock (18px，与标题对齐) -->
                      <view class="popup-qty-display {{ item.isExpiring ? 'warning' : '' }}">
-                         {{ displayStock }} <text class="text-xs font-normal">{{ item.quantity.unit || 'kg' }}</text>
+                         {{ displayStock }} <text class="text-xs font-normal">{{ displayStockUnit || item.quantity.unit || 'kg' }}</text>
                      </view>
                  </view>
 
@@ -35,7 +35,7 @@
 
                 <view class="mt-4 flex-row items-center justify-between">
                     <view class="flex-row items-center">
-                        <view class="tag-base tag-brand mr-8">当前批号</view>
+                        <view class="tag-base tag-brand mr-8">批号</view>
                         <text class="text-sub text-sm font-din">{{ item.batch_number }}</text>
                     </view>
                 </view>
@@ -79,7 +79,7 @@
                         placeholder-style="color:#E5E7EB;"
                         always-embed="{{true}}"
                      />
-                     <text class="unit-text">{{ item.quantity.unit || (item.category === 'film' ? '米' : 'kg') }}</text>
+                     <text class="unit-text">{{ inputUnitLabel || (item.category === 'film' ? 'm' : (item.quantity.unit || 'kg')) }}</text>
                  </view>
             </view>
 

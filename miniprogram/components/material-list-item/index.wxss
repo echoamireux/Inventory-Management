@@ -2,3 +2,19 @@
 .material-card-hover {
   background: #F9FAFB;
 }
+
+.material-subtitle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.material-name {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 0;
+  line-height: 1.35;
+}

@@ -1,21 +1,60 @@
 // pages/material-add/index.js
+import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
 import {
   CATEGORY_PREFIX,
-  CHEMICAL_CATEGORIES,
-  FILM_CATEGORIES,
-  UNIT_OPTIONS,
   PACKAGE_TYPES,
-  DEFAULT_ZONES,
   DEFAULT_FORM,
   SEARCH_DEBOUNCE_MS
 } from '../../utils/constants';
+const {
+  buildLocationZoneActions,
+  buildZoneMap,
+  buildLocationPayload
+} = require('../../utils/location-zone');
+const {
+  normalizeLabelCodeInput,
+  isValidLabelCode
+} = require('../../utils/label-code');
+const { registerZoneManagementAccess } = require('../../utils/material-add-access');
+const { listZoneRecords } = require('../../utils/zone-service');
+const { listSubcategoryRecords } = require('../../utils/subcategory-service');
+const {
+  getDefaultUnit,
+  getUnitActions,
+  normalizeUnitInput
+} = require('../../utils/material-units');
+const {
+  syncFormWithMaterialMaster,
+  buildContinueEntryForm
+} = require('../../utils/material-add-form');
+const {
+  buildSubcategoryActions,
+  isSelectableSubcategoryRecord
+} = require('../../utils/material-subcategory');
+const {
+  sanitizeProductCodeNumberInput,
+  normalizeProductCodeInput,
+  validateStandardProductCode
+} = require('../../utils/product-code');
+const {
+  getMaterialSubmitValidationMessage,
+  getCategorySpecificValidationMessage
+} = require('../../utils/stock-form');
+const { normalizeFilmUnit } = require('../../utils/film');
 const db = wx.cloud.database();
+
+function resolvePickerDateValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return detail;
+}
 
 Page({
   data: {
     activeTab: 'chemical',
-    form: { ...DEFAULT_FORM },
+    form: { ...DEFAULT_FORM, unit: getDefaultUnit('chemical') },
     loading: false,
 
     // UI状态
@@ -24,17 +63,17 @@ Page({
     showLocationSheet: false,
     showDatePicker: false,
     showSuccessDialog: false,
-    showCreateZoneDialog: false,
-    newZoneName: '',
 
     // MDM 强管控状态
     isUnknownCode: false,
     showRequestPopup: false,
     requestLoading: false,
+    requestSubCategoryActions: [],
+    showRequestSubCategorySheet: false,
     requestForm: {
         name: '',
-        sub_category: '', // 建议
-        suggested_sub_category: '', // 手填的其他
+        subcategory_key: '',
+        sub_category: '',
         supplier: ''
     },
 
@@ -43,91 +82,67 @@ Page({
     suggestionTimer: null,
 
     // 数据
-    currentSubCategories: [],
-    chemicalZonesDefaults: DEFAULT_ZONES.chemical,
-    filmZonesDefaults: DEFAULT_ZONES.film,
+    subCategoryRecords: [],
     dbZones: [],
+    zoneRecords: [],
 
     locationZones: [],
     locationZoneActions: [],
 
     // 使用常量
-    unitActions: UNIT_OPTIONS,
+    unitActions: getUnitActions('chemical'),
     packageTypeActions: PACKAGE_TYPES,
-    chemicalCategories: CHEMICAL_CATEGORIES,
-    filmCategories: FILM_CATEGORIES,
-
-    // 自定义选项（从数据库加载）
-    customSubCategories: { chemical: [], film: [] },
-    customUnits: { chemical: [], film: [] },
-
     // UI binding
     subCategoryActions: [],
     showSubCategorySheet: false,
 
     currentDate: new Date().getTime(),
     minDate: new Date().getTime(),
+    canManageZones: false,
   },
 
   onLoad(options) {
+      const app = getApp();
+
       if (options) {
           if (options.id) {
-              this.setData({ 'form.unique_code': options.id });
+              this.setData({ 'form.unique_code': normalizeLabelCodeInput(options.id) });
           }
           if (options.product_code) {
               this.setData({ 'form.product_code': options.product_code });
           }
           if (options.tab) {
-              this.setData({ activeTab: options.tab });
+              this.setData({
+                  activeTab: options.tab,
+                  'form.unit': getDefaultUnit(options.tab)
+              });
           }
       }
 
-      this.updateSubCategoryActions(this.data.activeTab);
+      registerZoneManagementAccess(app, (canManageZones) => {
+          this.setData({ canManageZones }, () => {
+              this.updateZoneActions();
+          });
+      });
+
+      this.loadSubcategories(this.data.activeTab);
+      this.updateUnitActions(this.data.activeTab);
 
       // Load Zones from DB
       this.loadZones();
-
-      // Load custom options from settings
-      this.loadCustomOptions();
+      this._pageInitialized = true;
   },
 
-  // 加载自定义子类别和单位选项
-  async loadCustomOptions() {
-    try {
-      const db = wx.cloud.database();
-      // 尝试读取 settings 表，如果表或记录不存在会返回空数组
-      const res = await db.collection('settings')
-        .where({
-          _id: db.command.in(['custom_sub_categories', 'custom_units'])
-        })
-        .get()
-        .catch(() => ({ data: [] })); // 表不存在时返回空
-
-      if (res.data && res.data.length > 0) {
-        res.data.forEach(item => {
-          if (item._id === 'custom_sub_categories') {
-            this.setData({ customSubCategories: item.data || { chemical: [], film: [] } });
-          } else if (item._id === 'custom_units') {
-            this.setData({ customUnits: item.data || { chemical: [], film: [] } });
-          }
-        });
-      }
-
-      // 刷新子类别列表
-      this.updateSubCategoryActions(this.data.activeTab);
-      // 刷新单位列表
-      this.updateUnitActions(this.data.activeTab);
-    } catch (err) {
-      console.warn('加载自定义选项失败，使用默认值:', err);
-      // 静默失败，仍然刷新默认选项
-      this.updateSubCategoryActions(this.data.activeTab);
-      this.updateUnitActions(this.data.activeTab);
+  onShow() {
+    if (this._pageInitialized) {
+      this.loadZones();
+      this.loadSubcategories(this.data.activeTab);
     }
   },
 
   goToBatchEntry() {
       wx.navigateTo({
-          url: '/pages/material-add/batch-entry'
+          url: `/pages/material-add/batch-entry?tab=${this.data.activeTab}`
       });
   },
 
@@ -139,66 +154,59 @@ Page({
 
   async loadZones() {
       try {
-          const res = await wx.cloud.database().collection('warehouse_zones')
-              .orderBy('order', 'asc')
-              .get();
-
-          const dbZones = res.data.map(z => z.name);
-          this.setData({ dbZones: dbZones });
-
-          this.updateZoneList();
+          const zoneRecords = await listZoneRecords(this.data.activeTab, false);
+          this.setData({
+            zoneRecords,
+            dbZones: zoneRecords.map(z => z.name)
+          }, () => {
+            this.syncSelectedZoneName(zoneRecords);
+            this.updateZoneActions(zoneRecords);
+          });
 
       } catch (err) {
           console.error('Load zones failed', err);
-          this.updateZoneList(); // Fallback to defaults
+          this.setData({
+            zoneRecords: [],
+            dbZones: []
+          }, () => {
+            this.updateZoneActions([]);
+          });
+          Toast.fail(err.message || '加载库区失败');
       }
   },
 
-  updateZoneList() {
-      const { activeTab, chemicalZonesDefaults, filmZonesDefaults, dbZones } = this.data;
+  updateZoneActions(zoneRecords = this.data.zoneRecords) {
+      const { canManageZones } = this.data;
+      this.setData({
+        locationZones: zoneRecords.map(item => item.name),
+        locationZoneActions: buildLocationZoneActions(zoneRecords, canManageZones)
+      });
+  },
 
-      // 1. Base List
-      let list = activeTab === 'chemical' ? [...chemicalZonesDefaults] : [...filmZonesDefaults];
-
-      // 2. Merge DB Zones (deduplicate)
-      // We append DB zones that are NOT in defaults
-      const defaultsSet = new Set(list);
-      if (dbZones && dbZones.length > 0) {
-          dbZones.forEach(z => {
-              if(!defaultsSet.has(z)) list.push(z);
-          });
+  syncSelectedZoneName(zoneRecords = this.data.zoneRecords) {
+      const zoneMap = buildZoneMap(zoneRecords);
+      const zoneKey = this.data.form.zone_key;
+      if (!zoneKey) {
+        return;
       }
 
-      // 3. Add Create Option
-      list.push('+ 新建区域...');
+      const zone = zoneMap.get(zoneKey);
+      if (zone) {
+        this.setData({
+          'form.location_zone': zone.name
+        });
+        return;
+      }
 
       this.setData({
-          locationZones: list,
-          locationZoneActions: list.map(z => ({ name: z }))
+        'form.zone_key': '',
+        'form.location_zone': '',
+        'form.location_detail': ''
       });
   },
 
   onTabChange(e) {
     const tab = e.detail.name;
-
-    // resetForm logic
-    const { form } = this.data;
-    // Keep unique_code maybe? No requirement, but let's keep it if user scanned it
-    const cleanForm = {
-       ...form,
-       product_code: '',
-       name: '',
-       sub_category: '',
-       supplier: '',
-       supplier_model: '',
-       batch_number: '',
-       location: '',
-       // specs
-       unit: '', weight_kg: '', expiry_date: '',
-       thickness_um: '', width_mm: '', length_m: ''
-    };
-    // Actually simpler to reset to defaultForm but keep unique_code
-    // To match user Req: "Empty product_code, name, specs..."
 
     this.setData({
         activeTab: tab,
@@ -208,44 +216,48 @@ Page({
         'form.sub_category': '',
         'form.supplier_model': '',
         'form.batch_number': '',
-        'form.unit': tab === 'film' ? 'm' : '',
+        'form.unit': getDefaultUnit(tab),
+        'form.expiry_date': '',
+        'form.is_long_term_valid': false,
+        'form.thickness_um': '',
+        'form.thickness_locked': false,
+        'form.width_mm': '',
+        'form.length_m': '',
+        'form.zone_key': '',
+        'form.location_zone': '',
+        'form.location_detail': '',
         // We can keep unique_code
         suggestions: [],
         isUnknownCode: false // fix: reset blocking state
     }, () => {
-        this.updateSubCategoryActions(tab);
+        this.loadSubcategories(tab);
         this.updateUnitActions(tab);
-        this.updateZoneList(); // Refresh Zones
+        this.loadZones();
     });
   },
 
-  updateSubCategoryActions(tab) {
-      const baseList = tab === 'chemical' ? this.data.chemicalCategories : this.data.filmCategories;
-      const customList = this.data.customSubCategories[tab] || [];
-
-      // 合并基础选项和自定义选项
-      const mergedList = [
-        ...baseList,
-        ...customList.map(name => ({ name, code: tab === 'chemical' ? 'J' : 'M', type: tab }))
-      ];
-
-      this.setData({ subCategoryActions: mergedList });
+  async loadSubcategories(category = this.data.activeTab) {
+      try {
+        const subCategoryRecords = await listSubcategoryRecords(category, false);
+        this.setData({
+          subCategoryRecords,
+          subCategoryActions: buildSubcategoryActions(subCategoryRecords),
+          requestSubCategoryActions: buildSubcategoryActions(subCategoryRecords)
+        });
+      } catch (err) {
+        console.error('Load subcategories failed', err);
+        this.setData({
+          subCategoryRecords: [],
+          subCategoryActions: [],
+          requestSubCategoryActions: []
+        });
+        Toast.fail(err.message || '加载子类别失败');
+      }
   },
 
-  // 更新单位列表（合并自定义选项）
+  // 更新单位列表（按类别严格收口）
   updateUnitActions(tab) {
-      const customList = this.data.customUnits[tab] || [];
-      const baseList = [...UNIT_OPTIONS];
-
-      // 添加自定义单位（去重）
-      const existingNames = new Set(baseList.map(u => u.name));
-      customList.forEach(name => {
-        if (!existingNames.has(name)) {
-          baseList.push({ name });
-        }
-      });
-
-      this.setData({ unitActions: baseList });
+      this.setData({ unitActions: getUnitActions(tab) });
   },
 
   // Helper to get prefix - 使用常量
@@ -255,11 +267,17 @@ Page({
 
   onInput(e) {
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.${field}`]: e.detail });
+    let value = e.detail;
+    if (field === 'product_code') {
+      value = sanitizeProductCodeNumberInput(e.detail);
+    } else if (field === 'unique_code') {
+      value = normalizeLabelCodeInput(e.detail);
+    }
+    this.setData({ [`form.${field}`]: value });
 
     // 联想输入逻辑: 改为监听 product_code
     if (field === 'product_code') {
-        const val = e.detail; // This is purely numbers now
+        const val = value;
         if (this.data.suggestionTimer) clearTimeout(this.data.suggestionTimer);
 
         if (!val || val.length < 1) {
@@ -267,8 +285,12 @@ Page({
             return;
         }
 
-        const prefix = this.getPrefix(this.data.activeTab);
-        const fullKeyword = prefix + val; // Concat prefix
+        const normalizedCode = normalizeProductCodeInput(this.data.activeTab, val);
+        if (!normalizedCode.ok) {
+            this.setData({ suggestions: [] });
+            return;
+        }
+        const fullKeyword = normalizedCode.product_code;
 
         // 防抖 500ms
         this.setData({
@@ -352,9 +374,11 @@ Page({
                  supplier: m.supplier,
                  supplier_model: m.supplier_model,
                  sub_category: m.sub_category,
+                 subcategory_key: m.subcategory_key || '',
                  unit: m.default_unit,
                  category: m.category,
-                 shelf_life_days: m.shelf_life_days
+                 package_type: m.package_type || '',
+                 specs: m.specs || {}
              }));
              this.setData({ suggestions });
           }
@@ -366,48 +390,8 @@ Page({
   // 选中建议 (Auto-fill) - 自动填入所有可用字段
   onSelectSuggestion(e) {
       const item = e.currentTarget.dataset.item;
-      // Parse prefix
       const prefix = this.getPrefix(this.data.activeTab);
-      let numberPart = '';
-      if (item.product_code && item.product_code.startsWith(prefix)) {
-          numberPart = item.product_code.replace(prefix, '');
-      } else if (item.product_code) {
-          numberPart = item.product_code.split('-')[1] || item.product_code;
-      }
-
-      const { form } = this.data;
-      const newForm = { ...form };
-
-      // 基础信息
-      newForm.product_code = numberPart;
-      newForm.name = item.name || '';
-      newForm.supplier = item.supplier || '';
-      newForm.supplier_model = item.supplier_model || '';
-      newForm.sub_category = item.sub_category || '';
-
-      // 化材特有字段
-      if (this.data.activeTab === 'chemical') {
-          newForm.unit = item.unit || 'kg';
-          newForm.package_type = item.package_type || '';
-
-          // 从 specs 或其他位置恢复净含量
-          let content = '';
-          if (item.specs && item.specs.net_content) {
-              content = item.specs.net_content;
-          } else if (item.dynamic_attrs && item.dynamic_attrs.weight_kg) {
-              content = item.dynamic_attrs.weight_kg;
-          }
-          if (content) {
-              newForm.net_content = content;
-          }
-      } else {
-          // 膜材特有字段
-          newForm.unit = item.unit || 'm'; // Make sure suggestion populates unit
-          if (item.specs) {
-              newForm.thickness_um = item.specs.thickness_um || '';
-              newForm.width_mm = item.specs.standard_width_mm || item.specs.width_mm || '';
-          }
-      }
+      const newForm = syncFormWithMaterialMaster(this.data.form, this.data.activeTab, item, prefix);
 
       this.setData({
           form: newForm,
@@ -422,6 +406,27 @@ Page({
       });
   },
 
+  async fetchMaterialSuggestionByCode(productCode) {
+      const res = await wx.cloud.callFunction({
+          name: 'manageMaterial',
+          data: {
+              action: 'list',
+              data: {
+                  searchVal: productCode,
+                  category: this.data.activeTab,
+                  pageSize: 10
+              }
+          }
+      });
+
+      if (!(res.result && res.result.success)) {
+          throw new Error((res.result && res.result.msg) || '加载物料主数据失败');
+      }
+
+      const list = Array.isArray(res.result.list) ? res.result.list : [];
+      return list.find((item) => item.product_code === productCode) || null;
+  },
+
   closeSuggestions() {
       this.setData({ suggestions: [] });
   },
@@ -430,7 +435,16 @@ Page({
   onScanCode() {
       wx.scanCode({
           success: (res) => {
-              this.setData({ 'form.unique_code': res.result });
+              const normalizedLabelCode = normalizeLabelCodeInput(res.result);
+              if (!isValidLabelCode(normalizedLabelCode)) {
+                  Dialog.alert({
+                      title: '标签编号错误',
+                      message: '标签编号格式不正确，应为 L + 6位数字',
+                      messageAlign: 'left'
+                  });
+                  return;
+              }
+              this.setData({ 'form.unique_code': normalizedLabelCode });
               wx.showToast({ title: '扫码成功', icon: 'success' });
           },
           fail: (err) => {
@@ -455,12 +469,32 @@ Page({
   },
 
   // 日期选择
-  showDatePicker() { this.setData({ showDatePicker: true }); },
+  showDatePicker() {
+    if (this.data.form.is_long_term_valid) {
+      return;
+    }
+    this.setData({ showDatePicker: true });
+  },
   onDateCancel() { this.setData({ showDatePicker: false }); },
   onDateConfirm(e) {
-    const date = new Date(e.detail);
+    const date = new Date(resolvePickerDateValue(e.detail));
     const formated = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-    this.setData({ 'form.expiry_date': formated, showDatePicker: false });
+    this.setData({
+      'form.expiry_date': formated,
+      'form.is_long_term_valid': false,
+      showDatePicker: false
+    });
+  },
+
+  onLongTermValidityChange(e) {
+    const checked = typeof e.detail === 'boolean'
+      ? e.detail
+      : !!(e.detail && e.detail.value);
+    this.setData({
+      'form.is_long_term_valid': checked,
+      'form.expiry_date': checked ? '' : this.data.form.expiry_date,
+      showDatePicker: false
+    });
   },
 
   // 库位区域选择 (New)
@@ -468,105 +502,62 @@ Page({
   onLocationClose() { this.setData({ showLocationSheet: false }); },
   onLocationSelect(e) {
       const zone = e.detail.name;
-
-      if (zone === '+ 新建区域...') {
-          this.setData({
-              showLocationSheet: false,
-              showCreateZoneDialog: true,
-              newZoneName: '' // Reset input
-          });
-      } else {
-          this.setData({
-              'form.location_zone': zone,
-              showLocationSheet: false
-          });
-      }
+      const zoneRecord = this.data.zoneRecords.find(item => item.name === zone);
+      this.setData({
+          'form.zone_key': zoneRecord ? zoneRecord.zone_key : '',
+          'form.location_zone': zone,
+          showLocationSheet: false
+      });
   },
 
-  // 新建区域弹窗逻辑
-  onCreateZoneInput(e) {
-      this.setData({ newZoneName: e.detail });
-  },
-
-  async onCreateZoneConfirm(action, done) {
-      if (action === 'confirm') {
-          const newName = this.data.newZoneName.trim();
-          if (!newName) {
-              Toast.fail('请输入区域名称');
-              done(false); // 阻止关闭
-              return;
-          }
-
-          // 允许关闭，显示loading
-          // Note: van-dialog async close is tricky with await inside.
-          // Better to manage loading manually, but let's try standard flow.
-          // Or just do logic here.
-          done(false); // Keep open while loading
-
-          wx.showLoading({ title: '创建中...' });
-          try {
-                const callRes = await wx.cloud.callFunction({
-                    name: 'addWarehouseZone',
-                    data: { name: newName }
-                });
-
-                if (callRes.result.success) {
-                    wx.showToast({ title: '创建成功' });
-                    // Refresh and Select
-                    await this.loadZones();
-                    this.setData({
-                        'form.location_zone': newName,
-                        showCreateZoneDialog: false // Close manually
-                    });
-                } else {
-                    wx.showToast({ title: callRes.result.msg, icon: 'none' });
-                }
-            } catch(err) {
-                wx.showToast({ title: '创建失败', icon: 'none' });
-            } finally {
-                wx.hideLoading();
-            }
-      } else {
-          this.setData({ showCreateZoneDialog: false });
+  onManageZones() {
+      if (!this.data.canManageZones) {
+        return;
       }
+
+      wx.navigateTo({
+        url: `/pages/admin/zone-manage/index?category=${this.data.activeTab}`
+      });
   },
 
   // SKU 校验
   validateSKU(code, type) {
-      if (!code) return false;
-      const upper = code.toUpperCase();
-      if (type === 'chemical' && !upper.startsWith('J-')) return false;
-      if (type === 'film' && !upper.startsWith('M-')) return false;
-      return true;
+      return validateStandardProductCode(type, code).ok;
   },
 
   async onSubmit() {
     const { activeTab, form } = this.data;
+    const normalizedLabelCode = normalizeLabelCodeInput(form.unique_code);
 
     // 1. 必填校验
-    if (!form.unique_code) return Toast.fail('标签编号必填');
-    if (!form.product_code) return Toast.fail('产品代码必填');
-    if (!form.name) return Toast.fail('物料名称必填');
+    if (!normalizedLabelCode) return Toast.fail('请填写标签编号');
+    if (!isValidLabelCode(normalizedLabelCode)) {
+      await Dialog.alert({
+        title: '标签编号错误',
+        message: '标签编号格式不正确，应为 L + 6位数字',
+        messageAlign: 'left'
+      });
+      return;
+    }
+    if (!form.product_code) return Toast.fail('请填写产品代码');
+    if (!form.name) return Toast.fail('请填写物料名称');
 
-    // Construct Full Code
-    const prefix = this.getPrefix(activeTab);
-    const fullProductCode = prefix + form.product_code;
+    const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+    if (!normalizedCode.ok) {
+        return Toast.fail(normalizedCode.msg);
+    }
+    const fullProductCode = normalizedCode.product_code;
 
-    // 前缀校验 (Double Check)
-    if (!this.validateSKU(fullProductCode, activeTab)) {
-        const msg = activeTab === 'chemical' ? '化材代码必须以 J- 开头' : '膜材代码必须以 M- 开头';
-        return Toast.fail(msg);
+    const validationMessage = getMaterialSubmitValidationMessage(form);
+    if (validationMessage) {
+      return Toast.fail(validationMessage);
     }
 
-    if (!form.batch_number || !form.location_zone) {
-      return Toast.fail('请完善批号和存储区域');
-    }
-
-    // Construct Location: Zone | Detail
-    let fullLocation = form.location_zone;
-    if (form.location_detail) {
-        fullLocation += ` | ${form.location_detail}`;
-    }
+    const locationPayload = buildLocationPayload(
+      form.zone_key,
+      form.location_detail,
+      buildZoneMap(this.data.zoneRecords)
+    );
 
     // 2. 构造参数
     let base = {
@@ -582,27 +573,32 @@ Page({
     let specs = {};
     let inventory = {
       batch_number: form.batch_number,
-      location: fullLocation, // Use constructed location
+      ...locationPayload
     };
 
+    const categoryValidationMessage = getCategorySpecificValidationMessage(activeTab, form);
+    if (categoryValidationMessage) {
+      return Toast.fail(categoryValidationMessage);
+    }
+
     if (activeTab === 'chemical') {
-      if (!form.unit || !form.net_content || !form.expiry_date) {
-        return Toast.fail('请完善化材规格信息');
+      const normalizedUnit = normalizeUnitInput(activeTab, form.unit);
+      if (!normalizedUnit.ok) {
+        return Toast.fail(normalizedUnit.msg);
       }
-      base.unit = form.unit;
+      base.unit = normalizedUnit.unit;
 
       // Map net_content to quantity_val
       const qty = Number(form.net_content);
       inventory.quantity_val = qty;
-      inventory.quantity_unit = form.unit;
+      inventory.quantity_unit = base.unit;
       inventory.weight_kg = qty; // Legacy support, or just generic weight
-      inventory.expiry_date = form.expiry_date;
-
     } else {
-      if (!form.thickness_um || !form.width_mm || !form.length_m || !form.expiry_date) {
-        return Toast.fail('请完善膜材规格及过期日期');
+      const normalizedUnit = normalizeUnitInput(activeTab, form.unit);
+      if (!normalizedUnit.ok) {
+        return Toast.fail(normalizedUnit.msg);
       }
-      base.unit = form.unit || 'm';
+      base.unit = normalizedUnit.unit;
       specs.thickness_um = Number(form.thickness_um);
       specs.standard_width_mm = Number(form.width_mm);
 
@@ -610,16 +606,22 @@ Page({
       inventory.length_m = length_m;
       inventory.quantity_unit = base.unit;
 
-      const unitLower = base.unit.toLowerCase();
-      if (unitLower === 'm' || unitLower === '米') {
+      const normalizedFilmUnit = normalizeFilmUnit(base.unit);
+      if (normalizedFilmUnit === 'm') {
           inventory.quantity_val = length_m;
-      } else if (unitLower === '㎡' || unitLower === 'm2' || base.unit === '平方米') {
+      } else if (normalizedFilmUnit === 'm²') {
           inventory.quantity_val = length_m * (specs.standard_width_mm / 1000);
-      } else if (unitLower === 'roll' || base.unit === '卷') {
+      } else if (normalizedFilmUnit === '卷') {
           inventory.quantity_val = 1;
       } else {
           inventory.quantity_val = 1;
       }
+    }
+
+    if (form.is_long_term_valid) {
+      inventory.is_long_term_valid = true;
+    } else {
+      inventory.expiry_date = form.expiry_date;
     }
 
     this.setData({ loading: true });
@@ -634,7 +636,7 @@ Page({
           base,
           specs,
           inventory,
-          unique_code: form.unique_code, // Pass code
+          unique_code: normalizedLabelCode, // Pass code
           operator_name: operator
         }
       });
@@ -647,15 +649,33 @@ Page({
 
     } catch (err) {
       console.error(err);
-      Toast.fail('入库失败: ' + err.message);
+      await Dialog.alert({
+        title: '入库失败',
+        message: err.message || '入库失败，请稍后重试',
+        messageAlign: 'left'
+      });
     } finally {
       this.setData({ loading: false });
     }
   },
 
   // 连录下一桶：只重置动态信息
-  onNextOne() {
-      const { form } = this.data;
+  async onNextOne() {
+      const { form, activeTab } = this.data;
+      let syncedItem = null;
+      const prefix = this.getPrefix(activeTab);
+
+      if (form.product_code) {
+          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+          if (normalizedCode.ok) {
+              try {
+                  syncedItem = await this.fetchMaterialSuggestionByCode(normalizedCode.product_code);
+              } catch (err) {
+                  console.warn('[Continue Entry] Reload material master failed, fallback to local form.', err);
+              }
+          }
+      }
+
       // 保留: name, supplier, location, unit, thickness, width, activeTab
       // 保留: sub_category, product_code (通常同一种物料连录，这些都不变)
       // 清空: unique_code (必须重新扫), batch_number (可能变), expiry (可能变), quantity (可能变)
@@ -664,17 +684,7 @@ Page({
       // 用户需求："重置动态数据：标签编号、生产批号、过期日期、重量"
       // 好的，遵照需求。
 
-      const nextForm = {
-          ...form,
-          unique_code: '',
-          batch_number: '',
-          expiry_date: '',
-          net_content: '', // Reset net content logic
-          length_m: '',  // length 每次都要量
-          location: '', // Deprecated
-          location_zone: form.location_zone, // Keep Zone
-          location_detail: form.location_detail // Keep Detail
-      };
+      const nextForm = buildContinueEntryForm(form, activeTab, syncedItem, prefix);
 
       this.setData({
           form: nextForm,
@@ -699,8 +709,8 @@ Page({
         showRequestPopup: true,
         // Reset form but keep code
         'requestForm.name': '',
+        'requestForm.subcategory_key': '',
         'requestForm.sub_category': '',
-        'requestForm.suggested_sub_category': '',
         'requestForm.supplier': ''
     });
   },
@@ -723,11 +733,7 @@ Page({
   },
 
   showRequestSubCategorySheet() {
-      // 复用当前大类的选项，并添加“其他”
-      const { subCategoryActions } = this.data;
-      const actions = [...subCategoryActions, { name: '其他', color: '#1989fa' }];
       this.setData({
-          requestSubCategoryActions: actions,
           showRequestSubCategorySheet: true
       });
   },
@@ -739,8 +745,19 @@ Page({
   onRequestSubCategorySelect(e) {
       const item = e.detail;
       this.setData({
+          'requestForm.subcategory_key': item.subcategory_key || '',
           'requestForm.sub_category': item.name,
           showRequestSubCategorySheet: false
+      });
+  },
+
+  onManageSubcategories() {
+      if (!this.data.canManageZones) {
+        return;
+      }
+
+      wx.navigateTo({
+        url: `/pages/admin/subcategory-manage/index?category=${this.data.activeTab}`
       });
   },
 
@@ -749,12 +766,13 @@ Page({
 
       // 1. 校验必填项
       if (!requestForm.name) return Toast.fail('请填写物料名称');
-      if (!requestForm.sub_category) return Toast.fail('请选择建议小类');
-
-      // 用户反馈：“其他”的小类名称改为选填
-      // if (requestForm.sub_category === '其他' && !requestForm.suggested_sub_category) {
-      //    return Toast.fail('请填写建议名称');
-      // }
+      if (!requestForm.sub_category) return Toast.fail('请选择子类别');
+      const selectedSubcategory = this.data.subCategoryRecords.find((item) => (
+          item.subcategory_key === requestForm.subcategory_key && isSelectableSubcategoryRecord(item)
+      ));
+      if (!requestForm.subcategory_key || !selectedSubcategory) {
+          return Toast.fail('请选择有效子类别');
+      }
 
       this.setData({ requestLoading: true });
 
@@ -773,8 +791,14 @@ Page({
           // Let's try hybrid: Query locally (might miss others' pending if restricted), but ADD locally (ensures visibility).
 
           // B. 查重：是否已存在于主数据
+          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+          if (!normalizedCode.ok) {
+              return { success: false, msg: normalizedCode.msg };
+          }
+          const finalCode = normalizedCode.product_code;
+
           const materialRes = await db.collection('materials').where({
-              product_code: form.product_code
+              product_code: finalCode
           }).count();
 
           if (materialRes.total > 0) {
@@ -785,12 +809,6 @@ Page({
           // Client-side add automatically injects _openid, ensuring "Creator Read" works
 
           // Construct Full Code with Prefix
-          const prefix = this.getPrefix(activeTab);
-          let finalCode = form.product_code;
-          if (!finalCode.startsWith(prefix)) {
-              finalCode = prefix + finalCode;
-          }
-
           // Get Applicant Name
           const app = getApp();
           const applicantName = app.globalData.user ? app.globalData.user.name : 'Unknown';
@@ -801,8 +819,8 @@ Page({
                   category: activeTab,
                   material_name: requestForm.name,
                   applicant_name: applicantName, // Save name
+                  subcategory_key: requestForm.subcategory_key || '',
                   sub_category: requestForm.sub_category,
-                  suggested_sub_category: requestForm.suggested_sub_category || '',
                   supplier: requestForm.supplier || '',
                   status: 'pending', // pending | approved | rejected
                   created_at: db.serverDate(),
@@ -826,27 +844,7 @@ Page({
 
       } catch(err) {
           console.error(err);
-
-          // Auto-Fix: Collection Not Exist (-502001) for writing
-          if (err.errCode === -502001 || (err.message && err.message.includes('COLLECTION_NOT_EXIST'))) {
-              try {
-                  console.log('Auto-creating collection...');
-                  await wx.cloud.callFunction({ name: 'initMDMCollection' });
-
-                  // Retry submission once
-                  const retryRes = await doSubmit();
-                  if (retryRes.success) {
-                      wx.showToast({ title: '申请已提交', icon: 'success' });
-                      this.setData({ showRequestPopup: false });
-                      return;
-                  }
-              } catch(retryErr) {
-                  wx.showToast({ title: '数据库异常，请联系管理员', icon: 'none' });
-              }
-          } else {
-              // Ignore duplicate errors if any, fallback
-              wx.showToast({ title: '提交失败: ' + (err.message || '网络异常'), icon: 'none' });
-          }
+          wx.showToast({ title: '提交失败: ' + (err.message || '网络异常'), icon: 'none' });
       } finally {
           this.setData({ requestLoading: false });
       }

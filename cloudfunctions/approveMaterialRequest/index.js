@@ -1,5 +1,13 @@
 // cloudfunctions/approveMaterialRequest/index.js
 const cloud = require('wx-server-sdk');
+const { assertAdminAccess } = require('./auth');
+const {
+  ensureBuiltinSubcategories,
+  sortSubcategoryRecords,
+  filterSubcategoryRecordsByCategory,
+  buildSubcategoryMap,
+  resolveSubcategorySelection
+} = require('./material-subcategories');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -7,6 +15,19 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+
+async function resolveRequestSubcategory(request) {
+  const category = request && request.category === 'film' ? 'film' : 'chemical';
+  const allRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
+  const records = filterSubcategoryRecordsByCategory(allRecords, category, { includeDisabled: true });
+  const map = buildSubcategoryMap(records);
+
+  return resolveSubcategorySelection({
+    category,
+    subcategory_key: request && request.subcategory_key,
+    sub_category: request && request.sub_category
+  }, records, map);
+}
 
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
@@ -32,8 +53,9 @@ exports.main = async (event, context) => {
       .get();
 
     const operator = userRes.data[0];
-    if (!operator || operator.role !== 'admin') {
-         return { success: false, msg: '无权限操作 (Require Admin)' };
+    const authResult = assertAdminAccess(operator, '无权限操作 (Require Admin)');
+    if (!authResult.ok) {
+         return { success: false, msg: authResult.msg };
     }
 
     // 2. 获取申请单详情
@@ -86,17 +108,21 @@ exports.main = async (event, context) => {
         }
 
         // B. 写入正式物料库
+        const resolvedSubcategory = await resolveRequestSubcategory(request);
+        if (!resolvedSubcategory.subcategory_key) {
+            return { success: false, msg: '申请单子类别无效，请先修正后再审批' };
+        }
+
         const newMaterial = {
             product_code: request.product_code,
             category: request.category,
             material_name: request.material_name,
-            sub_category: request.sub_category,
-            // 如果有 suggested_sub_category, 也可以考虑作为别名入库，这里暂时只存标准字段
+            subcategory_key: resolvedSubcategory.subcategory_key,
+            sub_category: resolvedSubcategory.sub_category,
             supplier: request.supplier,
             // 默认初始字段
             batch_count: 0,
             quantity: 0,
-            location: '',
             // 审计字段
             created_by: request._openid, // 申请人作为创建者
             created_at: db.serverDate(),
@@ -117,6 +143,8 @@ exports.main = async (event, context) => {
             data: {
                 status: 'approved',
                 material_id: addRes._id, // 关联正式ID
+                subcategory_key: resolvedSubcategory.subcategory_key,
+                sub_category: resolvedSubcategory.sub_category,
                 operator_id: OPENID,
                 operator_name: operator.name || 'Admin',
                 updated_at: db.serverDate()

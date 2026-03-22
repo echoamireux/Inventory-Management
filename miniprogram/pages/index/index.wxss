@@ -174,30 +174,24 @@
   font-weight: 500;
 }
 
-/* ========== 弹窗卡片紧凑样式 ========== */
-.card-home {
-  padding: 12px 14px !important;
+.context-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
-/* 批次标签缩小 */
-.tag-brand-light {
+.context-caption {
   font-size: 11px;
-  padding: 2px 8px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
-/* 批次选择卡片 */
-.batch-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin: 0 8px 12px 8px;  /* 减小左右边距，增加底部间距 */
-}
-
-/* 批次卡片临期预警 */
-.batch-card.expiring {
-  border-left: 3px solid var(--color-warning);
-  background: linear-gradient(90deg, var(--color-warning-light) 0%, #fff 8%);
+.context-code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-brand);
 }
 
 .text-primary {

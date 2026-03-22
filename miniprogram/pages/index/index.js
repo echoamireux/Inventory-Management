@@ -3,6 +3,17 @@ import Dialog from "@vant/weapp/dialog/dialog";
 import Toast from "@vant/weapp/toast/toast";
 const db = require("../../utils/db");
 const alertConfig = require("../../utils/alert-config");
+const { summarizeFilmDisplayQuantities } = require("../../utils/film");
+const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
+const { listZoneRecords } = require('../../utils/zone-service');
+const {
+  mergeInventoryMaterialData,
+  getInventoryQuantityDisplayState
+} = require('../../utils/inventory-display');
+const {
+  normalizeLabelCodeInput,
+  isValidLabelCode
+} = require('../../utils/label-code');
 
 Page({
   data: {
@@ -144,7 +155,7 @@ Page({
   // Modified to handle Batch Aggregated Selection
   onSelectBatchItem(e) {
     // 从 dataset.batch 获取批次聚合数据
-    const batch = e.currentTarget.dataset.batch;
+    const batch = (e.detail && e.detail.item) || e.currentTarget.dataset.batch;
     if (!batch) return;
 
     this.setData({
@@ -159,13 +170,14 @@ Page({
   async handleBatchWithdraw(batch) {
     const totalQty = batch.totalQuantity;
     const unit = batch.unit || 'kg';
-    const category = this.data.selectedAggItem?.category || this.data.selectActiveTab;
+    const selectedAggItem = this.data.selectedAggItem || {};
+    const category = selectedAggItem.category || this.data.selectActiveTab;
 
     let currentStockDesc = `${totalQty} ${unit} (批次总计)`;
     let inputLabel = `领用量 (${unit})`;
 
     if (category === 'film') {
-      currentStockDesc = `${totalQty} 米 (批次总计)`;
+      currentStockDesc = `${totalQty} ${unit} (批次总计)`;
       inputLabel = "领用长度 (米)";
     }
 
@@ -192,7 +204,7 @@ Page({
     }
 
     this.setData({
-      withdrawItem: {
+        withdrawItem: {
         product_code: batch.product_code,
         material_name: batch.material_name,
         batch_number: batch.batch_number,
@@ -202,7 +214,7 @@ Page({
         quantity: { val: totalQty, unit },
         location: batch.location,
         unique_code: recommendedCode,  // 添加推荐的 unique_code
-        isArchived: batch.isArchived || this.data.selectedAggItem?.isArchived || false  // 传递归档状态
+        isArchived: batch.isArchived || selectedAggItem.isArchived || false
       },
       withdrawAmount: "",
       selectedUsage: "",
@@ -232,7 +244,7 @@ Page({
     wx.showModal({
       title: "手动输入(测试用)",
       editable: true,
-      placeholderText: "请输入唯一码",
+      placeholderText: "请输入标签编号",
       success: (res) => {
         if (res.confirm && res.content) {
           this.handleScanResult(res.content);
@@ -242,22 +254,32 @@ Page({
   },
 
   async handleScanResult(code) {
+    const normalizedLabelCode = normalizeLabelCodeInput(code);
+    if (!isValidLabelCode(normalizedLabelCode)) {
+      await Dialog.alert({
+        title: "标签编号错误",
+        message: "标签编号格式不正确，应为 L + 6位数字",
+        messageAlign: "left"
+      });
+      return;
+    }
+
     Toast.loading({ message: "查询中...", forbidClick: true });
 
     try {
       // 1. 查询库存
-      const list = await db.inventory.getList({ unique_code: code }, 1, 1);
+      const list = await db.inventory.getList({ unique_code: normalizedLabelCode }, 1, 1);
       Toast.clear();
 
       if (!list || list.length === 0) {
         // 分支 A: 标签不存在 -> 提示入库
         Dialog.confirm({
           title: "标签未录入",
-          message: `标签 ${code} 尚未绑定物料，是否立即入库？`,
+          message: `标签 ${normalizedLabelCode} 尚未绑定物料，是否立即入库？`,
           confirmButtonText: "去入库",
           confirmButtonColor: "#2C68FF"
         }).then(() => {
-            wx.navigateTo({ url: `/pages/material-add/index?id=${code}` });
+            wx.navigateTo({ url: `/pages/material-add/index?id=${normalizedLabelCode}` });
         }).catch(() => {
             // Cancel
         });
@@ -266,37 +288,46 @@ Page({
 
       const item = list[0];
 
-      // 2. 检查物料归档状态
-      let isArchived = false;
+      // 2. 查询主数据，统一库存显示真值
+      let materialRecord = null;
       if (item.product_code) {
         try {
           const matRes = await wx.cloud.database().collection('materials')
             .where({ product_code: item.product_code })
-            .field({ status: true })
+            .field({
+              _id: true,
+              product_code: true,
+              status: true,
+              default_unit: true,
+              package_type: true,
+              specs: true,
+              subcategory_key: true,
+              sub_category: true,
+              material_name: true
+            })
             .limit(1)
             .get();
           if (matRes.data && matRes.data.length > 0) {
-            isArchived = matRes.data[0].status === 'archived';
+            materialRecord = matRes.data[0];
           }
-        } catch(e) { console.warn('Material lookup failed', e); }
+        } catch (e) {
+          console.warn('Material lookup failed', e);
+        }
       }
+      const mergedItem = mergeInventoryMaterialData(item, materialRecord || {});
+      const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord || {});
+      const isArchived = !!(materialRecord && materialRecord.status === 'archived');
 
       // 3. 准备弹窗数据
-      let currentStockDesc = "";
-      let inputLabel = "";
-
-      if (item.category === "chemical") {
-        currentStockDesc = `${item.quantity.val} ${item.quantity.unit}`;
-        inputLabel = `领用重量 (${item.quantity.unit})`;
-      } else {
-        const len =
-          (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-        currentStockDesc = `${len} 米 (共 ${item.quantity.val} 卷)`;
-        inputLabel = "领用长度 (米)";
-      }
+      const currentStockDesc = mergedItem.category === 'film'
+        ? `${quantityState.displayQuantity} ${quantityState.displayUnit} (基础长度 ${quantityState.baseLengthM} 米)`
+        : `${quantityState.displayQuantity} ${quantityState.displayUnit}`;
+      const inputLabel = mergedItem.category === 'film'
+        ? '领用长度 (米)'
+        : `领用重量 (${quantityState.displayUnit})`;
 
       this.setData({
-        withdrawItem: { ...item, currentStockDesc, inputLabel, isArchived },
+        withdrawItem: { ...mergedItem, currentStockDesc, inputLabel, isArchived },
         withdrawAmount: "",
         selectedUsage: "", // Reset usage
         usageDetail: "", // Reset detail
@@ -371,9 +402,12 @@ Page({
       });
 
       if (res.result && res.result.success) {
+        getApp().globalData.inventoryChangedAt = Date.now();
         // 统一反馈格式
-        const remaining = res.result.remaining;
-        const unit = res.result.unit || '';
+        const remaining = res.result.displayRemaining !== undefined
+          ? res.result.displayRemaining
+          : res.result.remaining;
+        const unit = res.result.displayUnit || res.result.unit || '';
         if (remaining !== undefined) {
           Toast.success(`领用成功，剩余: ${remaining} ${unit}`);
         } else {
@@ -473,33 +507,75 @@ Page({
         matchQuery.material_name = item.material_name;
       }
 
-      // 按批次聚合，计算每个批次的动态或初始总库存
-      const result = await db.collection("inventory").aggregate()
-        .match(matchQuery)
-        .group({
-          _id: "$batch_number",
-          totalQuantity: $.sum(
-            $.cond({
-                if: $.eq(['$category', 'film']),
-                then: $.ifNull(['$dynamic_attrs.current_length_m', '$quantity.val']),
-                else: '$quantity.val'
-            })
-          ),
-          itemCount: $.sum(1),
-          minExpiry: $.min("$expiry_date"),
-          location: $.first("$location"),
-          unit: $.first("$quantity.unit"),
-          product_code: $.first("$product_code"),
-          material_name: $.first("$material_name")
-        })
-        .sort({ minExpiry: 1 }) // 临期优先(FIFO)
-        .end();
+      const pageSize = 200;
+      let skip = 0;
+      let inventoryItems = [];
+
+      while (true) {
+        const res = await db.collection("inventory")
+          .where(matchQuery)
+          .orderBy("expiry_date", "asc")
+          .orderBy("create_time", "asc")
+          .skip(skip)
+          .limit(pageSize)
+          .get();
+
+        inventoryItems = inventoryItems.concat(res.data || []);
+        if (!res.data || res.data.length < pageSize) {
+          break;
+        }
+        skip += pageSize;
+      }
+      let zoneMap = new Map();
+      try {
+        const zoneRecords = await listZoneRecords(item.category || this.data.selectActiveTab, true);
+        zoneMap = buildZoneMap(zoneRecords);
+      } catch (zoneErr) {
+        console.warn('加载库区映射失败', zoneErr);
+      }
+
+      const groupedByBatch = new Map();
+      inventoryItems.forEach((record) => {
+        const batchNumber = record.batch_number || "无批号";
+        const resolvedLocation = resolveInventoryLocation(record, zoneMap);
+        if (!groupedByBatch.has(batchNumber)) {
+          groupedByBatch.set(batchNumber, {
+            batch_number: batchNumber,
+            records: [],
+            itemCount: 0,
+            minExpiry: record.expiry_date || null,
+            hasLongTermValidity: !!record.is_long_term_valid,
+            hasMissingExpiry: !record.expiry_date && !record.is_long_term_valid,
+            location: resolvedLocation,
+            product_code: record.product_code,
+            material_name: record.material_name,
+            sub_category: record.sub_category || item.sub_category || '',
+            subcategory_key: record.subcategory_key || item.subcategory_key || ''
+          });
+        }
+
+        const group = groupedByBatch.get(batchNumber);
+        group.records.push(record);
+        group.itemCount += 1;
+        if (record.is_long_term_valid) {
+          group.hasLongTermValidity = true;
+        }
+        if (!record.expiry_date && !record.is_long_term_valid) {
+          group.hasMissingExpiry = true;
+        }
+        if (record.expiry_date && (!group.minExpiry || new Date(record.expiry_date) < new Date(group.minExpiry))) {
+          group.minExpiry = record.expiry_date;
+        }
+      });
 
       // Format for display
       const now = new Date();
-      const batches = result.list.map((b) => {
-        let expiry = "长期有效";
+      const batches = Array.from(groupedByBatch.values()).map((b) => {
+        let expiry = b.hasMissingExpiry ? '未设置过期日' : (b.hasLongTermValidity ? '长期有效' : '未设置过期日');
         let isExpiring = false;
+        let totalQuantity = 0;
+        let totalBaseLengthM = 0;
+        let unit = item.category === 'film' ? item.unit : ((b.records[0] && b.records[0].quantity && b.records[0].quantity.unit) || 'kg');
 
         if (b.minExpiry) {
           const expDate = new Date(b.minExpiry);
@@ -512,18 +588,37 @@ Page({
           }
         }
 
+        if (item.category === 'film') {
+          const summary = summarizeFilmDisplayQuantities(b.records, item.unit);
+          totalQuantity = summary.displayQuantity;
+          totalBaseLengthM = summary.baseLengthM;
+          unit = summary.displayUnit;
+        } else {
+          totalQuantity = parseFloat(b.records.reduce((sum, current) => {
+            const quantityVal = current && current.quantity ? Number(current.quantity.val) || 0 : 0;
+            return sum + quantityVal;
+          }, 0).toFixed(2));
+        }
+
         return {
-          batch_number: b._id || "无批号",
-          totalQuantity: parseFloat(b.totalQuantity.toFixed(2)),
+          batch_number: b.batch_number,
+          totalQuantity: totalQuantity,
+          totalBaseLengthM: totalBaseLengthM,
           itemCount: b.itemCount,
           expiry,
           isExpiring,
           location: b.location,
-          unit: b.unit,
+          unit: unit,
           product_code: b.product_code,
           material_name: b.material_name,
+          sub_category: b.sub_category || item.sub_category || '',
+          subcategory_key: b.subcategory_key || item.subcategory_key || '',
           isArchived: item.isArchived || false  // 从聚合项传递归档状态
         };
+      }).sort((a, b) => {
+        const timeA = /^\d{4}-\d{2}-\d{2}$/.test(a.expiry) ? new Date(a.expiry).getTime() : Number.MAX_SAFE_INTEGER;
+        const timeB = /^\d{4}-\d{2}-\d{2}$/.test(b.expiry) ? new Date(b.expiry).getTime() : Number.MAX_SAFE_INTEGER;
+        return timeA - timeB;
       });
 
       this.setData({

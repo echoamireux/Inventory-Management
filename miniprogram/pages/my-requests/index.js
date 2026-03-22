@@ -1,5 +1,10 @@
 // pages/my-requests/index.js
 const db = wx.cloud.database();
+const { listSubcategoryRecords } = require('../../utils/subcategory-service');
+const {
+  buildSubcategoryMap,
+  resolveSubcategoryDisplay
+} = require('../../utils/material-subcategory');
 
 Page({
   data: {
@@ -20,13 +25,17 @@ Page({
   async fetchRequests() {
     this.setData({ loading: true });
     try {
-        const { OPENID } = getApp().globalData;
-        // Or if we rely on backend auto-injecting openid, client query is fine too if permissions allow.
-        // Usually material_requests should be readable by creator.
-
-        const res = await db.collection('material_requests')
-            .orderBy('created_at', 'desc')
-            .get();
+        const [chemicalSubcategories, filmSubcategories, res] = await Promise.all([
+            listSubcategoryRecords('chemical', true).catch(() => []),
+            listSubcategoryRecords('film', true).catch(() => []),
+            db.collection('material_requests')
+                .orderBy('created_at', 'desc')
+                .get()
+        ]);
+        const subcategoryMap = buildSubcategoryMap([
+            ...chemicalSubcategories,
+            ...filmSubcategories
+        ]);
 
         const list = res.data.map(item => {
             let statusText = '待审核';
@@ -47,6 +56,7 @@ Page({
 
             return {
                 ...item,
+                _subcategoryDisplay: resolveSubcategoryDisplay(item, subcategoryMap) || item.sub_category || '-',
                 statusText,
                 date: dateStr
             };
@@ -56,13 +66,6 @@ Page({
 
     } catch (err) {
         console.error(err);
-
-        // Auto-fix: Collection Not Exist (-502001) -> Treat as empty
-        if (err.errCode === -502001 || (err.message && err.message.includes('COLLECTION_NOT_EXIST'))) {
-            this.setData({ list: [], loading: false });
-            return;
-        }
-
         this.setData({ loading: false });
         wx.showToast({ title: '加载失败: ' + (err.msg || err.message || ''), icon: 'none' });
     }

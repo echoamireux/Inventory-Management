@@ -1,6 +1,9 @@
 // pages/material-detail/index.js
 const db = require('../../utils/db');
 import Dialog from '@vant/weapp/dialog/dialog';
+const { getFilmDisplayState } = require('../../utils/film');
+const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
+const { listZoneRecords } = require('../../utils/zone-service');
 
 Page({
   data: {
@@ -38,12 +41,22 @@ Page({
       item._displaySubtitle = displaySubtitle;
 
       item._displayQuantity = item.category === 'film'
-          ? `${item.dynamic_attrs.current_length_m} m`
+          ? (() => {
+              const filmState = getFilmDisplayState(item);
+              return `${filmState.displayQuantity} ${filmState.displayUnit}`;
+            })()
           : `${item.quantity.val} ${item.quantity.unit}`;
+
+      try {
+        const zoneRecords = await listZoneRecords(item.category || 'chemical', true);
+        item.location = resolveInventoryLocation(item, buildZoneMap(zoneRecords));
+      } catch (zoneErr) {
+        console.warn('Load zone map failed', zoneErr);
+      }
 
       const _ = wx.cloud.database().command;
       const logsRes = await wx.cloud.database().collection('inventory_log')
-        .where({ material_id: id })
+        .where({ inventory_id: id })
         .orderBy('timestamp', 'desc')
         .limit(20)
         .get();

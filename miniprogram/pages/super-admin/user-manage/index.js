@@ -33,13 +33,24 @@ Page({
     wx.showLoading({ title: '加载中...' });
     try {
       const db = wx.cloud.database();
-      // 获取所有已激活用户
-      const res = await db.collection('users')
-        .where({ status: 'active' })
-        .orderBy('create_time', 'desc')
-        .get();
+      const pageSize = 100;
+      let skip = 0;
+      let rawList = [];
 
-      const list = res.data.map(item => {
+      while (true) {
+        const res = await db.collection('users')
+          .where({ status: 'active' })
+          .orderBy('create_time', 'desc')
+          .skip(skip)
+          .limit(pageSize)
+          .get();
+
+        rawList = rawList.concat(res.data || []);
+        if (!res.data || res.data.length < pageSize) break;
+        skip += pageSize;
+      }
+
+      const list = rawList.map(item => {
         let timeStr = '';
         if (item.create_time) {
           const date = new Date(item.create_time);

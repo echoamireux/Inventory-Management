@@ -7,7 +7,7 @@
     "node": ">=10.15.0"
   },
   "dependencies": {
-    "wx-server-sdk": "latest",
-    "node-xlsx": "^0.21.0"
+    "exceljs": "^4.4.0",
+    "wx-server-sdk": "latest"
   }
 }

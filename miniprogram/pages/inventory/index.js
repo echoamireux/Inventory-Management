@@ -9,6 +9,8 @@ Page({
     searchVal: '',
     list: [],
     loading: false,
+    hasLoadedOnce: false,
+    lastSeenInventoryChangeAt: 0,
 
     // Aggregation Mode
     isGrouped: true, // Default to grouped view
@@ -27,6 +29,20 @@ Page({
   },
 
   onShow: function () {
+    const app = getApp();
+    const inventoryChangedAt = (app.globalData && app.globalData.inventoryChangedAt) || 0;
+
+    if (!this.data.hasLoadedOnce) {
+      this.getList();
+      return;
+    }
+
+    if (inventoryChangedAt && inventoryChangedAt !== this.data.lastSeenInventoryChangeAt) {
+      this.getList();
+    }
+  },
+
+  onPullDownRefresh() {
     this.getList();
   },
 
@@ -51,8 +67,11 @@ Page({
 
   // 核心逻辑升级：使用聚合查询
   async getList() {
-    if (this.data.loading) return;
-    this.setData({ loading: true, list: [] });
+    if (this.data.loading) {
+      wx.stopPullDownRefresh();
+      return;
+    }
+    this.setData({ loading: true });
 
     try {
       const { searchVal, activeTab } = this.data;
@@ -70,7 +89,11 @@ Page({
       });
 
       if (res.result.success) {
-          this.setData({ list: res.result.list });
+          this.setData({
+            list: res.result.list,
+            hasLoadedOnce: true,
+            lastSeenInventoryChangeAt: (getApp().globalData && getApp().globalData.inventoryChangedAt) || 0
+          });
       } else {
           throw new Error(res.result.msg);
       }

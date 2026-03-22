@@ -9,10 +9,26 @@ Component({
   options: {
     addGlobalClass: true
   },
+  data: {
+    display: {
+      batchLabel: '批号',
+      batchValue: '',
+      materialName: '',
+      subcategoryLabel: '',
+      expiryLabel: '未设置过期日',
+      locationLabel: '--'
+    }
+  },
   properties: {
     item: {
       type: Object,
-      value: {}
+      value: {},
+      observer(item) {
+        const { buildBatchCardState } = require('../../utils/inventory-display');
+        this.setData({
+          display: buildBatchCardState(item)
+        });
+      }
     }
   },
   methods: {

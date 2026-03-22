@@ -26,36 +26,38 @@ export const CATEGORY_PREFIX = {
 
 // ========== 化材分类 ==========
 export const CHEMICAL_CATEGORIES = [
-  { name: '溶剂 (Solvent)', code: 'J', type: 'chemical' },
-  { name: '树脂 (Resin)', code: 'J', type: 'chemical' },
-  { name: '助剂 (Additive)', code: 'J', type: 'chemical' },
-  { name: '固化剂 (Hardener)', code: 'J', type: 'chemical' },
-  { name: '色浆 (Pigment)', code: 'J', type: 'chemical' },
-  { name: '胶水 (Adhesive)', code: 'J', type: 'chemical' },
-  { name: '其他 (Other)', code: 'J', type: 'chemical' }
+  { name: '主胶', code: 'J', type: 'chemical' },
+  { name: '树脂', code: 'J', type: 'chemical' },
+  { name: '溶剂', code: 'J', type: 'chemical' },
+  { name: '助剂', code: 'J', type: 'chemical' },
+  { name: '色浆', code: 'J', type: 'chemical' },
+  { name: '固化剂', code: 'J', type: 'chemical' }
 ];
 
 // ========== 膜材分类 ==========
 export const FILM_CATEGORIES = [
   { name: '基材-PET', code: 'M', type: 'film' },
+  { name: '基材-BOPP', code: 'M', type: 'film' },
+  { name: '基材-PE', code: 'M', type: 'film' },
+  { name: '基材-PO', code: 'M', type: 'film' },
   { name: '基材-PI', code: 'M', type: 'film' },
-  { name: '基材-PP/PE', code: 'M', type: 'film' },
   { name: '离型膜', code: 'M', type: 'film' },
   { name: '保护膜', code: 'M', type: 'film' },
-  { name: '光学膜', code: 'M', type: 'film' },
   { name: '胶带', code: 'M', type: 'film' },
-  { name: '其他', code: 'M', type: 'film' }
+  { name: '硬化膜', code: 'M', type: 'film' }
 ];
 
 // ========== 单位选项 ==========
-export const UNIT_OPTIONS = [
+export const CHEMICAL_UNIT_OPTIONS = [
   { name: 'kg' },
   { name: 'g' },
   { name: 'L' },
-  { name: 'mL' },
+  { name: 'mL' }
+];
+
+export const FILM_UNIT_OPTIONS = [
   { name: 'm' },
-  { name: 'm²' },
-  { name: 'pcs(个)' }
+  { name: 'm²' }
 ];
 
 // ========== 包装形式 ==========
@@ -122,18 +124,21 @@ export const DEFAULT_FORM = {
   unique_code: '',
   name: '',
   sub_category: '',
+  subcategory_key: '',
   product_code: '',
   supplier: '',
   supplier_model: '',
   batch_number: '',
+  zone_key: '',
   location_zone: '',
   location_detail: '',
-  location: '',
   unit: '',
   net_content: '',
   package_type: '',
   expiry_date: '',
+  is_long_term_valid: false,
   thickness_um: '',
+  thickness_locked: false,
   width_mm: '',
   length_m: ''
 };

@@ -1,5 +1,21 @@
 // cloudfunctions/addMaterial/index.js
 const cloud = require('wx-server-sdk');
+const { buildFilmInventoryState } = require('./film-quantity');
+const {
+  normalizeLabelCodeInput,
+  isValidLabelCode
+} = require('./label-code');
+const {
+  normalizePositiveNumber,
+  resolveFilmThicknessGovernance
+} = require('./thickness-governance');
+const {
+  ensureBuiltinZones,
+  sortZoneRecords,
+  filterZoneRecordsByCategory,
+  buildZoneMap,
+  buildInventoryLocationPayload
+} = require('./warehouse-zones');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -21,10 +37,15 @@ function generateUniqueCode(prefix) {
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { base, specs, inventory, unique_code } = event; // 接收 unique_code
+  const normalizedUniqueCode = normalizeLabelCodeInput(unique_code);
 
   // 1. 参数校验
-  if (!base.name || !base.category || !unique_code) {
+  if (!base.name || !base.category || !normalizedUniqueCode) {
     return { success: false, msg: 'Missing required info: name, category, or unique_code' };
+  }
+
+  if (!isValidLabelCode(normalizedUniqueCode)) {
+    return { success: false, msg: '标签编号格式不正确，应为 L + 6位数字' };
   }
 
   // 1.2 数量有效性校验 (Security Fix)
@@ -34,6 +55,29 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const hasExpiryDate = !!inventory.expiry_date;
+    const isLongTermValid = !!inventory.is_long_term_valid;
+
+    if (!hasExpiryDate && !isLongTermValid) {
+      return { success: false, msg: '必须填写过期日期或明确设为长期有效' };
+    }
+
+    if (hasExpiryDate && isLongTermValid) {
+      return { success: false, msg: '过期日期和长期有效不能同时设置' };
+    }
+
+    const explicitExpiryDate = hasExpiryDate ? new Date(inventory.expiry_date) : null;
+    if (explicitExpiryDate && Number.isNaN(explicitExpiryDate.getTime())) {
+      return { success: false, msg: '过期日期格式不正确' };
+    }
+
+    const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+    const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, base.category));
+    const locationPayload = buildInventoryLocationPayload({
+      zoneKey: inventory.zone_key,
+      locationDetail: inventory.location_detail
+    }, zoneMap);
+
     const result = await db.runTransaction(async transaction => {
       // 1.1 唯一码查重 (必须全局唯一)
       // 注意：transaction 中不支持 where 查询，必须用 db.collection 直接查，或者假定重复会报错。
@@ -43,12 +87,12 @@ exports.main = async (event, context) => {
 
     // 为了避开事务限制，先查重
     const existCode = await db.collection('inventory').where({
-        unique_code: unique_code
+        unique_code: normalizedUniqueCode
     }).count();
 
     if (existCode.total > 0) {
         // Explicit Chinese error for better user understanding
-        return { success: false, msg: `冲突：标签号 ${unique_code} 已被占用，请尝试重新生成或检查网络` };
+        return { success: false, msg: `冲突：标签号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络` };
     }
 
     return await db.runTransaction(async transaction => {
@@ -77,17 +121,22 @@ exports.main = async (event, context) => {
       materialId = materialRes._id;
       */
 
+      const materialRecord = materialQuery.data[0];
+      const category = materialRecord.category || base.category;
+      const materialSpecs = materialRecord.specs || {};
+
       // 4. 写入 Inventory 集合
       const invData = {
         material_id: materialId,
-        material_name: base.name,
-        category: base.category,
-        sub_category: base.sub_category || '', // 冗余存一份方便筛选
-        product_code: base.product_code || '', // 冗余存一份方便列表展示
-        unique_code: unique_code, // 使用传入的 code
-        supplier: base.supplier || '', // Save instance supplier
-        supplier_model: base.supplier_model || '', // Save instance model
-        location: inventory.location,
+        material_name: materialRecord.material_name || base.name,
+        category,
+        subcategory_key: materialRecord.subcategory_key || '',
+        sub_category: materialRecord.sub_category || '',
+        product_code: materialRecord.product_code || base.product_code || '',
+        unique_code: normalizedUniqueCode, // 使用传入的 code
+        supplier: materialRecord.supplier || base.supplier || '',
+        supplier_model: materialRecord.supplier_model || base.supplier_model || '',
+        ...locationPayload,
         status: 'in_stock',
         quantity: {
           val: Number(inventory.quantity_val),
@@ -97,24 +146,96 @@ exports.main = async (event, context) => {
         update_time: db.serverDate()
       };
 
-      if (inventory.expiry_date) {
-        invData.expiry_date = new Date(inventory.expiry_date);
-    }
+      if (explicitExpiryDate) {
+        invData.expiry_date = explicitExpiryDate;
+      }
+      if (inventory.is_long_term_valid) {
+        invData.is_long_term_valid = true;
+      }
 
-    if (base.category === 'chemical') {
+      let logQuantityChange = Number(inventory.quantity_val);
+      let logUnit = inventory.quantity_unit || '份';
+
+      if (category === 'chemical') {
         invData.batch_number = inventory.batch_number;
         // 化材动态属性: 重量
         if (inventory.weight_kg) {
              invData.dynamic_attrs = { weight_kg: Number(inventory.weight_kg) };
         }
-      } else if (base.category === 'film') {
+      } else if (category === 'film') {
          invData.batch_number = inventory.batch_number; // 膜材也有批号
-         // 膜材动态属性: 长宽
+         const resolvedWidthMm = normalizePositiveNumber(
+           specs.standard_width_mm !== undefined
+             ? specs.standard_width_mm
+             : (
+               specs.width_mm !== undefined
+                 ? specs.width_mm
+                 : (
+                   materialSpecs.standard_width_mm !== undefined
+                     ? materialSpecs.standard_width_mm
+                     : materialSpecs.width_mm
+                 )
+             )
+         );
+         const inboundThicknessUm = normalizePositiveNumber(
+           specs.thickness_um !== undefined
+             ? specs.thickness_um
+             : (specs && specs.thickness_um)
+         );
+         const thicknessGovernance = resolveFilmThicknessGovernance({
+           materialThicknessUm: materialSpecs.thickness_um,
+           inboundThicknessUm
+         });
+         const resolvedThicknessUm = thicknessGovernance.resolvedThicknessUm;
+
+         if (!resolvedWidthMm) {
+           throw new Error('膜材入库缺少有效宽度');
+         }
+
+         if (!resolvedThicknessUm) {
+           throw new Error('膜材入库缺少有效厚度');
+         }
+
+         const materialWidthMm = normalizePositiveNumber(
+           materialSpecs.standard_width_mm !== undefined
+             ? materialSpecs.standard_width_mm
+             : materialSpecs.width_mm
+         );
+         const shouldBackfillMasterWidth = !materialWidthMm && !!resolvedWidthMm;
+
+         if (thicknessGovernance.shouldBackfillMasterThickness || shouldBackfillMasterWidth) {
+           const materialUpdateData = {
+             updated_by: OPENID,
+             updated_at: db.serverDate()
+           };
+           if (thicknessGovernance.shouldBackfillMasterThickness) {
+             materialUpdateData['specs.thickness_um'] = thicknessGovernance.inboundThicknessUm;
+           }
+           if (shouldBackfillMasterWidth) {
+             materialUpdateData['specs.standard_width_mm'] = resolvedWidthMm;
+           }
+           await transaction.collection('materials').doc(materialId).update({
+             data: materialUpdateData
+           });
+         }
+
+         const filmState = buildFilmInventoryState(
+           Number(inventory.length_m || 0),
+           inventory.quantity_unit,
+           resolvedWidthMm,
+           Number(inventory.length_m || 0)
+         );
+         invData.quantity.val = filmState.quantityVal;
+         invData.quantity.unit = filmState.quantityUnit;
          invData.dynamic_attrs = {
-             current_length_m: Number(inventory.length_m || 0),
-             width_mm: Number(specs.width_mm || 0), // 初始宽度通常等于规格宽度
+             current_length_m: filmState.currentLengthM,
+             initial_length_m: filmState.initialLengthM,
+             width_mm: resolvedWidthMm,
+             thickness_um: resolvedThicknessUm,
              current_roll_diameter_mm: 0 // 初始卷径未知可填0
          };
+         logQuantityChange = filmState.currentLengthM;
+         logUnit = 'm';
       }
 
       const invRes = await transaction.collection('inventory').add({
@@ -130,8 +251,9 @@ exports.main = async (event, context) => {
             material_name: base.name,
             category: base.category, // Added for Log Display Logic
             product_code: base.product_code, // Added for Log Display Logic
-            quantity_change: Number(inventory.quantity_val),
-            spec_change_unit: inventory.quantity_unit || '份',
+            quantity_change: logQuantityChange,
+            spec_change_unit: logUnit,
+            unit: logUnit,
             operator: event.operator_name || 'System',
             operator_id: OPENID,
             _openid: OPENID,
@@ -144,7 +266,7 @@ exports.main = async (event, context) => {
         success: true,
         materialId: materialId,
         inventoryId: invRes._id,
-        uniqueCode: unique_code
+        uniqueCode: normalizedUniqueCode
       };
     });
 

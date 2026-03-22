@@ -1,20 +1,14 @@
 // pages/admin/material-import/index.js
 import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
-
-// 子类别映射
-const CHEMICAL_SUB_CATEGORIES = [
-  '溶剂 (Solvent)', '树脂 (Resin)', '助剂 (Additive)',
-  '固化剂 (Hardener)', '色浆 (Pigment)', '胶水 (Adhesive)', '其他'
-];
-const FILM_SUB_CATEGORIES = [
-  '基材-PET', '基材-PI', '基材-PP/PE', '离型膜',
-  '保护膜', '光学膜', '胶带', '其他'
-];
-
-// 单位映射
-const CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL'];
-const FILM_UNITS = ['m', 'm²', '卷', '张', 'pcs(个)'];
+const { listSubcategoryRecords } = require('../../../utils/subcategory-service');
+const {
+  validateImportRow,
+  buildImportResultMessage
+} = require('../../../utils/material-import');
+const {
+  normalizeTemplateExportResult
+} = require('../../../utils/material-template-export');
 
 Page({
   options: {
@@ -24,13 +18,17 @@ Page({
     selectedFile: null,
     parsing: false,
     importing: false,
+    exportingTemplate: false,
     previewData: [],
     validCount: 0,
     errorCount: 0,
-    showTemplateDialog: false // 控制模板说明弹窗
+    subcategoriesByCategory: {
+      chemical: [],
+      film: []
+    }
   },
 
-  onLoad() {
+  async onLoad() {
     const app = getApp();
     if (!app.globalData.user || !['admin', 'super_admin'].includes(app.globalData.user.role)) {
       wx.showModal({
@@ -39,54 +37,121 @@ Page({
         showCancel: false,
         success: () => { wx.navigateBack(); }
       });
+      return;
+    }
+
+    await this.loadSubcategoryOptions();
+  },
+
+  async loadSubcategoryOptions() {
+    try {
+      const [chemicalRecords, filmRecords] = await Promise.all([
+        listSubcategoryRecords('chemical', false),
+        listSubcategoryRecords('film', false)
+      ]);
+
+      this.setData({
+        subcategoriesByCategory: {
+          chemical: chemicalRecords.map(item => item.name),
+          film: filmRecords.map(item => item.name)
+        }
+      });
+    } catch (err) {
+      console.error('加载子类别失败', err);
+      Toast.fail(err.message || '加载子类别失败');
     }
   },
 
-  // 下载模板 - 复制到剪贴板
-  onDownloadTemplate() {
+  async onExportLatestTemplate() {
+    if (this.data.exportingTemplate) {
+      return;
+    }
+
+    this.setData({ exportingTemplate: true });
+    Toast.loading({ message: '正在生成模板...', forbidClick: true, duration: 0 });
+
+    try {
+      const result = normalizeTemplateExportResult(await wx.cloud.callFunction({
+        name: 'exportMaterialTemplate'
+      }));
+
+      Toast.loading({ message: '正在下载模板...', forbidClick: true, duration: 0 });
+      const downRes = await wx.cloud.downloadFile({
+        fileID: result.fileID
+      });
+
+      if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
+        throw new Error('模板下载失败');
+      }
+
+      Toast.clear();
+      await wx.openDocument({
+        filePath: downRes.tempFilePath,
+        showMenu: true,
+        fileType: 'xlsx'
+      });
+
+      await Dialog.alert({
+        title: '模板已打开',
+        message: '已生成并打开最新模板。\n\n请填写后另存为 CSV，再回到本页上传导入。',
+        messageAlign: 'left',
+        confirmButtonText: '我知道了'
+      });
+    } catch (err) {
+      console.error('导出最新模板失败', err);
+      Toast.fail(err.message || '导出模板失败');
+    } finally {
+      Toast.clear();
+      this.setData({ exportingTemplate: false });
+    }
+  },
+
+  // 复制简易结构 - 仅应急
+  onCopyTemplateStructure() {
+    const chemicalSubcategories = this.data.subcategoriesByCategory.chemical || [];
+    const filmSubcategories = this.data.subcategoriesByCategory.film || [];
     // 模板内容（用 Tab 分隔便于粘贴到 Excel）
     const templateRows = [
       // 表头
-      ['产品代码', '物料名称', '类别', '子类别', '子类别说明', '默认单位', '供应商', '厂家型号', '保质期(天)'],
+      ['产品代码', '物料名称', '类别', '子类别', '默认单位', '供应商', '厂家型号'],
       // 空行 - 从这里开始填写数据
-      ['', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
       // 说明区（与数据区用空行分隔）
-      ['', '', '', '', '', '', '', '', ''],
-      ['═══════════════════════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', ''],
-      ['【重要：填写说明】请仔细阅读以下内容', '', '', '', '', '', '', '', ''],
-      ['═══════════════════════════════════════════════════════════════════════════════', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['▶ 操作步骤：', '', '', '', '', '', '', '', ''],
-      ['1. 在【第2行】开始填写物料数据（第1行是表头，不要修改）', '', '', '', '', '', '', '', ''],
-      ['2. 每行填写一个物料，【不要留空行】', '', '', '', '', '', '', '', ''],
-      ['3. 如果数据超过5行，请在第6行之前【插入】新行，不要在说明区填写', '', '', '', '', '', '', '', ''],
-      ['4. 填写完成后，【删除】所有空行和本说明区', '', '', '', '', '', '', '', ''],
-      ['5. 另存为 CSV 格式（文件 → 另存为 → 选择 CSV）', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['▶ 字段说明：（★ 表示必填）', '', '', '', '', '', '', '', ''],
-      ['★ 产品代码：仅填数字部分，系统自动加前缀（化材→J-，膜材→M-）', '', '', '', '', '', '', '', ''],
-      ['★ 物料名称：物料的中文名称', '', '', '', '', '', '', '', ''],
-      ['★ 类别：只能填 "化材" 或 "膜材"（必须完全一致）', '', '', '', '', '', '', '', ''],
-      ['★ 子类别：从下方选项中选择一个填写', '', '', '', '', '', '', '', ''],
-      ['  子类别说明：仅当子类别填"其他"时必填，填写具体说明', '', '', '', '', '', '', '', ''],
-      ['  默认单位：可选。不填则使用默认值（化材=kg，膜材=m）', '', '', '', '', '', '', '', ''],
-      ['  供应商 / 厂家型号 / 保质期：可选', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['▶ 子类别选项：', '', '', '', '', '', '', '', ''],
-      ['【化材】溶剂 (Solvent) | 树脂 (Resin) | 助剂 (Additive) | 固化剂 (Hardener) | 色浆 (Pigment) | 胶水 (Adhesive) | 其他', '', '', '', '', '', '', '', ''],
-      ['【膜材】基材-PET | 基材-PI | 基材-PP/PE | 离型膜 | 保护膜 | 光学膜 | 胶带 | 其他', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['▶ 单位选项：', '', '', '', '', '', '', '', ''],
-      ['【化材】kg | g | L | mL', '', '', '', '', '', '', '', ''],
-      ['【膜材】m | m² | 卷 | 张 | pcs(个)', '', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', '', ''],
-      ['▶ 示例：', '', '', '', '', '', '', '', ''],
-      ['001', '异丙醇', '化材', '溶剂 (Solvent)', '', 'L', '国药', 'IPA-99', '365'],
-      ['002', 'PET保护膜', '膜材', '保护膜', '', 'm', '东丽', 'T100', '730']
+      ['', '', '', '', '', '', ''],
+      ['═══════════════════════════════════════════════════════════════════════════════', '', '', '', '', '', ''],
+      ['【重要：填写说明】请仔细阅读以下内容', '', '', '', '', '', ''],
+      ['═══════════════════════════════════════════════════════════════════════════════', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['▶ 操作步骤：', '', '', '', '', '', ''],
+      ['1. 在【第2行】开始填写物料数据（第1行是表头，不要修改）', '', '', '', '', '', ''],
+      ['2. 每行填写一个物料，【不要留空行】', '', '', '', '', '', ''],
+      ['3. 如果数据超过5行，请在第6行之前【插入】新行，不要在说明区填写', '', '', '', '', '', ''],
+      ['4. 填写完成后，【删除】所有空行和本说明区', '', '', '', '', '', ''],
+      ['5. 另存为 CSV 格式（文件 → 另存为 → 选择 CSV）', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['▶ 字段说明：（★ 表示必填）', '', '', '', '', '', ''],
+      ['★ 产品代码：建议填写 3 位数字（如 001）；系统可兼容 1/01/J-001 这类输入，但最终会统一成标准格式', '', '', '', '', '', ''],
+      ['★ 物料名称：物料的中文名称', '', '', '', '', '', ''],
+      ['★ 类别：只能填 "化材" 或 "膜材"（必须完全一致）', '', '', '', '', '', ''],
+      ['★ 子类别：必须填写系统内已启用的正式子类别，不再支持“其他”', '', '', '', '', '', ''],
+      ['  默认单位：可选。不填则使用默认值（化材=kg，膜材=m）', '', '', '', '', '', ''],
+      ['  供应商 / 厂家型号：可选', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['▶ 当前有效子类别：', '', '', '', '', '', ''],
+      [`【化材】${chemicalSubcategories.length > 0 ? chemicalSubcategories.join(' | ') : '请先在“子类别管理”中维护后再导入'}`, '', '', '', '', '', ''],
+      [`【膜材】${filmSubcategories.length > 0 ? filmSubcategories.join(' | ') : '请先在“子类别管理”中维护后再导入'}`, '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['▶ 单位选项：', '', '', '', '', '', ''],
+      ['【化材】kg | g | L | mL', '', '', '', '', '', ''],
+      ['【膜材】m | m²', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
+      ['▶ 示例：', '', '', '', '', '', ''],
+      ['001', '异丙醇', '化材', '溶剂', 'L', '国药', 'IPA-99'],
+      ['002', 'PET保护膜', '膜材', '保护膜', 'm', '东丽', 'T100']
     ];
 
     // 构建 Tab 分隔内容
@@ -97,7 +162,7 @@ Page({
       success: () => {
         Dialog.alert({
           title: '简易结构已复制',
-          message: '此内容仅包含最基础的列名结构。\n\n建议您优先使用管理员分发的《标准物料导入模板》，以获得更好的填写体验（包含下拉选项和校验）。',
+          message: '此内容仅包含最基础的列名结构，不带正式下拉和校验。\n\n建议优先使用“导出最新模板”获取系统当前规则，再填写后另存为 CSV 导入。',
           messageAlign: 'left',
           confirmButtonText: '我知道了'
         });
@@ -109,17 +174,23 @@ Page({
   },
 
   // 选择文件 - 支持 CSV 和 Excel
-  onChooseFile() {
+  async onChooseFile() {
+    if (
+      !this.data.subcategoriesByCategory.chemical.length ||
+      !this.data.subcategoriesByCategory.film.length
+    ) {
+      await this.loadSubcategoryOptions();
+    }
+
     wx.chooseMessageFile({
       count: 1,
       type: 'file',
-      extension: ['csv', 'xlsx', 'xls'],
+      extension: ['csv'],
       success: (res) => {
         const file = res.tempFiles[0];
         this.setData({ selectedFile: file });
 
-        // 根据文件类型选择解析方式
-        if (file.name.endsWith('.csv')) {
+        if (file.name.toLowerCase().endsWith('.csv')) {
           this.parseCSV(file.path);
         } else {
           Toast.fail('请使用 CSV 格式文件');
@@ -210,90 +281,12 @@ Page({
 
   // 校验单行数据
   validateRow(row, index) {
-    let productCode = String(row[0] || '').trim();
-    const materialName = String(row[1] || '').trim();
-    const categoryText = String(row[2] || '').trim();
-    const subCategory = String(row[3] || '').trim();
-    const subCategoryNote = String(row[4] || '').trim();
-    let defaultUnit = String(row[5] || '').trim();
-    const supplier = String(row[6] || '').trim();
-    const supplierModel = String(row[7] || '').trim();
-    const shelfLifeDays = row[8] ? parseInt(row[8]) : null;
-
-    let error = null;
-    let category = '';
-
-    // 类别转换
-    if (categoryText === '化材') {
-      category = 'chemical';
-    } else if (categoryText === '膜材') {
-      category = 'film';
-    } else {
-      error = '类别必须为"化材"或"膜材"';
-    }
-
-    // 产品代码处理：去除可能的前缀
-    if (productCode.toUpperCase().startsWith('J-')) {
-      productCode = productCode.substring(2);
-    } else if (productCode.toUpperCase().startsWith('M-')) {
-      productCode = productCode.substring(2);
-    }
-
-    // 添加正确的前缀
-    const prefix = category === 'film' ? 'M-' : 'J-';
-    const fullProductCode = prefix + productCode;
-
-    // 必填校验
-    if (!productCode) {
-      error = '产品代码必填';
-    } else if (!materialName) {
-      error = '物料名称必填';
-    } else if (!subCategory) {
-      error = '子类别必填';
-    }
-
-    // 子类别校验
-    if (!error && subCategory) {
-      const validSubs = category === 'chemical' ? CHEMICAL_SUB_CATEGORIES : FILM_SUB_CATEGORIES;
-      if (!validSubs.includes(subCategory)) {
-        error = `子类别无效，请选择：${validSubs.join('、')}`;
-      }
-      // 其他类别需要说明
-      if (subCategory === '其他' && !subCategoryNote) {
-        error = '子类别为"其他"时，子类别说明必填';
-      }
-    }
-
-    // 单位默认值
-    if (!defaultUnit) {
-      defaultUnit = category === 'film' ? 'm' : 'kg';
-    }
-
-    // 单位校验
-    if (!error && defaultUnit) {
-      const validUnits = category === 'chemical' ? CHEMICAL_UNITS : FILM_UNITS;
-      if (!validUnits.includes(defaultUnit)) {
-        error = `单位无效，请选择：${validUnits.join('、')}`;
-      }
-    }
-
-    return {
-      rowIndex: index + 2,
-      product_code: fullProductCode,
-      product_code_number: productCode,
-      material_name: materialName,
-      category: category,
-      sub_category: subCategory === '其他' && subCategoryNote ? subCategoryNote : subCategory,
-      default_unit: defaultUnit,
-      supplier: supplier,
-      supplier_model: supplierModel,
-      shelf_life_days: shelfLifeDays,
-      error: error
-    };
+    return validateImportRow(row, index, this.data.subcategoriesByCategory);
   },
 
   // 确认导入
   async onImport() {
+    const previewErrors = this.data.previewData.filter(item => item.error);
     const validItems = this.data.previewData.filter(item => !item.error);
 
     if (validItems.length === 0) {
@@ -303,7 +296,9 @@ Page({
 
     const confirmed = await Dialog.confirm({
       title: '确认导入',
-      message: `将导入 ${validItems.length} 条物料数据，是否继续？`
+      message: previewErrors.length > 0
+        ? `将导入 ${validItems.length} 条物料数据，另有 ${previewErrors.length} 条预校验失败不会导入，是否继续？`
+        : `将导入 ${validItems.length} 条物料数据，是否继续？`
     }).catch(() => false);
 
     if (!confirmed) return;
@@ -323,14 +318,12 @@ Page({
       Toast.clear();
 
       if (res.result.success) {
-        const { created, skipped, errors } = res.result;
-        let msg = `成功导入 ${created} 条`;
-        if (skipped > 0) msg += `，跳过 ${skipped} 条重复`;
-        if (errors > 0) msg += `，${errors} 条失败`;
+        const msg = buildImportResultMessage(res.result, previewErrors);
 
         await Dialog.alert({
           title: '导入完成',
           message: msg,
+          messageAlign: 'left',
           confirmButtonText: '完成'
         });
 

@@ -1,13 +1,26 @@
 // pages/inventory/detail-list.js
 const db = wx.cloud.database();
 const _ = db.command;
+const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
+const { listZoneRecords } = require('../../utils/zone-service');
+const { listSubcategoryRecords } = require('../../utils/subcategory-service');
+const { buildSubcategoryMap, resolveSubcategoryDisplay } = require('../../utils/material-subcategory');
+const {
+  buildMaterialMap,
+  mergeInventoryMaterialData,
+  getInventoryQuantityDisplayState,
+  resolveInventoryExpiryDisplay
+} = require('../../utils/inventory-display');
 
 Page({
   data: {
     list: [],
     loading: false,
+    hasLoadedOnce: false,
     queryCode: '',
-    queryName: ''
+    queryName: '',
+    category: '',
+    lastSeenInventoryChangeAt: 0
   },
 
   onLoad(options) {
@@ -27,11 +40,31 @@ Page({
     wx.setNavigationBarTitle({
         title: title
     });
+  },
 
-    this.getList();
+  onShow() {
+      const app = getApp();
+      const inventoryChangedAt = (app.globalData && app.globalData.inventoryChangedAt) || 0;
+
+      if (!this.data.hasLoadedOnce) {
+          this.getList();
+          return;
+      }
+
+      if (inventoryChangedAt && inventoryChangedAt !== this.data.lastSeenInventoryChangeAt) {
+          this.getList();
+      }
+  },
+
+  onPullDownRefresh() {
+      this.getList();
   },
 
   async getList() {
+      if (this.data.loading) {
+          wx.stopPullDownRefresh();
+          return;
+      }
       this.setData({ loading: true });
       try {
           const { queryCode, queryName, category } = this.data;
@@ -51,53 +84,69 @@ Page({
               .orderBy('expiry_date', 'asc') // FEFO
               .limit(100)
               .get();
+          const zoneRecords = await listZoneRecords(category || 'chemical', true);
+          const zoneMap = buildZoneMap(zoneRecords);
+          let subcategoryMap = new Map();
+          let materialMap = new Map();
+          try {
+              const subcategoryRecords = await listSubcategoryRecords(category || 'chemical', true);
+              subcategoryMap = buildSubcategoryMap(subcategoryRecords);
+          } catch (subcategoryErr) {
+              console.warn('加载子类别映射失败', subcategoryErr);
+          }
+
+          const productCodes = [...new Set((res.data || []).map(item => item.product_code).filter(Boolean))];
+          if (productCodes.length > 0) {
+              const materialRes = await db.collection('materials')
+                  .where({ product_code: _.in(productCodes) })
+                  .field({
+                    _id: true,
+                    product_code: true,
+                    material_name: true,
+                    status: true,
+                    default_unit: true,
+                    package_type: true,
+                    supplier: true,
+                    supplier_model: true,
+                    specs: true,
+                    subcategory_key: true,
+                    sub_category: true
+                  })
+                  .get();
+              materialMap = buildMaterialMap(materialRes.data || []);
+          }
 
           const list = res.data.map(item => {
-              // Format expiry date
-              let expiryStr = '长期有效';
-              if (item.expiry_date) {
-                  const d = new Date(item.expiry_date);
-                  if (!isNaN(d.getTime())) {
-                      expiryStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                  }
-              }
+              const materialRecord = materialMap.get(item.product_code) || {};
+              const mergedItem = mergeInventoryMaterialData(item, materialRecord);
+              const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord);
+              const expiryState = resolveInventoryExpiryDisplay(mergedItem);
 
               // Format for UI
               return {
-                  ...item,
-                  expiry: expiryStr,
-                  _qtyStr: item.category === 'film'
-                    ? `${item.dynamic_attrs.current_length_m} m`
-                    : `${item.quantity.val} ${item.quantity.unit}`,
-                  isExpiring: this.checkExpiring(item.expiry_date)
+                  ...mergedItem,
+                  sub_category: resolveSubcategoryDisplay(mergedItem, subcategoryMap) || mergedItem.sub_category || '',
+                  location: resolveInventoryLocation(mergedItem, zoneMap),
+                  expiry: expiryState.label,
+                  _qtyStr: `${quantityState.displayQuantity} ${quantityState.displayUnit}`,
+                  totalBaseLengthM: quantityState.baseLengthM,
+                  isExpiring: this.checkExpiring(mergedItem.expiry_date),
+                  isArchived: materialRecord.status === 'archived'
               };
           });
 
-          // 检查物料归档状态
-          const productCodes = [...new Set(list.map(item => item.product_code).filter(Boolean))];
-          if (productCodes.length > 0) {
-              const matRes = await db.collection('materials')
-                  .where({ product_code: _.in(productCodes) })
-                  .field({ product_code: true, status: true })
-                  .get();
-
-              const archivedSet = new Set(
-                  matRes.data
-                      .filter(m => m.status === 'archived')
-                      .map(m => m.product_code)
-              );
-
-              list.forEach(item => {
-                  item.isArchived = archivedSet.has(item.product_code);
-              });
-          }
-
-          this.setData({ list });
+          this.setData({
+              list,
+              hasLoadedOnce: true,
+              lastSeenInventoryChangeAt: (getApp().globalData && getApp().globalData.inventoryChangedAt) || 0
+          });
 
       } catch (err) {
           console.error(err);
+          wx.showToast({ title: '加载失败', icon: 'none' });
       } finally {
           this.setData({ loading: false });
+          wx.stopPullDownRefresh();
       }
   },
 

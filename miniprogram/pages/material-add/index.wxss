@@ -109,3 +109,42 @@
 .text-gray-400 { color: var(--color-text-secondary); }
 .text-primary { color: var(--color-brand); }
 .text-dark { color: var(--color-text-primary); }
+
+.zone-manage-entry {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 12px;
+}
+
+.zone-manage-link {
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--color-brand);
+}
+
+.request-subcategory-hint {
+  padding: 0 16px 12px;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.field-governed-hint {
+  padding: 0 32rpx 16rpx 32rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.validity-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 88rpx;
+  padding: 0 32rpx;
+}
+
+.validity-switch-label {
+  font-size: 28rpx;
+  color: var(--color-text-primary);
+}

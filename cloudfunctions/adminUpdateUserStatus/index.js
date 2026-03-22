@@ -1,4 +1,9 @@
 const cloud = require('wx-server-sdk');
+const {
+  assertAdminAccess,
+  assertSuperAdminAccess,
+  isAllowedManagedRole
+} = require('./auth');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -19,15 +24,16 @@ exports.main = async (event, context) => {
     return { success: false, msg: 'Permission denied' };
   }
 
-  const operatorRole = operatorRes.data[0].role;
-  const isSuperAdmin = operatorRole === 'super_admin';
-  const isAdmin = operatorRole === 'admin' || isSuperAdmin;
+  const operator = operatorRes.data[0];
 
   try {
     if (action === 'updateRole') {
-       // 超管专属：修改角色
-       if (!isSuperAdmin) {
-           return { success: false, msg: '越权操作：仅超级管理员可修改权限' };
+       const authResult = assertSuperAdminAccess(operator, '越权操作：仅超级管理员可修改权限');
+       if (!authResult.ok) {
+           return { success: false, msg: authResult.msg };
+       }
+       if (!isAllowedManagedRole(role)) {
+           return { success: false, msg: '非法角色：仅允许设置为 user 或 admin' };
        }
        await db.collection('users').doc(userId).update({
            data: {
@@ -37,9 +43,9 @@ exports.main = async (event, context) => {
        });
        return { success: true };
     } else {
-       // 默认行为：修改用户状态 (管理员及以上)
-       if (!isAdmin) {
-         return { success: false, msg: 'Permission denied' };
+       const authResult = assertAdminAccess(operator, 'Permission denied');
+       if (!authResult.ok) {
+         return { success: false, msg: authResult.msg };
        }
        await db.collection('users').doc(userId).update({
          data: {

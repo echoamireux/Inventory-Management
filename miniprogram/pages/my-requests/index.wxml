@@ -27,8 +27,7 @@
         </view>
 
         <view class="text-sm text-gray-600 mb-5">
-            <text class="font-bold">子类别：</text>{{ item.category === 'chemical' ? '化材' : '膜材' }} / {{ item.sub_category }}
-            <text wx:if="{{item.suggested_sub_category}}" class="text-orange-500"> (建议: {{item.suggested_sub_category}})</text>
+            <text class="font-bold">子类别：</text>{{ item.category === 'chemical' ? '化材' : '膜材' }} / {{ item._subcategoryDisplay }}
         </view>
 
         <view class="text-sm text-gray-600 mb-5">

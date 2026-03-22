@@ -14,8 +14,8 @@
           value="{{ inputCode }}"
           center
           clearable
-          label="唯一码"
-          placeholder="输入物品唯一编码"
+          label="标签编号"
+          placeholder="输入标签编号"
           border="{{ false }}"
           use-button-slot
           data-field="inputCode"
@@ -40,6 +40,8 @@
     <view class="card p-15">
       <view class="text-secondary text-sm mb-5">当前操作对象</view>
       <view class="text-lg font-bold text-main mb-5">{{ inventoryItem.material_name }}</view>
+      <view wx:if="{{ inventoryItem.batch_number }}" class="text-sm text-secondary">批号: {{ inventoryItem.batch_number }}</view>
+      <view wx:if="{{ inventoryItem.unique_code }}" class="text-sm text-secondary">标签编号: {{ inventoryItem.unique_code }}</view>
       <view class="text-sm text-secondary">当前库存: {{ inventoryItem.quantity.val }} {{ inventoryItem.quantity.unit }}</view>
       <view class="text-sm text-secondary">库位: {{ inventoryItem.location }}</view>
     </view>

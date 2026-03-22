@@ -158,37 +158,23 @@
                <popup-header title="选择批次" bind:close="onCloseBatchPopup" />
                <view class="px-safe pb-10">
                    <view class="context-bar-home">
-                       <text class="font-bold text-brand mr-5">{{ selectedAggItem.product_code }}</text>
-                       <text class="text-main flex-1 text-ellipsis">{{ selectedAggItem.material_name }}</text>
+                       <view class="context-summary">
+                          <text class="context-caption">产品代码</text>
+                          <text class="context-code">{{ selectedAggItem.product_code }}</text>
+                       </view>
                    </view>
                </view>
            </view>
 
            <scroll-view scroll-y style="flex: 1; height: 1px;">
                 <view class="px-safe pt-safe pb-safe">
-                    <!-- 批次级卡片 -->
-                    <view
+                    <batch-list-item
                         wx:for="{{ batchList }}"
                         wx:key="batch_number"
-                        class="batch-card {{ item.isExpiring ? 'expiring' : '' }}"
-                        data-batch="{{ item }}"
+                        item="{{ item }}"
                         bind:tap="onSelectBatchItem"
-                    >
-                        <!-- 第一行：批号 + 数量 -->
-                        <view class="flex-row justify-between items-center mb-4">
-                            <view class="flex-row items-center" style="flex: 1;">
-                                <text class="text-primary font-bold text-base mr-8">{{ item.batch_number }}</text>
-                                <van-tag type="warning" plain wx:if="{{ item.isExpiring }}" custom-class="mr-6">临期</van-tag>
-                                <van-tag type="default" plain wx:if="{{ item.isArchived }}" color="#6B7280">已归档停用</van-tag>
-                            </view>
-                            <view class="flex-row items-baseline">
-                                <text class="text-primary font-bold text-lg">{{ item.totalQuantity }}</text>
-                                <text class="text-secondary text-sm ml-4">{{ item.unit }}</text>
-                            </view>
-                        </view>
-                        <!-- 第二行：有效期 + 库位 -->
-                        <text class="text-secondary text-sm">有效期: {{ item.expiry }} · {{ item.location }}</text>
-                    </view>
+                        data-batch="{{ item }}"
+                    />
                     <view style="height: 40px;"></view>
                 </view>
             </scroll-view>

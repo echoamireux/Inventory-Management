@@ -1,6 +1,16 @@
 import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
 const db = wx.cloud.database();
+const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
+const { listZoneRecords } = require('../../utils/zone-service');
+const { listSubcategoryRecords } = require('../../utils/subcategory-service');
+const { buildSubcategoryMap, resolveSubcategoryDisplay } = require('../../utils/material-subcategory');
+const {
+  mergeInventoryMaterialData,
+  getInventoryQuantityDisplayState,
+  getInventorySpecDisplayState,
+  resolveInventoryExpiryDisplay
+} = require('../../utils/inventory-display');
 // const dayjs = require('../../utils/dayjs.min.js'); // Removed unused dependency
 
 Page({
@@ -9,12 +19,27 @@ Page({
     item: null,
     loading: true,
     isExpiring: false,
+    canMoveInventory: false,
+    canAdjustFilmWidth: false,
     showWithdrawDialog: false,
     withdrawAmount: '',
-    withdrawNote: ''
+    withdrawNote: '',
+    showWidthAdjustPopup: false,
+    adjustWidthValue: '',
+    adjustWidthReason: '',
+    adjustingWidth: false
   },
 
   onLoad(options) {
+    const app = getApp();
+    const user = app.globalData.user;
+    if (user && user.status === 'active') {
+      this.setData({ canMoveInventory: true });
+    }
+    if (user && ['admin', 'super_admin'].includes(user.role)) {
+      this.setData({ canAdjustFilmWidth: true });
+    }
+
     if (options.id) {
       this.setData({ id: options.id });
       this.fetchDetail(options.id);
@@ -30,35 +55,26 @@ Page({
         const res = await db.collection('inventory').doc(id).get();
         if (res.data) {
             let item = res.data;
-            let isArchived = false;
-
-            // Fetch material info (Supplier, Model, Specs)
-            if (item.material_id) {
-                try {
-                    const matRes = await db.collection('materials').doc(item.material_id).get();
-                    if (matRes.data) {
-                        // Check if material is archived
-                        isArchived = matRes.data.status === 'archived';
-                        // Merge: Material Info (Base) < Inventory Info (Specific)
-                        // Ensure we don't overwrite inventory _id
-                        const invId = item._id;
-                        item = { ...matRes.data, ...item, _id: invId, isArchived };
-                    }
-                } catch(e) { console.warn('Material info not found', e); }
+            const materialRecord = await this.loadMaterialRecord(item);
+            if (materialRecord) {
+                item = mergeInventoryMaterialData(item, materialRecord);
+                item.isArchived = materialRecord.status === 'archived';
+            } else {
+                item.isArchived = false;
             }
 
-            // Also check by product_code if material_id not available
-            if (!item.material_id && item.product_code) {
-                try {
-                    const matQuery = await db.collection('materials')
-                        .where({ product_code: item.product_code })
-                        .limit(1)
-                        .get();
-                    if (matQuery.data && matQuery.data.length > 0) {
-                        isArchived = matQuery.data[0].status === 'archived';
-                        item.isArchived = isArchived;
-                    }
-                } catch(e) { console.warn('Material lookup by code failed', e); }
+            try {
+                const zoneRecords = await listZoneRecords(item.category || 'chemical', true);
+                item.location = resolveInventoryLocation(item, buildZoneMap(zoneRecords));
+            } catch (zoneErr) {
+                console.warn('Zone lookup failed', zoneErr);
+            }
+
+            try {
+                const subcategoryRecords = await listSubcategoryRecords(item.category || 'chemical', true);
+                item.sub_category = resolveSubcategoryDisplay(item, buildSubcategoryMap(subcategoryRecords)) || item.sub_category || '';
+            } catch (subcategoryErr) {
+                console.warn('Subcategory lookup failed', subcategoryErr);
             }
 
             this.processData(item);
@@ -73,23 +89,51 @@ Page({
     }
   },
 
+  async loadMaterialRecord(item = {}) {
+      if (item.material_id) {
+          try {
+              const matRes = await db.collection('materials').doc(item.material_id).get();
+              if (matRes.data) {
+                  return matRes.data;
+              }
+          } catch (err) {
+              console.warn('Material info not found by material_id', err);
+          }
+      }
+
+      if (item.product_code) {
+          try {
+              const matQuery = await db.collection('materials')
+                  .where({ product_code: item.product_code })
+                  .limit(1)
+                  .get();
+              if (matQuery.data && matQuery.data.length > 0) {
+                  return matQuery.data[0];
+              }
+          } catch (err) {
+              console.warn('Material lookup by code failed', err);
+          }
+      }
+
+      return null;
+  },
+
   processData(item) {
       // 1. Expiry Logic
       let isExpiring = false;
-      let _expiryStr = '长期有效';
+      const expiryState = resolveInventoryExpiryDisplay(item);
+      let _expiryStr = expiryState.label;
 
-      if (item.expiry_date) {
+      const expirySource = item.expiry_date || (item.dynamic_attrs && item.dynamic_attrs.expiry_date);
+
+      if (expiryState.hasExpiryDate && expirySource) {
           const now = new Date();
-          const expiry = new Date(item.expiry_date);
+          const expiry = new Date(expirySource);
           const diffTime = expiry - now;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
           if (diffDays <= 30) isExpiring = true;
-
-          _expiryStr = `${expiry.getFullYear()}-${String(expiry.getMonth()+1).padStart(2,'0')}-${String(expiry.getDate()).padStart(2,'0')}`;
           if(diffDays <= 0) _expiryStr += " (已过期)";
-      } else if (item.category === 'chemical') {
-          _expiryStr = '--';
       }
 
       // 2. Display Logic (Global Redesign)
@@ -113,17 +157,9 @@ Page({
           _subtitle = code;
       }
 
-      // ... (Quantity Logic remains same)
-      let _qtyVal = item.remaining; // Default
-      let _qtyUnit = 'kg';
-
-      if (item.category === 'film') {
-          _qtyVal = (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-          _qtyUnit = 'm';
-      } else {
-           _qtyVal = item.quantity.val;
-           _qtyUnit = item.quantity.unit || 'kg';
-      }
+      const quantityState = getInventoryQuantityDisplayState(item, item);
+      let _qtyVal = quantityState.displayQuantity;
+      let _qtyUnit = quantityState.displayUnit;
 
       // Override for chemical weight if dynamic exists
       if (item.category === 'chemical' && item.dynamic_attrs && item.dynamic_attrs.weight_kg !== undefined) {
@@ -143,10 +179,9 @@ Page({
       }
 
       // 4. Strings & Localization
-      let _categoryStr = item.category === 'chemical' ? '化材' : (item.category === 'film' ? '膜材' : '未知');
-      if (item.sub_category) {
-          _categoryStr += ` (${item.sub_category})`;
-      }
+      const _categoryLabel = item.category === 'chemical' ? '化材' : (item.category === 'film' ? '膜材' : '未知');
+      const _subcategoryLabel = item.sub_category || '-';
+      const specDisplay = getInventorySpecDisplayState(item, item);
 
       let spec_string = '';
       if (item.category === 'chemical') {
@@ -179,7 +214,13 @@ Page({
               _createdStr,
               _expiryStr,
               _statusBadge,
-              _categoryStr,
+              _categoryLabel,
+              _subcategoryLabel,
+              _thicknessLabel: specDisplay.thicknessLabel,
+              _widthLabel: specDisplay.widthLabel,
+              _initialLengthLabel: specDisplay.initialLengthLabel,
+              _packageTypeLabel: specDisplay.packageTypeLabel,
+              _quantitySnapshotLabel: specDisplay.quantityLabel,
               // Fallbacks
               supplier: item.supplier || '-',
               supplier_model: item.supplier_model || '-',
@@ -235,8 +276,11 @@ Page({
           });
 
           if (res.result && res.result.success) {
-              const remaining = res.result.remaining;
-              const unit = res.result.unit || '';
+              getApp().globalData.inventoryChangedAt = Date.now();
+              const remaining = res.result.displayRemaining !== undefined
+                ? res.result.displayRemaining
+                : res.result.remaining;
+              const unit = res.result.displayUnit || res.result.unit || '';
               Toast.success(`领用成功，剩余: ${remaining !== undefined ? remaining + ' ' + unit : '--'}`);
               // Refresh details
               setTimeout(() => {
@@ -271,6 +315,90 @@ Page({
       wx.navigateTo({
           url: `/pages/logs/index?unique_code=${this.data.item.unique_code}`
       });
+  },
+
+  onShowWidthAdjustPopup() {
+      const { item, canAdjustFilmWidth } = this.data;
+      if (!canAdjustFilmWidth || !item || item.category !== 'film') {
+          return;
+      }
+
+      const currentWidth = item.dynamic_attrs && item.dynamic_attrs.width_mm !== undefined
+        ? item.dynamic_attrs.width_mm
+        : '';
+      this.setData({
+          showWidthAdjustPopup: true,
+          adjustWidthValue: currentWidth !== '' && currentWidth !== null ? String(currentWidth) : '',
+          adjustWidthReason: ''
+      });
+  },
+
+  onCloseWidthAdjustPopup() {
+      this.setData({
+          showWidthAdjustPopup: false,
+          adjustWidthValue: '',
+          adjustWidthReason: '',
+          adjustingWidth: false
+      });
+  },
+
+  onAdjustWidthValueInput(e) {
+      this.setData({ adjustWidthValue: e.detail });
+  },
+
+  onAdjustWidthReasonInput(e) {
+      this.setData({ adjustWidthReason: e.detail });
+  },
+
+  async onAdjustFilmWidthConfirm() {
+      const { item, adjustWidthValue, adjustWidthReason, adjustingWidth } = this.data;
+      if (adjustingWidth) {
+          return;
+      }
+      const nextWidth = Number(adjustWidthValue);
+      if (!Number.isFinite(nextWidth) || nextWidth <= 0) {
+          Toast.fail('请输入有效的批次幅宽');
+          return;
+      }
+
+      this.setData({ adjustingWidth: true });
+      Toast.loading({ message: '保存中...', forbidClick: true });
+
+      try {
+          const app = getApp();
+          const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
+          const res = await wx.cloud.callFunction({
+              name: 'editInventory',
+              data: {
+                  inventory_id: this.data.id,
+                  operator_name: operator,
+                  updates: {
+                      width_mm: nextWidth,
+                      adjust_reason: String(adjustWidthReason || '').trim()
+                  }
+              }
+          });
+
+          if (res.result && res.result.success) {
+              getApp().globalData.inventoryChangedAt = Date.now();
+              Toast.success('批次幅宽已修正');
+              this.setData({
+                  showWidthAdjustPopup: false,
+                  adjustWidthValue: '',
+                  adjustWidthReason: ''
+              });
+              setTimeout(() => {
+                  this.fetchDetail(this.data.id);
+              }, 500);
+          } else {
+              throw new Error((res.result && res.result.msg) || '修正失败');
+          }
+      } catch (err) {
+          console.error(err);
+          Toast.fail(err.message || '修正失败');
+      } finally {
+          this.setData({ adjustingWidth: false });
+      }
   },
 
   onDelete() {

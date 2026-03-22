@@ -19,7 +19,7 @@
             <van-field
                 value="{{ form.unique_code }}"
                 label="标签编号"
-                placeholder="扫码/手动输入"
+                placeholder="扫码或输入，如 L000001"
                 required
                 clearable
                 center
@@ -79,6 +79,7 @@
           placeholder="请输入产品代码"
           required
           type="number"
+          maxlength="3"
           data-field="product_code"
           bind:change="onInput"
           class="product-code-field {{ activeTab }}"
@@ -169,6 +170,9 @@
             required
             title-class="field-label-bold"
         />
+        <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
+          <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
+        </view>
         <van-field
           value="{{ form.location_detail }}"
           label="详细坐标"
@@ -210,7 +214,11 @@
           />
 
           <!-- D. Expiry -->
-          <van-cell title="过期日期" value="{{ form.expiry_date || '请选择' }}" is-link bind:click="showDatePicker" required title-class="field-label-bold" />
+          <van-cell title="过期日期" value="{{ form.is_long_term_valid ? '长期有效' : (form.expiry_date || '请选择') }}" is-link="{{ !form.is_long_term_valid }}" bind:click="showDatePicker" required title-class="field-label-bold" />
+          <view class="validity-switch-row">
+            <text class="validity-switch-label">设为长期有效</text>
+            <van-switch checked="{{ form.is_long_term_valid }}" bind:change="onLongTermValidityChange" size="24" />
+          </view>
         </block>
 
         <!-- 膜材规格 -->
@@ -219,12 +227,16 @@
               value="{{ form.thickness_um }}"
               label="厚度(μm)"
               type="number"
-              placeholder="请输入"
+              placeholder="{{ form.thickness_locked ? '由物料主数据锁定' : '请输入' }}"
               required
+              readonly="{{ form.thickness_locked }}"
               data-field="thickness_um"
               bind:change="onInput"
               label-class="field-label-bold"
             />
+            <view wx:if="{{ form.thickness_locked }}" class="field-governed-hint">
+              厚度以主数据为准，如需修改请联系管理员
+            </view>
             <van-field
               value="{{ form.width_mm }}"
               label="宽度(mm)"
@@ -259,7 +271,11 @@
                  <van-icon name="arrow-down" size="12px" color="#1989fa" />
               </view>
             </van-field>
-            <van-cell title="过期日期" value="{{ form.expiry_date || '请选择' }}" is-link bind:click="showDatePicker" required title-class="field-label-bold" />
+            <van-cell title="过期日期" value="{{ form.is_long_term_valid ? '长期有效' : (form.expiry_date || '请选择') }}" is-link="{{ !form.is_long_term_valid }}" bind:click="showDatePicker" required title-class="field-label-bold" />
+            <view class="validity-switch-row">
+              <text class="validity-switch-label">设为长期有效</text>
+              <van-switch checked="{{ form.is_long_term_valid }}" bind:change="onLongTermValidityChange" size="24" />
+            </view>
         </block>
       </van-cell-group>
     </view>
@@ -355,29 +371,6 @@
     </view>
   </van-dialog>
 
-  <!-- 新建区域弹窗 (UI 优化版) -->
-  <van-dialog
-    use-slot
-    title="新建存储区域"
-    show="{{ showCreateZoneDialog }}"
-    show-cancel-button
-    bind:close="onCreateZoneConfirm"
-    confirm-button-color="#2C68FF"
-  >
-    <view class="p-20">
-       <view class="bg-page rounded-md p-10 mb-10">
-           <van-field
-            value="{{ newZoneName }}"
-            placeholder="请输入区域名称 (如: 防爆柜)"
-            border="{{ false }}"
-            bind:change="onCreateZoneInput"
-            custom-style="background: transparent; padding: 0;"
-           />
-       </view>
-       <view class="text-xs text-secondary text-center">新区域将自动添加至列表</view>
-    </view>
-  </van-dialog>
-
   <!-- 申请建档弹窗 -->
   <van-popup
     show="{{ showRequestPopup }}"
@@ -404,22 +397,18 @@
           />
 
           <van-cell
-              title="建议子类别"
+              title="子类别"
               value="{{ requestForm.sub_category || '请选择' }}"
               is-link
               required
               bind:click="showRequestSubCategorySheet"
           />
-
-          <!-- 选择了"其他"时显示输入框：兼容两种数据格式 -->
-          <van-field
-            wx:if="{{ requestForm.sub_category === '其他' || requestForm.sub_category === '其他 (Other)' }}"
-            label="建议子类别名称"
-            value="{{ requestForm.suggested_sub_category }}"
-            placeholder="请输入建议的小类名称 (选填)"
-            data-field="suggested_sub_category"
-            bind:change="onRequestInput"
-          />
+          <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
+            <text class="zone-manage-link" bindtap="onManageSubcategories">管理子类别</text>
+          </view>
+          <view class="request-subcategory-hint">
+            若现有子类别不适用，请联系管理员先在“子类别管理”中新增正式子类别，再继续提交申请。
+          </view>
 
           <van-field
             label="参考供应商"

@@ -1,6 +1,19 @@
 /* Reuse app.wxss variables */
 .p-3 { padding: 24rpx; }
 
+.page-loading-state {
+  min-height: 320rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-refresh-state {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0 24rpx;
+}
+
 /* Reuse inventory-card styles from global or copy here if not global */
 /* Since inventory options.wxss isn't global, we copy essential card styles */
 

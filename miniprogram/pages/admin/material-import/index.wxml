@@ -7,23 +7,24 @@
       <view class="text-base font-bold text-primary">使用说明</view>
     </view>
     <view class="text-sm text-secondary leading-loose">
-      <view>1. 请使用管理员分发的<text class="font-bold text-main">《标准物料导入模板》</text></view>
-      <view>2. 填写完成后，请将文件<text class="font-bold text-main">另存为 CSV 格式</text></view>
-      <view>3. 点击下方按钮上传 CSV 文件完成导入</view>
+      <view>1. 请先导出系统当前的<text class="font-bold text-main">最新模板（.xlsx）</text></view>
+      <view>2. 若刚调整过子类别，请重新导出，不要复用旧模板</view>
+      <view>3. 填写完成后，请将文件<text class="font-bold text-main">另存为 CSV 格式</text></view>
+      <view>4. 点击下方按钮上传 CSV 文件完成导入</view>
     </view>
   </view>
 
   <!-- 操作区域 -->
   <view class="px-20">
-    <!-- 步骤 1：获取模板 (备用) -->
-    <view class="bg-white p-20 rounded-lg mb-16 shadow-sm" bind:tap="onDownloadTemplate">
+    <!-- 步骤 1：导出最新模板 -->
+    <view class="bg-white p-20 rounded-lg mb-16 shadow-sm" bind:tap="onExportLatestTemplate">
       <view class="flex-row items-center mb-8">
-        <view class="w-40 h-40 rounded-full flex-center bg-gray-50 mr-12">
-          <van-icon name="records" size="20px" color="#6B7280" />
+        <view class="w-40 h-40 rounded-full flex-center bg-indigo-50 mr-12">
+          <van-icon name="description" size="20px" color="#4F46E5" />
         </view>
         <view class="flex-1">
-          <view class="text-base font-bold text-main">没有模板？</view>
-          <view class="text-xs text-secondary mt-4">点击复制简易结构，适用于临时通过 Excel/Numbers 创建</view>
+          <view class="text-base font-bold text-main">第一步：导出最新模板</view>
+          <view class="text-xs text-secondary mt-4">{{ exportingTemplate ? '正在生成并下载最新 .xlsx 模板...' : '获取带下拉、校验和说明页的正式模板（.xlsx）' }}</view>
         </view>
         <van-icon name="arrow" color="#C8C9CC" />
       </view>
@@ -41,6 +42,10 @@
         </view>
         <van-icon name="arrow" color="#C8C9CC" />
       </view>
+    </view>
+
+    <view class="template-fallback" bind:tap="onCopyTemplateStructure">
+      仅在无法使用正式模板时，复制简易结构应急创建
     </view>
   </view>
 
@@ -95,7 +100,7 @@
   <van-empty
     wx:if="{{ !selectedFile && !parsing }}"
     image="search"
-    description="请先选择 Excel 文件"
+    description="请先导出模板并上传 CSV 文件"
     custom-class="mt-40"
   />
 </view>
@@ -117,26 +122,3 @@
 
 <van-toast id="van-toast" />
 <van-dialog id="van-dialog" />
-
-<!-- 自定义模板说明弹窗 -->
-<van-dialog
-  use-slot
-  title="简易结构已复制"
-  show="{{ showTemplateDialog }}"
-  show-confirm-button="{{ false }}"
->
-  <view class="p-20 text-sm text-secondary leading-loose">
-    <view>此内容仅包含最基础的列名结构。</view>
-    <view class="mt-8 mb-20">建议您优先使用管理员分发的<text class="font-bold text-main">《标准物料导入模板》</text>，以获得更好的填写体验（包含下拉选项和校验）。</view>
-
-    <view class="flex-center border-t pt-10">
-      <view
-        class="w-full text-center py-10 text-lg font-bold"
-        style="color: #576B95;"
-        bind:tap="onCloseTemplateDialog"
-      >
-        我知道了
-      </view>
-    </view>
-  </view>
-</van-dialog>

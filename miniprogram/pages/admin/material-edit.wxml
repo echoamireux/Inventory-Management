@@ -27,6 +27,7 @@
             type="number"
             placeholder="{{ categoryIndex === null ? '' : '请输入产品代码' }}"
             value="{{ form.product_code_number }}"
+            maxlength="3"
             disabled="{{ categoryIndex === null }}"
             bindinput="onCodeNumberInput"
           />
@@ -50,37 +51,19 @@
         data-field="material_name"
         bind:change="onInputChange"
       />
-      <!-- 子类别：支持选择或新增 -->
       <van-cell
         title="子类别"
         is-link
         required
         value="{{ form.sub_category || '请选择' }}"
         bind:click="onShowSubCategoryPicker"
-      >
-        <van-button
-          slot="right-icon"
-          type="primary"
-          size="mini"
-          plain
-          round
-          custom-style="margin-left: 8px;"
-          catch:tap="onShowAddSubCategory"
-        >
-          新增
-        </van-button>
-      </van-cell>
-
-      <!-- Custom Sub-category Input -->
-      <van-field
-        wx:if="{{ form.sub_category === '其他' || form.sub_category === '其他 (Other)' }}"
-        label="自定义子类"
-        placeholder="请输入子类别名称"
-        value="{{ form.custom_sub_category }}"
-        data-field="custom_sub_category"
-        bind:change="onInputChange"
-        required
       />
+      <view class="zone-manage-entry" wx:if="{{ form.category }}">
+        <text class="zone-manage-link" bindtap="onManageSubcategories">管理子类别</text>
+      </view>
+      <view wx:if="{{ hasInvalidSubcategory }}" class="duplicate-hint info">
+        当前物料的历史子类别已不在现行正式词表中，请重新选择有效子类别后再保存
+      </view>
     </van-cell-group>
   </view>
 
@@ -109,35 +92,43 @@
     <view class="section-title">规格参数</view>
 
     <van-cell-group inset>
-      <!-- 单位：支持选择或新增 -->
+      <block wx:if="{{ form.category === 'chemical' }}">
+        <van-cell
+          title="包装形式"
+          is-link
+          value="{{ form.package_type || '请选择' }}"
+          bind:click="onShowPackageTypePicker"
+        />
+      </block>
+
+      <block wx:if="{{ form.category === 'film' }}">
+        <van-field
+          label="厚度(μm)"
+          placeholder="请输入厚度"
+          type="digit"
+          value="{{ form.thickness_um }}"
+          data-field="thickness_um"
+          bind:change="onInputChange"
+        />
+        <van-field
+          label="默认幅宽(mm)"
+          placeholder="请输入宽度"
+          type="digit"
+          value="{{ form.width_mm }}"
+          data-field="width_mm"
+          bind:change="onInputChange"
+        />
+      </block>
+
       <van-cell
         title="默认单位"
         is-link
         value="{{ form.default_unit || '请选择' }}"
         bind:click="onShowUnitPicker"
-      >
-        <van-button
-          slot="right-icon"
-          type="primary"
-          size="mini"
-          plain
-          round
-          custom-style="margin-left: 8px;"
-          catch:tap="onShowAddUnit"
-        >
-          新增
-        </van-button>
-      </van-cell>
-      <van-field
-        label="保质期"
-        placeholder="天数（可选）"
-        type="number"
-        value="{{ form.shelf_life_days }}"
-        data-field="shelf_life_days"
-        bind:change="onInputChange"
-      >
-        <view slot="right-icon" class="text-secondary">天</view>
-      </van-field>
+      />
+      <view wx:if="{{ hasInvalidDefaultUnit }}" class="duplicate-hint info">
+        当前物料的历史默认单位不在现行白名单内，请重新选择合法单位后再保存
+      </view>
     </van-cell-group>
   </view>
 
@@ -188,23 +179,6 @@
     />
   </van-popup>
 
-  <!-- 新增子类别弹窗 -->
-  <van-dialog
-    use-slot
-    title="新增子类别"
-    show="{{ showAddSubCategory }}"
-    show-cancel-button
-    bind:confirm="onAddSubCategoryConfirm"
-    bind:cancel="onAddSubCategoryCancel"
-  >
-    <van-field
-      value="{{ newSubCategory }}"
-      placeholder="输入新的子类别名称"
-      bind:change="onNewSubCategoryInput"
-      custom-style="margin: 16px;"
-    />
-  </van-dialog>
-
   <!-- 单位选择器 -->
   <van-popup
     show="{{ showUnitPicker }}"
@@ -221,22 +195,21 @@
     />
   </van-popup>
 
-  <!-- 新增单位弹窗 -->
-  <van-dialog
-    use-slot
-    title="新增单位"
-    show="{{ showAddUnit }}"
-    show-cancel-button
-    bind:confirm="onAddUnitConfirm"
-    bind:cancel="onAddUnitCancel"
+  <!-- 包装形式选择器 -->
+  <van-popup
+    show="{{ showPackageTypePicker }}"
+    position="bottom"
+    round
+    bind:close="onPackageTypeCancel"
   >
-    <van-field
-      value="{{ newUnit }}"
-      placeholder="输入新的单位名称"
-      bind:change="onNewUnitInput"
-      custom-style="margin: 16px;"
+    <van-picker
+      columns="{{ packageTypeOptions }}"
+      default-index="{{ packageTypeIndex }}"
+      show-toolbar
+      bind:confirm="onPackageTypeConfirm"
+      bind:cancel="onPackageTypeCancel"
     />
-  </van-dialog>
+  </van-popup>
 
   <!-- Toast & Dialog -->
   <van-toast id="van-toast" />

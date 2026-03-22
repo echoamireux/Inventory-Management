@@ -1,10 +1,24 @@
 // pages/admin/material-edit.js
 import Toast from '@vant/weapp/toast/toast';
-import {
-  CHEMICAL_CATEGORIES,
-  FILM_CATEGORIES,
-  UNIT_OPTIONS
-} from '../../utils/constants';
+import { PACKAGE_TYPES } from '../../utils/constants';
+const {
+  getAllowedUnits,
+  getDefaultUnit,
+  buildUnitFieldState,
+  normalizeUnitInput
+} = require('../../utils/material-units');
+const {
+  listSubcategoryRecords
+} = require('../../utils/subcategory-service');
+const {
+  resolveSubcategoryDisplay,
+  isSelectableSubcategoryRecord
+} = require('../../utils/material-subcategory');
+const {
+  sanitizeProductCodeNumberInput,
+  normalizeProductCodeInput,
+  validateStandardProductCode
+} = require('../../utils/product-code');
 
 Page({
   data: {
@@ -15,12 +29,14 @@ Page({
       product_code_number: '',  // 用户输入的数字部分
       material_name: '',
       category: '',  // 必选，不设默认值
+      subcategory_key: '',
       sub_category: '',
-      custom_sub_category: '', // NEW: For 'Other' input
       supplier: '',
       supplier_model: '',
       default_unit: '',
-      shelf_life_days: ''
+      package_type: '',
+      thickness_um: '',
+      width_mm: ''
     },
     // 产品代码前缀
     codePrefix: '',
@@ -37,28 +53,22 @@ Page({
     showCategoryPicker: false,
 
     // 子类别（动态）
+    subCategoryRecords: [],
+    subCategoryPickerRecords: [],
     subCategoryOptions: [],
     subCategoryIndex: 0,
     showSubCategoryPicker: false,
-    showAddSubCategory: false,
-    newSubCategory: '',
+    hasInvalidSubcategory: false,
 
     // 单位（动态）
     unitOptions: [],
     unitIndex: 0,
     showUnitPicker: false,
-    showAddUnit: false,
-    newUnit: '',
+    hasInvalidDefaultUnit: false,
 
-    // 默认选项（从常量加载）
-    chemicalSubCategories: CHEMICAL_CATEGORIES.map(c => c.name),
-    filmSubCategories: FILM_CATEGORIES.map(c => c.name),
-    chemicalUnits: ['kg', 'g', 'L', 'mL'],
-    filmUnits: ['m', 'mm', '卷', '张'],
-
-    // 自定义选项（从数据库加载）
-    customSubCategories: { chemical: [], film: [] },
-    customUnits: { chemical: [], film: [] },
+    packageTypeOptions: PACKAGE_TYPES.map((item) => item.name),
+    packageTypeIndex: 0,
+    showPackageTypePicker: false,
 
     submitting: false
   },
@@ -75,9 +85,6 @@ Page({
       return;
     }
 
-    // 加载自定义选项
-    this.loadCustomOptions();
-
     if (options.id) {
       this.setData({ id: options.id, isEdit: true });
       wx.setNavigationBarTitle({ title: '编辑物料' });
@@ -87,51 +94,59 @@ Page({
     }
   },
 
-  // 加载自定义选项
-  async loadCustomOptions() {
-    try {
-      const db = wx.cloud.database();
-      // 尝试读取 settings 表，如果表或记录不存在会返回空数组
-      const res = await db.collection('settings')
-        .where({
-          _id: db.command.in(['custom_sub_categories', 'custom_units'])
-        })
-        .get()
-        .catch(() => ({ data: [] })); // 表不存在时返回空
-
-      if (res.data && res.data.length > 0) {
-        res.data.forEach(item => {
-          if (item._id === 'custom_sub_categories') {
-            this.setData({ customSubCategories: item.data || { chemical: [], film: [] } });
-          } else if (item._id === 'custom_units') {
-            this.setData({ customUnits: item.data || { chemical: [], film: [] } });
-          }
-        });
-      }
-      // 如果没有数据，使用默认的空对象（已在 data 中初始化）
-    } catch (err) {
-      console.warn('加载自定义选项失败，使用默认值:', err);
-      // 静默失败，使用默认值
+  onShow() {
+    if (this.data.form.category) {
+      this.updateOptionsForCategory(this.data.form.category, {
+        subcategory_key: this.data.form.subcategory_key,
+        sub_category: this.data.form.sub_category
+      });
     }
   },
 
   // 根据类别更新子类别和单位选项
-  updateOptionsForCategory(category) {
-    const { chemicalSubCategories, filmSubCategories, chemicalUnits, filmUnits, customSubCategories, customUnits } = this.data;
+  async updateOptionsForCategory(category, currentSelection = {}) {
+    const units = getAllowedUnits(category);
+    try {
+      const subCategoryRecords = await listSubcategoryRecords(category, true);
+      const pickerRecords = subCategoryRecords.filter((item) => {
+        if (item.status === 'active') {
+          return true;
+        }
+        return item.subcategory_key === currentSelection.subcategory_key;
+      });
+      const subCategoryOptions = pickerRecords.map(item => item.name);
+      const displayName = resolveSubcategoryDisplay(currentSelection, new Map(
+        subCategoryRecords.map(item => [item.subcategory_key, item])
+      ));
+      const subCategoryIndex = subCategoryOptions.indexOf(displayName);
+      const hasInvalidSubcategory = !!displayName && !pickerRecords.some((item) => {
+        if (currentSelection.subcategory_key) {
+          return item.subcategory_key === currentSelection.subcategory_key;
+        }
+        return item.name === displayName;
+      });
 
-    let subCats, units;
-    if (category === 'chemical') {
-      subCats = [...chemicalSubCategories, ...(customSubCategories.chemical || [])];
-      units = [...chemicalUnits, ...(customUnits.chemical || [])];
-    } else {
-      subCats = [...filmSubCategories, ...(customSubCategories.film || [])];
-      units = [...filmUnits, ...(customUnits.film || [])];
+      this.setData({
+        subCategoryRecords,
+        subCategoryPickerRecords: pickerRecords,
+        subCategoryOptions,
+        subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : 0,
+        unitOptions: units,
+        'form.sub_category': displayName || this.data.form.sub_category,
+        hasInvalidSubcategory
+      });
+    } catch (err) {
+      console.error(err);
+      this.setData({
+        subCategoryRecords: [],
+        subCategoryPickerRecords: [],
+        subCategoryOptions: [],
+        subCategoryIndex: 0,
+        unitOptions: units,
+        hasInvalidSubcategory: false
+      });
+      Toast.fail(err.message || '加载子类别失败');
     }
-
-    this.setData({
-      subCategoryOptions: subCats,
-      unitOptions: units
-    });
   },
 
   async loadMaterial(id) {
@@ -149,12 +164,23 @@ Page({
         const data = res.result.data;
         const categoryIndex = data.category === 'film' ? 1 : 0;
 
-        // 先更新选项列表
-        this.updateOptionsForCategory(data.category);
+        await this.updateOptionsForCategory(data.category, {
+          subcategory_key: data.subcategory_key,
+          sub_category: data.sub_category
+        });
 
         // 然后找到对应索引
-        const subCategoryIndex = this.data.subCategoryOptions.indexOf(data.sub_category);
-        const unitIndex = this.data.unitOptions.indexOf(data.default_unit);
+        const unitState = buildUnitFieldState(data.category, data.default_unit);
+        const matchedRecord = this.data.subCategoryRecords.find((item) => {
+          if (data.subcategory_key && item.subcategory_key === data.subcategory_key) {
+            return true;
+          }
+          return item.name === data.sub_category;
+        });
+        const resolvedSubCategory = matchedRecord ? matchedRecord.name : (data.sub_category || '');
+        const subCategoryIndex = this.data.subCategoryOptions.indexOf(resolvedSubCategory);
+        const packageTypeIndex = this.data.packageTypeOptions.indexOf(data.package_type || '');
+        const materialSpecs = data.specs || {};
 
         // Parse product code
         let codePrefix = '';
@@ -180,16 +206,37 @@ Page({
             product_code_number: codeNumber, // Set extracted number
             material_name: data.material_name || '',
             category: data.category || '',
-            sub_category: data.sub_category || '',
+            subcategory_key: matchedRecord ? matchedRecord.subcategory_key : (data.subcategory_key || ''),
+            sub_category: resolvedSubCategory,
             supplier: data.supplier || '',
             supplier_model: data.supplier_model || '',
-            default_unit: data.default_unit || '',
-            shelf_life_days: data.shelf_life_days ? String(data.shelf_life_days) : ''
+            default_unit: unitState.value,
+            package_type: data.package_type || '',
+            thickness_um: materialSpecs.thickness_um !== undefined && materialSpecs.thickness_um !== null
+              ? String(materialSpecs.thickness_um)
+              : '',
+            width_mm: (
+              materialSpecs.standard_width_mm !== undefined && materialSpecs.standard_width_mm !== null
+                ? materialSpecs.standard_width_mm
+                : materialSpecs.width_mm
+            ) !== undefined && (
+              materialSpecs.standard_width_mm !== undefined && materialSpecs.standard_width_mm !== null
+                ? materialSpecs.standard_width_mm
+                : materialSpecs.width_mm
+            ) !== null
+              ? String(
+                materialSpecs.standard_width_mm !== undefined && materialSpecs.standard_width_mm !== null
+                  ? materialSpecs.standard_width_mm
+                  : materialSpecs.width_mm
+              )
+              : ''
           },
           categoryIndex,
           codePrefix: codePrefix, // Set prefix
           subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : 0,
-          unitIndex: unitIndex >= 0 ? unitIndex : 0
+          unitIndex: unitState.selectedIndex,
+          packageTypeIndex: packageTypeIndex >= 0 ? packageTypeIndex : 0,
+          hasInvalidDefaultUnit: !!data.default_unit && !unitState.isCurrentUnitValid
         });
         Toast.clear();
       } else {
@@ -212,12 +259,16 @@ Page({
   // 产品代码数字部分输入
   onCodeNumberInput(e) {
     // 原生 input 组件使用 e.detail.value
-    const number = e.detail.value || '';
+    const number = sanitizeProductCodeNumberInput(e.detail.value || '');
     const { codePrefix } = this.data;
+    const normalizedCode = normalizeProductCodeInput(
+      this.data.form.category || 'chemical',
+      `${codePrefix}${number}`
+    );
 
     this.setData({
       'form.product_code_number': number,
-      'form.product_code': codePrefix + number
+      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}${number}`
     });
 
     // 防抖检查重复
@@ -230,7 +281,9 @@ Page({
 
     this.setData({
       checkTimer: setTimeout(() => {
-        this.checkDuplicate(codePrefix + number);
+        if (normalizedCode.ok) {
+          this.checkDuplicate(normalizedCode.product_code);
+        }
       }, 500)
     });
   },
@@ -281,29 +334,37 @@ Page({
     const category = index === 0 ? 'chemical' : 'film';
     const codePrefix = index === 0 ? 'J-' : 'M-';
 
-    // 更新子类别和单位选项
-    this.updateOptionsForCategory(category);
-
     // 重置产品代码
     const number = this.data.form.product_code_number;
 
     this.setData({
       categoryIndex: index,
       'form.category': category,
+      'form.subcategory_key': '',
       'form.sub_category': '', // 重置子类别
-      'form.default_unit': '', // 重置单位
+      'form.default_unit': getDefaultUnit(category),
+      'form.package_type': category === 'chemical' ? this.data.form.package_type : '',
+      'form.thickness_um': category === 'film' ? this.data.form.thickness_um : '',
+      'form.width_mm': category === 'film' ? this.data.form.width_mm : '',
       'form.product_code': codePrefix + number,
       codePrefix: codePrefix,
       subCategoryIndex: 0,
       unitIndex: 0,
+      packageTypeIndex: 0,
+      hasInvalidSubcategory: false,
+      hasInvalidDefaultUnit: false,
       showCategoryPicker: false,
       duplicateStatus: '',  // 重置检查状态
       existingMaterial: null
     });
+    this.updateOptionsForCategory(category);
 
     // 如果已有数字，重新检查重复
     if (number) {
-      this.checkDuplicate(codePrefix + number);
+      const normalizedCode = normalizeProductCodeInput(category, `${codePrefix}${number}`);
+      if (normalizedCode.ok) {
+        this.checkDuplicate(normalizedCode.product_code);
+      }
     }
   },
 
@@ -322,10 +383,13 @@ Page({
 
   onSubCategoryConfirm(e) {
     const index = e.detail.index;
+    const selectedRecord = this.data.subCategoryPickerRecords[index];
     this.setData({
       subCategoryIndex: index,
-      'form.sub_category': this.data.subCategoryOptions[index],
-      showSubCategoryPicker: false
+      'form.subcategory_key': selectedRecord ? selectedRecord.subcategory_key : '',
+      'form.sub_category': selectedRecord ? selectedRecord.name : '',
+      showSubCategoryPicker: false,
+      hasInvalidSubcategory: false
     });
   },
 
@@ -333,62 +397,16 @@ Page({
     this.setData({ showSubCategoryPicker: false });
   },
 
-  // 新增子类别
-  onShowAddSubCategory() {
-    if (!this.data.form.category) {
+  onManageSubcategories() {
+    const category = this.data.form.category;
+    if (!category) {
       Toast.fail('请先选择类别');
       return;
     }
-    this.setData({ showAddSubCategory: true, newSubCategory: '' });
-  },
 
-  onNewSubCategoryInput(e) {
-    this.setData({ newSubCategory: e.detail });
-  },
-
-  async onAddSubCategoryConfirm() {
-    const { newSubCategory, form, subCategoryOptions, customSubCategories } = this.data;
-
-    if (!newSubCategory.trim()) {
-      Toast.fail('请输入子类别名称');
-      return;
-    }
-
-    if (subCategoryOptions.includes(newSubCategory.trim())) {
-      Toast.fail('该子类别已存在');
-      return;
-    }
-
-    Toast.loading({ message: '保存中...' });
-
-    try {
-      const db = wx.cloud.database();
-      const category = form.category;
-      const newCustom = { ...customSubCategories };
-      newCustom[category] = [...(newCustom[category] || []), newSubCategory.trim()];
-
-      // 保存到数据库
-      await db.collection('settings').doc('custom_sub_categories').set({
-        data: { data: newCustom }
-      });
-
-      // 更新本地
-      this.setData({
-        customSubCategories: newCustom,
-        subCategoryOptions: [...subCategoryOptions, newSubCategory.trim()],
-        'form.sub_category': newSubCategory.trim(),
-        showAddSubCategory: false
-      });
-
-      Toast.success('已添加');
-    } catch (err) {
-      console.error(err);
-      Toast.fail('保存失败');
-    }
-  },
-
-  onAddSubCategoryCancel() {
-    this.setData({ showAddSubCategory: false });
+    wx.navigateTo({
+      url: `/pages/admin/subcategory-manage/index?category=${category}`
+    });
   },
 
   // === 单位选择 ===
@@ -405,6 +423,7 @@ Page({
     this.setData({
       unitIndex: index,
       'form.default_unit': this.data.unitOptions[index],
+      hasInvalidDefaultUnit: false,
       showUnitPicker: false
     });
   },
@@ -413,98 +432,24 @@ Page({
     this.setData({ showUnitPicker: false });
   },
 
-  // 新增单位
-  onShowAddUnit() {
-    if (!this.data.form.category) {
-      Toast.fail('请先选择类别');
+  onShowPackageTypePicker() {
+    if (this.data.form.category !== 'chemical') {
       return;
     }
-    this.setData({ showAddUnit: true, newUnit: '' });
+    this.setData({ showPackageTypePicker: true });
   },
 
-  onNewUnitInput(e) {
-    this.setData({ newUnit: e.detail });
+  onPackageTypeConfirm(e) {
+    const index = e.detail.index;
+    this.setData({
+      packageTypeIndex: index,
+      'form.package_type': this.data.packageTypeOptions[index] || '',
+      showPackageTypePicker: false
+    });
   },
 
-  async onAddUnitConfirm() {
-    const { newUnit, form, unitOptions, customUnits } = this.data;
-
-    if (!newUnit.trim()) {
-      Toast.fail('请输入单位名称');
-      return;
-    }
-
-    if (unitOptions.includes(newUnit.trim())) {
-      Toast.fail('该单位已存在');
-      return;
-    }
-
-    Toast.loading({ message: '保存中...' });
-
-    try {
-      const db = wx.cloud.database();
-      const category = form.category;
-      const newCustom = { ...customUnits };
-      newCustom[category] = [...(newCustom[category] || []), newUnit.trim()];
-
-      // 保存到数据库
-      await db.collection('settings').doc('custom_units').set({
-        data: { data: newCustom }
-      });
-
-      // 更新本地
-      this.setData({
-        customUnits: newCustom,
-        unitOptions: [...unitOptions, newUnit.trim()],
-        'form.default_unit': newUnit.trim(),
-        showAddUnit: false
-      });
-
-      Toast.success('已添加');
-    } catch (err) {
-      console.error(err);
-      Toast.fail('保存失败');
-    }
-  },
-
-  onAddUnitCancel() {
-    this.setData({ showAddUnit: false });
-  },
-
-  // Helper: Save custom sub-category to DB settings (Fire and Forget)
-  async saveCustomSubCategory(name) {
-      if (!name) return;
-      const { customSubCategories, subCategoryOptions, form } = this.data;
-
-      // If already exists in options, skip
-      if (subCategoryOptions.includes(name)) return;
-
-      try {
-          const db = wx.cloud.database();
-          const category = form.category;
-          const newCustom = { ...customSubCategories };
-          newCustom[category] = [...(newCustom[category] || []), name];
-
-          // Optimistically update local options to avoid re-save
-          const newOptions = [...subCategoryOptions, name];
-          this.setData({
-              customSubCategories: newCustom,
-              subCategoryOptions: newOptions
-          });
-
-          // Save to DB
-          await db.collection('settings').doc('custom_sub_categories').update({
-              data: { data: newCustom }
-          }).catch(async () => {
-              // If doc doesn't exist, create it
-               await db.collection('settings').doc('custom_sub_categories').set({
-                  data: { data: newCustom }
-              });
-          });
-          console.log('Custom sub-category auto-saved:', name);
-      } catch (err) {
-          console.error('Failed to auto-save custom sub-category', err);
-      }
+  onPackageTypeCancel() {
+    this.setData({ showPackageTypePicker: false });
   },
 
   // 提交表单
@@ -528,18 +473,22 @@ Page({
       Toast.fail('请选择子类别');
       return;
     }
-
-    // Handle Custom Sub-category
-    let finalSubCategory = form.sub_category;
-    if (form.sub_category === '其他' || form.sub_category === '其他 (Other)') {
-        if (!form.custom_sub_category || !form.custom_sub_category.trim()) {
-            Toast.fail('请输入自定义子类名称');
-            return;
-        }
-        finalSubCategory = form.custom_sub_category.trim();
-
-        // Auto-add to options (Fire and Forget)
-        this.saveCustomSubCategory(finalSubCategory);
+    const selectedSubcategory = this.data.subCategoryPickerRecords.find((item) => (
+      item.subcategory_key === form.subcategory_key && isSelectableSubcategoryRecord(item)
+    ));
+    if (!form.subcategory_key || !selectedSubcategory) {
+      Toast.fail('请选择有效子类别');
+      return;
+    }
+    const normalizedCode = validateStandardProductCode(form.category, form.product_code);
+    if (!normalizedCode.ok) {
+      Toast.fail(normalizedCode.msg);
+      return;
+    }
+    const normalizedUnit = normalizeUnitInput(form.category, form.default_unit);
+    if (!normalizedUnit.ok) {
+      Toast.fail(normalizedUnit.msg);
+      return;
     }
 
     this.setData({ submitting: true });
@@ -549,8 +498,15 @@ Page({
       const action = isEdit ? 'update' : 'create';
       const data = {
         ...form,
-        sub_category: finalSubCategory, // Override with custom value
-        shelf_life_days: form.shelf_life_days ? parseInt(form.shelf_life_days) : null
+        product_code: normalizedCode.product_code,
+        default_unit: normalizedUnit.unit,
+        package_type: form.category === 'chemical' ? form.package_type : '',
+        thickness_um: form.category === 'film' && form.thickness_um !== ''
+          ? Number(form.thickness_um)
+          : '',
+        width_mm: form.category === 'film' && form.width_mm !== ''
+          ? Number(form.width_mm)
+          : ''
       };
 
       if (isEdit) {

@@ -1,5 +1,12 @@
 // cloudfunctions/addMaterialRequest/index.js
 const cloud = require('wx-server-sdk');
+const {
+  ensureBuiltinSubcategories,
+  sortSubcategoryRecords,
+  filterSubcategoryRecordsByCategory,
+  buildSubcategoryMap,
+  resolveSubcategorySelection
+} = require('./material-subcategories');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -13,9 +20,9 @@ exports.main = async (event, context) => {
       product_code,
       category,
       material_name,
+      subcategory_key,
       sub_category,
-      supplier,
-      suggested_sub_category // "其他" 填写的建议
+      supplier
   } = event;
 
   // 1. 必填校验
@@ -24,6 +31,21 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const subcategoryRecords = filterSubcategoryRecordsByCategory(
+      sortSubcategoryRecords(await ensureBuiltinSubcategories(db)),
+      category,
+      { includeDisabled: true }
+    );
+    const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
+    const resolvedSubcategory = resolveSubcategorySelection({
+      category,
+      subcategory_key,
+      sub_category
+    }, subcategoryRecords, subcategoryMap);
+    if (!resolvedSubcategory.subcategory_key) {
+      return { success: false, msg: '请选择有效子类别' };
+    }
+
     // 2. 查重：是否已有该代码的待审批申请
     const existing = await db.collection('material_requests')
       .where({
@@ -51,8 +73,8 @@ exports.main = async (event, context) => {
         product_code,
         category,
         material_name,
-        sub_category,
-        suggested_sub_category: suggested_sub_category || '',
+        subcategory_key: resolvedSubcategory.subcategory_key,
+        sub_category: resolvedSubcategory.sub_category,
         supplier: supplier || '',
         status: 'pending', // pending | approved | rejected
         applicant: OPENID,

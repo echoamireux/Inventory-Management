@@ -10,16 +10,29 @@
       <text class="material-qty-unit">{{ item.unit }}</text>
     </view>
   </view>
-  <!-- 第二行：名称 -->
-  <view class="material-subtitle-tag">{{ item.material_name }}</view>
+  <!-- 第二行：名称 + 子类别 -->
+  <view class="material-subtitle-row">
+    <view class="material-name">{{ display.materialName }}</view>
+    <material-tag
+      wx:if="{{ display.subcategoryLabel }}"
+      type="subcategory"
+      text="{{ display.subcategoryLabel }}"
+    />
+  </view>
 
   <!-- 第三行：标签区 -->
   <view class="tags-row">
     <!-- 批次数量 -->
     <material-tag
-      wx:if="{{ item.totalCount }}"
+      wx:if="{{ display.batchCountLabel }}"
       type="brand"
-      text="{{ item.totalCount }} 批次"
+      text="{{ display.batchCountLabel }}"
+    />
+
+    <material-tag
+      wx:if="{{ display.locationSummary }}"
+      type="gray"
+      text="{{ display.locationSummary }}"
     />
 
     <!-- 临期警告 -->

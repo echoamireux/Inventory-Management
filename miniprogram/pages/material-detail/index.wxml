@@ -9,7 +9,7 @@
       <view class="flex-row items-center mb-10">
         <van-tag type="primary" size="medium" class="mr-10">{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
         <view class="text-secondary flex-row items-center" bindtap="onCopyCode">
-            <text class="text-xs">ID: {{ item.unique_code }}</text>
+            <text class="text-xs">标签编号: {{ item.unique_code }}</text>
             <van-icon name="description" class="ml-5" />
         </view>
       </view>

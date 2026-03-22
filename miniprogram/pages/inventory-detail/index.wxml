@@ -49,18 +49,24 @@
           <van-cell title="原厂型号" value="{{ item.supplier_model || '-' }}" />
           <van-cell title="入库时间" value="{{ item._createdStr }}" />
           <van-cell title="过期时间" value="{{ item._expiryStr }}" title-class="{{ isExpiring ? 'text-danger' : '' }}" value-class="{{ isExpiring ? 'text-danger' : '' }}" />
-          <van-cell title="物料分类" value="{{ item._categoryStr }}" />
+          <van-cell title="类别" value="{{ item._categoryLabel }}" />
+          <van-cell title="子类别" value="{{ item._subcategoryLabel }}" />
       </van-cell-group>
 
       <!-- 规格属性 -->
       <van-cell-group inset custom-class="group-card">
           <block wx:if="{{ item.category === 'film' }}">
-              <van-cell title="厚度" value="{{ item.dynamic_attrs.thickness_um }} μm" />
-              <van-cell title="宽度" value="{{ item.dynamic_attrs.width_mm }} mm" />
-              <van-cell title="初始入库量" value="{{ item.inventory.length_m || '-' }} m" />
+              <van-cell title="厚度" value="{{ item._thicknessLabel }}" />
+              <van-cell title="宽度" value="{{ item._widthLabel }}" />
+              <view wx:if="{{ canAdjustFilmWidth }}" class="width-adjust-entry">
+                <button class="width-adjust-btn" bindtap="onShowWidthAdjustPopup">修正批次幅宽</button>
+                <text class="width-adjust-tip">仅修正当前批次实际幅宽，不影响物料主数据默认幅宽</text>
+              </view>
+              <van-cell title="初始入库长度" value="{{ item._initialLengthLabel }}" />
           </block>
           <block wx:else>
-              <van-cell title="初始入库量" value="{{ item.quantity.val }} {{ item.quantity.unit || 'kg' }}" />
+              <van-cell title="包装形式" value="{{ item._packageTypeLabel }}" />
+              <van-cell title="初始入库量" value="{{ item._quantitySnapshotLabel }}" />
           </block>
 
           <van-cell title="CAS号" value="{{ item.cas_number }}" wx:if="{{ item.cas_number }}" />
@@ -72,7 +78,7 @@
   <!-- 4. 底部悬浮操作栏 -->
   <view class="footer-bar safe-area-bottom">
       <!-- Move Button -->
-      <view class="action-btn btn-move clickable" bindtap="onEdit" hover-class="btn-hover-opacity">
+      <view wx:if="{{ canMoveInventory }}" class="action-btn btn-move clickable" bindtap="onEdit" hover-class="btn-hover-opacity">
         移库
       </view>
 
@@ -90,6 +96,54 @@
     bind:close="onWithdrawClose"
     bind:confirm="onWithdrawConfirmFn"
   />
+
+  <van-popup
+    show="{{ showWidthAdjustPopup }}"
+    position="bottom"
+    round
+    custom-style="height: 56%;"
+    bind:close="onCloseWidthAdjustPopup"
+  >
+    <view class="popup-content">
+      <view class="popup-header">
+        <view class="popup-title">修正批次幅宽</view>
+        <view class="popup-subtitle">仅管理员可操作，修正后当前批次的膜材显示会按新幅宽重算</view>
+      </view>
+
+      <van-field
+        custom-class="popup-field"
+        type="digit"
+        label="批次幅宽"
+        value="{{ adjustWidthValue }}"
+        placeholder="请输入实际幅宽"
+        bind:change="onAdjustWidthValueInput"
+      >
+        <view slot="right-icon" class="text-secondary">mm</view>
+      </van-field>
+
+      <van-field
+        custom-class="popup-field"
+        type="textarea"
+        autosize
+        label="修正原因"
+        value="{{ adjustWidthReason }}"
+        placeholder="选填，便于库存审计追踪"
+        bind:change="onAdjustWidthReasonInput"
+      />
+
+      <van-button
+        custom-class="popup-confirm-btn"
+        type="primary"
+        block
+        round
+        loading="{{ adjustingWidth }}"
+        disabled="{{ adjustingWidth }}"
+        bind:click="onAdjustFilmWidthConfirm"
+      >
+        确认修正
+      </van-button>
+    </view>
+  </van-popup>
 
 </view>
 

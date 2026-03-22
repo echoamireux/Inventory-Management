@@ -434,7 +434,7 @@ page {
 /* 物料卡片 - 料号 (始终蓝色) */
 .material-code {
   font-family: var(--font-mono);
-  font-size: 16px; /* 与库存聚合列表 32rpx 一致 */
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-brand);
 }
@@ -445,6 +445,7 @@ page {
   color: var(--color-text-primary);
   font-weight: 500;
   margin-bottom: 6px;
+  line-height: 1.35;
 }
 
 /* 物料卡片 - 次标题 (灰色背景标签样式，与库存聚合列表一致) */
@@ -465,27 +466,30 @@ page {
 /* 物料卡片 - 数量 (正常=蓝，临期=橙) */
 .material-qty {
   font-family: var(--font-mono);
-  font-size: 16px; /* 与料号一致 */
+  font-size: 20px;
   font-weight: 600;
   color: var(--color-brand);
+  line-height: 1.1;
 }
 .material-qty.warning {
   color: var(--color-warning);
 }
 .material-qty-unit {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
-  margin-left: 2px;
+  margin-left: 4px;
 }
 
 /* ========== 统一标签规范 ========== */
 .tag-base {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 11px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
@@ -493,6 +497,20 @@ page {
 .tag-brand {
   background: var(--color-brand-light);
   color: var(--color-brand);
+}
+
+.tag-subcategory {
+  background: #F3F4F6;
+  color: var(--color-text-secondary);
+}
+
+.tag-meta {
+  min-height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #F8FAFC;
+  color: #64748B;
 }
 
 /* 警告标签 (临期) */

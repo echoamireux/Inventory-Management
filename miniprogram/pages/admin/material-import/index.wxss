@@ -192,6 +192,14 @@
 .bg-emerald-50 { background-color: #ECFDF5; }
 .bg-gray-50 { background-color: #F9FAFB; }
 
+.template-fallback {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+}
+
 /* 弹窗自定义按钮样式 */
 .border-t { border-top: 1px solid #EBEDF0; }
 .pt-10 { padding-top: 10px; }

@@ -7,8 +7,9 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
-const $ = db.command.aggregate;
 const ALERT_CONFIG = require('./alert-config');
+const { getCstDayStart } = require('./cst-time');
+const { calculateDashboardStatsFromItems } = require('./dashboard-stats');
 
 // Industry Standard Logic
 // 1. Total Materials: Distinct Product Count
@@ -27,13 +28,7 @@ exports.main = async (event, context) => {
     // 3. 对一天 (24h) 取模并减去，相当于 "抹零" 到 CST 的 00:00:00
     // 4. 再减回 8 小时偏移量，得到该时刻对应的 UTC 时间戳
 
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-    const OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
-
-    const currentRescaled = now.getTime() + OFFSET_MS;
-    const startOfCstDayRescaled = currentRescaled - (currentRescaled % ONE_DAY_MS);
-
-    const startOfDayUTC = new Date(startOfCstDayRescaled - OFFSET_MS);
+    const startOfDayUTC = getCstDayStart(now);
 
     // Future Date for Expiry (Use Config)
     const future30d = new Date(now.getTime() + ALERT_CONFIG.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -52,80 +47,36 @@ exports.main = async (event, context) => {
     // 3. Alerts & Total Calculation (JS Memory Processing)
     // REFACTOR: Use JS Memory Processing for robustness against Data Types (String vs Date)
 
-    const MAX_LIMIT = 1000;
-    const invRes = await db.collection('inventory')
-        .where({ status: 'in_stock' }) // Fetch only needed fields
-        .field({
-            product_code: true,
-            category: true,
-            quantity: true,
-            expiry_date: true,
-            dynamic_attrs: true
-        })
-        .limit(MAX_LIMIT)
-        .get();
+    const pageSize = 500;
+    let skip = 0;
+    let list = [];
 
-    const list = invRes.data || [];
+    while (true) {
+      const invRes = await db.collection('inventory')
+          .where({ status: 'in_stock' }) // Fetch only needed fields
+          .field({
+              product_code: true,
+              category: true,
+              quantity: true,
+              expiry_date: true,
+              dynamic_attrs: true
+          })
+          .skip(skip)
+          .limit(pageSize)
+          .get();
 
-    // JS Processing Sets for Uniqueness
-    const uniqueMaterials = new Set();
-    const riskyProducts = new Set();
-
-    const nowTime = now.getTime();
-    const future30dTime = nowTime + (ALERT_CONFIG.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
-
-    for (const item of list) {
-        const pCode = item.product_code || 'UNKNOWN';
-        uniqueMaterials.add(pCode);
-
-        let isRisky = false;
-
-        // A. Expiry Risk (Robust Check)
-        let expDate = null;
-        // Try Root Level
-        if (item.expiry_date) {
-            expDate = new Date(item.expiry_date);
-        }
-        // Try Legacy Path
-        else if (item.dynamic_attrs && item.dynamic_attrs.expiry_date) {
-            expDate = new Date(item.dynamic_attrs.expiry_date);
-        }
-
-        // Compare Logic
-        if (expDate && !isNaN(expDate.getTime())) {
-            if (expDate.getTime() <= future30dTime) {
-                isRisky = true;
-                // console.log('Expiring Item:', pCode, expDate);
-            }
-        }
-
-        // B. Low Stock Risk
-        // Only check if not already risky to save cpu? No, correct logic is OR.
-        // Actually if isRisky is true, we can skip other checks for this ITEM.
-        // But we are grouping by PRODUCT. So if *this* item is risky, the product is risky.
-        if (!isRisky) {
-            const qty = (item.quantity && item.quantity.val) || 0;
-            if (item.category === 'chemical') {
-                if (qty <= ALERT_CONFIG.LOW_STOCK.chemical) isRisky = true;
-            } else if (item.category === 'film') {
-                 const len = (item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-                 if (len <= ALERT_CONFIG.LOW_STOCK.film) isRisky = true;
-            }
-        }
-
-        if (isRisky) {
-            riskyProducts.add(pCode);
-        }
+      list = list.concat(invRes.data || []);
+      if (!invRes.data || invRes.data.length < pageSize) break;
+      skip += pageSize;
     }
 
-    const totalMaterials = uniqueMaterials.size;
-    const lowStockCount = riskyProducts.size;
+    const stats = calculateDashboardStatsFromItems(list, ALERT_CONFIG);
 
     return {
-        totalMaterials,
+        totalMaterials: stats.totalMaterials,
         todayIn: inboundCount.total,
         todayOut: outboundCount.total,
-        lowStock: lowStockCount,
+        lowStock: stats.lowStock,
         success: true
     };
 
