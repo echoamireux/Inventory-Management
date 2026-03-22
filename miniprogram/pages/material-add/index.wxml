@@ -16,23 +16,38 @@
     <!-- 1. 唯一码录入 (置顶) -->
     <view class="form-card bg-white rounded-lg overflow-hidden shadow-sm mb-15">
         <van-cell-group title="标签信息 (必填)">
-            <van-field
-                value="{{ form.unique_code }}"
-                label="标签编号"
-                placeholder="扫码或输入，如 L000001"
-                required
-                clearable
-                center
-                data-field="unique_code"
-                bind:change="onInput"
-                use-button-slot
-                class="scanning-field"
-                label-class="field-label-bold"
-            >
-                <van-button slot="button" size="mini" type="info" icon="scan" custom-class="scan-btn" bind:click="onScanCode">
-                    扫码
-                </van-button>
-            </van-field>
+            <view class="label-code-field">
+                <view class="label-code-main-row">
+                    <view class="label-code-label-wrap">
+                        <text class="field-label-bold">标签编号</text>
+                        <text class="label-code-required">*</text>
+                    </view>
+                    <view class="label-code-input-shell {{ labelCodeError ? 'is-error' : '' }}">
+                        <view class="label-code-prefix">L</view>
+                        <input
+                            class="label-code-input"
+                            value="{{ form.label_code_digits }}"
+                            type="number"
+                            maxlength="6"
+                            placeholder="请输入6位数字编码"
+                            bindinput="onLabelCodeInput"
+                            bind:blur="onLabelCodeBlur"
+                        />
+                    </view>
+                    <van-button size="mini" type="info" icon="scan" custom-class="scan-btn" bind:click="onScanCode">
+                        扫码
+                    </van-button>
+                </view>
+                <view wx:if="{{ form.unique_code && !labelCodeError }}" class="label-code-preview">
+                    完整标签编号：{{ form.unique_code }}
+                </view>
+                <view wx:if="{{ labelCodeChecking }}" class="label-code-helper">
+                    正在校验标签编号...
+                </view>
+                <view wx:if="{{ labelCodeError }}" class="label-code-error">
+                    {{ labelCodeError }}
+                </view>
+            </view>
         </van-cell-group>
     </view>
 

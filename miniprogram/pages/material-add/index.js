@@ -14,6 +14,8 @@ const {
 } = require('../../utils/location-zone');
 const {
   normalizeLabelCodeInput,
+  sanitizeLabelCodeDigitsInput,
+  extractLabelCodeDigits,
   isValidLabelCode
 } = require('../../utils/label-code');
 const { registerZoneManagementAccess } = require('../../utils/material-add-access');
@@ -99,6 +101,8 @@ Page({
     currentDate: new Date().getTime(),
     minDate: new Date().getTime(),
     canManageZones: false,
+    labelCodeError: '',
+    labelCodeChecking: false
   },
 
   onLoad(options) {
@@ -106,7 +110,12 @@ Page({
 
       if (options) {
           if (options.id) {
-              this.setData({ 'form.unique_code': normalizeLabelCodeInput(options.id) });
+              const normalizedLabelCode = normalizeLabelCodeInput(options.id);
+              this.setData({
+                  'form.unique_code': normalizedLabelCode,
+                  'form.label_code_digits': extractLabelCodeDigits(options.id),
+                  labelCodeError: ''
+              });
           }
           if (options.product_code) {
               this.setData({ 'form.product_code': options.product_code });
@@ -226,6 +235,8 @@ Page({
         'form.zone_key': '',
         'form.location_zone': '',
         'form.location_detail': '',
+        labelCodeError: '',
+        labelCodeChecking: false,
         // We can keep unique_code
         suggestions: [],
         isUnknownCode: false // fix: reset blocking state
@@ -270,8 +281,6 @@ Page({
     let value = e.detail;
     if (field === 'product_code') {
       value = sanitizeProductCodeNumberInput(e.detail);
-    } else if (field === 'unique_code') {
-      value = normalizeLabelCodeInput(e.detail);
     }
     this.setData({ [`form.${field}`]: value });
 
@@ -298,6 +307,98 @@ Page({
                 this.searchSuggestions(fullKeyword);
             }, 500)
         });
+    }
+  },
+
+  onLabelCodeInput(e) {
+    const digits = sanitizeLabelCodeDigitsInput(e.detail && e.detail.value);
+    const normalizedLabelCode = digits ? normalizeLabelCodeInput(digits) : '';
+    this.setData({
+      'form.label_code_digits': digits,
+      'form.unique_code': normalizedLabelCode,
+      labelCodeError: ''
+    });
+  },
+
+  async onLabelCodeBlur() {
+    const digits = sanitizeLabelCodeDigitsInput(this.data.form.label_code_digits);
+    if (!digits) {
+      this.setData({
+        'form.label_code_digits': '',
+        'form.unique_code': '',
+        labelCodeError: ''
+      });
+      return;
+    }
+
+    const normalizedLabelCode = normalizeLabelCodeInput(digits);
+    this.setData({
+      'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
+      'form.unique_code': normalizedLabelCode,
+      labelCodeError: ''
+    });
+
+    if (!isValidLabelCode(normalizedLabelCode)) {
+      this.setData({
+        labelCodeError: '请输入6位数字编码'
+      });
+      return;
+    }
+
+    await this.checkDuplicateLabelCode(normalizedLabelCode);
+  },
+
+  async checkDuplicateLabelCode(uniqueCode, options = {}) {
+    const { showDialog = false } = options;
+    const normalizedLabelCode = normalizeLabelCodeInput(uniqueCode);
+
+    if (!normalizedLabelCode || !isValidLabelCode(normalizedLabelCode)) {
+      return {
+        duplicated: false,
+        uniqueCode: normalizedLabelCode
+      };
+    }
+
+    this.setData({ labelCodeChecking: true });
+
+    try {
+      const res = await db.collection('inventory').where({
+        unique_code: normalizedLabelCode
+      }).count();
+
+      if (res.total > 0) {
+        const message = `标签编号 ${normalizedLabelCode} 已入库，不能重复登记`;
+        this.setData({ labelCodeError: message });
+
+        if (showDialog) {
+          await Dialog.alert({
+            title: '标签编号重复',
+            message,
+            messageAlign: 'left'
+          });
+        }
+
+        return {
+          duplicated: true,
+          uniqueCode: normalizedLabelCode,
+          message
+        };
+      }
+
+      this.setData({ labelCodeError: '' });
+      return {
+        duplicated: false,
+        uniqueCode: normalizedLabelCode
+      };
+    } catch (err) {
+      console.error('[Label Code] duplicate check failed', err);
+      return {
+        duplicated: false,
+        uniqueCode: normalizedLabelCode,
+        error: err
+      };
+    } finally {
+      this.setData({ labelCodeChecking: false });
     }
   },
 
@@ -434,7 +535,7 @@ Page({
   // 扫码
   onScanCode() {
       wx.scanCode({
-          success: (res) => {
+          success: async (res) => {
               const normalizedLabelCode = normalizeLabelCodeInput(res.result);
               if (!isValidLabelCode(normalizedLabelCode)) {
                   Dialog.alert({
@@ -444,7 +545,15 @@ Page({
                   });
                   return;
               }
-              this.setData({ 'form.unique_code': normalizedLabelCode });
+              this.setData({
+                'form.unique_code': normalizedLabelCode,
+                'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
+                labelCodeError: ''
+              });
+              const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode);
+              if (duplicateResult.duplicated) {
+                return;
+              }
               wx.showToast({ title: '扫码成功', icon: 'success' });
           },
           fail: (err) => {
@@ -527,7 +636,7 @@ Page({
 
   async onSubmit() {
     const { activeTab, form } = this.data;
-    const normalizedLabelCode = normalizeLabelCodeInput(form.unique_code);
+    const normalizedLabelCode = normalizeLabelCodeInput(form.label_code_digits || form.unique_code);
 
     // 1. 必填校验
     if (!normalizedLabelCode) return Toast.fail('请填写标签编号');
@@ -537,6 +646,15 @@ Page({
         message: '标签编号格式不正确，应为 L + 6位数字',
         messageAlign: 'left'
       });
+      return;
+    }
+    this.setData({
+      'form.unique_code': normalizedLabelCode,
+      'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
+      labelCodeError: ''
+    });
+    const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode, { showDialog: true });
+    if (duplicateResult.duplicated) {
       return;
     }
     if (!form.product_code) return Toast.fail('请填写产品代码');
@@ -688,7 +806,9 @@ Page({
 
       this.setData({
           form: nextForm,
-          showSuccessDialog: false
+          showSuccessDialog: false,
+          labelCodeError: '',
+          labelCodeChecking: false
       });
 
       wx.pageScrollTo({ scrollTop: 0 }); // 回顶方便扫码

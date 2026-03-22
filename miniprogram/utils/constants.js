@@ -122,6 +122,7 @@ export const SEARCH_DEBOUNCE_MS = 500;
 // ========== 默认值 ==========
 export const DEFAULT_FORM = {
   unique_code: '',
+  label_code_digits: '',
   name: '',
   sub_category: '',
   subcategory_key: '',

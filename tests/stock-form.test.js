@@ -128,6 +128,12 @@ test('active business pages use the updated validation and management wording', 
   assert.doesNotMatch(materialAddJs, /请完善膜材规格及过期日期/);
   assert.doesNotMatch(materialAddJs, /请选择建议小类/);
   assert.match(materialAddWxml, /设为长期有效/);
+  assert.match(materialAddWxml, /label-code-prefix/);
+  assert.match(materialAddWxml, /placeholder="请输入6位数字编码"/);
+  assert.match(materialAddWxml, /maxlength="6"/);
+  assert.match(materialAddWxml, /bindinput="onLabelCodeInput"/);
+  assert.match(materialAddWxml, /bind:blur="onLabelCodeBlur"/);
+  assert.doesNotMatch(materialAddWxml, /placeholder="扫码或输入，如 L000001"/);
   assert.match(materialAddWxml, /title="子类别"/);
   assert.match(stockInOutJs, /请输入标签编号/);
   assert.match(zoneManageJs, /请输入库区名称/);

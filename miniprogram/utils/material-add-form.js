@@ -69,6 +69,7 @@ function buildContinueEntryForm(form, activeTab, item, prefix) {
   return {
     ...syncedForm,
     unique_code: '',
+    label_code_digits: '',
     batch_number: '',
     expiry_date: '',
     is_long_term_valid: false,

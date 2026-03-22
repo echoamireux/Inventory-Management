@@ -18,6 +18,81 @@
   margin-left: 8px;
 }
 
+.label-code-field {
+  padding: 20rpx 32rpx 24rpx;
+}
+
+.label-code-main-row {
+  display: flex;
+  align-items: center;
+}
+
+.label-code-label-wrap {
+  width: 168rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 16rpx;
+}
+
+.label-code-required {
+  margin-left: 8rpx;
+  color: var(--color-danger, #ee0a24);
+  font-size: 28rpx;
+  line-height: 1;
+}
+
+.label-code-input-shell {
+  flex: 1;
+  min-height: 72rpx;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 16rpx;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.label-code-input-shell.is-error {
+  border-color: var(--color-danger, #ee0a24);
+  box-shadow: 0 0 0 2rpx rgba(238, 10, 36, 0.08);
+}
+
+.label-code-prefix {
+  flex-shrink: 0;
+  padding: 0 16rpx 0 20rpx;
+  font-size: 28rpx;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.label-code-input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  font-size: 26rpx;
+  color: var(--color-text-primary);
+}
+
+.label-code-preview,
+.label-code-helper,
+.label-code-error {
+  margin-top: 12rpx;
+  margin-left: 184rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.label-code-preview,
+.label-code-helper {
+  color: var(--color-text-secondary);
+}
+
+.label-code-error {
+  color: var(--color-danger, #ee0a24);
+}
+
 /* 建议框 */
 .suggestion-box {
   position: absolute;
