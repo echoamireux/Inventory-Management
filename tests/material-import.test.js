@@ -2,8 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  isTemplateInlineHintRow,
   validateImportRow,
-  buildImportResultMessage
+  buildImportResultMessage,
+  applyImportDuplicateGuards
 } = require('../miniprogram/utils/material-import');
 
 const subcategoriesByCategory = {
@@ -108,6 +110,141 @@ test('import validation ignores film-only columns for chemicals and chemical-onl
   assert.equal(film.package_type, '');
   assert.equal(film.thickness_um, 25);
   assert.equal(film.standard_width_mm, 1240);
+});
+
+test('template inline hint row detection follows the current concise hint wording', () => {
+  assert.equal(
+    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填']),
+    true
+  );
+  assert.equal(
+    isTemplateInlineHintRow(['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '两类选填']),
+    false
+  );
+});
+
+test('duplicate guard warns when identical rows share the same normalized product code in one file', () => {
+  const rows = applyImportDuplicateGuards([
+    {
+      rowIndex: 2,
+      product_code: 'J-001',
+      product_code_number: '001',
+      material_name: '异丙醇',
+      category: 'chemical',
+      sub_category: '溶剂',
+      default_unit: 'L',
+      package_type: '铁桶',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '国药',
+      supplier_model: 'IPA-99',
+      error: null,
+      warning: ''
+    },
+    {
+      rowIndex: 3,
+      product_code: 'J-001',
+      product_code_number: '001',
+      material_name: '异丙醇',
+      category: 'chemical',
+      sub_category: '溶剂',
+      default_unit: 'L',
+      package_type: '铁桶',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '国药',
+      supplier_model: 'IPA-99',
+      error: null,
+      warning: ''
+    }
+  ]);
+
+  assert.match(rows[0].warning, /产品代码 J-001 在本次导入文件中重复/);
+  assert.match(rows[1].warning, /产品代码 J-001 在本次导入文件中重复/);
+  assert.equal(rows[0].error, null);
+  assert.equal(rows[1].error, null);
+});
+
+test('duplicate guard blocks same-category rows that reuse one product code with conflicting master-data fields', () => {
+  const rows = applyImportDuplicateGuards([
+    {
+      rowIndex: 2,
+      product_code: 'J-001',
+      product_code_number: '001',
+      material_name: '异丙醇',
+      category: 'chemical',
+      sub_category: '溶剂',
+      default_unit: 'L',
+      package_type: '铁桶',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '国药',
+      supplier_model: 'IPA-99',
+      error: null,
+      warning: ''
+    },
+    {
+      rowIndex: 3,
+      product_code: 'J-001',
+      product_code_number: '001',
+      material_name: '异丙醇',
+      category: 'chemical',
+      sub_category: '树脂',
+      default_unit: 'kg',
+      package_type: '铁桶',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '国药',
+      supplier_model: 'IPA-99',
+      error: null,
+      warning: ''
+    }
+  ]);
+
+  assert.equal(rows[0].error, '产品代码 J-001 在本次导入文件中重复，且主数据字段不一致，请统一后再导入');
+  assert.equal(rows[1].error, '产品代码 J-001 在本次导入文件中重复，且主数据字段不一致，请统一后再导入');
+});
+
+test('duplicate guard only warns when one numeric code appears under different categories', () => {
+  const rows = applyImportDuplicateGuards([
+    {
+      rowIndex: 2,
+      product_code: 'J-001',
+      product_code_number: '001',
+      material_name: '异丙醇',
+      category: 'chemical',
+      sub_category: '溶剂',
+      default_unit: 'L',
+      package_type: '铁桶',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '国药',
+      supplier_model: 'IPA-99',
+      error: null,
+      warning: ''
+    },
+    {
+      rowIndex: 3,
+      product_code: 'M-001',
+      product_code_number: '001',
+      material_name: 'PET保护膜',
+      category: 'film',
+      sub_category: '保护膜',
+      default_unit: 'm',
+      package_type: '',
+      thickness_um: 25,
+      standard_width_mm: 1240,
+      supplier: '东丽',
+      supplier_model: 'T100',
+      error: null,
+      warning: ''
+    }
+  ]);
+
+  assert.match(rows[0].warning, /编号 001 同时出现在化材和膜材中/);
+  assert.match(rows[1].warning, /编号 001 同时出现在化材和膜材中/);
+  assert.equal(rows[0].error, null);
+  assert.equal(rows[1].error, null);
 });
 
 test('import result message includes row-level duplicate and failure feedback', () => {

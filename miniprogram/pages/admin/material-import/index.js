@@ -4,6 +4,7 @@ import Dialog from '@vant/weapp/dialog/dialog';
 const { listSubcategoryRecords } = require('../../../utils/subcategory-service');
 const {
   isTemplateInlineHintRow,
+  applyImportDuplicateGuards,
   validateImportRow,
   buildImportResultMessage
 } = require('../../../utils/material-import');
@@ -235,10 +236,11 @@ Page({
             return parts.length >= 3 && parts[0] && parts[1] && parts[2];
           });
 
-          const previewData = dataRows.map((line, index) => {
+          const rawPreviewData = dataRows.map((line, index) => {
             const row = this.parseCSVLine(line);
             return this.validateRow(row, index);
           });
+          const previewData = applyImportDuplicateGuards(rawPreviewData);
 
           const validCount = previewData.filter(item => !item.error).length;
           const errorCount = previewData.filter(item => item.error).length;

@@ -32,9 +32,116 @@ function normalizeOptionalNumber(value) {
 }
 
 function isTemplateInlineHintRow(row = []) {
-  return String(row[0] || '').trim() === '两类必填'
+  return String(row[0] || '').trim() === '必填'
+    && String(row[5] || '').includes('化材选填')
     && String(row[6] || '').includes('膜材必填')
     && String(row[7] || '').includes('膜材选填');
+}
+
+function appendWarning(existingWarning = '', nextWarning = '') {
+  const current = String(existingWarning || '').trim();
+  const incoming = String(nextWarning || '').trim();
+  if (!incoming) {
+    return current;
+  }
+  if (!current) {
+    return incoming;
+  }
+  if (current.includes(incoming)) {
+    return current;
+  }
+  return `${current}；${incoming}`;
+}
+
+function buildComparableSignature(item = {}) {
+  return JSON.stringify({
+    material_name: String(item.material_name || '').trim(),
+    category: item.category || '',
+    sub_category: String(item.sub_category || '').trim(),
+    default_unit: String(item.default_unit || '').trim(),
+    package_type: String(item.package_type || '').trim(),
+    thickness_um: item.thickness_um == null ? null : Number(item.thickness_um),
+    standard_width_mm: item.standard_width_mm == null ? null : Number(item.standard_width_mm),
+    supplier: String(item.supplier || '').trim(),
+    supplier_model: String(item.supplier_model || '').trim()
+  });
+}
+
+function applyImportDuplicateGuards(rows = []) {
+  const nextRows = Array.isArray(rows)
+    ? rows.map(item => ({ ...item }))
+    : [];
+  const rowsByProductCode = new Map();
+  const rowsByNumericCode = new Map();
+
+  nextRows.forEach((item, index) => {
+    if (!item || !item.product_code) {
+      return;
+    }
+    const productCode = String(item.product_code).trim();
+    const productCodeNumber = String(item.product_code_number || '').trim();
+
+    if (!rowsByProductCode.has(productCode)) {
+      rowsByProductCode.set(productCode, []);
+    }
+    rowsByProductCode.get(productCode).push(index);
+
+    if (productCodeNumber) {
+      if (!rowsByNumericCode.has(productCodeNumber)) {
+        rowsByNumericCode.set(productCodeNumber, []);
+      }
+      rowsByNumericCode.get(productCodeNumber).push(index);
+    }
+  });
+
+  rowsByProductCode.forEach((indexes, productCode) => {
+    if (indexes.length < 2) {
+      return;
+    }
+
+    const validIndexes = indexes.filter(index => !nextRows[index].error);
+    if (validIndexes.length < 2) {
+      return;
+    }
+
+    const signatures = new Set(validIndexes.map(index => buildComparableSignature(nextRows[index])));
+    if (signatures.size === 1) {
+      const warning = `产品代码 ${productCode} 在本次导入文件中重复，导入时将仅保留第一条，其余重复行自动跳过`;
+      validIndexes.forEach((index) => {
+        nextRows[index].warning = appendWarning(nextRows[index].warning, warning);
+      });
+      return;
+    }
+
+    const error = `产品代码 ${productCode} 在本次导入文件中重复，且主数据字段不一致，请统一后再导入`;
+    validIndexes.forEach((index) => {
+      nextRows[index].error = error;
+      nextRows[index].warning = '';
+    });
+  });
+
+  rowsByNumericCode.forEach((indexes, codeNumber) => {
+    if (indexes.length < 2) {
+      return;
+    }
+
+    const categories = Array.from(new Set(indexes
+      .map(index => nextRows[index].category)
+      .filter(Boolean)));
+    if (categories.length < 2) {
+      return;
+    }
+
+    const warning = `编号 ${codeNumber} 同时出现在化材和膜材中，请确认类别填写无误`;
+    indexes.forEach((index) => {
+      if (nextRows[index].error) {
+        return;
+      }
+      nextRows[index].warning = appendWarning(nextRows[index].warning, warning);
+    });
+  });
+
+  return nextRows;
 }
 
 function validateImportRow(row, index, subcategoriesByCategory = {}) {
@@ -174,6 +281,7 @@ function buildImportResultMessage(result = {}, previewErrors = [], previewWarnin
 module.exports = {
   normalizeCategoryText,
   isTemplateInlineHintRow,
+  applyImportDuplicateGuards,
   validateImportRow,
   buildImportResultMessage
 };

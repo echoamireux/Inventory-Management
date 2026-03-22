@@ -148,6 +148,66 @@ function validateBatchCreateMasterFields(item = {}, category = '') {
   return { ok: true };
 }
 
+function buildBatchCreateComparableSignature(payload = {}) {
+  return JSON.stringify({
+    material_name: sanitizeText(payload.material_name),
+    category: sanitizeText(payload.category),
+    sub_category: sanitizeText(payload.sub_category),
+    default_unit: sanitizeText(payload.default_unit),
+    package_type: sanitizeText(payload.package_type),
+    thickness_um: payload.thickness_um == null ? null : Number(payload.thickness_um),
+    standard_width_mm: payload.standard_width_mm == null ? null : Number(payload.standard_width_mm),
+    supplier: sanitizeText(payload.supplier),
+    supplier_model: sanitizeText(payload.supplier_model)
+  });
+}
+
+function buildBatchCreateConflictMap(preparedItems = []) {
+  const rowsByProductCode = new Map();
+  const conflictMap = new Map();
+
+  preparedItems.forEach((prepared) => {
+    const productCode = prepared.normalizedCode;
+    if (!productCode) {
+      return;
+    }
+
+    if (!rowsByProductCode.has(productCode)) {
+      rowsByProductCode.set(productCode, []);
+    }
+    rowsByProductCode.get(productCode).push(prepared);
+  });
+
+  rowsByProductCode.forEach((groupedItems, productCode) => {
+    if (groupedItems.length < 2) {
+      return;
+    }
+
+    const signatures = new Set(groupedItems.map(item => buildBatchCreateComparableSignature({
+      material_name: item.material_name,
+      category: item.category,
+      sub_category: item.resolvedSubcategory.sub_category,
+      default_unit: item.normalizedUnit,
+      package_type: item.category === 'chemical' ? item.item.package_type : '',
+      thickness_um: item.category === 'film' ? normalizeOptionalNumber(item.item.thickness_um) : null,
+      standard_width_mm: item.category === 'film' ? normalizeOptionalNumber(item.item.standard_width_mm) : null,
+      supplier: item.item.supplier,
+      supplier_model: item.item.supplier_model
+    })));
+
+    if (signatures.size === 1) {
+      return;
+    }
+
+    const error = `产品代码 ${productCode} 在本次导入文件中重复，且主数据字段不一致，请统一后再导入`;
+    groupedItems.forEach((item) => {
+      conflictMap.set(item.rowIndex, error);
+    });
+  });
+
+  return conflictMap;
+}
+
 /**
  * 物料主数据管理云函数
  *
@@ -592,55 +652,76 @@ async function batchCreateMaterials(data, openid) {
     chemical: await loadSubcategoryContext('chemical'),
     film: await loadSubcategoryContext('film')
   };
+  const preparedItems = [];
 
   for (const item of items) {
-    try {
-      // 跳过有错误的数据
-      if (item.error) {
-        tracker.recordError(item.rowIndex, item.product_code, item.error);
-        continue;
-      }
+    if (item.error) {
+      tracker.recordError(item.rowIndex, item.product_code, item.error);
+      continue;
+    }
 
-      const { product_code, material_name, category, default_unit } = item;
-      const normalizedCode = validateStandardProductCode(category, product_code);
-      if (!normalizedCode.ok) {
-        tracker.recordError(item.rowIndex, product_code, normalizedCode.msg);
-        continue;
-      }
-      const normalizedUnit = normalizeUnitInput(category, default_unit);
-      if (!normalizedUnit.ok) {
-        tracker.recordError(item.rowIndex, normalizedCode.product_code, normalizedUnit.msg);
-        continue;
-      }
-      const context = subcategoryContexts[category === 'film' ? 'film' : 'chemical'];
-      const resolvedSubcategory = resolveSubcategorySelection({
-        category,
-        subcategory_key: item.subcategory_key,
-        sub_category: item.sub_category
-      }, context.records, context.map);
-      if (!resolvedSubcategory.subcategory_key) {
-        tracker.recordError(item.rowIndex, normalizedCode.product_code, '子类别无效');
-        continue;
-      }
-      const governedValidation = validateBatchCreateMasterFields(item, category);
-      if (!governedValidation.ok) {
-        tracker.recordError(item.rowIndex, normalizedCode.product_code, governedValidation.msg);
+    const { product_code, material_name, category, default_unit } = item;
+    const normalizedCode = validateStandardProductCode(category, product_code);
+    if (!normalizedCode.ok) {
+      tracker.recordError(item.rowIndex, product_code, normalizedCode.msg);
+      continue;
+    }
+    const normalizedUnit = normalizeUnitInput(category, default_unit);
+    if (!normalizedUnit.ok) {
+      tracker.recordError(item.rowIndex, normalizedCode.product_code, normalizedUnit.msg);
+      continue;
+    }
+    const context = subcategoryContexts[category === 'film' ? 'film' : 'chemical'];
+    const resolvedSubcategory = resolveSubcategorySelection({
+      category,
+      subcategory_key: item.subcategory_key,
+      sub_category: item.sub_category
+    }, context.records, context.map);
+    if (!resolvedSubcategory.subcategory_key) {
+      tracker.recordError(item.rowIndex, normalizedCode.product_code, '子类别无效');
+      continue;
+    }
+    const governedValidation = validateBatchCreateMasterFields(item, category);
+    if (!governedValidation.ok) {
+      tracker.recordError(item.rowIndex, normalizedCode.product_code, governedValidation.msg);
+      continue;
+    }
+
+    preparedItems.push({
+      item,
+      rowIndex: item.rowIndex,
+      material_name,
+      category,
+      normalizedCode: normalizedCode.product_code,
+      normalizedUnit: normalizedUnit.unit,
+      resolvedSubcategory
+    });
+  }
+
+  const conflictMap = buildBatchCreateConflictMap(preparedItems);
+
+  for (const prepared of preparedItems) {
+    const { item, rowIndex, material_name, category, normalizedCode, normalizedUnit, resolvedSubcategory } = prepared;
+
+    try {
+      if (conflictMap.has(rowIndex)) {
+        tracker.recordError(rowIndex, normalizedCode, conflictMap.get(rowIndex));
         continue;
       }
 
       // 检查是否已存在
       const existing = await db.collection('materials')
-        .where({ product_code: normalizedCode.product_code })
+        .where({ product_code: normalizedCode })
         .count();
 
       if (existing.total > 0) {
-        tracker.recordSkipped(item.rowIndex, normalizedCode.product_code, '产品代码已存在');
+        tracker.recordSkipped(rowIndex, normalizedCode, '产品代码已存在');
         continue;
       }
 
       // 创建物料
       const newMaterial = {
-        product_code: normalizedCode.product_code,
+        product_code: normalizedCode,
         category,
         subcategory_key: resolvedSubcategory.subcategory_key,
         sub_category: resolvedSubcategory.sub_category,
@@ -648,7 +729,7 @@ async function batchCreateMaterials(data, openid) {
           ...item,
           material_name,
           category,
-          default_unit: normalizedUnit.unit,
+          default_unit: normalizedUnit,
           supplier: item.supplier || '',
           supplier_model: item.supplier_model || '',
           subcategory_key: resolvedSubcategory.subcategory_key,
@@ -663,11 +744,11 @@ async function batchCreateMaterials(data, openid) {
 
       await db.collection('materials').add({ data: newMaterial });
       created++;
-      tracker.recordCreated(item.rowIndex, normalizedCode.product_code);
+      tracker.recordCreated(rowIndex, normalizedCode);
 
     } catch (err) {
       console.error('创建物料失败:', item.product_code, err);
-      tracker.recordError(item.rowIndex, item.product_code, err.message || '创建物料失败');
+      tracker.recordError(rowIndex, item.product_code, err.message || '创建物料失败');
     }
   }
 
