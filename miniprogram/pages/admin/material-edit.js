@@ -73,7 +73,46 @@ Page({
     submitting: false
   },
 
-  onLoad(options) {
+  async initializeCreatePrefill(options = {}) {
+    const rawCategory = options.category === 'film' || options.category === 'chemical'
+      ? options.category
+      : '';
+    const rawProductCode = options.product_code ? decodeURIComponent(options.product_code) : '';
+
+    if (!rawCategory && !rawProductCode) {
+      return;
+    }
+
+    const inferredCategory = rawCategory || (String(rawProductCode).startsWith('M-') ? 'film' : 'chemical');
+    const categoryIndex = inferredCategory === 'film' ? 1 : 0;
+    const codePrefix = inferredCategory === 'film' ? 'M-' : 'J-';
+    const normalizedCode = rawProductCode
+      ? normalizeProductCodeInput(inferredCategory, rawProductCode)
+      : null;
+    const codeNumber = normalizedCode && normalizedCode.ok
+      ? normalizedCode.number
+      : '';
+
+    await this.updateOptionsForCategory(inferredCategory, {});
+
+    this.setData({
+      categoryIndex,
+      codePrefix,
+      form: {
+        ...this.data.form,
+        category: inferredCategory,
+        default_unit: getDefaultUnit(inferredCategory),
+        product_code: normalizedCode && normalizedCode.ok ? normalizedCode.product_code : '',
+        product_code_number: codeNumber
+      }
+    });
+
+    if (normalizedCode && normalizedCode.ok) {
+      this.checkDuplicate(normalizedCode.product_code);
+    }
+  },
+
+  async onLoad(options) {
     const app = getApp();
     if (!app.globalData.user || !['admin', 'super_admin'].includes(app.globalData.user.role)) {
       wx.showModal({
@@ -91,6 +130,7 @@ Page({
       this.loadMaterial(options.id);
     } else {
       wx.setNavigationBarTitle({ title: '新增物料' });
+      await this.initializeCreatePrefill(options);
     }
   },
 

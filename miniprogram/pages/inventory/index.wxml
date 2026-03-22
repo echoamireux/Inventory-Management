@@ -62,7 +62,7 @@
     <van-loading size="24px">加载中...</van-loading>
   </view>
   <view wx:if="{{ isEnd && list.length > 0 }}" class="text-center p-10 text-secondary text-xs">
-    - 到底了 -
+    - 已无更多 -
   </view>
 
   <van-dialog id="van-dialog" />

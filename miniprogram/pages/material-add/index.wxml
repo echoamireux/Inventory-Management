@@ -9,8 +9,8 @@
   <view class="p-15">
     <!-- 0. 顶部操作区 -->
     <view class="mb-15 flex-row justify-between items-center">
-        <van-button icon="apps-o" plain type="primary" size="small" bind:click="goToBatchEntry" custom-style="flex: 1; margin-right: 10px;">批量模式</van-button>
-        <van-button icon="records" plain type="info" size="small" bind:click="goToMyRequests" custom-style="flex: 1;">我的申请</van-button>
+        <van-button icon="apps-o" plain type="primary" size="small" bind:click="goToBatchEntry" custom-style="flex: 1; {{ !isManager ? 'margin-right: 10px;' : '' }}">批量模式</van-button>
+        <van-button wx:if="{{ !isManager }}" icon="records" plain type="info" size="small" bind:click="goToMyRequests" custom-style="flex: 1;">我的申请</van-button>
     </view>
 
     <!-- 1. 唯一码录入 (置顶) -->
@@ -70,17 +70,31 @@
 
         <!-- Case B: 纯未知代码 -->
         <block wx:else>
-            <van-icon name="warning-o" size="48px" color="#ee0a24" />
-            <view class="text-lg font-bold mt-10 text-dark">非标物料阻断</view>
-            <view class="text-sm text-secondary mt-10 mb-20 text-left">
-                代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在标准库中找到。
-                <view class="mt-5">根据实验室 MDM 规范，禁止随意录入非标物料。</view>
-                <view>请先提交建档申请，管理员审批通过后方可入库。</view>
-            </view>
-            <view class="flex-row">
-                <van-button type="info" block round bind:click="showRequestPopup" custom-class="flex-1 mr-10">立即申请建档</van-button>
-                <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
-            </view>
+            <block wx:if="{{ isManager }}">
+                <van-icon name="records" size="48px" color="#1989fa" />
+                <view class="text-lg font-bold mt-10 text-dark">该物料尚未建档</view>
+                <view class="text-sm text-secondary mt-10 mb-20 text-left">
+                    代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在主数据中找到。
+                    <view class="mt-5">你可以直接创建正式物料档案，建档完成后再继续入库。</view>
+                </view>
+                <view class="flex-row">
+                    <van-button type="primary" block round bind:click="goToAdminCreateMaterial" custom-class="flex-1 mr-10">直接建档</van-button>
+                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
+                </view>
+            </block>
+            <block wx:else>
+                <van-icon name="warning-o" size="48px" color="#ee0a24" />
+                <view class="text-lg font-bold mt-10 text-dark">非标物料阻断</view>
+                <view class="text-sm text-secondary mt-10 mb-20 text-left">
+                    代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在标准库中找到。
+                    <view class="mt-5">根据实验室 MDM 规范，禁止随意录入非标物料。</view>
+                    <view>请先提交建档申请，管理员审批通过后方可入库。</view>
+                </view>
+                <view class="flex-row">
+                    <van-button type="info" block round bind:click="showRequestPopup" custom-class="flex-1 mr-10">立即申请建档</van-button>
+                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
+                </view>
+            </block>
         </block>
     </view>
 

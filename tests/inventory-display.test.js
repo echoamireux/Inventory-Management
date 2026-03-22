@@ -171,16 +171,11 @@ test('film inventory display keeps batch width as the area conversion truth even
   assert.equal(state.baseLengthM, 200);
 });
 
-test('manual stock-in-out entry uses 标签编号 wording instead of 唯一码 wording', () => {
-  const file = fs.readFileSync(
-    path.join(__dirname, '../miniprogram/pages/stock-in-out/index.wxml'),
-    'utf8'
+test('retired manual stock-in-out page no longer remains in the active mini-program source tree', () => {
+  assert.equal(
+    fs.existsSync(path.join(__dirname, '../miniprogram/pages/stock-in-out/index.wxml')),
+    false
   );
-
-  assert.match(file, /label="标签编号"/);
-  assert.match(file, /placeholder="输入标签编号"/);
-  assert.doesNotMatch(file, /label="唯一码"/);
-  assert.doesNotMatch(file, /输入物品唯一编码/);
 });
 
 test('grouped inventory card renders material name as plain text instead of subtitle pill styling', () => {

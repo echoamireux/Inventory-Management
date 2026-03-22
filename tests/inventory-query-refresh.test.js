@@ -87,6 +87,30 @@ test('inventory pages support pull-down refresh for manual recovery', () => {
   assert.match(indexJson, /"enablePullDownRefresh":\s*true/);
 });
 
+test('inventory query pages expose explicit pagination state instead of silent truncation', () => {
+  const detailJs = read('miniprogram/pages/inventory/detail-list.js');
+  const detailWxml = read('miniprogram/pages/inventory/detail-list.wxml');
+  const indexJs = read('miniprogram/pages/inventory/index.js');
+  const indexWxml = read('miniprogram/pages/inventory/index.wxml');
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+
+  assert.match(detailJs, /page:\s*1/);
+  assert.match(detailJs, /pageSize:/);
+  assert.match(detailJs, /isEnd:/);
+  assert.match(detailJs, /onReachBottom/);
+  assert.match(detailWxml, /已无更多|到底了/);
+
+  assert.match(indexJs, /page:\s*1/);
+  assert.match(indexJs, /pageSize:/);
+  assert.match(indexJs, /isEnd:/);
+  assert.match(indexJs, /onReachBottom/);
+  assert.match(indexWxml, /已无更多|到底了/);
+
+  assert.match(groupedCf, /page\s*=/);
+  assert.match(groupedCf, /pageSize\s*=/);
+  assert.doesNotMatch(groupedCf, /\.slice\(0,\s*50\)/);
+});
+
 test('inventory change token propagates from detail page back to list pages', () => {
   const appJs = read('miniprogram/app.js');
   const detailJs = read('miniprogram/pages/inventory-detail/index.js');

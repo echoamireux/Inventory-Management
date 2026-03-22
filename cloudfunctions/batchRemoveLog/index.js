@@ -6,10 +6,7 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
 
-const db = cloud.database();
-
 exports.main = async (event, context) => {
-  const { log_ids } = event;
   const wxContext = cloud.getWXContext();
   const OPENID = wxContext.OPENID;
 
@@ -24,28 +21,8 @@ exports.main = async (event, context) => {
       return { success: false, msg: 'Auth Error' };
   }
 
-  try {
-    if (!log_ids || !Array.isArray(log_ids) || log_ids.length === 0) {
-      return { success: false, msg: 'No log IDs provided' };
-    }
-
-    // 2. Perform Batch Delete
-    const _ = db.command;
-    const res = await db.collection('inventory_log').where({
-      _id: _.in(log_ids)
-    }).remove();
-
-    return {
-      success: true,
-      msg: 'Logs deleted',
-      stats: res.stats
-    };
-
-  } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message
-    };
-  }
+  return {
+    success: false,
+    msg: '日志删除已停用，正式业务日志不可删除'
+  };
 };

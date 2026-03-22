@@ -1,5 +1,3 @@
-// pages/my-requests/index.js
-const db = wx.cloud.database();
 const { listSubcategoryRecords } = require('../../utils/subcategory-service');
 const {
   buildSubcategoryMap,
@@ -28,16 +26,24 @@ Page({
         const [chemicalSubcategories, filmSubcategories, res] = await Promise.all([
             listSubcategoryRecords('chemical', true).catch(() => []),
             listSubcategoryRecords('film', true).catch(() => []),
-            db.collection('material_requests')
-                .orderBy('created_at', 'desc')
-                .get()
+            wx.cloud.callFunction({
+              name: 'addMaterialRequest',
+              data: {
+                action: 'listMine'
+              }
+            })
         ]);
         const subcategoryMap = buildSubcategoryMap([
             ...chemicalSubcategories,
             ...filmSubcategories
         ]);
+        const result = (res && res.result) || {};
+        if (!result.success) {
+            throw new Error(result.msg || '加载申请失败');
+        }
+        const requestList = result.list || [];
 
-        const list = res.data.map(item => {
+        const list = requestList.map(item => {
             let statusText = '待审核';
             if (item.status === 'approved') statusText = '已通过';
             if (item.status === 'rejected') statusText = '已驳回';

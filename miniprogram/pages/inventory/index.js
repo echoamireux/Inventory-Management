@@ -11,6 +11,10 @@ Page({
     loading: false,
     hasLoadedOnce: false,
     lastSeenInventoryChangeAt: 0,
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    isEnd: false,
 
     // Aggregation Mode
     isGrouped: true, // Default to grouped view
@@ -33,48 +37,57 @@ Page({
     const inventoryChangedAt = (app.globalData && app.globalData.inventoryChangedAt) || 0;
 
     if (!this.data.hasLoadedOnce) {
-      this.getList();
+      this.getList(true);
       return;
     }
 
     if (inventoryChangedAt && inventoryChangedAt !== this.data.lastSeenInventoryChangeAt) {
-      this.getList();
+      this.getList(true);
     }
   },
 
   onPullDownRefresh() {
-    this.getList();
+    this.getList(true);
   },
 
   onTabChange(e) {
-    this.setData({ activeTab: e.detail.index });
-    this.getList();
+    this.setData({ activeTab: e.detail.index, page: 1, isEnd: false });
+    this.getList(true);
   },
 
   onSearch(e) {
-    this.setData({ searchVal: e.detail });
-    this.getList();
+    this.setData({ searchVal: e.detail, page: 1, isEnd: false });
+    this.getList(true);
   },
 
   onSearchChange(e) {
       const val = e.detail;
-      this.setData({ searchVal: val });
+      this.setData({ searchVal: val, page: 1, isEnd: false });
       if (this.searchTimer) clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => {
-          this.getList();
+          this.getList(true);
       }, 500);
   },
 
+  onReachBottom() {
+    if (this.data.loading || this.data.isEnd) {
+      return;
+    }
+    this.getList(false);
+  },
+
   // 核心逻辑升级：使用聚合查询
-  async getList() {
+  async getList(reset = true) {
     if (this.data.loading) {
       wx.stopPullDownRefresh();
       return;
     }
+
+    const nextPage = reset ? 1 : this.data.page;
     this.setData({ loading: true });
 
     try {
-      const { searchVal, activeTab } = this.data;
+      const { searchVal, activeTab, pageSize, list } = this.data;
       let category = '';
       if (activeTab === 1) category = 'chemical';
       if (activeTab === 2) category = 'film';
@@ -84,13 +97,20 @@ Page({
           name: 'getInventoryGrouped',
           data: {
               searchVal,
-              category
+              category,
+              page: nextPage,
+              pageSize
           }
       });
 
       if (res.result.success) {
+          const result = res.result || {};
+          const mergedList = reset ? (result.list || []) : list.concat(result.list || []);
           this.setData({
-            list: res.result.list,
+            list: mergedList,
+            total: Number(result.total) || mergedList.length,
+            page: nextPage + 1,
+            isEnd: Boolean(result.isEnd),
             hasLoadedOnce: true,
             lastSeenInventoryChangeAt: (getApp().globalData && getApp().globalData.inventoryChangedAt) || 0
           });

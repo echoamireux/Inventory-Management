@@ -111,10 +111,6 @@ test('active business pages use the updated validation and management wording', 
     path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
     'utf8'
   );
-  const stockInOutJs = fs.readFileSync(
-    path.join(__dirname, '../miniprogram/pages/stock-in-out/index.js'),
-    'utf8'
-  );
   const zoneManageJs = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/admin/zone-manage/index.js'),
     'utf8'
@@ -139,7 +135,15 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /bind:confirm="onProductCodeConfirm"/);
   assert.match(materialAddWxml, /confirm-type="done"/);
   assert.match(materialAddWxml, /title="子类别"/);
-  assert.match(stockInOutJs, /请输入标签编号/);
+  assert.equal(
+    fs.existsSync(path.join(__dirname, '../miniprogram/pages/stock-in-out/index.js')),
+    false
+  );
+  assert.match(materialAddJs, /isManager:/);
+  assert.match(materialAddWxml, /wx:if="\{\{ !isManager \}\}"/);
+  assert.match(materialAddWxml, /bind:click="goToAdminCreateMaterial"/);
+  assert.match(materialAddWxml, /该物料尚未建档/);
+  assert.match(materialAddWxml, /直接建档/);
   assert.match(zoneManageJs, /请输入库区名称/);
   assert.match(zoneManageJs, /请输入新的库区名称/);
   assert.doesNotMatch(zoneManageWxml, /本轮不做回写/);

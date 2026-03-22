@@ -20,6 +20,15 @@ test('admin material edit page exposes governed master spec fields for chemical 
   assert.match(js, /packageTypeOptions/);
 });
 
+test('admin material edit page supports prefilling category and product code for manager-led direct creation', () => {
+  const js = read('miniprogram/pages/admin/material-edit.js');
+
+  assert.match(js, /options\.category/);
+  assert.match(js, /options\.product_code/);
+  assert.match(js, /initializeCreatePrefill/);
+  assert.match(js, /checkDuplicate\(normalizedCode\.product_code\)/);
+});
+
 test('manageMaterial cloud function persists package_type and film specs as governed master-data fields', () => {
   const file = read('cloudfunctions/manageMaterial/index.js');
 
@@ -71,4 +80,59 @@ test('admin update user status cloud function still gates target roles through t
   assert.match(file, /assertSuperAdminAccess/);
   assert.match(file, /isAllowedManagedRole\(role\)/);
   assert.match(file, /仅允许设置为 user 或 admin/);
+});
+
+test('legacy stock-in-out and material-detail pages are no longer exposed as active app routes', () => {
+  const appJson = read('miniprogram/app.json');
+
+  assert.doesNotMatch(appJson, /"pages\/stock-in-out\/index"/);
+  assert.doesNotMatch(appJson, /"pages\/material-detail\/index"/);
+});
+
+test('legacy stock-in-out and material-detail page files are retired from the active codebase', () => {
+  const root = path.join(__dirname, '..');
+
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/pages/stock-in-out/index.js')), false);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/pages/stock-in-out/index.wxml')), false);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/pages/material-detail/index.js')), false);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/pages/material-detail/index.wxml')), false);
+});
+
+test('updateInventory rejects the retired quick stock-in-out payload explicitly while keeping withdrawal callers on the governed path', () => {
+  const file = read('cloudfunctions/updateInventory/index.js');
+
+  assert.match(file, /quantity/);
+  assert.match(file, /type/);
+  assert.match(file, /旧快捷出入库协议已停用|请使用正式入库流程或库存详情页领用/);
+  assert.match(file, /withdraw_amount/);
+});
+
+test('log pages no longer expose delete actions or call destructive log cloud functions', () => {
+  const logsJs = read('miniprogram/pages/logs/index.js');
+  const logsWxml = read('miniprogram/pages/logs/index.wxml');
+  const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
+  const adminLogsWxml = read('miniprogram/pages/admin-logs/index.wxml');
+  const removeLogJs = read('cloudfunctions/removeLog/index.js');
+  const batchRemoveLogJs = read('cloudfunctions/batchRemoveLog/index.js');
+
+  assert.doesNotMatch(logsJs, /removeLog/);
+  assert.doesNotMatch(logsJs, /batchRemoveLog/);
+  assert.doesNotMatch(logsWxml, /bind:longpress/);
+  assert.doesNotMatch(logsWxml, /删除/);
+
+  assert.doesNotMatch(adminLogsJs, /removeLog/);
+  assert.doesNotMatch(adminLogsJs, /batchRemoveLog/);
+  assert.doesNotMatch(adminLogsWxml, /bind:longpress/);
+  assert.doesNotMatch(adminLogsWxml, /删除/);
+
+  assert.match(removeLogJs, /日志删除已停用|不可删除/);
+  assert.match(batchRemoveLogJs, /日志删除已停用|不可删除/);
+});
+
+test('dashboard stats uses aggregate-first logic instead of scanning the whole inventory table in memory', () => {
+  const file = read('cloudfunctions/getDashboardStats/index.js');
+
+  assert.match(file, /aggregate\(/);
+  assert.doesNotMatch(file, /while\s*\(true\)/);
+  assert.doesNotMatch(file, /calculateDashboardStatsFromItems/);
 });

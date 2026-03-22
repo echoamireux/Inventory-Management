@@ -18,4 +18,7 @@
   <view wx:if="{{ loading && hasLoadedOnce }}" class="inline-refresh-state">
     <van-loading size="20px">刷新中...</van-loading>
   </view>
+  <view wx:if="{{ isEnd && list.length > 0 }}" class="inline-refresh-state">
+    - 已无更多 -
+  </view>
 </view>

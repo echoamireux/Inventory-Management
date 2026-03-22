@@ -28,6 +28,8 @@ const {
 
 exports.main = async (event, context) => {
   const { searchVal, category } = event;
+  const page = Math.max(1, Number(event.page) || 1);
+  const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
 
   try {
     const conditions = [{ status: 'in_stock' }];
@@ -47,7 +49,7 @@ exports.main = async (event, context) => {
     }
     const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
 
-    const pageSize = 200;
+    const inventoryBatchSize = 200;
     let skip = 0;
     let inventoryItems = [];
 
@@ -66,14 +68,14 @@ exports.main = async (event, context) => {
           location: true
         })
         .skip(skip)
-        .limit(pageSize)
+        .limit(inventoryBatchSize)
         .get();
 
       inventoryItems = inventoryItems.concat(res.data || []);
-      if (!res.data || res.data.length < pageSize) {
+      if (!res.data || res.data.length < inventoryBatchSize) {
         break;
       }
-      skip += pageSize;
+      skip += inventoryBatchSize;
     }
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
@@ -144,7 +146,7 @@ exports.main = async (event, context) => {
       });
     }
 
-    const list = groups.map(item => {
+    const sortedGroups = groups.map(item => {
         const material = materialMap.get(item.product_code) || {};
         let totalQuantity = 0;
         let totalBaseLengthM = 0;
@@ -185,9 +187,14 @@ exports.main = async (event, context) => {
         return timeA - timeB;
       }
       return String(a.product_code).localeCompare(String(b.product_code));
-    }).slice(0, 50);
+    });
 
-    return { success: true, list };
+    const total = sortedGroups.length;
+    const start = (page - 1) * pageSize;
+    const list = sortedGroups.slice(start, start + pageSize);
+    const isEnd = start + list.length >= total;
+
+    return { success: true, list, total, page, pageSize, isEnd };
 
   } catch (err) {
     console.error(err);

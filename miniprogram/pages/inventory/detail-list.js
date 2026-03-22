@@ -20,7 +20,11 @@ Page({
     queryCode: '',
     queryName: '',
     category: '',
-    lastSeenInventoryChangeAt: 0
+    lastSeenInventoryChangeAt: 0,
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    isEnd: false
   },
 
   onLoad(options) {
@@ -47,27 +51,35 @@ Page({
       const inventoryChangedAt = (app.globalData && app.globalData.inventoryChangedAt) || 0;
 
       if (!this.data.hasLoadedOnce) {
-          this.getList();
+          this.getList(true);
           return;
       }
 
       if (inventoryChangedAt && inventoryChangedAt !== this.data.lastSeenInventoryChangeAt) {
-          this.getList();
+          this.getList(true);
       }
   },
 
   onPullDownRefresh() {
-      this.getList();
+      this.getList(true);
   },
 
-  async getList() {
+  onReachBottom() {
+      if (this.data.loading || this.data.isEnd) {
+          return;
+      }
+      this.getList(false);
+  },
+
+  async getList(reset = true) {
       if (this.data.loading) {
           wx.stopPullDownRefresh();
           return;
       }
+      const nextPage = reset ? 1 : this.data.page;
       this.setData({ loading: true });
       try {
-          const { queryCode, queryName, category } = this.data;
+          const { queryCode, queryName, category, pageSize, list } = this.data;
           let where = { status: 'in_stock' };
 
           if (queryCode) {
@@ -78,11 +90,14 @@ Page({
 
           if (category) where.category = category;
 
-          // Fetch all items for this group
+          const totalRes = await db.collection('inventory')
+              .where(where)
+              .count();
           const res = await db.collection('inventory')
               .where(where)
               .orderBy('expiry_date', 'asc') // FEFO
-              .limit(100)
+              .skip((nextPage - 1) * pageSize)
+              .limit(pageSize)
               .get();
           const zoneRecords = await listZoneRecords(category || 'chemical', true);
           const zoneMap = buildZoneMap(zoneRecords);
@@ -116,7 +131,7 @@ Page({
               materialMap = buildMaterialMap(materialRes.data || []);
           }
 
-          const list = res.data.map(item => {
+          const pageList = res.data.map(item => {
               const materialRecord = materialMap.get(item.product_code) || {};
               const mergedItem = mergeInventoryMaterialData(item, materialRecord);
               const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord);
@@ -134,9 +149,14 @@ Page({
                   isArchived: materialRecord.status === 'archived'
               };
           });
+          const mergedList = reset ? pageList : list.concat(pageList);
+          const total = Number(totalRes.total) || mergedList.length;
 
           this.setData({
-              list,
+              list: mergedList,
+              total,
+              page: nextPage + 1,
+              isEnd: mergedList.length >= total,
               hasLoadedOnce: true,
               lastSeenInventoryChangeAt: (getApp().globalData && getApp().globalData.inventoryChangedAt) || 0
           });

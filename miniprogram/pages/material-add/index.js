@@ -106,6 +106,7 @@ Page({
     currentDate: new Date().getTime(),
     minDate: new Date().getTime(),
     canManageZones: false,
+    isManager: false,
     labelCodeError: '',
     labelCodeChecking: false
   },
@@ -134,7 +135,7 @@ Page({
       }
 
       registerZoneManagementAccess(app, (canManageZones) => {
-          this.setData({ canManageZones }, () => {
+          this.setData({ canManageZones, isManager: canManageZones }, () => {
               this.updateZoneActions();
           });
       });
@@ -163,6 +164,22 @@ Page({
   goToMyRequests() {
       wx.navigateTo({
           url: '/pages/my-requests/index'
+      });
+  },
+
+  goToAdminCreateMaterial() {
+      if (!this.data.isManager) {
+        return;
+      }
+
+      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.form.product_code);
+      if (!normalizedCode.ok) {
+        Toast.fail(normalizedCode.msg || '产品代码无效');
+        return;
+      }
+
+      wx.navigateTo({
+        url: `/pages/admin/material-edit?category=${this.data.activeTab}&product_code=${encodeURIComponent(normalizedCode.product_code)}`
       });
   },
 
@@ -959,70 +976,32 @@ Page({
 
       this.setData({ requestLoading: true });
 
-      // Core submit logic wrapper (Client Side)
-      const doSubmit = async () => {
-          // A. 查重：是否已有该代码的待审批申请
-          // Client-side query implicitly uses _openid if "Creator Read" permission is on.
-          // IF "All Read" is on, this query works for everyone.
-          // BUT if we want to check GLOBAL duplicates, we might need a cloud function if permissions are restrictive.
-          // HOWEVER, for now, let's assume we can query. If not, the cloud function approach was better but lacked _openid writing.
-          // ACTUALLY: Duplicate check is best done via Cloud Function to see ALL records.
-          // BUT since we are focusing on "My Requests" visibility, the critical part is the ADD.
-          // Let's rely on loose client checks or just proceed to ADD.
-          // Re-adding Cloud Function call for CHECKING is okay, but ADDing locally is better for visibility.
-
-          // Let's try hybrid: Query locally (might miss others' pending if restricted), but ADD locally (ensures visibility).
-
-          // B. 查重：是否已存在于主数据
+      try {
           const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
           if (!normalizedCode.ok) {
-              return { success: false, msg: normalizedCode.msg };
+              throw new Error(normalizedCode.msg);
           }
           const finalCode = normalizedCode.product_code;
 
-          const materialRes = await db.collection('materials').where({
-              product_code: finalCode
-          }).count();
-
-          if (materialRes.total > 0) {
-              return { success: false, msg: '该代码已存在，无需申请' };
-          }
-
-          // C. 写入申请表
-          // Client-side add automatically injects _openid, ensuring "Creator Read" works
-
-          // Construct Full Code with Prefix
-          // Get Applicant Name
-          const app = getApp();
-          const applicantName = app.globalData.user ? app.globalData.user.name : 'Unknown';
-
-          await db.collection('material_requests').add({
+          const res = await wx.cloud.callFunction({
+              name: 'addMaterialRequest',
               data: {
-                  product_code: finalCode, // Use full code
+                  action: 'submit',
+                  product_code: finalCode,
                   category: activeTab,
                   material_name: requestForm.name,
-                  applicant_name: applicantName, // Save name
                   subcategory_key: requestForm.subcategory_key || '',
                   sub_category: requestForm.sub_category,
-                  supplier: requestForm.supplier || '',
-                  status: 'pending', // pending | approved | rejected
-                  created_at: db.serverDate(),
-                  updated_at: db.serverDate()
-                  // _openid is auto-added
+                  supplier: requestForm.supplier || ''
               }
           });
+          const result = (res && res.result) || {};
 
-          return { success: true, msg: '申请已提交' };
-      };
-
-      try {
-          const res = await doSubmit();
-
-          if (res.success) {
+          if (result.success) {
               wx.showToast({ title: '申请已提交', icon: 'success' });
               this.setData({ showRequestPopup: false });
           } else {
-              wx.showToast({ title: res.msg || '提交失败', icon: 'none' });
+              wx.showToast({ title: result.msg || '提交失败', icon: 'none' });
           }
 
       } catch(err) {

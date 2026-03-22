@@ -342,9 +342,21 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
   assert.equal(Object.prototype.hasOwnProperty.call(insertedRequest, 'suggested_sub_category'), false);
 });
 
-test('my-requests surfaces collection-missing as a real load failure', async () => {
+test('material add page routes request submission through the addMaterialRequest cloud function', () => {
+  const fs = require('node:fs');
+  const file = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.js'),
+    'utf8'
+  );
+
+  assert.match(file, /name:\s*'addMaterialRequest'/);
+  assert.match(file, /action:\s*'submit'/);
+  assert.doesNotMatch(file, /db\.collection\('material_requests'\)\.add/);
+});
+
+test('my-requests loads only current applicant records through the cloud function path', async () => {
   let pageConfig = null;
-  let toastPayload = null;
+  let callPayload = null;
 
   global.Page = (config) => {
     pageConfig = config;
@@ -353,33 +365,30 @@ test('my-requests surfaces collection-missing as a real load failure', async () 
   global.wx = {
     cloud: {
       database() {
+        throw new Error('should not query material_requests directly from page');
+      },
+      callFunction: async (payload) => {
+        callPayload = payload;
         return {
-          collection(name) {
-            assert.equal(name, 'material_requests');
-            return {
-              orderBy() {
-                return {
-                  async get() {
-                    const error = new Error('COLLECTION_NOT_EXIST');
-                    error.errCode = -502001;
-                    throw error;
-                  }
-                };
+          result: {
+            success: true,
+            list: [
+              {
+                _id: 'req-1',
+                product_code: 'J-001',
+                category: 'chemical',
+                material_name: '异丙醇',
+                sub_category: '溶剂',
+                status: 'pending',
+                supplier: '供应商A',
+                created_at: new Date('2026-03-22T08:00:00.000Z')
               }
-            };
+            ]
           }
         };
-      },
-      callFunction: async () => ({
-        result: {
-          success: true,
-          list: []
-        }
-      })
+      }
     },
-    showToast(payload) {
-      toastPayload = payload;
-    }
+    showToast() {}
   };
 
   const pagePath = path.resolve(
@@ -407,9 +416,12 @@ test('my-requests surfaces collection-missing as a real load failure', async () 
   }
 
   assert.equal(instance.data.loading, false);
-  assert.equal(instance.data.list.length, 0);
-  assert.deepEqual(toastPayload, {
-    title: '加载失败: COLLECTION_NOT_EXIST',
-    icon: 'none'
+  assert.equal(instance.data.list.length, 1);
+  assert.deepEqual(callPayload, {
+    name: 'addMaterialRequest',
+    data: {
+      action: 'listMine'
+    }
   });
+  assert.equal(instance.data.list[0].statusText, '待审核');
 });

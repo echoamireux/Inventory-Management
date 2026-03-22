@@ -9,7 +9,6 @@ cloud.init({
 const db = cloud.database();
 
 exports.main = async (event, context) => {
-  const { log_id, operator_name } = event;
   const wxContext = cloud.getWXContext();
   const OPENID = wxContext.OPENID;
 
@@ -26,20 +25,8 @@ exports.main = async (event, context) => {
       return { success: false, msg: 'Auth Error' };
   }
 
-  try {
-    // 2. Perform Delete
-    await db.collection('inventory_log').doc(log_id).remove();
-
-    return {
-      success: true,
-      msg: 'Log deleted'
-    };
-
-  } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message
-    };
-  }
+  return {
+    success: false,
+    msg: '日志删除已停用，正式业务日志不可删除'
+  };
 };

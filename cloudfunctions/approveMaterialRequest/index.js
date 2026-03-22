@@ -124,7 +124,7 @@ exports.main = async (event, context) => {
             batch_count: 0,
             quantity: 0,
             // 审计字段
-            created_by: request._openid, // 申请人作为创建者
+            created_by: request.applicant || request._openid || '', // 申请人作为创建者
             created_at: db.serverDate(),
             approved_by: OPENID,
             approved_at: db.serverDate()

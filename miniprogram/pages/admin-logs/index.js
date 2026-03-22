@@ -1,6 +1,4 @@
 // pages/admin-logs/index.js
-import Dialog from '@vant/weapp/dialog/dialog';
-import Toast from '@vant/weapp/toast/toast';
 const db = require('../../utils/db');
 const { getCstRange } = require('../../utils/cst');
 
@@ -32,17 +30,7 @@ Page({
     ],
     operatorOptions: [
       { text: '全部操作人', value: 'all' }
-    ],
-    // 多选模式
-    isSelectMode: false,
-    selectedIds: [],
-    // ActionSheet 状态
-    showActionSheet: false,
-    actionSheetActions: [
-      { name: '删除此条日志', color: '#ee0a24' },
-      { name: '进入多选模式' }
-    ],
-    currentLogId: '',
+    ]
   },
 
   onLoad: function (options) {
@@ -71,7 +59,7 @@ Page({
   },
 
   onReachBottom() {
-    if (!this.isEnd && !this.data.loading) {
+    if (!this.data.isEnd && !this.data.loading) {
       this.getList(false);
     }
   },
@@ -247,149 +235,4 @@ Page({
     }
   },
 
-  // 长按事件
-  onLongPressItem(e) {
-    const id = e.currentTarget.dataset.id;
-    if (!id) return;
-    this.setData({
-      showActionSheet: true,
-      currentLogId: id
-    });
-  },
-
-  onActionSheetClose() {
-    this.setData({ showActionSheet: false });
-  },
-
-  onActionSheetSelect(e) {
-    const { name } = e.detail;
-    if (name === '删除此条日志') {
-      this.confirmDeleteLog();
-    } else if (name === '进入多选模式') {
-      // 进入多选模式，并预选当前项
-      const currentId = this.data.currentLogId;
-      const list = this.data.list.map(item => ({
-        ...item,
-        _selected: item._id === currentId
-      }));
-      this.setData({
-        showActionSheet: false,
-        isSelectMode: true,
-        selectedIds: [currentId],
-        list
-      });
-    }
-  },
-
-  confirmDeleteLog() {
-    const id = this.data.currentLogId;
-    if (!id) return;
-
-    Dialog.confirm({
-      title: '确认删除',
-      message: '确定要删除这条日志吗？这可能会影响审计溯源。',
-      confirmButtonColor: '#ee0a24'
-    }).then(async () => {
-      // 用户点击确认
-      Toast.loading({ message: '删除中...', forbidClick: true });
-      try {
-        const callRes = await wx.cloud.callFunction({
-          name: 'removeLog',
-          data: { log_id: id }
-        });
-        if (callRes.result.success) {
-          Toast.success('已删除');
-          this.setData({ showActionSheet: false });
-          this.getList(true);
-        } else {
-          throw new Error(callRes.result.msg);
-        }
-      } catch (err) {
-        Toast.fail('删除失败: ' + err.message);
-      }
-    }).catch(() => {
-      // 用户点击取消
-    });
-  },
-
-  // === 多选模式 ===
-  exitSelectMode() {
-    const list = this.data.list.map(item => ({
-      ...item,
-      _selected: false
-    }));
-    this.setData({
-      isSelectMode: false,
-      selectedIds: [],
-      list
-    });
-  },
-
-  // 更新选中状态到 list
-  updateSelectionState(selectedIds) {
-    const list = this.data.list.map(item => ({
-      ...item,
-      _selected: selectedIds.indexOf(item._id) !== -1
-    }));
-    this.setData({ selectedIds, list });
-  },
-
-  onSelectItem(e) {
-    const id = e.currentTarget.dataset.id;
-    let { selectedIds } = this.data;
-
-    if (selectedIds.indexOf(id) !== -1) {
-      selectedIds = selectedIds.filter(i => i !== id);
-    } else {
-      selectedIds = [...selectedIds, id];
-    }
-
-    this.updateSelectionState(selectedIds);
-  },
-
-  onSelectAll() {
-    const { list, selectedIds } = this.data;
-    const allIds = list.map(item => item._id);
-
-    if (selectedIds.length === allIds.length) {
-      this.updateSelectionState([]);
-    } else {
-      this.updateSelectionState(allIds);
-    }
-  },
-
-  async onBatchDelete() {
-    const { selectedIds } = this.data;
-    if (selectedIds.length === 0) {
-      Toast.fail('请先选择日志');
-      return;
-    }
-
-    Dialog.confirm({
-      title: '批量删除',
-      message: `确定要删除选中的 ${selectedIds.length} 条日志吗？\n此操作不可撤销。`,
-      confirmButtonColor: '#ee0a24'
-    }).then(async () => {
-      Toast.loading({ message: '删除中...', forbidClick: true });
-
-      try {
-        // 批量删除优化：一次调用删除所有选中项
-        const res = await wx.cloud.callFunction({
-          name: 'batchRemoveLog',
-          data: { log_ids: selectedIds }
-        });
-
-        if (res.result.success) {
-          Toast.success(`已删除 ${selectedIds.length} 条`);
-          this.exitSelectMode();
-          this.getList(true);
-        } else {
-          throw new Error(res.result.msg || '删除失败');
-        }
-      } catch (err) {
-        console.error(err);
-        Toast.fail('删除失败: ' + (err.message || '未知错误'));
-      }
-    }).catch(() => {});
-  }
 });

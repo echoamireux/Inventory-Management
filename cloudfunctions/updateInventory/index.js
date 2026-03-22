@@ -19,7 +19,22 @@ const PRECISION = 1000; // 3 decimal places for calculation safety
 
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { unique_code, product_code, batch_no, withdraw_amount, note } = event;
+  const {
+    unique_code,
+    product_code,
+    batch_no,
+    withdraw_amount,
+    quantity,
+    type,
+    note
+  } = event;
+
+  if ((quantity !== undefined || type !== undefined) && withdraw_amount === undefined) {
+      return {
+        success: false,
+        msg: '旧快捷出入库协议已停用，请使用正式入库流程或库存详情页领用'
+      };
+  }
 
   // Validate Inputs
   if (!withdraw_amount || Number(withdraw_amount) <= 0) {

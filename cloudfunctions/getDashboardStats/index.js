@@ -7,9 +7,9 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+const $ = db.command.aggregate;
 const ALERT_CONFIG = require('./alert-config');
 const { getCstDayStart } = require('./cst-time');
-const { calculateDashboardStatsFromItems } = require('./dashboard-stats');
 
 // Industry Standard Logic
 // 1. Total Materials: Distinct Product Count
@@ -44,39 +44,57 @@ exports.main = async (event, context) => {
         timestamp: _.gte(startOfDayUTC)
     }).count();
 
-    // 3. Alerts & Total Calculation (JS Memory Processing)
-    // REFACTOR: Use JS Memory Processing for robustness against Data Types (String vs Date)
+    const groupedInventoryRes = await db.collection('inventory').aggregate()
+      .match({ status: 'in_stock' })
+      .group({
+        _id: '$product_code',
+        category: $.first('$category'),
+        earliestExpiry: $.min('$expiry_date'),
+        earliestDynamicExpiry: $.min('$dynamic_attrs.expiry_date'),
+        minChemicalQty: $.min('$quantity.val'),
+        minFilmLength: $.min('$dynamic_attrs.current_length_m')
+      })
+      .end();
 
-    const pageSize = 500;
-    let skip = 0;
-    let list = [];
+    const groupedInventory = groupedInventoryRes.list || [];
+    const futureTime = future30d.getTime();
+    let lowStock = 0;
 
-    while (true) {
-      const invRes = await db.collection('inventory')
-          .where({ status: 'in_stock' }) // Fetch only needed fields
-          .field({
-              product_code: true,
-              category: true,
-              quantity: true,
-              expiry_date: true,
-              dynamic_attrs: true
-          })
-          .skip(skip)
-          .limit(pageSize)
-          .get();
+    groupedInventory.forEach((item) => {
+      let isRisky = false;
+      const expiryCandidate = item.earliestExpiry || item.earliestDynamicExpiry || null;
 
-      list = list.concat(invRes.data || []);
-      if (!invRes.data || invRes.data.length < pageSize) break;
-      skip += pageSize;
-    }
+      if (expiryCandidate) {
+        const expiryTime = new Date(expiryCandidate).getTime();
+        if (!Number.isNaN(expiryTime) && expiryTime <= futureTime) {
+          isRisky = true;
+        }
+      }
 
-    const stats = calculateDashboardStatsFromItems(list, ALERT_CONFIG);
+      if (!isRisky) {
+        if (item.category === 'chemical') {
+          const qty = Number(item.minChemicalQty) || 0;
+          if (qty <= ALERT_CONFIG.LOW_STOCK.chemical) {
+            isRisky = true;
+          }
+        } else if (item.category === 'film') {
+          const len = Number(item.minFilmLength) || 0;
+          if (len <= ALERT_CONFIG.LOW_STOCK.film) {
+            isRisky = true;
+          }
+        }
+      }
+
+      if (isRisky) {
+        lowStock += 1;
+      }
+    });
 
     return {
-        totalMaterials: stats.totalMaterials,
+        totalMaterials: groupedInventory.length,
         todayIn: inboundCount.total,
         todayOut: outboundCount.total,
-        lowStock: stats.lowStock,
+        lowStock,
         success: true
     };
 
