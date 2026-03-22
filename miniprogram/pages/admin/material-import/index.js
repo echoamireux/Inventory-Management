@@ -5,12 +5,16 @@ const { listSubcategoryRecords } = require('../../../utils/subcategory-service')
 const {
   isTemplateInlineHintRow,
   applyImportDuplicateGuards,
+  decorateImportPreviewRows,
   validateImportRow,
   buildImportResultMessage
 } = require('../../../utils/material-import');
 const {
   normalizeTemplateExportResult
 } = require('../../../utils/material-template-export');
+const {
+  resolveOpenDocumentPath
+} = require('../../../utils/download-file');
 
 Page({
   options: {
@@ -87,9 +91,17 @@ Page({
         throw new Error('模板下载失败');
       }
 
+      const localFilePath = await resolveOpenDocumentPath({
+        tempFilePath: downRes.tempFilePath,
+        fileName: result.fileName || '标准物料导入模板.xlsx',
+        fileSystemManager: wx.getFileSystemManager(),
+        userDataPath: wx.env.USER_DATA_PATH,
+        fallbackFileName: '标准物料导入模板.xlsx'
+      });
+
       Toast.clear();
       await wx.openDocument({
-        filePath: downRes.tempFilePath,
+        filePath: localFilePath,
         showMenu: true,
         fileType: 'xlsx'
       });
@@ -240,7 +252,7 @@ Page({
             const row = this.parseCSVLine(line);
             return this.validateRow(row, index);
           });
-          const previewData = applyImportDuplicateGuards(rawPreviewData);
+          const previewData = decorateImportPreviewRows(applyImportDuplicateGuards(rawPreviewData));
 
           const validCount = previewData.filter(item => !item.error).length;
           const errorCount = previewData.filter(item => item.error).length;

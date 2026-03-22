@@ -101,6 +101,7 @@ exports.main = async (event, context) => {
     return {
       success: true,
       fileID: uploadRes.fileID,
+      fileName: buildInventoryExportFileName(exportedAt),
       msg: '生成成功'
     };
 

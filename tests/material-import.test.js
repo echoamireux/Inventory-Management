@@ -5,7 +5,8 @@ const {
   isTemplateInlineHintRow,
   validateImportRow,
   buildImportResultMessage,
-  applyImportDuplicateGuards
+  applyImportDuplicateGuards,
+  decorateImportPreviewRows
 } = require('../miniprogram/utils/material-import');
 
 const subcategoriesByCategory = {
@@ -245,6 +246,28 @@ test('duplicate guard only warns when one numeric code appears under different c
   assert.match(rows[1].warning, /编号 001 同时出现在化材和膜材中/);
   assert.equal(rows[0].error, null);
   assert.equal(rows[1].error, null);
+});
+
+test('preview row decoration keeps empty warnings from rendering as visible warning states', () => {
+  const rows = decorateImportPreviewRows([
+    {
+      rowIndex: 2,
+      product_code: 'J-001',
+      error: null,
+      warning: '编号 001 同时出现在化材和膜材中，请确认类别填写无误'
+    },
+    {
+      rowIndex: 3,
+      product_code: 'J-002',
+      error: null,
+      warning: ''
+    }
+  ]);
+
+  assert.equal(rows[0].hasWarning, true);
+  assert.equal(rows[0].hasError, false);
+  assert.equal(rows[1].hasWarning, false);
+  assert.equal(rows[1].hasError, false);
 });
 
 test('import result message includes row-level duplicate and failure feedback', () => {

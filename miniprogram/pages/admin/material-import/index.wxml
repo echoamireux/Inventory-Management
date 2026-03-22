@@ -82,8 +82,8 @@
     <scroll-view scroll-y class="preview-list">
       <view
         wx:for="{{ previewData }}"
-        wx:key="index"
-        class="preview-item {{ item.error ? 'has-error' : '' }}"
+        wx:key="rowIndex"
+        class="preview-item {{ item.hasError ? 'has-error' : '' }}"
       >
         <view class="preview-row">
           <text class="preview-code">{{ item.product_code }}</text>
@@ -93,10 +93,10 @@
         </view>
         <view class="preview-name">{{ item.material_name }}</view>
         <view class="preview-sub">{{ item.sub_category }} · {{ item.default_unit || '默认单位' }}</view>
-        <view wx:if="{{ item.error }}" class="preview-error">
+        <view wx:if="{{ item.hasError }}" class="preview-error">
           <van-icon name="warning-o" size="12px" /> {{ item.error }}
         </view>
-        <view wx:else-if="{{ item.warning }}" class="preview-warning">
+        <view wx:else-if="{{ item.hasWarning }}" class="preview-warning">
           <van-icon name="info-o" size="12px" /> {{ item.warning }}
         </view>
       </view>

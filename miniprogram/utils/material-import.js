@@ -144,6 +144,21 @@ function applyImportDuplicateGuards(rows = []) {
   return nextRows;
 }
 
+function decorateImportPreviewRows(rows = []) {
+  return (Array.isArray(rows) ? rows : []).map((item) => {
+    const error = String(item && item.error ? item.error : '').trim();
+    const warning = String(item && item.warning ? item.warning : '').trim();
+
+    return {
+      ...item,
+      error,
+      warning,
+      hasError: !!error,
+      hasWarning: !!warning
+    };
+  });
+}
+
 function validateImportRow(row, index, subcategoriesByCategory = {}) {
   const rawProductCode = String(row[0] || '').trim();
   const materialName = String(row[1] || '').trim();
@@ -282,6 +297,7 @@ module.exports = {
   normalizeCategoryText,
   isTemplateInlineHintRow,
   applyImportDuplicateGuards,
+  decorateImportPreviewRows,
   validateImportRow,
   buildImportResultMessage
 };

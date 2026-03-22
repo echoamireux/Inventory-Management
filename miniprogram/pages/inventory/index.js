@@ -2,6 +2,7 @@
 const db = wx.cloud.database();
 const _ = db.command;
 import Dialog from '@vant/weapp/dialog/dialog';
+const { resolveOpenDocumentPath } = require('../../utils/download-file');
 
 Page({
   data: {
@@ -186,26 +187,41 @@ Page({
 
         if (res.result.success) {
             const fileID = res.result.fileID;
+            const fileName = String(res.result.fileName || '').trim() || '库存明细报表.xlsx';
 
             // Download and Open
             wx.cloud.downloadFile({
                 fileID: fileID,
-                success: (downRes) => {
+                success: async (downRes) => {
                     if (downRes.statusCode === 200) {
-                        wx.openDocument({
-                            filePath: downRes.tempFilePath,
-                            showMenu: true, // Allow user to share/save
-                            fileType: 'xlsx',
-                            success: () => {
-                                wx.hideLoading();
-                                wx.showToast({ title: '即将打开', icon: 'success' });
-                            },
-                            fail: (err) => {
-                                console.error('Open failed', err);
-                                wx.hideLoading();
-                                wx.showToast({ title: '打开文件失败', icon: 'none' });
-                            }
-                        });
+                        try {
+                            const localFilePath = await resolveOpenDocumentPath({
+                                tempFilePath: downRes.tempFilePath,
+                                fileName,
+                                fileSystemManager: wx.getFileSystemManager(),
+                                userDataPath: wx.env.USER_DATA_PATH,
+                                fallbackFileName: '库存明细报表.xlsx'
+                            });
+
+                            wx.openDocument({
+                                filePath: localFilePath,
+                                showMenu: true, // Allow user to share/save
+                                fileType: 'xlsx',
+                                success: () => {
+                                    wx.hideLoading();
+                                    wx.showToast({ title: '即将打开', icon: 'success' });
+                                },
+                                fail: (err) => {
+                                    console.error('Open failed', err);
+                                    wx.hideLoading();
+                                    wx.showToast({ title: '打开文件失败', icon: 'none' });
+                                }
+                            });
+                        } catch (err) {
+                            console.error('Save export failed', err);
+                            wx.hideLoading();
+                            wx.showToast({ title: err.message || '打开文件失败', icon: 'none' });
+                        }
                     }
                 },
                 fail: () => {

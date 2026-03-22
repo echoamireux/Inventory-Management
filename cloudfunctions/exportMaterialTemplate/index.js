@@ -21,6 +21,27 @@ cloud.init({
 });
 
 const db = cloud.database();
+const OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function buildMaterialTemplateFileName(exportedAt = new Date()) {
+  const date = exportedAt instanceof Date ? exportedAt : new Date(exportedAt);
+  if (Number.isNaN(date.getTime())) {
+    return '标准物料导入模板.xlsx';
+  }
+
+  const cstDate = new Date(date.getTime() + OFFSET_MS);
+  const year = cstDate.getUTCFullYear();
+  const month = pad(cstDate.getUTCMonth() + 1);
+  const day = pad(cstDate.getUTCDate());
+  const hour = pad(cstDate.getUTCHours());
+  const minute = pad(cstDate.getUTCMinutes());
+
+  return `标准物料导入模板_${year}${month}${day}_${hour}${minute}.xlsx`;
+}
 
 async function getOperator(openid) {
   const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
@@ -61,8 +82,9 @@ exports.main = async (event, context) => {
     });
     const workbook = await buildTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();
-    const timestamp = Date.now();
-    const fileName = `标准物料导入模板_${timestamp}.xlsx`;
+    const exportedAt = new Date();
+    const timestamp = exportedAt.getTime();
+    const fileName = buildMaterialTemplateFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
       cloudPath: `templates/material-import-template_${timestamp}.xlsx`,
       fileContent: Buffer.from(fileBuffer)
