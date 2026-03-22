@@ -4,8 +4,7 @@ import Toast from '@vant/weapp/toast/toast';
 import {
   CATEGORY_PREFIX,
   PACKAGE_TYPES,
-  DEFAULT_FORM,
-  SEARCH_DEBOUNCE_MS
+  DEFAULT_FORM
 } from '../../utils/constants';
 const {
   buildLocationZoneActions,
@@ -53,6 +52,13 @@ function resolvePickerDateValue(detail) {
   return detail;
 }
 
+function resolveInputValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return detail;
+}
+
 Page({
   data: {
     activeTab: 'chemical',
@@ -81,7 +87,6 @@ Page({
 
     // 联想建议
     suggestions: [],
-    suggestionTimer: null,
 
     // 数据
     subCategoryRecords: [],
@@ -278,35 +283,93 @@ Page({
 
   onInput(e) {
     const field = e.currentTarget.dataset.field;
-    let value = e.detail;
+    let value = resolveInputValue(e.detail);
     if (field === 'product_code') {
-      value = sanitizeProductCodeNumberInput(e.detail);
+      value = sanitizeProductCodeNumberInput(value);
     }
-    this.setData({ [`form.${field}`]: value });
+    const updates = { [`form.${field}`]: value };
 
-    // 联想输入逻辑: 改为监听 product_code
     if (field === 'product_code') {
-        const val = value;
-        if (this.data.suggestionTimer) clearTimeout(this.data.suggestionTimer);
+      updates.suggestions = [];
+      updates.isUnknownCode = false;
+      updates.isArchived = false;
+      updates.archiveReason = '';
+      this._activeProductCodeLookupCode = '';
+      this._lastConfirmedProductCode = '';
+    }
 
-        if (!val || val.length < 1) {
-            this.setData({ suggestions: [] });
-            return;
-        }
+    this.setData(updates);
+  },
 
-        const normalizedCode = normalizeProductCodeInput(this.data.activeTab, val);
-        if (!normalizedCode.ok) {
-            this.setData({ suggestions: [] });
-            return;
-        }
-        const fullKeyword = normalizedCode.product_code;
+  async onProductCodeBlur(e) {
+    await this.confirmProductCodeLookup(e);
+  },
 
-        // 防抖 500ms
-        this.setData({
-            suggestionTimer: setTimeout(() => {
-                this.searchSuggestions(fullKeyword);
-            }, 500)
-        });
+  async onProductCodeConfirm(e) {
+    await this.confirmProductCodeLookup(e);
+  },
+
+  async confirmProductCodeLookup(e) {
+    const rawValue = sanitizeProductCodeNumberInput(resolveInputValue(e && e.detail !== undefined ? e.detail : this.data.form.product_code));
+
+    if (!rawValue) {
+      this._activeProductCodeLookupCode = '';
+      this._lastConfirmedProductCode = '';
+      this.setData({
+        'form.product_code': '',
+        suggestions: [],
+        isUnknownCode: false,
+        isArchived: false,
+        archiveReason: ''
+      });
+      return;
+    }
+
+    const normalizedCode = normalizeProductCodeInput(this.data.activeTab, rawValue);
+    if (!normalizedCode.ok) {
+      this._activeProductCodeLookupCode = '';
+      this._lastConfirmedProductCode = '';
+      this.setData({
+        'form.product_code': rawValue,
+        suggestions: [],
+        isUnknownCode: false,
+        isArchived: false,
+        archiveReason: ''
+      });
+      return;
+    }
+
+    const lookupCode = normalizedCode.product_code;
+    if (this._lastConfirmedProductCode === lookupCode) {
+      this.setData({
+        'form.product_code': normalizedCode.number
+      });
+      return;
+    }
+
+    if (this._activeProductCodeLookupCode === lookupCode) {
+      this.setData({
+        'form.product_code': normalizedCode.number
+      });
+      return;
+    }
+
+    this._activeProductCodeLookupCode = lookupCode;
+    this.setData({
+      'form.product_code': normalizedCode.number,
+      suggestions: [],
+      isUnknownCode: false,
+      isArchived: false,
+      archiveReason: ''
+    });
+
+    try {
+      await this.searchSuggestions(normalizedCode.product_code);
+      this._lastConfirmedProductCode = lookupCode;
+    } finally {
+      if (this._activeProductCodeLookupCode === lookupCode) {
+        this._activeProductCodeLookupCode = '';
+      }
     }
   },
 

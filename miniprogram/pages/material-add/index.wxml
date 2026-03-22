@@ -91,12 +91,15 @@
         <van-field
           value="{{ form.product_code }}"
           label="产品代码"
-          placeholder="请输入产品代码"
+          placeholder="请输入产品代码数字"
           required
           type="number"
           maxlength="3"
+          confirm-type="done"
           data-field="product_code"
-          bind:change="onInput"
+          bind:input="onInput"
+          bind:blur="onProductCodeBlur"
+          bind:confirm="onProductCodeConfirm"
           class="product-code-field {{ activeTab }}"
           label-class="field-label-bold"
         />

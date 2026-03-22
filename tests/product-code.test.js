@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const frontendProductCode = require('../miniprogram/utils/product-code');
 const backendProductCode = require('../cloudfunctions/_shared/product-code');
@@ -47,3 +49,17 @@ for (const [label, impl] of [
     });
   });
 }
+
+test('single stock-in product-code lookup only runs after blur or confirm instead of during typing', () => {
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.js'),
+    'utf8'
+  );
+
+  assert.match(pageJs, /onProductCodeBlur/);
+  assert.match(pageJs, /onProductCodeConfirm/);
+  assert.match(pageJs, /confirmProductCodeLookup/);
+  assert.match(pageJs, /normalizeProductCodeInput\(this\.data\.activeTab, rawValue\)/);
+  assert.match(pageJs, /await this\.searchSuggestions\(normalizedCode\.product_code\)/);
+  assert.doesNotMatch(pageJs, /suggestionTimer:\s*setTimeout\(\s*\(\)\s*=>\s*\{\s*this\.searchSuggestions/);
+});
