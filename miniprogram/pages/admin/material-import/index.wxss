@@ -91,6 +91,10 @@
   border-left: 3px solid #EF4444;
 }
 
+.stat-item.warning {
+  border-left: 3px solid #F59E0B;
+}
+
 .stat-num {
   display: block;
   font-size: 24px;
@@ -155,6 +159,15 @@
 .preview-error {
   font-size: 12px;
   color: #EF4444;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preview-warning {
+  font-size: 12px;
+  color: #B45309;
   margin-top: 4px;
   display: flex;
   align-items: center;

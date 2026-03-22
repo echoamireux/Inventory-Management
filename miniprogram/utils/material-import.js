@@ -17,18 +17,39 @@ function normalizeCategoryText(categoryText) {
   return '';
 }
 
+function normalizeOptionalNumber(value) {
+  const raw = String(value === undefined || value === null ? '' : value).trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = Number(raw);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function isTemplateInlineHintRow(row = []) {
+  return String(row[0] || '').trim() === '两类必填'
+    && String(row[6] || '').includes('膜材必填')
+    && String(row[7] || '').includes('膜材选填');
+}
+
 function validateImportRow(row, index, subcategoriesByCategory = {}) {
   const rawProductCode = String(row[0] || '').trim();
   const materialName = String(row[1] || '').trim();
   const categoryText = String(row[2] || '').trim();
   const subCategory = String(row[3] || '').trim();
-  const hasLegacyNoteColumn = row.length >= 9;
-  const unitIndex = hasLegacyNoteColumn ? 5 : 4;
-  const supplierIndex = hasLegacyNoteColumn ? 6 : 5;
-  const supplierModelIndex = hasLegacyNoteColumn ? 7 : 6;
-  let defaultUnit = String(row[unitIndex] || '').trim();
-  const supplier = String(row[supplierIndex] || '').trim();
-  const supplierModel = String(row[supplierModelIndex] || '').trim();
+  const usesMasterTemplate = row.length >= 10;
+  let defaultUnit = String(row[4] || '').trim();
+  const packageType = String((usesMasterTemplate ? row[5] : '') || '').trim();
+  const thicknessUm = normalizeOptionalNumber(usesMasterTemplate ? row[6] : '');
+  const standardWidthMm = normalizeOptionalNumber(usesMasterTemplate ? row[7] : '');
+  const supplier = String((usesMasterTemplate ? row[8] : row[5]) || '').trim();
+  const supplierModel = String((usesMasterTemplate ? row[9] : row[6]) || '').trim();
+  let warning = '';
 
   let error = null;
   const category = normalizeCategoryText(categoryText);
@@ -64,6 +85,14 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
     }
   }
 
+  if (!error && category === 'film' && thicknessUm === null) {
+    error = '膜材厚度必填';
+  }
+
+  if (!error && category === 'film' && standardWidthMm === null) {
+    warning = '默认幅宽未填写，后续需在首次入库或物料管理中补齐';
+  }
+
   return {
     rowIndex: index + 2,
     product_code: normalizedCode.ok ? normalizedCode.product_code : '',
@@ -72,13 +101,17 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
     category,
     sub_category: subCategory,
     default_unit: defaultUnit,
+    package_type: category === 'chemical' ? packageType : '',
+    thickness_um: category === 'film' ? thicknessUm : null,
+    standard_width_mm: category === 'film' ? standardWidthMm : null,
     supplier,
     supplier_model: supplierModel,
+    warning,
     error
   };
 }
 
-function buildImportResultMessage(result = {}, previewErrors = []) {
+function buildImportResultMessage(result = {}, previewErrors = [], previewWarnings = []) {
   const created = Number(result.created || 0);
   const skipped = Number(result.skipped || 0);
   const runtimeErrors = Number(result.errors || 0);
@@ -110,6 +143,13 @@ function buildImportResultMessage(result = {}, previewErrors = []) {
     detailLines.push(`${rowLabel} | ${codeLabel} | 失败：${reason}`);
   });
 
+  const warningLines = previewWarnings.map((item) => {
+    const rowLabel = item.rowIndex ? `第 ${item.rowIndex} 行` : '未知行';
+    const codeLabel = item.product_code || item.product_code_number || '-';
+    const reason = item.warning || '请补充完善后续主数据';
+    return `${rowLabel} | ${codeLabel} | 提醒：${reason}`;
+  });
+
   const visibleDetails = detailLines.slice(0, 20);
   const hiddenCount = detailLines.length - visibleDetails.length;
 
@@ -122,11 +162,18 @@ function buildImportResultMessage(result = {}, previewErrors = []) {
     }
   }
 
+  if (warningLines.length > 0) {
+    lines.push('');
+    lines.push('提醒：');
+    lines.push(...warningLines);
+  }
+
   return lines.join('\n');
 }
 
 module.exports = {
   normalizeCategoryText,
+  isTemplateInlineHintRow,
   validateImportRow,
   buildImportResultMessage
 };

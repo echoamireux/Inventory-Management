@@ -13,8 +13,11 @@ const TEMPLATE_HEADERS = [
   '类别',
   '子类别',
   '默认单位',
+  '化材包装形式',
+  '膜材厚度(μm)',
+  '默认幅宽(mm)',
   '供应商',
-  '厂家型号'
+  '原厂型号'
 ];
 
 const CATEGORY_OPTIONS = ['化材', '膜材'];
@@ -24,6 +27,19 @@ const UNIT_OPTIONS = {
 };
 const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 50;
+const TEMPLATE_DATA_START_ROW = 3;
+const TEMPLATE_INLINE_HINTS = [
+  '必填',
+  '必填',
+  '必填',
+  '必填',
+  '必填',
+  '化材选填',
+  '膜材必填',
+  '膜材选填',
+  '选填',
+  '选填'
+];
 
 function pickRepresentativeSubcategory(subcategories, preferredName) {
   const list = Array.isArray(subcategories) ? subcategories : [];
@@ -86,17 +102,20 @@ function buildMaterialTemplateSpec({
     configSheetName: CONFIG_SHEET_NAME,
     helpSheetName: HELP_SHEET_NAME,
     headers: TEMPLATE_HEADERS.slice(),
+    inlineHints: TEMPLATE_INLINE_HINTS.slice(),
     maxRow: TEMPLATE_MAX_ROW,
     previewStyledRowCount: TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
     validationRanges: {
-      productCode: `A2:A${TEMPLATE_MAX_ROW}`,
-      category: `C2:C${TEMPLATE_MAX_ROW}`,
-      subcategory: `D2:D${TEMPLATE_MAX_ROW}`,
-      unit: `E2:E${TEMPLATE_MAX_ROW}`
+      productCode: `A${TEMPLATE_DATA_START_ROW}:A${TEMPLATE_MAX_ROW}`,
+      category: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
+      subcategory: `D${TEMPLATE_DATA_START_ROW}:D${TEMPLATE_MAX_ROW}`,
+      unit: `E${TEMPLATE_DATA_START_ROW}:E${TEMPLATE_MAX_ROW}`,
+      thicknessUm: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
+      standardWidthMm: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
-      subcategory: 'INDIRECT($C2&"_子类")',
-      unit: 'INDIRECT($C2&"_单位")'
+      subcategory: `INDIRECT($C${TEMPLATE_DATA_START_ROW}&"_子类")`,
+      unit: `INDIRECT($C${TEMPLATE_DATA_START_ROW}&"_单位")`
     },
     definedNames: {
       chemicalSubcategories: {
@@ -133,19 +152,24 @@ function buildMaterialTemplateSpec({
       '3. 模板填写完成后，请另存为 CSV，再回到系统上传导入。',
       '',
       '▶ 字段说明',
-      '产品代码：模板内建议填写 3 位数字，例如 001。',
-      '类别：只能选择“化材”或“膜材”。',
-      '子类别：只能选择系统中当前启用的正式子类别，不支持在模板内自行扩展。',
-      '默认单位：化材仅支持 kg/g/L/mL；膜材仅支持 m/m²。',
-      '供应商、厂家型号：选填。',
+      '产品代码*：必填。模板内建议填写 3 位数字，例如 001。',
+      '物料名称*：必填。',
+      '类别*：必填。只能选择“化材”或“膜材”。',
+      '子类别*：必填。只能选择系统中当前启用的正式子类别。',
+      '默认单位*：必填。化材仅支持 kg/g/L/mL；膜材仅支持 m/m²。',
+      '化材包装形式：选填。仅化材使用；膜材请留空。',
+      '膜材厚度(μm)*：膜材必填；化材请留空。',
+      '默认幅宽(mm)：膜材选填；化材请留空。填写即写入主数据默认幅宽，留空则后续补齐。',
+      '供应商、原厂型号：选填。',
+      '模板仅用于新建物料；若产品代码已存在，系统会跳过，不会更新现有主数据。',
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
       `当前化材子类别：${chemicalSubcategories.join(' / ')}`,
       `当前膜材子类别：${filmSubcategories.join(' / ')}`
     ],
     exampleRows: [
-      ['001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '国药', 'IPA-99'],
-      ['002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '东丽', 'T100']
+      ['001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99'],
+      ['002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100']
     ]
   };
 }
@@ -159,6 +183,8 @@ module.exports = {
   UNIT_OPTIONS,
   TEMPLATE_MAX_ROW,
   TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
+  TEMPLATE_DATA_START_ROW,
+  TEMPLATE_INLINE_HINTS,
   getActiveTemplateSubcategoryNames,
   validateTemplateSubcategoryState,
   buildMaterialTemplateSpec

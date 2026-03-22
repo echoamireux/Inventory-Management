@@ -72,6 +72,10 @@
         <text class="stat-num">{{ errorCount }}</text>
         <text class="stat-label">错误</text>
       </view>
+      <view class="stat-item warning" wx:if="{{ warningCount > 0 }}">
+        <text class="stat-num">{{ warningCount }}</text>
+        <text class="stat-label">提醒</text>
+      </view>
     </view>
 
     <!-- 预览列表 -->
@@ -91,6 +95,9 @@
         <view class="preview-sub">{{ item.sub_category }} · {{ item.default_unit || '默认单位' }}</view>
         <view wx:if="{{ item.error }}" class="preview-error">
           <van-icon name="warning-o" size="12px" /> {{ item.error }}
+        </view>
+        <view wx:else-if="{{ item.warning }}" class="preview-warning">
+          <van-icon name="info-o" size="12px" /> {{ item.warning }}
         </view>
       </view>
     </scroll-view>

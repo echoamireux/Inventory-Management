@@ -587,7 +587,7 @@ async function batchCreateMaterials(data, openid) {
         continue;
       }
 
-      const { product_code, material_name, category, default_unit, supplier, supplier_model } = item;
+      const { product_code, material_name, category, default_unit } = item;
       const normalizedCode = validateStandardProductCode(category, product_code);
       if (!normalizedCode.ok) {
         tracker.recordError(item.rowIndex, product_code, normalizedCode.msg);
@@ -622,13 +622,19 @@ async function batchCreateMaterials(data, openid) {
       // 创建物料
       const newMaterial = {
         product_code: normalizedCode.product_code,
-        material_name,
         category,
         subcategory_key: resolvedSubcategory.subcategory_key,
         sub_category: resolvedSubcategory.sub_category,
-        default_unit: normalizedUnit.unit,
-        supplier: supplier || '',
-        supplier_model: supplier_model || '',
+        ...buildGovernedMaterialMasterFields({
+          ...item,
+          material_name,
+          category,
+          default_unit: normalizedUnit.unit,
+          supplier: item.supplier || '',
+          supplier_model: item.supplier_model || '',
+          subcategory_key: resolvedSubcategory.subcategory_key,
+          sub_category: resolvedSubcategory.sub_category
+        }, category),
         status: 'active',
         created_by: openid,
         created_at: now,
