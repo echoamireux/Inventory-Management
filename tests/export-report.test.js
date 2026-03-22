@@ -44,19 +44,22 @@ test('export report row keeps governed field labels and avoids fake chemical spe
   });
 
   assert.deepEqual(row, {
-    materialName: '化材-1',
     productCode: 'J-001',
+    materialName: '化材-1',
     uniqueCode: 'L000001',
     categoryLabel: '化材',
     subcategoryLabel: '主胶',
-    supplier: '供应商A',
-    supplierModel: 'A-100',
     batchNumber: '20260523',
-    expiryDate: '2026-05-21',
-    specInfo: '--',
     currentStock: 20,
     unit: 'kg',
-    locationLabel: '实验室2 | A-01',
+    zoneLabel: '实验室2',
+    locationDetail: 'A-01',
+    chemicalPackageType: '--',
+    filmWidthMm: '--',
+    filmThicknessUm: '--',
+    supplier: '供应商A',
+    supplierModel: 'A-100',
+    expiryDate: '2026-05-21',
     statusLabel: '在库',
     inboundTime: '2026-03-21 15:22:52'
   });
@@ -132,7 +135,8 @@ test('export report row prefers the latest master thickness while keeping batch 
     subcategoryMap: new Map()
   });
 
-  assert.equal(row.specInfo, '1230mm × 25μm');
+  assert.equal(row.filmWidthMm, 1230);
+  assert.equal(row.filmThicknessUm, 25);
 });
 
 test('export workbook uses Chinese sheet title, professional header rows, and frozen panes', async () => {
@@ -144,19 +148,22 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
     },
     rows: [
       {
-        materialName: '化材-1',
         productCode: 'J-001',
+        materialName: '化材-1',
         uniqueCode: 'L000001',
         categoryLabel: '化材',
         subcategoryLabel: '主胶',
-        supplier: '--',
-        supplierModel: '--',
         batchNumber: '20260523',
-        expiryDate: '2026-05-21',
-        specInfo: '--',
         currentStock: 20,
         unit: 'kg',
-        locationLabel: '实验室2 | A-01',
+        zoneLabel: '实验室2',
+        locationDetail: 'A-01',
+        chemicalPackageType: '铁桶',
+        filmWidthMm: '--',
+        filmThicknessUm: '--',
+        supplier: '--',
+        supplierModel: '--',
+        expiryDate: '2026-05-21',
         statusLabel: '在库',
         inboundTime: '2026-03-21 15:22:52'
       }
@@ -174,7 +181,11 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 5);
   assert.equal(sheet.views[0].xSplit, 1);
-  assert.equal(sheet.getCell('M6').value, '实验室2 | A-01');
+  assert.equal(sheet.getCell('A6').value, 'J-001');
+  assert.equal(sheet.getCell('B6').value, '化材-1');
+  assert.equal(sheet.getCell('I6').value, '实验室2');
+  assert.equal(sheet.getCell('J6').value, 'A-01');
+  assert.equal(sheet.getCell('K6').value, '铁桶');
 });
 
 test('export workbook hides redundant filter summary when exporting the unfiltered total table', async () => {
@@ -186,7 +197,28 @@ test('export workbook hides redundant filter summary when exporting the unfilter
 
   const sheet = workbook.getWorksheet(EXPORT_SHEET_NAME);
 
-  assert.equal(EXPORT_HEADERS[2], '标签编号');
-  assert.equal(sheet.getRow(3).hidden, true);
+  assert.deepEqual(EXPORT_HEADERS, [
+    '产品代码',
+    '物料名称',
+    '标签编号',
+    '类别',
+    '子类别',
+    '生产批号',
+    '当前库存',
+    '单位',
+    '库区',
+    '详细坐标',
+    '化材包装形式',
+    '膜材幅宽(mm)',
+    '膜材厚度(μm)',
+    '供应商',
+    '原厂型号',
+    '过期日期',
+    '状态',
+    '入库时间'
+  ]);
   assert.equal(sheet.getCell('A3').value, null);
+  assert.equal(sheet.getCell('A4').value, '产品代码');
+  assert.equal(sheet.autoFilter.from.row, 4);
+  assert.equal(sheet.views[0].ySplit, 4);
 });

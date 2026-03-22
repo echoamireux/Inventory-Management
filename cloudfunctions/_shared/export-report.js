@@ -1,6 +1,5 @@
 const { OFFSET_MS } = require('./cst-time');
 const { getFilmDisplayState } = require('./film-quantity');
-const { resolveInventoryLocationText } = require('./warehouse-zones');
 const { resolveSubcategoryDisplay } = require('./material-subcategories');
 
 let ExcelJS;
@@ -13,19 +12,22 @@ try {
 const EXPORT_TITLE = '库存明细报表';
 const EXPORT_SHEET_NAME = '库存明细';
 const EXPORT_HEADERS = [
-  '物料名称',
   '产品代码',
+  '物料名称',
   '标签编号',
   '类别',
   '子类别',
-  '供应商',
-  '原厂型号',
   '生产批号',
-  '过期日期',
-  '规格信息',
   '当前库存',
   '单位',
-  '库位',
+  '库区',
+  '详细坐标',
+  '化材包装形式',
+  '膜材幅宽(mm)',
+  '膜材厚度(μm)',
+  '供应商',
+  '原厂型号',
+  '过期日期',
   '状态',
   '入库时间'
 ];
@@ -118,37 +120,22 @@ function resolveStatusLabel(item, quantityValue) {
   return Number(quantityValue) > 0 ? '在库' : '已用完';
 }
 
-function resolveChemicalSpecInfo(item = {}, material = {}) {
-  const specs = material.specs || item.specs || {};
-  const packageType = String(material.package_type || item.package_type || '').trim();
-  const netContent = Number(
-    specs.net_content !== undefined
-      ? specs.net_content
-      : (item.net_content !== undefined ? item.net_content : '')
-  );
-  const unit = String(
-    material.default_unit ||
-    (item.quantity && item.quantity.unit) ||
-    item.quantity_unit ||
-    ''
-  ).trim();
-
-  if (Number.isFinite(netContent) && netContent > 0) {
-    return packageType ? `${netContent}${unit}/${packageType}` : `${netContent}${unit}`;
-  }
-
-  if (packageType) {
-    return packageType;
-  }
-
-  return '--';
+function normalizePositiveNumber(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : null;
 }
 
-function resolveFilmSpecInfo(item = {}, material = {}) {
+function resolveChemicalPackageType(item = {}, material = {}) {
+  const packageType = String(material.package_type || item.package_type || '').trim();
+  return packageType || '--';
+}
+
+function resolveFilmSpecParts(item = {}, material = {}) {
   const dynamicAttrs = item.dynamic_attrs || {};
   const itemSpecs = item.specs || {};
   const materialSpecs = material.specs || {};
-  const width = Number(
+
+  const width = normalizePositiveNumber(
     dynamicAttrs.width_mm !== undefined
       ? dynamicAttrs.width_mm
       : (
@@ -161,30 +148,37 @@ function resolveFilmSpecInfo(item = {}, material = {}) {
           )
       )
   );
-  const thickness = Number(
-    itemSpecs.thickness_um !== undefined
-      ? itemSpecs.thickness_um
+
+  const thickness = normalizePositiveNumber(
+    materialSpecs.thickness_um !== undefined
+      ? materialSpecs.thickness_um
       : (
-        materialSpecs.thickness_um !== undefined
-          ? materialSpecs.thickness_um
+        itemSpecs.thickness_um !== undefined
+          ? itemSpecs.thickness_um
           : dynamicAttrs.thickness_um
       )
   );
 
-  const hasWidth = Number.isFinite(width) && width > 0;
-  const hasThickness = Number.isFinite(thickness) && thickness > 0;
+  return {
+    widthMm: width || '--',
+    thicknessUm: thickness || '--'
+  };
+}
 
-  if (hasWidth && hasThickness) {
-    return `${width}mm × ${thickness}μm`;
-  }
-  if (hasWidth) {
-    return `${width}mm`;
-  }
-  if (hasThickness) {
-    return `${thickness}μm`;
+function resolveZoneLabel(item = {}, zoneMap) {
+  const zoneKey = String(item.zone_key || '').trim();
+  if (!zoneKey || !(zoneMap instanceof Map)) {
+    return '--';
   }
 
-  return '--';
+  const zoneRecord = zoneMap.get(zoneKey);
+  const zoneName = String((zoneRecord && zoneRecord.name) || '').trim();
+  return zoneName || '--';
+}
+
+function resolveLocationDetail(item = {}) {
+  const detail = String(item.location_detail || '').trim();
+  return detail || '--';
 }
 
 function buildInventoryExportRow(item = {}, context = {}) {
@@ -196,34 +190,41 @@ function buildInventoryExportRow(item = {}, context = {}) {
 
   let currentStock = Number(quantity.val) || 0;
   let unit = String(quantity.unit || material.default_unit || '--').trim() || '--';
-  let specInfo = '--';
+  let chemicalPackageType = '--';
+  let filmWidthMm = '--';
+  let filmThicknessUm = '--';
 
   if (category === 'film') {
     const filmState = getFilmDisplayState(item, material.default_unit || quantity.unit);
+    const filmSpecParts = resolveFilmSpecParts(item, material);
     currentStock = filmState.displayQuantity;
     unit = filmState.displayUnit || unit;
-    specInfo = resolveFilmSpecInfo(item, material);
+    filmWidthMm = filmSpecParts.widthMm;
+    filmThicknessUm = filmSpecParts.thicknessUm;
   } else {
-    specInfo = resolveChemicalSpecInfo(item, material);
+    chemicalPackageType = resolveChemicalPackageType(item, material);
   }
 
   return {
-    materialName: item.material_name || material.material_name || material.name || '--',
     productCode: item.product_code || material.product_code || '--',
+    materialName: item.material_name || material.material_name || material.name || '--',
     uniqueCode: item.unique_code || '--',
     categoryLabel: resolveCategoryLabel(category),
     subcategoryLabel: resolveSubcategoryDisplay({
       subcategory_key: item.subcategory_key || material.subcategory_key,
       sub_category: item.sub_category || material.sub_category
     }, subcategoryMap) || '--',
-    supplier: item.supplier || material.supplier || '--',
-    supplierModel: item.supplier_model || material.supplier_model || '--',
     batchNumber: item.batch_number || '--',
-    expiryDate: resolveExportExpiryLabel(item),
-    specInfo,
     currentStock,
     unit,
-    locationLabel: resolveInventoryLocationText(item, zoneMap) || '--',
+    zoneLabel: resolveZoneLabel(item, zoneMap),
+    locationDetail: resolveLocationDetail(item),
+    chemicalPackageType,
+    filmWidthMm,
+    filmThicknessUm,
+    supplier: item.supplier || material.supplier || '--',
+    supplierModel: item.supplier_model || material.supplier_model || '--',
+    expiryDate: resolveExportExpiryLabel(item),
     statusLabel: resolveStatusLabel(item, currentStock),
     inboundTime: formatExportDateTime(item.create_time)
   };
@@ -280,21 +281,24 @@ async function buildInventoryExportWorkbook(options = {}) {
   const filterSummary = buildFilterSummary(filters);
 
   sheet.columns = [
-    { header: EXPORT_HEADERS[0], key: 'materialName', width: 24 },
-    { header: EXPORT_HEADERS[1], key: 'productCode', width: 14 },
+    { header: EXPORT_HEADERS[0], key: 'productCode', width: 14 },
+    { header: EXPORT_HEADERS[1], key: 'materialName', width: 24 },
     { header: EXPORT_HEADERS[2], key: 'uniqueCode', width: 18 },
     { header: EXPORT_HEADERS[3], key: 'categoryLabel', width: 10 },
     { header: EXPORT_HEADERS[4], key: 'subcategoryLabel', width: 16 },
-    { header: EXPORT_HEADERS[5], key: 'supplier', width: 18 },
-    { header: EXPORT_HEADERS[6], key: 'supplierModel', width: 20 },
-    { header: EXPORT_HEADERS[7], key: 'batchNumber', width: 16 },
-    { header: EXPORT_HEADERS[8], key: 'expiryDate', width: 14 },
-    { header: EXPORT_HEADERS[9], key: 'specInfo', width: 20 },
-    { header: EXPORT_HEADERS[10], key: 'currentStock', width: 12 },
-    { header: EXPORT_HEADERS[11], key: 'unit', width: 10 },
-    { header: EXPORT_HEADERS[12], key: 'locationLabel', width: 24 },
-    { header: EXPORT_HEADERS[13], key: 'statusLabel', width: 10 },
-    { header: EXPORT_HEADERS[14], key: 'inboundTime', width: 20 }
+    { header: EXPORT_HEADERS[5], key: 'batchNumber', width: 16 },
+    { header: EXPORT_HEADERS[6], key: 'currentStock', width: 12 },
+    { header: EXPORT_HEADERS[7], key: 'unit', width: 10 },
+    { header: EXPORT_HEADERS[8], key: 'zoneLabel', width: 14 },
+    { header: EXPORT_HEADERS[9], key: 'locationDetail', width: 18 },
+    { header: EXPORT_HEADERS[10], key: 'chemicalPackageType', width: 16 },
+    { header: EXPORT_HEADERS[11], key: 'filmWidthMm', width: 16 },
+    { header: EXPORT_HEADERS[12], key: 'filmThicknessUm', width: 16 },
+    { header: EXPORT_HEADERS[13], key: 'supplier', width: 18 },
+    { header: EXPORT_HEADERS[14], key: 'supplierModel', width: 20 },
+    { header: EXPORT_HEADERS[15], key: 'expiryDate', width: 14 },
+    { header: EXPORT_HEADERS[16], key: 'statusLabel', width: 10 },
+    { header: EXPORT_HEADERS[17], key: 'inboundTime', width: 20 }
   ];
 
   sheet.mergeCells(1, 1, 1, EXPORT_HEADERS.length);
@@ -303,7 +307,7 @@ async function buildInventoryExportWorkbook(options = {}) {
   sheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
   sheet.getRow(1).height = 24;
 
-  ['A2', 'A3'].forEach((address) => {
+  ['A2'].forEach((address) => {
     const cell = sheet.getCell(address);
     cell.fill = buildInfoFill();
     cell.border = buildThinBorder();
@@ -311,15 +315,23 @@ async function buildInventoryExportWorkbook(options = {}) {
     cell.font = { size: 10, color: { argb: '334155' } };
   });
   sheet.mergeCells(2, 1, 2, EXPORT_HEADERS.length);
-  sheet.mergeCells(3, 1, 3, EXPORT_HEADERS.length);
   sheet.getCell('A2').value = `导出时间：${formatExportDateTime(exportedAt)}`;
+
+  let headerRowNumber = 4;
+  let firstDataRowNumber = 5;
   if (filterSummary) {
+    const filterCell = sheet.getCell('A3');
+    filterCell.fill = buildInfoFill();
+    filterCell.border = buildThinBorder();
+    filterCell.alignment = { vertical: 'middle', wrapText: true };
+    filterCell.font = { size: 10, color: { argb: '334155' } };
+    sheet.mergeCells(3, 1, 3, EXPORT_HEADERS.length);
     sheet.getCell('A3').value = filterSummary;
-  } else {
-    sheet.getRow(3).hidden = true;
+    headerRowNumber = 5;
+    firstDataRowNumber = 6;
   }
 
-  const headerRow = sheet.getRow(5);
+  const headerRow = sheet.getRow(headerRowNumber);
   EXPORT_HEADERS.forEach((header, index) => {
     const cell = headerRow.getCell(index + 1);
     cell.value = header;
@@ -331,21 +343,24 @@ async function buildInventoryExportWorkbook(options = {}) {
   headerRow.height = 22;
 
   rows.forEach((rowData, index) => {
-    const row = sheet.getRow(index + 6);
+    const row = sheet.getRow(index + firstDataRowNumber);
     row.values = [
-      rowData.materialName,
       rowData.productCode,
+      rowData.materialName,
       rowData.uniqueCode,
       rowData.categoryLabel,
       rowData.subcategoryLabel,
-      rowData.supplier,
-      rowData.supplierModel,
       rowData.batchNumber,
-      rowData.expiryDate,
-      rowData.specInfo,
       rowData.currentStock,
       rowData.unit,
-      rowData.locationLabel,
+      rowData.zoneLabel,
+      rowData.locationDetail,
+      rowData.chemicalPackageType,
+      rowData.filmWidthMm,
+      rowData.filmThicknessUm,
+      rowData.supplier,
+      rowData.supplierModel,
+      rowData.expiryDate,
       rowData.statusLabel,
       rowData.inboundTime
     ];
@@ -356,10 +371,10 @@ async function buildInventoryExportWorkbook(options = {}) {
   });
 
   sheet.autoFilter = {
-    from: { row: 5, column: 1 },
-    to: { row: 5, column: EXPORT_HEADERS.length }
+    from: { row: headerRowNumber, column: 1 },
+    to: { row: headerRowNumber, column: EXPORT_HEADERS.length }
   };
-  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: 5 }];
+  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowNumber }];
 
   return workbook;
 }
