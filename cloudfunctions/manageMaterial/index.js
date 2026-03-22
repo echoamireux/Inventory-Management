@@ -134,6 +134,20 @@ function buildGovernedMaterialMasterFields(source = {}, category, options = {}) 
   return fields;
 }
 
+function validateBatchCreateMasterFields(item = {}, category = '') {
+  if (category === 'film') {
+    const thicknessUm = normalizeOptionalNumber(item.thickness_um);
+    if (thicknessUm === null) {
+      return {
+        ok: false,
+        msg: '膜材厚度必填'
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 /**
  * 物料主数据管理云函数
  *
@@ -606,6 +620,11 @@ async function batchCreateMaterials(data, openid) {
       }, context.records, context.map);
       if (!resolvedSubcategory.subcategory_key) {
         tracker.recordError(item.rowIndex, normalizedCode.product_code, '子类别无效');
+        continue;
+      }
+      const governedValidation = validateBatchCreateMasterFields(item, category);
+      if (!governedValidation.ok) {
+        tracker.recordError(item.rowIndex, normalizedCode.product_code, governedValidation.msg);
         continue;
       }
 
