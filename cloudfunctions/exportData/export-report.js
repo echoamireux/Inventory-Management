@@ -272,6 +272,42 @@ function buildThinBorder() {
   };
 }
 
+function applyGroupHeaderCell(sheet, rowNumber, fromColumn, toColumn, label) {
+  if (toColumn > fromColumn) {
+    sheet.mergeCells(rowNumber, fromColumn, rowNumber, toColumn);
+  }
+
+  const cell = sheet.getRow(rowNumber).getCell(fromColumn);
+  cell.value = label;
+  cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+  cell.fill = buildHeaderFill();
+  cell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  for (let column = fromColumn; column <= toColumn; column += 1) {
+    const currentCell = sheet.getRow(rowNumber).getCell(column);
+    currentCell.border = buildThinBorder();
+    currentCell.fill = buildHeaderFill();
+  }
+}
+
+function applyMergedHeaderCell(sheet, startRow, endRow, column, label) {
+  if (endRow > startRow) {
+    sheet.mergeCells(startRow, column, endRow, column);
+  }
+
+  const cell = sheet.getRow(startRow).getCell(column);
+  cell.value = label;
+  cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+  cell.fill = buildHeaderFill();
+  cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+  for (let rowNumber = startRow; rowNumber <= endRow; rowNumber += 1) {
+    const currentCell = sheet.getRow(rowNumber).getCell(column);
+    currentCell.border = buildThinBorder();
+    currentCell.fill = buildHeaderFill();
+  }
+}
+
 async function buildInventoryExportWorkbook(options = {}) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(EXPORT_SHEET_NAME);
@@ -319,6 +355,7 @@ async function buildInventoryExportWorkbook(options = {}) {
 
   let headerRowNumber = 4;
   let firstDataRowNumber = 5;
+  let groupRowNumber = 3;
   if (filterSummary) {
     const filterCell = sheet.getCell('A3');
     filterCell.fill = buildInfoFill();
@@ -327,12 +364,32 @@ async function buildInventoryExportWorkbook(options = {}) {
     filterCell.font = { size: 10, color: { argb: '334155' } };
     sheet.mergeCells(3, 1, 3, EXPORT_HEADERS.length);
     sheet.getCell('A3').value = filterSummary;
+    groupRowNumber = 4;
     headerRowNumber = 5;
     firstDataRowNumber = 6;
   }
 
+  applyGroupHeaderCell(sheet, groupRowNumber, 9, 10, '库位信息');
+  applyGroupHeaderCell(sheet, groupRowNumber, 12, 13, '膜材规格');
+  applyGroupHeaderCell(sheet, groupRowNumber, 14, 15, '供应商信息');
+
+  [1, 2, 3, 4, 5, 6, 7, 8, 11, 16, 17, 18].forEach((columnIndex) => {
+    applyMergedHeaderCell(
+      sheet,
+      groupRowNumber,
+      headerRowNumber,
+      columnIndex,
+      EXPORT_HEADERS[columnIndex - 1]
+    );
+  });
+  sheet.getRow(groupRowNumber).height = 20;
+
   const headerRow = sheet.getRow(headerRowNumber);
   EXPORT_HEADERS.forEach((header, index) => {
+    const columnIndex = index + 1;
+    if ([1, 2, 3, 4, 5, 6, 7, 8, 11, 16, 17, 18].includes(columnIndex)) {
+      return;
+    }
     const cell = headerRow.getCell(index + 1);
     cell.value = header;
     cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
@@ -374,7 +431,7 @@ async function buildInventoryExportWorkbook(options = {}) {
     from: { row: headerRowNumber, column: 1 },
     to: { row: headerRowNumber, column: EXPORT_HEADERS.length }
   };
-  sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowNumber }];
+  sheet.views = [{ state: 'frozen', xSplit: 2, ySplit: headerRowNumber }];
 
   return workbook;
 }

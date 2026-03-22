@@ -176,11 +176,18 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
   assert.equal(sheet.getCell('A1').value, '库存明细报表');
   assert.match(sheet.getCell('A2').value, /导出时间：2026-03-21 15:22:52/);
   assert.match(sheet.getCell('A3').value, /筛选条件：类别=化材；搜索词=J-001/);
+  assert.equal(sheet.getCell('A4').value, '产品代码');
+  assert.equal(sheet.getCell('I4').value, '库位信息');
+  assert.equal(sheet.getCell('L4').value, '膜材规格');
+  assert.equal(sheet.getCell('N4').value, '供应商信息');
   assert.deepEqual(sheet.getRow(5).values.slice(1), EXPORT_HEADERS);
+  assert.equal(sheet.getCell('A5').master.address, 'A4');
+  assert.equal(sheet.getCell('K5').master.address, 'K4');
+  assert.equal(sheet.getCell('P5').master.address, 'P4');
   assert.equal(sheet.autoFilter.from.row, 5);
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 5);
-  assert.equal(sheet.views[0].xSplit, 1);
+  assert.equal(sheet.views[0].xSplit, 2);
   assert.equal(sheet.getCell('A6').value, 'J-001');
   assert.equal(sheet.getCell('B6').value, '化材-1');
   assert.equal(sheet.getCell('I6').value, '实验室2');
@@ -217,8 +224,14 @@ test('export workbook hides redundant filter summary when exporting the unfilter
     '状态',
     '入库时间'
   ]);
-  assert.equal(sheet.getCell('A3').value, null);
-  assert.equal(sheet.getCell('A4').value, '产品代码');
+  assert.equal(sheet.getCell('A3').value, '产品代码');
+  assert.equal(sheet.getCell('I3').value, '库位信息');
+  assert.equal(sheet.getCell('L3').value, '膜材规格');
+  assert.equal(sheet.getCell('N3').value, '供应商信息');
+  assert.equal(sheet.getCell('A4').master.address, 'A3');
+  assert.equal(sheet.getCell('K4').master.address, 'K3');
+  assert.equal(sheet.getCell('P4').master.address, 'P3');
   assert.equal(sheet.autoFilter.from.row, 4);
+  assert.equal(sheet.views[0].xSplit, 2);
   assert.equal(sheet.views[0].ySplit, 4);
 });
