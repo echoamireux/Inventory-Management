@@ -1,13 +1,143 @@
 <!--pages/material-add/batch-entry.wxml-->
 <view class="container pb-100">
 
-  <!-- 1. Top Action: Scan -->
-  <view class="scan-section bg-white p-4 mb-3 text-center">
-    <van-button icon="scan" type="primary" round block bind:click="onScan">继续扫码添加</van-button>
-    <view class="text-xs text-secondary mt-2">支持连续扫码，扫码后自动加入列表</view>
+  <!-- 1. Current Material Template -->
+  <view class="bg-white p-4 mb-3 material-template-card">
+    <view class="section-title">当前物料</view>
+
+    <block wx:if="{{ selectedMaterialSummary }}">
+      <view class="template-head flex-row justify-between items-center">
+        <view class="template-code">{{ selectedMaterialSummary.productCode }}</view>
+        <view class="template-chip">{{ selectedMaterialSummary.subCategory || '未分类' }}</view>
+      </view>
+      <view class="template-name mt-2">{{ selectedMaterialSummary.materialName }}</view>
+      <view class="template-meta mt-2">默认单位：{{ selectedMaterialSummary.unit || '--' }}</view>
+      <view wx:if="{{ activeTab === 'film' }}" class="template-meta mt-1">
+        厚度：{{ selectedMaterialSummary.thicknessUm || '--' }} μm
+        <text class="ml-3">默认幅宽：{{ selectedMaterialSummary.standardWidthMm || '--' }} mm</text>
+      </view>
+      <view wx:if="{{ activeTab === 'film' }}" class="template-meta mt-1">
+        本批次实际幅宽：{{ currentBatchWidthMm || '待确认' }}<text wx:if="{{ currentBatchWidthMm }}"> mm</text>
+      </view>
+      <view wx:if="{{ activeTab === 'film' && selectedMaterialSummary.specStatusText }}" class="template-meta mt-1">
+        规格状态：{{ selectedMaterialSummary.specStatusText }}
+      </view>
+      <view wx:if="{{ activeTab === 'film' && usesCustomBatchWidth }}" class="template-meta mt-1 spec-hint-text">
+        本次按批次幅宽入库，不会修改物料主数据默认幅宽
+      </view>
+      <view wx:if="{{ activeTab !== 'film' }}" class="template-meta mt-1">
+        包装形式：{{ selectedMaterialSummary.packageType || '--' }}
+      </view>
+      <van-button plain type="primary" size="small" round bind:click="onChangeSelectedMaterial" custom-class="template-change-btn">
+        更换物料
+      </van-button>
+    </block>
+
+    <block wx:else>
+      <view class="code-picker-block">
+        <view class="code-picker-label">产品代码</view>
+        <view class="code-picker-row">
+          <view class="code-prefix-chip">{{ activeTab === 'film' ? 'M-' : 'J-' }}</view>
+          <input
+            class="code-number-input"
+            type="number"
+            maxlength="3"
+            placeholder="输入3位编号"
+            value="{{ materialCodeInput }}"
+            bindinput="onMaterialCodeInput"
+          />
+          <van-button size="small" plain type="primary" custom-class="code-query-btn" bind:click="onSearchMaterial">
+            查询
+          </van-button>
+        </view>
+        <view class="code-picker-hint">请先选择产品代码，再连续扫描真实标签</view>
+      </view>
+
+      <view class="suggestion-box" wx:if="{{ materialSuggestions.length > 0 }}">
+        <view
+          class="suggestion-item"
+          wx:for="{{ materialSuggestions }}"
+          wx:key="product_code"
+          bindtap="onSelectMaterialSuggestion"
+          data-item="{{ item }}"
+        >
+          <view class="flex-1">
+            <view class="flex-row items-center">
+              <text class="suggestion-code">{{ item.product_code }}</text>
+              <view class="template-chip">{{ item.sub_category || '未分类' }}</view>
+            </view>
+            <view class="suggestion-name mt-1">{{ item.material_name }}</view>
+            <view wx:if="{{ item._specStatusText }}" class="suggestion-meta mt-1">
+              {{ item._specStatusText }}
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
   </view>
 
-  <!-- 2. Bulk Settings (Optional) -->
+  <view wx:if="{{ showInitialFilmSpecForm }}" class="bg-white p-4 mb-3 material-template-card">
+    <view class="section-title">规格确认</view>
+    <view class="template-meta" wx:if="{{ selectedMaterialSummary && selectedMaterialSummary.requiresFilmSpecCompletion }}">
+      当前膜材主数据仍有缺项，先确认本批次规格并补齐必要主数据后，再开始连续扫码。
+    </view>
+    <view class="template-meta" wx:else>
+      请先确认本批次实际幅宽；若与主数据默认幅宽不同，仅影响本批次，不会覆盖物料主数据。
+    </view>
+    <van-cell
+      wx:if="{{ selectedMaterialSummary && selectedMaterialSummary.thicknessLocked }}"
+      title="主数据厚度(μm)"
+      value="{{ selectedMaterialSummary.thicknessUm || '--' }}"
+    />
+    <van-field
+      wx:if="{{ !(selectedMaterialSummary && selectedMaterialSummary.thicknessLocked) }}"
+      label="补录厚度(μm)"
+      type="digit"
+      placeholder="请输入厚度"
+      value="{{ initialFilmSpecForm.thickness_um }}"
+      data-field="thickness_um"
+      bind:change="onInitialFilmSpecInput"
+      required
+    />
+    <van-cell
+      title="主数据默认幅宽"
+      value="{{ selectedMaterialSummary && selectedMaterialSummary.standardWidthMm ? selectedMaterialSummary.standardWidthMm + ' mm' : '--' }}"
+    />
+    <van-field
+      label="本批次实际幅宽(mm)"
+      type="digit"
+      placeholder="请输入本批次实际幅宽"
+      value="{{ initialFilmSpecForm.batch_width_mm }}"
+      data-field="batch_width_mm"
+      bind:change="onInitialFilmSpecInput"
+      disabled="{{ list.length > 0 }}"
+      required
+    />
+    <view wx:if="{{ list.length > 0 }}" class="template-meta mt-1">
+      当前批次已开始扫码，如需修改实际幅宽，请先清空待入库列表。
+    </view>
+    <view
+      wx:if="{{ selectedMaterialSummary && selectedMaterialSummary.standardWidthMm && initialFilmSpecForm.batch_width_mm && selectedMaterialSummary.standardWidthMm !== initialFilmSpecForm.batch_width_mm }}"
+      class="template-meta mt-1 spec-hint-text"
+    >
+      本次按批次幅宽入库，不会修改物料主数据默认幅宽
+    </view>
+    <van-button type="primary" round block custom-class="spec-submit-btn" bind:click="onSaveInitialFilmSpecs">
+      {{ selectedMaterialSummary && selectedMaterialSummary.requiresFilmSpecCompletion ? '保存并开始本批次' : '确认本批次幅宽' }}
+    </van-button>
+  </view>
+
+  <!-- 2. Top Action: Scan -->
+  <view class="scan-section bg-white p-4 mb-3 text-center">
+    <van-button icon="scan" type="primary" round block bind:click="onScan" disabled="{{ !selectedMaterial || (activeTab === 'film' && !filmBatchSpecsConfirmed) }}">
+      {{ !selectedMaterial ? '请先选择产品代码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '请先确认本批次规格' : '继续扫码添加标签') }}
+    </van-button>
+    <view class="text-xs text-secondary mt-2">
+      {{ !selectedMaterial ? '选定当前物料后，再连续扫描每个实物的标签二维码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '先确认本批次实际幅宽，再连续扫描真实标签' : '支持连续扫描真实标签，扫码后自动加入列表') }}
+    </view>
+  </view>
+
+  <!-- 3. Bulk Settings (Optional) -->
   <van-cell-group title="批量设置 (应用于所有新扫码项)" inset>
      <van-field
         label="默认生产批号"
@@ -16,10 +146,30 @@
         bind:change="onDefaultBatchChange"
         right-icon="edit"
      />
-     <van-cell title="默认过期时间" value="{{ defaultExpiry || '未设置' }}" is-link bind:click="showDatePicker" />
+     <van-cell
+        title="默认存储区域"
+        value="{{ defaultLocationDisplay || '请选择' }}"
+        is-link
+        bind:click="showLocationSheet"
+        required
+     />
+     <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
+       <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
+     </view>
+     <van-field
+        label="详细坐标"
+        placeholder="层-列 (如: A-01)"
+        value="{{ defaultLocationDetail }}"
+        bind:change="onDefaultLocationDetailChange"
+     />
+     <van-cell title="默认过期时间" value="{{ defaultIsLongTermValid ? '长期有效' : (defaultExpiry || '未设置') }}" is-link="{{ !defaultIsLongTermValid }}" bind:click="showDatePicker" />
+     <view class="validity-switch-row">
+       <text class="validity-switch-label">设为长期有效</text>
+       <van-switch checked="{{ defaultIsLongTermValid }}" bind:change="onDefaultLongTermChange" size="24" />
+     </view>
   </van-cell-group>
 
-  <!-- 3. List of Items -->
+  <!-- 4. List of Items -->
   <view class="list-section mt-3">
     <view class="px-3 mb-2 text-sm text-secondary flex-row justify-between">
        <text>待入库列表 ({{ list.length }})</text>
@@ -29,12 +179,21 @@
     <block wx:if="{{ list.length > 0 }}">
       <van-swipe-cell right-width="{{ 65 }}" wx:for="{{ list }}" wx:key="unique" class="mb-2 block">
           <view class="bg-white p-3 rounded-md flex-row items-center border-b">
-             <!-- Icon/Image? -->
              <view class="flex-1">
-                <view class="text-base font-bold">{{ item.material_name }} <text class="text-xs text-secondary ml-2">{{ item.product_code }}</text></view>
+                <view class="flex-row items-center justify-between">
+                  <view class="text-base font-bold">标签编号: {{ item.unique_code }}</view>
+                  <text class="text-xs text-secondary ml-2">{{ item.product_code }}</text>
+                </view>
+                <view class="text-sm mt-1">
+                  <text>{{ item.material_name }}</text>
+                  <text class="ml-3 text-secondary">{{ item.sub_category || '未分类' }}</text>
+                </view>
                 <view class="text-sm mt-1">
                     <text>批号: {{ item.batch_number || '--' }}</text>
-                    <text class="ml-3">过期: {{ item.expiry_date_str || '--' }}</text>
+                    <text class="ml-3">过期: {{ item.expiry_date_str || '未设置过期日' }}</text>
+                </view>
+                <view class="text-sm mt-1">
+                    <text>库位: {{ item.location || defaultLocationDisplay || '--' }}</text>
                 </view>
                 <view class="mt-2 flex-row items-center">
                     <text class="text-sm mr-2">数量:</text>
@@ -48,10 +207,10 @@
           </view>
       </van-swipe-cell>
     </block>
-    <van-empty wx:else description="暂无条目，请点击上方扫码" />
+    <van-empty wx:else description="{{ emptyStateDescription }}" />
   </view>
 
-  <!-- 4. Footer Submit -->
+  <!-- 5. Footer Submit -->
   <view class="fixed-bottom p-3 bg-white shadow-top safe-area-bottom">
       <van-button type="info" block round bind:click="onSubmit" disabled="{{ list.length === 0 }}">
           确认入库 ({{ list.length }})
@@ -68,6 +227,13 @@
       min-date="{{ minDate }}"
     />
   </van-popup>
+
+  <van-action-sheet
+    show="{{ showLocationSheet }}"
+    actions="{{ locationZoneActions }}"
+    bind:close="onLocationClose"
+    bind:select="onLocationSelect"
+  />
 
   <van-toast id="van-toast" />
 </view>

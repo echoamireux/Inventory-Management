@@ -1,0 +1,41 @@
+<view class="zone-page">
+  <view class="zone-header">
+    <view class="zone-toolbar__title">{{ title }}</view>
+    <view class="zone-toolbar__hint">
+      默认库区和共享库区都在这里维护。表单页现在只负责选择，管理员如需新建、改名、停用或排序，请统一在这里处理。
+    </view>
+    <van-button type="primary" round block bind:click="onCreateZone">新建库区</van-button>
+  </view>
+
+  <view class="zone-hint">
+    改名会同步更新当前库存展示；停用后，该库区将不再出现在新表单中，历史库存记录仍保留原库区信息。
+  </view>
+
+  <view wx:if="{{ loading }}" class="zone-loading">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <view wx:else class="zone-list">
+    <block wx:for="{{ zones }}" wx:key="zone_key">
+      <view class="zone-card {{ item.status === 'disabled' ? 'zone-card--disabled' : '' }}">
+        <view class="zone-card__main">
+          <view class="zone-card__name">{{ item.name }}</view>
+          <view class="zone-card__meta">
+            <van-tag plain type="primary" wx:if="{{ item.is_builtin }}">默认</van-tag>
+            <van-tag plain type="success" wx:else>共享</van-tag>
+            <van-tag plain color="#6b7280" wx:if="{{ item.status === 'disabled' }}">已停用</van-tag>
+            <text class="zone-card__scope">{{ item.scope === 'film' ? '膜材' : (item.scope === 'chemical' ? '化材' : '共享') }}</text>
+          </view>
+        </view>
+        <view class="zone-card__actions">
+          <van-button size="mini" plain type="primary" bind:click="onRenameZone" data-index="{{ index }}">改名</van-button>
+          <van-button size="mini" plain bind:click="onToggleZone" data-index="{{ index }}">
+            {{ item.status === 'disabled' ? '启用' : '停用' }}
+          </van-button>
+          <van-button size="mini" plain bind:click="onMoveUp" data-index="{{ index }}" disabled="{{ index === 0 }}">上移</van-button>
+          <van-button size="mini" plain bind:click="onMoveDown" data-index="{{ index }}" disabled="{{ index === zones.length - 1 }}">下移</van-button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

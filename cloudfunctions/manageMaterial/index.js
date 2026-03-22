@@ -1,5 +1,16 @@
 // cloudfunctions/manageMaterial/index.js
 const cloud = require('wx-server-sdk');
+const { normalizeUnitInput } = require('./material-units');
+const { validateStandardProductCode } = require('./product-code');
+const { createImportResultTracker } = require('./import-batch-results');
+const {
+  ensureBuiltinSubcategories,
+  sortSubcategoryRecords,
+  filterSubcategoryRecordsByCategory,
+  buildSubcategoryMap,
+  resolveSubcategoryDisplay,
+  resolveSubcategorySelection
+} = require('./material-subcategories');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -7,6 +18,121 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+
+async function loadSubcategoryContext(category = '') {
+  const allRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
+  const records = category
+    ? filterSubcategoryRecordsByCategory(allRecords, category, { includeDisabled: true })
+    : allRecords;
+
+  return {
+    records,
+    map: buildSubcategoryMap(records)
+  };
+}
+
+async function resolveMaterialSubcategory(data, category) {
+  const context = await loadSubcategoryContext(category);
+  const resolved = resolveSubcategorySelection({
+    category,
+    subcategory_key: data && data.subcategory_key,
+    sub_category: data && data.sub_category
+  }, context.records, context.map);
+
+  if (!resolved.subcategory_key) {
+    return {
+      ok: false,
+      msg: '请选择有效子类别'
+    };
+  }
+
+  return {
+    ok: true,
+    ...resolved
+  };
+}
+
+function sanitizeText(value) {
+  return String(value || '').trim();
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return null;
+  }
+
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized < 0) {
+    return null;
+  }
+
+  return normalized;
+}
+
+async function getOperator(openid) {
+  const operatorRes = await db.collection('users').where({
+    _openid: openid
+  }).limit(1).get();
+
+  return operatorRes.data && operatorRes.data.length > 0
+    ? operatorRes.data[0]
+    : null;
+}
+
+function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
+  const removeIrrelevant = !!options.removeIrrelevant;
+  const fields = {
+    material_name: sanitizeText(source.material_name),
+    category,
+    supplier: sanitizeText(source.supplier),
+    supplier_model: sanitizeText(source.supplier_model),
+    default_unit: sanitizeText(source.default_unit)
+  };
+
+  if (category === 'chemical') {
+    fields.package_type = sanitizeText(source.package_type);
+    if (removeIrrelevant) {
+      fields.specs = _.remove();
+    }
+    return fields;
+  }
+
+  if (category === 'film') {
+    const thicknessUm = normalizeOptionalNumber(
+      source.thickness_um !== undefined
+        ? source.thickness_um
+        : source.specs && source.specs.thickness_um
+    );
+    const standardWidthMm = normalizeOptionalNumber(
+      source.width_mm !== undefined
+        ? source.width_mm
+        : (
+          source.standard_width_mm !== undefined
+            ? source.standard_width_mm
+            : (source.specs && (
+              source.specs.standard_width_mm !== undefined
+                ? source.specs.standard_width_mm
+                : source.specs.width_mm
+            ))
+        )
+    );
+    const specs = {};
+
+    if (thicknessUm !== null) {
+      specs.thickness_um = thicknessUm;
+    }
+    if (standardWidthMm !== null) {
+      specs.standard_width_mm = standardWidthMm;
+    }
+
+    fields.specs = specs;
+    if (removeIrrelevant) {
+      fields.package_type = _.remove();
+    }
+  }
+
+  return fields;
+}
 
 /**
  * 物料主数据管理云函数
@@ -28,6 +154,8 @@ exports.main = async (event, context) => {
         return await createMaterial(data, OPENID);
       case 'update':
         return await updateMaterial(data, OPENID);
+      case 'completeFilmSpecsFromInbound':
+        return await completeFilmSpecsFromInbound(data, OPENID);
       case 'archive':
         return await archiveMaterial(data, OPENID);
       case 'batchCreate':
@@ -92,9 +220,15 @@ async function listMaterials(params = {}) {
     .limit(pageSize)
     .get();
 
+  const context = await loadSubcategoryContext();
+  const list = (res.data || []).map(item => ({
+    ...item,
+    sub_category: resolveSubcategoryDisplay(item, context.map)
+  }));
+
   return {
     success: true,
-    list: res.data,
+    list,
     total,
     page,
     pageSize
@@ -110,17 +244,30 @@ async function getMaterial(params) {
   let res;
   if (id) {
     res = await db.collection('materials').doc(id).get();
+    const context = await loadSubcategoryContext(res.data && res.data.category);
+    return {
+      success: true,
+      data: {
+        ...res.data,
+        sub_category: resolveSubcategoryDisplay(res.data, context.map)
+      }
+    };
   } else if (product_code) {
     res = await db.collection('materials').where({ product_code }).get();
     if (res.data.length === 0) {
       return { success: false, msg: '物料不存在' };
     }
-    return { success: true, data: res.data[0] };
+    const context = await loadSubcategoryContext(res.data[0] && res.data[0].category);
+    return {
+      success: true,
+      data: {
+        ...res.data[0],
+        sub_category: resolveSubcategoryDisplay(res.data[0], context.map)
+      }
+    };
   } else {
     return { success: false, msg: '缺少查询参数' };
   }
-
-  return { success: true, data: res.data };
 }
 
 /**
@@ -134,9 +281,23 @@ async function createMaterial(data, openid) {
     return { success: false, msg: '缺少必填字段' };
   }
 
+  const normalizedCode = validateStandardProductCode(category, product_code);
+  if (!normalizedCode.ok) {
+    return { success: false, msg: normalizedCode.msg };
+  }
+
+  const normalizedUnit = normalizeUnitInput(category, data.default_unit);
+  if (!normalizedUnit.ok) {
+    return { success: false, msg: normalizedUnit.msg };
+  }
+  const resolvedSubcategory = await resolveMaterialSubcategory(data, category);
+  if (!resolvedSubcategory.ok) {
+    return { success: false, msg: resolvedSubcategory.msg };
+  }
+
   // 检查 product_code 是否已存在
   const existing = await db.collection('materials')
-    .where({ product_code })
+    .where({ product_code: normalizedCode.product_code })
     .count();
 
   if (existing.total > 0) {
@@ -144,8 +305,17 @@ async function createMaterial(data, openid) {
   }
 
   const now = db.serverDate();
-  const newMaterial = {
+  const masterFields = buildGovernedMaterialMasterFields({
     ...data,
+    default_unit: normalizedUnit.unit,
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category
+  }, category);
+  const newMaterial = {
+    product_code: normalizedCode.product_code,
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category,
+    ...masterFields,
     status: 'active',
     created_by: openid,
     created_at: now,
@@ -158,7 +328,7 @@ async function createMaterial(data, openid) {
   // 记录日志
   await logMaterialChange({
     material_id: res._id,
-    product_code,
+    product_code: normalizedCode.product_code,
     action: 'create',
     operator: openid,
     changes: newMaterial
@@ -180,6 +350,15 @@ async function updateMaterial(data, openid) {
   // 获取原数据用于日志
   const oldRes = await db.collection('materials').doc(id).get();
   const oldData = oldRes.data;
+  const nextCategory = updateData.category || oldData.category;
+
+  if (updateData.product_code) {
+    const normalizedCode = validateStandardProductCode(nextCategory, updateData.product_code);
+    if (!normalizedCode.ok) {
+      return { success: false, msg: normalizedCode.msg };
+    }
+    updateData.product_code = normalizedCode.product_code;
+  }
 
   // 如果修改了 product_code，检查是否冲突
   if (updateData.product_code && updateData.product_code !== oldData.product_code) {
@@ -191,6 +370,36 @@ async function updateMaterial(data, openid) {
     }
   }
 
+  const nextUnit = Object.prototype.hasOwnProperty.call(updateData, 'default_unit')
+    ? updateData.default_unit
+    : oldData.default_unit;
+  const normalizedUnit = normalizeUnitInput(nextCategory, nextUnit);
+  if (!normalizedUnit.ok) {
+    return { success: false, msg: normalizedUnit.msg };
+  }
+  const resolvedSubcategory = await resolveMaterialSubcategory({
+    subcategory_key: updateData.subcategory_key || oldData.subcategory_key,
+    sub_category: Object.prototype.hasOwnProperty.call(updateData, 'sub_category')
+      ? updateData.sub_category
+      : oldData.sub_category
+  }, nextCategory);
+  if (!resolvedSubcategory.ok) {
+    return { success: false, msg: resolvedSubcategory.msg };
+  }
+
+  updateData.default_unit = normalizedUnit.unit;
+  updateData.subcategory_key = resolvedSubcategory.subcategory_key;
+  updateData.sub_category = resolvedSubcategory.sub_category;
+  Object.assign(
+    updateData,
+    buildGovernedMaterialMasterFields({
+      ...oldData,
+      ...updateData,
+      default_unit: normalizedUnit.unit,
+      subcategory_key: resolvedSubcategory.subcategory_key,
+      sub_category: resolvedSubcategory.sub_category
+    }, nextCategory, { removeIrrelevant: true })
+  );
   updateData.updated_by = openid;
   updateData.updated_at = db.serverDate();
 
@@ -207,6 +416,96 @@ async function updateMaterial(data, openid) {
   });
 
   return { success: true };
+}
+
+async function completeFilmSpecsFromInbound(data, openid) {
+  const { id, thickness_um, batch_width_mm, width_mm } = data || {};
+
+  if (!id) {
+    return { success: false, msg: '缺少物料ID' };
+  }
+
+  const operator = await getOperator(openid);
+  if (!operator || operator.status !== 'active') {
+    return { success: false, msg: '仅已激活用户可补齐首批膜材规格' };
+  }
+
+  const materialRes = await db.collection('materials').doc(id).get();
+  const material = materialRes.data;
+  if (!material) {
+    return { success: false, msg: '物料不存在' };
+  }
+  if (material.category !== 'film') {
+    return { success: false, msg: '仅膜材支持首批规格补录' };
+  }
+
+  const nextThicknessUm = normalizeOptionalNumber(thickness_um);
+  const nextBatchWidthMm = normalizeOptionalNumber(
+    batch_width_mm !== undefined ? batch_width_mm : width_mm
+  );
+
+  const currentSpecs = material.specs || {};
+  const currentThicknessUm = normalizeOptionalNumber(currentSpecs.thickness_um);
+  const currentWidthMm = normalizeOptionalNumber(
+    currentSpecs.standard_width_mm !== undefined
+      ? currentSpecs.standard_width_mm
+      : currentSpecs.width_mm
+  );
+
+  if (!currentThicknessUm && !nextThicknessUm) {
+    return { success: false, msg: '请填写有效的补录厚度' };
+  }
+  if (!nextBatchWidthMm) {
+    return { success: false, msg: '请填写有效的本批次实际幅宽' };
+  }
+
+  if (currentThicknessUm && nextThicknessUm && currentThicknessUm !== nextThicknessUm) {
+    return {
+      success: false,
+      msg: `当前物料厚度已锁定为 ${currentThicknessUm} μm，请按主数据入库；如需修改请联系管理员在物料管理中调整`
+    };
+  }
+
+  const updateData = {
+    updated_by: openid,
+    updated_at: db.serverDate()
+  };
+  const newData = {};
+
+  if (!currentThicknessUm) {
+    updateData['specs.thickness_um'] = nextThicknessUm;
+    newData['specs.thickness_um'] = nextThicknessUm;
+  }
+  if (!currentWidthMm) {
+    updateData['specs.standard_width_mm'] = nextBatchWidthMm;
+    newData['specs.standard_width_mm'] = nextBatchWidthMm;
+  }
+
+  if (Object.keys(newData).length > 0) {
+    await db.collection('materials').doc(id).update({ data: updateData });
+    await logMaterialChange({
+      material_id: id,
+      product_code: material.product_code,
+      action: 'complete_specs_from_inbound',
+      operator: openid,
+      old_data: {
+        specs: {
+          thickness_um: currentThicknessUm || null,
+          standard_width_mm: currentWidthMm || null
+        }
+      },
+      new_data: newData
+    });
+  }
+
+  return {
+    success: true,
+    data: {
+      material_thickness_um: currentThicknessUm || nextThicknessUm,
+      material_standard_width_mm: currentWidthMm || nextBatchWidthMm,
+      batch_width_mm: nextBatchWidthMm
+    }
+  };
 }
 
 /**
@@ -273,40 +572,63 @@ async function batchCreateMaterials(data, openid) {
   }
 
   let created = 0;
-  let skipped = 0;
-  let errors = 0;
   const now = db.serverDate();
+  const tracker = createImportResultTracker();
+  const subcategoryContexts = {
+    chemical: await loadSubcategoryContext('chemical'),
+    film: await loadSubcategoryContext('film')
+  };
 
   for (const item of items) {
     try {
       // 跳过有错误的数据
       if (item.error) {
-        errors++;
+        tracker.recordError(item.rowIndex, item.product_code, item.error);
         continue;
       }
 
-      const { product_code, material_name, category, sub_category, default_unit, supplier, supplier_model, shelf_life_days } = item;
+      const { product_code, material_name, category, default_unit, supplier, supplier_model } = item;
+      const normalizedCode = validateStandardProductCode(category, product_code);
+      if (!normalizedCode.ok) {
+        tracker.recordError(item.rowIndex, product_code, normalizedCode.msg);
+        continue;
+      }
+      const normalizedUnit = normalizeUnitInput(category, default_unit);
+      if (!normalizedUnit.ok) {
+        tracker.recordError(item.rowIndex, normalizedCode.product_code, normalizedUnit.msg);
+        continue;
+      }
+      const context = subcategoryContexts[category === 'film' ? 'film' : 'chemical'];
+      const resolvedSubcategory = resolveSubcategorySelection({
+        category,
+        subcategory_key: item.subcategory_key,
+        sub_category: item.sub_category
+      }, context.records, context.map);
+      if (!resolvedSubcategory.subcategory_key) {
+        tracker.recordError(item.rowIndex, normalizedCode.product_code, '子类别无效');
+        continue;
+      }
 
       // 检查是否已存在
       const existing = await db.collection('materials')
-        .where({ product_code })
+        .where({ product_code: normalizedCode.product_code })
         .count();
 
       if (existing.total > 0) {
-        skipped++;
+        tracker.recordSkipped(item.rowIndex, normalizedCode.product_code, '产品代码已存在');
         continue;
       }
 
       // 创建物料
       const newMaterial = {
-        product_code,
+        product_code: normalizedCode.product_code,
         material_name,
         category,
-        sub_category,
-        default_unit: default_unit || (category === 'film' ? 'm' : 'kg'),
+        subcategory_key: resolvedSubcategory.subcategory_key,
+        sub_category: resolvedSubcategory.sub_category,
+        default_unit: normalizedUnit.unit,
         supplier: supplier || '',
         supplier_model: supplier_model || '',
-        shelf_life_days: shelf_life_days || null,
         status: 'active',
         created_by: openid,
         created_at: now,
@@ -316,12 +638,17 @@ async function batchCreateMaterials(data, openid) {
 
       await db.collection('materials').add({ data: newMaterial });
       created++;
+      tracker.recordCreated(item.rowIndex, normalizedCode.product_code);
 
     } catch (err) {
       console.error('创建物料失败:', item.product_code, err);
-      errors++;
+      tracker.recordError(item.rowIndex, item.product_code, err.message || '创建物料失败');
     }
   }
+
+  const importResult = tracker.toResponse();
+  const skipped = importResult.skipped;
+  const errors = importResult.errors;
 
   // 记录批量导入日志
   await logMaterialChange({
@@ -335,6 +662,7 @@ async function batchCreateMaterials(data, openid) {
     created,
     skipped,
     errors,
+    results: importResult.results,
     msg: `成功导入 ${created} 条`
   };
 }
