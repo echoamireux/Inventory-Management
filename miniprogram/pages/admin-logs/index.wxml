@@ -6,7 +6,7 @@
   <view class="search-transparent">
     <van-search
         value="{{ searchVal }}"
-        placeholder="搜索操作人 / 物料名称 / 代码"
+        placeholder="产品代码/物料名称/标签编号/批号/操作/备注"
         shape="round"
         bind:search="onSearch"
         bind:change="onSearchChange"
@@ -34,8 +34,8 @@
       <van-loading size="24px">加载中...</van-loading>
     </view>
 
-    <view wx:if="{{ isEnd && list.length > 0 }}" class="end-text">
-      - 已无更多 -
+    <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
+      已无更多
     </view>
   </view>
 </view>

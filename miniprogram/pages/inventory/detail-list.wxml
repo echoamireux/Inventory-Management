@@ -4,21 +4,46 @@
     <van-loading type="spinner" vertical>加载中...</van-loading>
   </view>
   <block wx:elif="{{ list.length > 0 }}">
-    <!-- 使用统一批次卡片组件 -->
-    <batch-list-item
-      wx:for="{{ list }}"
-      wx:key="_id"
-      item="{{ item }}"
-      bind:tap="goToDetail"
-      data-id="{{ item._id }}"
-    />
+    <view wx:for="{{ list }}" wx:key="_batchKey" class="batch-stack">
+      <batch-list-item
+        item="{{ item }}"
+        bind:itemtap="onBatchTap"
+        data-item="{{ item }}"
+      />
+
+      <view wx:if="{{ expandedBatchKey === item._batchKey }}" class="inline-label-panel">
+        <view wx:if="{{ expandedBatchLoading }}" class="inline-label-loading">
+          <van-loading size="18px">加载标签...</van-loading>
+        </view>
+
+        <block wx:elif="{{ expandedBatchLabels.length > 0 }}">
+          <view
+            wx:for="{{ expandedBatchLabels }}"
+            wx:key="_id"
+            wx:for-item="label"
+            class="label-row-inline"
+            catchtap="openLabelDetail"
+            data-id="{{ label._id }}"
+          >
+            <view class="label-inline-main">
+              <text class="label-inline-code">{{ label.unique_code }}</text>
+              <view wx:if="{{ label.expiryBadgeText }}" class="label-inline-badge">{{ label.expiryBadgeText }}</view>
+            </view>
+            <text class="label-inline-qty {{ label.rowTone === 'warning' ? 'is-warning' : '' }}">{{ label._qtyStr }}</text>
+            <text class="label-inline-location">{{ label.location }}</text>
+          </view>
+        </block>
+
+        <view wx:else class="inline-label-empty">暂无在库标签</view>
+      </view>
+    </view>
   </block>
-  <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无明细数据" />
+  <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无匹配批次" />
 
   <view wx:if="{{ loading && hasLoadedOnce }}" class="inline-refresh-state">
     <van-loading size="20px">刷新中...</van-loading>
   </view>
-  <view wx:if="{{ isEnd && list.length > 0 }}" class="inline-refresh-state">
-    - 已无更多 -
+  <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
+    已无更多
   </view>
 </view>

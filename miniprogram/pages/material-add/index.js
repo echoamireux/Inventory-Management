@@ -36,7 +36,8 @@ const {
 const {
   sanitizeProductCodeNumberInput,
   normalizeProductCodeInput,
-  validateStandardProductCode
+  validateStandardProductCode,
+  findExactProductCodeMatch
 } = require('../../utils/product-code');
 const {
   getMaterialSubmitValidationMessage,
@@ -381,7 +382,11 @@ Page({
     });
 
     try {
-      await this.searchSuggestions(normalizedCode.product_code);
+      const suggestions = await this.searchSuggestions(normalizedCode.product_code);
+      const exactMatch = findExactProductCodeMatch(suggestions, normalizedCode.product_code);
+      if (exactMatch) {
+        this.applyMaterialSuggestion(exactMatch, { showToast: false });
+      }
       this._lastConfirmedProductCode = lookupCode;
     } finally {
       if (this._activeProductCodeLookupCode === lookupCode) {
@@ -495,7 +500,7 @@ Page({
 
   // 查询联想词 (从主数据表查询)
   async searchSuggestions(keyword) {
-      if (!keyword) return;
+      if (!keyword) return [];
       try {
           const res = await wx.cloud.callFunction({
               name: 'manageMaterial',
@@ -530,7 +535,7 @@ Page({
                               isArchived: true,
                               archiveReason: checkRes.result.reason
                           });
-                          return;
+                          return [];
                       }
                   } catch(e) {
                       console.error('[Debug] checkStatus failed:', e);
@@ -541,7 +546,7 @@ Page({
                      isUnknownCode: true,
                      isArchived: false
                  });
-                 return;
+                 return [];
              }
 
              // 匹配到了 -> 解除阻断
@@ -562,15 +567,20 @@ Page({
                  specs: m.specs || {}
              }));
              this.setData({ suggestions });
+             return suggestions;
           }
       } catch(err) {
           console.error('[Suggestion Error]', err);
       }
+      return [];
   },
 
-  // 选中建议 (Auto-fill) - 自动填入所有可用字段
-  onSelectSuggestion(e) {
-      const item = e.currentTarget.dataset.item;
+  applyMaterialSuggestion(item, options = {}) {
+      if (!item) {
+        return;
+      }
+
+      const { showToast = true } = options;
       const prefix = this.getPrefix(this.data.activeTab);
       const newForm = syncFormWithMaterialMaster(this.data.form, this.data.activeTab, item, prefix);
 
@@ -579,12 +589,19 @@ Page({
           suggestions: []
       });
 
-      // 用户反馈
-      wx.showToast({
-          title: '已填入物料信息',
-          icon: 'success',
-          duration: 1500
-      });
+      if (showToast) {
+        wx.showToast({
+            title: '已填入物料信息',
+            icon: 'success',
+            duration: 1500
+        });
+      }
+  },
+
+  // 选中建议 (Auto-fill) - 自动填入所有可用字段
+  onSelectSuggestion(e) {
+      const item = e.currentTarget.dataset.item;
+      this.applyMaterialSuggestion(item);
   },
 
   async fetchMaterialSuggestionByCode(productCode) {

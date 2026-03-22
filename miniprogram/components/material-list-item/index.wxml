@@ -20,6 +20,10 @@
     />
   </view>
 
+  <view wx:if="{{ display.matchReasonText }}" class="material-match-reason">
+    {{ display.matchReasonText }}
+  </view>
+
   <!-- 第三行：标签区 -->
   <view class="tags-row">
     <!-- 批次数量 -->

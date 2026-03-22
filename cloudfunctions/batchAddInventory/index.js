@@ -89,7 +89,7 @@ exports.main = async (event, context) => {
           unique_code: inventoryData.unique_code
         }).get();
         if (exist.data && exist.data.length > 0) {
-          throw new Error(`冲突：标签号 ${inventoryData.unique_code} 已存在，批量操作已回滚`);
+          throw new Error(`冲突：标签编号 ${inventoryData.unique_code} 已存在，批量操作已回滚`);
         }
 
         const addRes = await transaction.collection('inventory').add({

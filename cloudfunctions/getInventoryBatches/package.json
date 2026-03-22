@@ -1,0 +1,10 @@
+{
+  "name": "getInventoryBatches",
+  "version": "1.0.0",
+  "description": "Get inventory items grouped by batch number",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  },
+  "author": "Antigravity"
+}

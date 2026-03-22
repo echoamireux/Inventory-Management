@@ -2,6 +2,13 @@
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
 
+function resolveSearchValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return typeof detail === 'string' ? detail : '';
+}
+
 Page({
   data: {
     activeTab: 'active', // active | archived
@@ -12,6 +19,7 @@ Page({
     pageSize: 20,
     total: 0,
     isEnd: false,
+    requestId: 0,
 
     // 批量管理模式
     isEditMode: false,
@@ -53,10 +61,10 @@ Page({
 
   // 切换筛选状态
   onTabChange(e) {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     this.setData({
       activeTab: e.detail.name,
       page: 1,
-      list: [],
       isEnd: false,
       total: 0,
        // 切换 Tab 时退出编辑模式
@@ -69,9 +77,13 @@ Page({
   },
 
   async getList(refresh = false) {
-    if (this.data.loading) return;
+    if (!refresh && this.data.loading) return;
 
-    this.setData({ loading: true });
+    const currentRequestId = this.data.requestId + 1;
+    this.setData({
+      loading: true,
+      requestId: currentRequestId
+    });
 
     try {
       const page = refresh ? 1 : this.data.page;
@@ -92,6 +104,9 @@ Page({
       });
 
       if (res.result.success) {
+        if (this.data.requestId !== currentRequestId) {
+          return;
+        }
         let newList = res.result.list || [];
 
         // 如果在编辑模式下刷新，保持选中状态
@@ -107,7 +122,7 @@ Page({
 
         this.setData({
           list,
-          page,
+          page: page + 1,
           total: res.result.total,
           isEnd
         });
@@ -115,26 +130,48 @@ Page({
         Toast.fail(res.result.msg || '加载失败');
       }
     } catch (err) {
+      if (this.data.requestId !== currentRequestId) {
+        return;
+      }
       console.error(err);
       Toast.fail('加载失败');
     } finally {
-      this.setData({ loading: false });
+      if (this.data.requestId === currentRequestId) {
+        this.setData({ loading: false });
+      }
     }
   },
 
   loadMore() {
-    this.setData({ page: this.data.page + 1 });
-    this.getList();
+    this.getList(false);
   },
 
   onSearch(e) {
-    this.setData({ searchVal: e.detail || '' });
+    const searchVal = resolveSearchValue(e && e.detail);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal, page: 1, isEnd: false });
     this.getList(true);
   },
 
+  onSearchChange(e) {
+    const searchVal = resolveSearchValue(e && e.detail);
+    this.setData({ searchVal, page: 1, isEnd: false });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.getList(true);
+    }, 500);
+  },
+
   onSearchClear() {
-    this.setData({ searchVal: '' });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal: '', page: 1, isEnd: false });
     this.getList(true);
+  },
+
+  onUnload() {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
   },
 
   // ==========================================

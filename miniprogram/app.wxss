@@ -157,6 +157,13 @@ page {
 .text-danger { color: var(--color-danger); }
 .text-white { color: #fff; }
 
+.list-end-state {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--color-text-placeholder);
+}
+
 .bg-page { background-color: var(--color-bg-page); }
 .bg-white { background-color: #fff; }
 .bg-brand { background-color: var(--color-brand); }
@@ -397,6 +404,15 @@ page {
   border-radius: var(--radius-full) !important;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);
+}
+
+.search-compact .van-search__content {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.search-compact .van-field__control {
+  font-size: 13px !important;
 }
 
 /* 之前的老样式覆盖，暂时保留以免影响未迁移页面，但建议通过类名控制 */

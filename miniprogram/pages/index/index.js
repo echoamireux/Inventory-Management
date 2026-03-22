@@ -3,9 +3,6 @@ import Dialog from "@vant/weapp/dialog/dialog";
 import Toast from "@vant/weapp/toast/toast";
 const db = require("../../utils/db");
 const alertConfig = require("../../utils/alert-config");
-const { summarizeFilmDisplayQuantities } = require("../../utils/film");
-const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
-const { listZoneRecords } = require('../../utils/zone-service');
 const {
   mergeInventoryMaterialData,
   getInventoryQuantityDisplayState
@@ -14,6 +11,13 @@ const {
   normalizeLabelCodeInput,
   isValidLabelCode
 } = require('../../utils/label-code');
+
+function resolveSearchValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return typeof detail === 'string' ? detail : '';
+}
 
 Page({
   data: {
@@ -41,6 +45,12 @@ Page({
     selectList: [],
     allMaterials: [], // 缓存
     selectActiveTab: "chemical", // Default Tab
+    selectPage: 1,
+    selectPageSize: 20,
+    selectLoading: false,
+    selectIsEnd: false,
+    selectRequestId: 0,
+    selectTotal: 0,
 
     // 批次选择弹窗
     showBatchPopup: false,
@@ -112,7 +122,7 @@ Page({
   },
 
   onSearch(e) {
-    const val = e.detail;
+    const val = resolveSearchValue(e && e.detail);
     if (val) {
       wx.navigateTo({
         url: `/pages/inventory/index?search=${encodeURIComponent(val)}`,
@@ -424,10 +434,18 @@ Page({
   },
   // === 选择物料弹窗逻辑 (Aggregated) ===
   async onShowMaterialSelect() {
+    if (this.selectSearchTimer) {
+      clearTimeout(this.selectSearchTimer);
+    }
     this.setData(
       {
         showSelectPopup: true,
         selectSearchVal: "",
+        selectList: [],
+        selectPage: 1,
+        selectIsEnd: false,
+        selectLoading: false,
+        selectTotal: 0,
         selectActiveTab: this.data.selectActiveTab || "chemical", // Default
       },
       () => {
@@ -438,51 +456,122 @@ Page({
         }, 200);
       },
     );
-    this.loadAggregatedMaterials();
+    this.loadAggregatedMaterials(true);
   },
 
   onCloseSelectPopup() {
+    if (this.selectSearchTimer) {
+      clearTimeout(this.selectSearchTimer);
+    }
     this.setData({ showSelectPopup: false });
   },
 
   onSelectTabChange(e) {
-    this.setData({ selectActiveTab: e.detail.name });
-    this.loadAggregatedMaterials();
+    if (this.selectSearchTimer) {
+      clearTimeout(this.selectSearchTimer);
+    }
+    this.setData({
+      selectActiveTab: e.detail.name,
+      selectPage: 1,
+      selectIsEnd: false
+    });
+    this.loadAggregatedMaterials(true);
   },
 
-  async loadAggregatedMaterials() {
-    wx.showLoading({ title: "加载中..." });
+  async loadAggregatedMaterials(reset = true) {
+    if (!reset && (this.data.selectLoading || this.data.selectIsEnd)) {
+      return;
+    }
+
+    const currentRequestId = this.data.selectRequestId + 1;
+    const nextPage = reset ? 1 : this.data.selectPage;
+    this.setData({
+      selectLoading: true,
+      selectRequestId: currentRequestId
+    });
+
     try {
       const res = await wx.cloud.callFunction({
         name: "getInventoryGrouped",
         data: {
           searchVal: this.data.selectSearchVal,
           category: this.data.selectActiveTab,
+          page: nextPage,
+          pageSize: this.data.selectPageSize
         },
       });
 
       if (res.result.success) {
+        if (this.data.selectRequestId !== currentRequestId) {
+          return;
+        }
+        const result = res.result || {};
+        const newList = result.list || [];
+        const mergedList = reset ? newList : this.data.selectList.concat(newList);
         this.setData({
-          allMaterials: res.result.list,
-          selectList: res.result.list,
+          allMaterials: mergedList,
+          selectList: mergedList,
+          selectPage: nextPage + 1,
+          selectPageSize: Number(result.pageSize) || this.data.selectPageSize,
+          selectTotal: Number(result.total) || mergedList.length,
+          selectIsEnd: Boolean(result.isEnd)
         });
       }
     } catch (err) {
+      if (this.data.selectRequestId !== currentRequestId) {
+        return;
+      }
       console.error(err);
       Toast.fail("加载失败");
     } finally {
-      wx.hideLoading();
+      if (this.data.selectRequestId === currentRequestId) {
+        this.setData({ selectLoading: false });
+      }
     }
   },
 
   onSelectSearch(e) {
-    const val = e.detail;
-    this.setData({ selectSearchVal: val });
+    const val = resolveSearchValue(e && e.detail);
+    if (this.selectSearchTimer) clearTimeout(this.selectSearchTimer);
+    this.setData({
+      selectSearchVal: val,
+      selectPage: 1,
+      selectIsEnd: false
+    });
+    this.loadAggregatedMaterials(true);
+  },
 
-    if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => {
-      this.loadAggregatedMaterials();
+  onSelectSearchChange(e) {
+    const val = resolveSearchValue(e && e.detail);
+    this.setData({
+      selectSearchVal: val,
+      selectPage: 1,
+      selectIsEnd: false
+    });
+
+    if (this.selectSearchTimer) clearTimeout(this.selectSearchTimer);
+    this.selectSearchTimer = setTimeout(() => {
+      this.loadAggregatedMaterials(true);
     }, 500);
+  },
+
+  onSelectSearchClear() {
+    if (this.selectSearchTimer) {
+      clearTimeout(this.selectSearchTimer);
+    }
+    this.setData({
+      selectSearchVal: "",
+      selectPage: 1,
+      selectIsEnd: false
+    });
+    this.loadAggregatedMaterials(true);
+  },
+
+  onSelectPopupReachBottom() {
+    if (this.data.selectLoading || this.data.selectIsEnd) {
+      return;
+    }
+    this.loadAggregatedMaterials(false);
   },
 
   // === 批次选择逻辑 ===
@@ -493,133 +582,27 @@ Page({
 
     wx.showLoading({ title: "加载批次..." });
     try {
-      const db = wx.cloud.database();
-      const $ = db.command.aggregate;
-
-      let matchQuery = {
-        status: "in_stock",
-        category: this.data.selectActiveTab,
-      };
-
-      if (item.product_code) {
-        matchQuery.product_code = item.product_code;
-      } else {
-        matchQuery.material_name = item.material_name;
-      }
-
-      const pageSize = 200;
-      let skip = 0;
-      let inventoryItems = [];
-
-      while (true) {
-        const res = await db.collection("inventory")
-          .where(matchQuery)
-          .orderBy("expiry_date", "asc")
-          .orderBy("create_time", "asc")
-          .skip(skip)
-          .limit(pageSize)
-          .get();
-
-        inventoryItems = inventoryItems.concat(res.data || []);
-        if (!res.data || res.data.length < pageSize) {
-          break;
-        }
-        skip += pageSize;
-      }
-      let zoneMap = new Map();
-      try {
-        const zoneRecords = await listZoneRecords(item.category || this.data.selectActiveTab, true);
-        zoneMap = buildZoneMap(zoneRecords);
-      } catch (zoneErr) {
-        console.warn('加载库区映射失败', zoneErr);
-      }
-
-      const groupedByBatch = new Map();
-      inventoryItems.forEach((record) => {
-        const batchNumber = record.batch_number || "无批号";
-        const resolvedLocation = resolveInventoryLocation(record, zoneMap);
-        if (!groupedByBatch.has(batchNumber)) {
-          groupedByBatch.set(batchNumber, {
-            batch_number: batchNumber,
-            records: [],
-            itemCount: 0,
-            minExpiry: record.expiry_date || null,
-            hasLongTermValidity: !!record.is_long_term_valid,
-            hasMissingExpiry: !record.expiry_date && !record.is_long_term_valid,
-            location: resolvedLocation,
-            product_code: record.product_code,
-            material_name: record.material_name,
-            sub_category: record.sub_category || item.sub_category || '',
-            subcategory_key: record.subcategory_key || item.subcategory_key || ''
-          });
-        }
-
-        const group = groupedByBatch.get(batchNumber);
-        group.records.push(record);
-        group.itemCount += 1;
-        if (record.is_long_term_valid) {
-          group.hasLongTermValidity = true;
-        }
-        if (!record.expiry_date && !record.is_long_term_valid) {
-          group.hasMissingExpiry = true;
-        }
-        if (record.expiry_date && (!group.minExpiry || new Date(record.expiry_date) < new Date(group.minExpiry))) {
-          group.minExpiry = record.expiry_date;
+      const res = await wx.cloud.callFunction({
+        name: 'getInventoryBatches',
+        data: {
+          productCode: item.product_code,
+          materialName: item.material_name,
+          category: item.category || this.data.selectActiveTab,
+          page: 1,
+          pageSize: 200
         }
       });
 
-      // Format for display
-      const now = new Date();
-      const batches = Array.from(groupedByBatch.values()).map((b) => {
-        let expiry = b.hasMissingExpiry ? '未设置过期日' : (b.hasLongTermValidity ? '长期有效' : '未设置过期日');
-        let isExpiring = false;
-        let totalQuantity = 0;
-        let totalBaseLengthM = 0;
-        let unit = item.category === 'film' ? item.unit : ((b.records[0] && b.records[0].quantity && b.records[0].quantity.unit) || 'kg');
+      if (!res.result || !res.result.success) {
+        throw new Error((res.result && res.result.msg) || '加载批次失败');
+      }
 
-        if (b.minExpiry) {
-          const expDate = new Date(b.minExpiry);
-          if (!isNaN(expDate.getTime())) {
-            expiry = b.minExpiry.split ? b.minExpiry.split("T")[0] : expDate.toISOString().split("T")[0];
-            const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-            if (diffDays <= alertConfig.EXPIRY_DAYS) {
-              isExpiring = true;
-            }
-          }
-        }
-
-        if (item.category === 'film') {
-          const summary = summarizeFilmDisplayQuantities(b.records, item.unit);
-          totalQuantity = summary.displayQuantity;
-          totalBaseLengthM = summary.baseLengthM;
-          unit = summary.displayUnit;
-        } else {
-          totalQuantity = parseFloat(b.records.reduce((sum, current) => {
-            const quantityVal = current && current.quantity ? Number(current.quantity.val) || 0 : 0;
-            return sum + quantityVal;
-          }, 0).toFixed(2));
-        }
-
-        return {
-          batch_number: b.batch_number,
-          totalQuantity: totalQuantity,
-          totalBaseLengthM: totalBaseLengthM,
-          itemCount: b.itemCount,
-          expiry,
-          isExpiring,
-          location: b.location,
-          unit: unit,
-          product_code: b.product_code,
-          material_name: b.material_name,
-          sub_category: b.sub_category || item.sub_category || '',
-          subcategory_key: b.subcategory_key || item.subcategory_key || '',
-          isArchived: item.isArchived || false  // 从聚合项传递归档状态
-        };
-      }).sort((a, b) => {
-        const timeA = /^\d{4}-\d{2}-\d{2}$/.test(a.expiry) ? new Date(a.expiry).getTime() : Number.MAX_SAFE_INTEGER;
-        const timeB = /^\d{4}-\d{2}-\d{2}$/.test(b.expiry) ? new Date(b.expiry).getTime() : Number.MAX_SAFE_INTEGER;
-        return timeA - timeB;
-      });
+      const batches = (res.result.list || []).map(batch => ({
+        ...batch,
+        sub_category: batch.sub_category || item.sub_category || '',
+        subcategory_key: batch.subcategory_key || item.subcategory_key || '',
+        isArchived: batch.isArchived || item.isArchived || false
+      }));
 
       this.setData({
         batchList: batches,
@@ -630,6 +613,11 @@ Page({
       Toast.fail("加载批次失败");
     } finally {
       wx.hideLoading();
+    }
+  },
+  onUnload() {
+    if (this.selectSearchTimer) {
+      clearTimeout(this.selectSearchTimer);
     }
   },
 

@@ -57,6 +57,15 @@ cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/materi
 echo "   -> Updating product-code.js..."
 cp cloudfunctions/_shared/product-code.js cloudfunctions/manageMaterial/product-code.js
 
+echo "   -> Updating search.js..."
+cp cloudfunctions/_shared/search.js cloudfunctions/getInventoryGrouped/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/manageMaterial/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
+
+echo "   -> Updating log-search.js..."
+cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js
+
 echo "   -> Updating material-template.js..."
 cp cloudfunctions/_shared/material-template.js cloudfunctions/exportMaterialTemplate/material-template.js
 
@@ -87,5 +96,7 @@ cp cloudfunctions/_shared/dashboard-stats.js cloudfunctions/getDashboardStats/da
 # 6. Sync to Frontend (Miniprogram)
 echo "   -> Updating frontend config (miniprogram/utils)..."
 cp cloudfunctions/_shared/alert-config.js miniprogram/utils/alert-config.js
+cp cloudfunctions/_shared/search.js miniprogram/utils/search.js
+cp cloudfunctions/_shared/log-search.js miniprogram/utils/log-search.js
 
 echo "✅ Sync complete! Please deploy the updated functions."

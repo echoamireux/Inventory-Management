@@ -4,6 +4,13 @@ const _ = db.command;
 import Dialog from '@vant/weapp/dialog/dialog';
 const { resolveOpenDocumentPath } = require('../../utils/download-file');
 
+function resolveSearchValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return typeof detail === 'string' ? detail : '';
+}
+
 Page({
   data: {
     activeTab: 0, // 0: 全部, 1: 化材, 2: 膜材
@@ -16,6 +23,7 @@ Page({
     pageSize: 20,
     total: 0,
     isEnd: false,
+    requestId: 0,
 
     // Aggregation Mode
     isGrouped: true, // Default to grouped view
@@ -52,22 +60,31 @@ Page({
   },
 
   onTabChange(e) {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     this.setData({ activeTab: e.detail.index, page: 1, isEnd: false });
     this.getList(true);
   },
 
   onSearch(e) {
-    this.setData({ searchVal: e.detail, page: 1, isEnd: false });
+    const searchVal = resolveSearchValue(e && e.detail);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal, page: 1, isEnd: false });
     this.getList(true);
   },
 
   onSearchChange(e) {
-      const val = e.detail;
+      const val = resolveSearchValue(e && e.detail);
       this.setData({ searchVal: val, page: 1, isEnd: false });
       if (this.searchTimer) clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => {
           this.getList(true);
       }, 500);
+  },
+
+  onSearchClear() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal: '', page: 1, isEnd: false });
+    this.getList(true);
   },
 
   onReachBottom() {
@@ -79,13 +96,17 @@ Page({
 
   // 核心逻辑升级：使用聚合查询
   async getList(reset = true) {
-    if (this.data.loading) {
+    if (!reset && this.data.loading) {
       wx.stopPullDownRefresh();
       return;
     }
 
     const nextPage = reset ? 1 : this.data.page;
-    this.setData({ loading: true });
+    const currentRequestId = this.data.requestId + 1;
+    this.setData({
+      loading: true,
+      requestId: currentRequestId
+    });
 
     try {
       const { searchVal, activeTab, pageSize, list } = this.data;
@@ -105,6 +126,9 @@ Page({
       });
 
       if (res.result.success) {
+          if (this.data.requestId !== currentRequestId) {
+            return;
+          }
           const result = res.result || {};
           const mergedList = reset ? (result.list || []) : list.concat(result.list || []);
           this.setData({
@@ -120,11 +144,22 @@ Page({
       }
 
     } catch (err) {
+      if (this.data.requestId !== currentRequestId) {
+        return;
+      }
       console.error(err);
       wx.showToast({ title: '加载失败', icon: 'none' });
     } finally {
-      this.setData({ loading: false });
+      if (this.data.requestId === currentRequestId) {
+        this.setData({ loading: false });
+      }
       wx.stopPullDownRefresh();
+    }
+  },
+
+  onUnload() {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
     }
   },
 
@@ -157,7 +192,7 @@ Page({
       // Let's navigate to a new page `pages/inventory/list?code=...`?
       // Actually, let's just use `navigateTo` with filtered parameters to the SAME page, but add a flag `mode=flat`.
 
-      const code = item.product_code !== '无代码' ? item.product_code : '';
+      const code = item.product_code !== '无产品代码' ? item.product_code : '';
       const name = item.material_name;
 
       // URL Encoding

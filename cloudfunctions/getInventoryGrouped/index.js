@@ -20,6 +20,11 @@ const {
   summarizeFilmDisplayQuantities
 } = require('./film-quantity');
 const {
+  buildContainsRegExp,
+  matchesSearchFields,
+  normalizeSearchKeyword
+} = require('./search');
+const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
   buildSubcategoryMap,
@@ -30,6 +35,7 @@ exports.main = async (event, context) => {
   const { searchVal, category } = event;
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
+  const normalizedKeyword = normalizeSearchKeyword(searchVal);
 
   try {
     const conditions = [{ status: 'in_stock' }];
@@ -37,14 +43,16 @@ exports.main = async (event, context) => {
       conditions.push({ category: category });
     }
 
-    if (searchVal) {
-      const regex = db.RegExp({ regexp: '.*' + searchVal + '.*', options: 'i' });
+    const regex = buildContainsRegExp(db, searchVal);
+    if (regex) {
       conditions.push(_.or([
         { material_name: regex },
         { product_code: regex },
         { batch_number: regex },
         { supplier: regex },
-        { unique_code: regex }
+        { unique_code: regex },
+        { location: regex },
+        { location_text: regex }
       ]));
     }
     const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
@@ -65,7 +73,13 @@ exports.main = async (event, context) => {
           quantity: true,
           dynamic_attrs: true,
           expiry_date: true,
-          location: true
+          location: true,
+          location_text: true,
+          location_detail: true,
+          zone_key: true,
+          batch_number: true,
+          supplier: true,
+          unique_code: true
         })
         .skip(skip)
         .limit(inventoryBatchSize)
@@ -86,7 +100,7 @@ exports.main = async (event, context) => {
     const groupedMap = new Map();
     for (let i = 0; i < inventoryItems.length; i += 1) {
       const item = inventoryItems[i];
-      const productCode = item.product_code || '无代码';
+      const productCode = item.product_code || '无产品代码';
       const resolvedLocation = resolveInventoryLocationText(item, zoneMap);
       let group = groupedMap.get(productCode);
 
@@ -128,7 +142,7 @@ exports.main = async (event, context) => {
     const groups = Array.from(groupedMap.values());
     const productCodes = groups
       .map(item => item.product_code)
-      .filter(code => code && code !== '无代码');
+      .filter(code => code && code !== '无产品代码');
     let materialMap = new Map();
 
     if (productCodes.length > 0) {
@@ -177,6 +191,7 @@ exports.main = async (event, context) => {
           unit: unit,
           minExpiry: item.minExpiry,
           locations: Array.from(item.locations),
+          matchReasonText: resolveGroupMatchReasonText(item, normalizedKeyword, zoneMap),
           isExpiring: checkExpiring(item.minExpiry, item.category),
           isArchived: material.status === 'archived'
         };
@@ -228,4 +243,45 @@ function checkExpiring(dateStr, category) {
 
     const days = Math.ceil(diff / ONE_DAY_MS);
     return days <= ALERT_CONFIG.EXPIRY_DAYS;
+}
+
+function resolveGroupMatchReasonText(group, keyword, zoneMap) {
+    const normalizedKeyword = normalizeSearchKeyword(keyword);
+    if (!normalizedKeyword || !group) {
+      return '';
+    }
+
+    if (
+      matchesSearchFields(group, ['product_code'], normalizedKeyword) ||
+      matchesSearchFields(group, ['material_name'], normalizedKeyword)
+    ) {
+      return '';
+    }
+
+    const groupItems = Array.isArray(group.items) ? group.items : [];
+
+    if (groupItems.some(item => matchesSearchFields(item, ['unique_code'], normalizedKeyword))) {
+      return '标签编号匹配';
+    }
+    if (groupItems.some(item => matchesSearchFields(item, ['batch_number'], normalizedKeyword))) {
+      return '批号匹配';
+    }
+    if (groupItems.some(item => {
+      const searchableItem = {
+        ...item,
+        resolved_location_text: resolveInventoryLocationText(item, zoneMap)
+      };
+      return matchesSearchFields(
+        searchableItem,
+        ['location', 'location_text', 'resolved_location_text'],
+        normalizedKeyword
+      );
+    })) {
+      return '库位匹配';
+    }
+    if (groupItems.some(item => matchesSearchFields(item, ['supplier'], normalizedKeyword))) {
+      return '供应商匹配';
+    }
+
+    return '';
 }

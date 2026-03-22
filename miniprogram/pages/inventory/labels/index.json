@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "标签列表",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "van-empty": "@vant/weapp/empty/index",
+    "van-loading": "@vant/weapp/loading/index"
+  }
+}

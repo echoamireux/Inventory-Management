@@ -14,6 +14,102 @@
   padding: 16rpx 0 24rpx;
 }
 
+.batch-stack {
+  margin-bottom: 24rpx;
+}
+
+.batch-stack:last-child {
+  margin-bottom: 0;
+}
+
+.inline-label-panel {
+  margin: 8rpx 12rpx 0;
+  padding: 12rpx;
+  background: #F8FAFF;
+  border: 1px solid rgba(44, 104, 255, 0.08);
+  border-radius: 20rpx;
+}
+
+.inline-label-loading,
+.inline-label-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 88rpx;
+  color: #6B7280;
+  font-size: 24rpx;
+}
+
+.label-row-inline {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(220rpx, 1.35fr) minmax(170rpx, auto) minmax(0, 1fr);
+  column-gap: 24rpx;
+  padding: 22rpx 20rpx;
+  margin-top: 12rpx;
+  background: #fff;
+  border-radius: 18rpx;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.04);
+}
+
+.label-row-inline:first-child {
+  margin-top: 0;
+}
+
+.label-inline-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.label-inline-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-brand);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-inline-badge {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(249, 115, 22, 0.14);
+  color: var(--color-warning);
+  font-size: 18rpx;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.label-inline-qty {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-brand);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.label-inline-qty.is-warning {
+  color: var(--color-warning);
+}
+
+.label-inline-location {
+  min-width: 0;
+  justify-self: end;
+  text-align: right;
+  font-size: 24rpx;
+  color: #6B7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Reuse inventory-card styles from global or copy here if not global */
 /* Since inventory options.wxss isn't global, we copy essential card styles */
 

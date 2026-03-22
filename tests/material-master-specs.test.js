@@ -42,16 +42,23 @@ test('manageMaterial cloud function persists package_type and film specs as gove
   assert.doesNotMatch(file, /shelf_life_days/);
 });
 
-test('inventory detail and list pages read master material fields to keep film display units in sync', () => {
+test('inventory batch, label, and detail layers all keep film display units aligned with master data truth', () => {
   const detailList = read('miniprogram/pages/inventory/detail-list.js');
+  const labelsList = read('miniprogram/pages/inventory/labels/index.js');
+  const labelQueryUtil = read('miniprogram/utils/inventory-label-query.js');
   const detailPage = read('miniprogram/pages/inventory-detail/index.js');
   const homeIndex = read('miniprogram/pages/index/index.js');
   const withdrawDialog = read('miniprogram/components/withdraw-dialog/index.js');
+  const batchCf = read('cloudfunctions/getInventoryBatches/index.js');
 
-  assert.match(detailList, /getInventoryQuantityDisplayState/);
+  assert.match(detailList, /getInventoryBatches/);
+  assert.match(labelsList, /loadBatchLabelPage/);
+  assert.match(labelQueryUtil, /getInventoryQuantityDisplayState/);
   assert.match(detailPage, /getInventoryQuantityDisplayState/);
   assert.match(homeIndex, /getInventoryQuantityDisplayState/);
   assert.match(withdrawDialog, /getInventoryQuantityDisplayState/);
+  assert.match(batchCf, /summarizeFilmDisplayQuantities/);
+  assert.match(batchCf, /default_unit/);
 });
 
 test('inventory detail exposes admin-only film width correction entry and keeps it out of the chemical path', () => {
@@ -135,4 +142,38 @@ test('dashboard stats uses aggregate-first logic instead of scanning the whole i
   assert.match(file, /aggregate\(/);
   assert.doesNotMatch(file, /while\s*\(true\)/);
   assert.doesNotMatch(file, /calculateDashboardStatsFromItems/);
+});
+
+test('search-backed inventory, master-data, and log queries share escaped keyword matching with broadened field coverage', () => {
+  const backendSearch = read('cloudfunctions/_shared/search.js');
+  const frontendSearch = read('miniprogram/utils/search.js');
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+  const manageMaterialCf = read('cloudfunctions/manageMaterial/index.js');
+  const getLogsCf = read('cloudfunctions/getLogs/index.js');
+  const exportDataCf = read('cloudfunctions/exportData/index.js');
+  const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
+
+  assert.match(backendSearch, /escapeRegExp/);
+  assert.match(frontendSearch, /escapeRegExp/);
+
+  assert.match(groupedCf, /location_text|location/);
+  assert.doesNotMatch(groupedCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
+
+  assert.match(manageMaterialCf, /supplier_model/);
+  assert.match(manageMaterialCf, /package_type/);
+  assert.match(manageMaterialCf, /subcategory_key/);
+  assert.match(manageMaterialCf, /sub_category/);
+  assert.doesNotMatch(manageMaterialCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
+
+  assert.match(getLogsCf, /unique_code/);
+  assert.match(getLogsCf, /batch_number/);
+  assert.match(getLogsCf, /description/);
+  assert.match(getLogsCf, /note/);
+  assert.doesNotMatch(getLogsCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
+
+  assert.doesNotMatch(exportDataCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
+  assert.match(adminLogsJs, /unique_code/);
+  assert.match(adminLogsJs, /batch_number/);
+  assert.match(adminLogsJs, /description/);
+  assert.match(adminLogsJs, /note/);
 });

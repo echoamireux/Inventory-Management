@@ -9,9 +9,10 @@
   <!-- 顶部搜索 (吸顶) -->
   <view class="sticky-top z-index-10 search-transparent">
      <van-search
-        placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+        placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
         shape="round"
         bind:search="onSearch"
+        custom-class="search-compact"
      />
   </view>
 
@@ -102,11 +103,13 @@
            <view class="px-safe pb-5">
               <van-search
                  value="{{ selectSearchVal }}"
-                 placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+                 placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
                  shape="round"
                  background="#fff"
                  bind:search="onSelectSearch"
-                 bind:change="onSelectSearch"
+                 bind:change="onSelectSearchChange"
+                 bind:clear="onSelectSearchClear"
+                 custom-class="search-compact"
               />
            </view>
 
@@ -123,7 +126,7 @@
            </van-tabs>
        </view>
 
-       <scroll-view scroll-y style="flex: 1; height: 1px;" enable-back-to-top>
+       <scroll-view scroll-y style="flex: 1; height: 1px;" enable-back-to-top bindscrolltolower="onSelectPopupReachBottom">
            <view class="px-safe pt-safe pb-safe">
                <!-- 使用统一列表项组件 -->
                <material-list-item
@@ -136,7 +139,16 @@
                    data-item="{{ item }}"
                />
 
-              <van-empty wx:if="{{ selectList.length === 0 }}" description="暂无匹配" />
+              <view wx:if="{{ selectLoading && selectList.length === 0 }}" class="page-loading-state">
+                <van-loading size="24px" vertical>搜索中...</van-loading>
+              </view>
+              <van-empty wx:if="{{ !selectLoading && selectList.length === 0 }}" description="暂无匹配库存" />
+              <view wx:if="{{ selectLoading && selectList.length > 0 }}" class="text-center p-10">
+                <van-loading size="20px">加载中...</van-loading>
+              </view>
+              <view wx:if="{{ selectIsEnd && selectList.length > 0 }}" class="list-end-state">
+                已无更多
+              </view>
               <view style="height: 40px;"></view>
            </view>
        </scroll-view>
@@ -172,7 +184,7 @@
                         wx:for="{{ batchList }}"
                         wx:key="batch_number"
                         item="{{ item }}"
-                        bind:tap="onSelectBatchItem"
+                        bind:itemtap="onSelectBatchItem"
                         data-batch="{{ item }}"
                     />
                     <view style="height: 40px;"></view>

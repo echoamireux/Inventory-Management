@@ -245,21 +245,51 @@ Page({
       this.setData({ suggestionTimer: timer });
   },
 
-  async onSearchMaterial() {
+  async onMaterialCodeBlur() {
+      await this.tryApplyExactMaterialCode({ silent: true });
+  },
+
+  async onMaterialCodeConfirm() {
+      await this.tryApplyExactMaterialCode({ silent: false });
+  },
+
+  async tryApplyExactMaterialCode(options = {}) {
+      const { silent = true } = options;
       const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput);
       if (!normalizedCode.ok) {
-          this.showBusinessError(normalizedCode.msg, '产品代码错误');
-          return;
+          return false;
+      }
+
+      if (this.data.suggestionTimer) {
+          clearTimeout(this.data.suggestionTimer);
+          this.setData({ suggestionTimer: null });
       }
 
       try {
-          Toast.loading({ message: '查询物料中...', forbidClick: true });
+          if (!silent) {
+              Toast.loading({ message: '查询物料中...', forbidClick: true });
+          }
           const material = await this.fetchMaterialByCode(normalizedCode.product_code);
           Toast.clear();
           this.applySelectedMaterial(material);
+          return true;
       } catch (err) {
-          console.error(err);
-          this.showBusinessError(err.message || '查询物料失败', '查询失败');
+          Toast.clear();
+          if (!silent) {
+              console.error(err);
+              this.showBusinessError(err.message || '查询物料失败', '查询失败');
+          }
+          return false;
+      }
+  },
+
+  async onSearchMaterial() {
+      const applied = await this.tryApplyExactMaterialCode({ silent: false });
+      if (!applied) {
+          const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput);
+          if (!normalizedCode.ok) {
+              this.showBusinessError(normalizedCode.msg, '产品代码错误');
+          }
       }
   },
 

@@ -1,14 +1,40 @@
 // pages/admin-logs/index.js
-const db = require('../../utils/db');
 const { getCstRange } = require('../../utils/cst');
+const {
+  buildLogSearchWhere,
+  filterLogRecords,
+  sortLogRecordsDescending
+} = require('../../utils/log-search');
+
+const ADMIN_LOG_SEARCH_FIELDS = [
+  'material_name',
+  'product_code',
+  'unique_code',
+  'batch_number',
+  'operator',
+  'operator_name',
+  'type',
+  'description',
+  'note'
+];
+
+function resolveSearchValue(detail) {
+  if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
+    return detail.value;
+  }
+  return typeof detail === 'string' ? detail : '';
+}
 
 Page({
   data: {
     list: [],
     searchVal: '',
     page: 1,
+    pageSize: 20,
     loading: false,
     isEnd: false,
+    requestId: 0,
+    searchScopeFields: ADMIN_LOG_SEARCH_FIELDS,
 
     // 筛选器
     dateFilter: 'all',
@@ -65,16 +91,22 @@ Page({
   },
 
   onSearch(e) {
-    this.setData({ searchVal: e.detail });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal: resolveSearchValue(e && e.detail), page: 1, isEnd: false });
     this.getList(true);
   },
 
   onSearchChange(e) {
-    this.setData({ searchVal: e.detail });
+    this.setData({ searchVal: resolveSearchValue(e && e.detail), page: 1, isEnd: false });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.getList(true);
+    }, 400);
   },
 
   onClear() {
-    this.setData({ searchVal: '' });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal: '', page: 1, isEnd: false });
     this.getList(true);
   },
 
@@ -98,81 +130,57 @@ Page({
 
   // 筛选器变更
   onDateFilterChange(e) {
-    this.setData({ dateFilter: e.detail });
+    this.setData({ dateFilter: e.detail, page: 1, isEnd: false });
     this.getList(true);
   },
 
   onTypeFilterChange(e) {
-    this.setData({ typeFilter: e.detail });
+    this.setData({ typeFilter: e.detail, page: 1, isEnd: false });
     this.getList(true);
   },
 
   onOperatorFilterChange(e) {
-    this.setData({ operatorFilter: e.detail });
+    this.setData({ operatorFilter: e.detail, page: 1, isEnd: false });
     this.getList(true);
   },
 
   async getList(reset = false) {
-    if (this.data.loading) return;
+    if (!reset && this.data.loading) return;
 
-    this.setData({ loading: true });
-    if (reset) {
-      this.setData({ page: 1, list: [], isEnd: false });
-    }
+    const currentRequestId = this.data.requestId + 1;
+    this.setData({
+      loading: true,
+      requestId: currentRequestId
+    });
 
     try {
       const dbInstance = wx.cloud.database();
       const _ = dbInstance.command;
+      const nextPage = reset ? 1 : this.data.page;
+      const {
+        searchVal,
+        dateFilter,
+        typeFilter,
+        operatorFilter,
+        pageSize
+      } = this.data;
 
-      let conditions = [];
+      const matchedRecords = await this.loadLogsByDirectDb({
+        dbInstance,
+        _,
+        searchVal,
+        dateFilter,
+        typeFilter,
+        operatorFilter
+      });
+      const total = matchedRecords.length;
+      const pageList = matchedRecords.slice((nextPage - 1) * pageSize, nextPage * pageSize);
 
-      // 搜索条件
-      if (this.data.searchVal) {
-        const regex = dbInstance.RegExp({
-          regexp: this.data.searchVal,
-          options: 'i',
-        });
-        conditions.push(_.or([
-          { material_name: regex },
-          { operator: regex },
-          { product_code: regex }
-        ]));
+      if (this.data.requestId !== currentRequestId) {
+        return;
       }
 
-      // 日期筛选
-      const { dateFilter } = this.data;
-      if (dateFilter !== 'all') {
-        const { start: startDate } = getCstRange(dateFilter, new Date());
-        if (startDate) {
-          conditions.push({ timestamp: _.gte(startDate) });
-        }
-      }
-
-      // 类型筛选
-      const { typeFilter } = this.data;
-      if (typeFilter !== 'all') {
-        if (typeFilter === 'inbound') {
-          conditions.push({ type: _.in(['inbound', 'create']) });
-        } else {
-          conditions.push({ type: typeFilter });
-        }
-      }
-
-      // 操作人筛选
-      const { operatorFilter } = this.data;
-      if (operatorFilter !== 'all') {
-        conditions.push(_.or([
-          { operator: operatorFilter },
-          { operator_name: operatorFilter }
-        ]));
-      }
-
-      // 组合条件
-      let where = conditions.length > 0 ? _.and(conditions) : {};
-
-      const res = await db.logs.getList(where, this.data.page, 20, 'timestamp', 'desc');
-
-      const formatted = res.map(item => {
+      const formatted = pageList.map(item => {
         let typeText = '操作';
         let typeColor = 'primary';
 
@@ -222,17 +230,74 @@ Page({
 
       this.setData({
         list: reset ? formatted : this.data.list.concat(formatted),
-        page: this.data.page + 1,
-        isEnd: res.length < 20
+        page: nextPage + 1,
+        isEnd: nextPage * pageSize >= total
       });
 
     } catch (err) {
+      if (this.data.requestId !== currentRequestId) {
+        return;
+      }
       console.error(err);
       wx.showToast({ title: '加载失败', icon: 'none' });
     } finally {
-      this.setData({ loading: false });
+      if (this.data.requestId === currentRequestId) {
+        this.setData({ loading: false });
+      }
       wx.stopPullDownRefresh();
     }
   },
+
+  async loadLogsByDirectDb(params = {}) {
+    const {
+      dbInstance,
+      _,
+      searchVal,
+      dateFilter,
+      typeFilter,
+      operatorFilter
+    } = params;
+    const collection = dbInstance.collection('inventory_log');
+    const where = buildLogSearchWhere({
+      db: dbInstance,
+      _,
+      searchVal,
+      dateFilter,
+      typeFilter,
+      operatorFilter,
+      getCstRange
+    });
+
+    const batchSize = 100;
+    let skip = 0;
+    let allRecords = [];
+
+    while (true) {
+      const res = await collection.where(where)
+        .skip(skip)
+        .limit(batchSize)
+        .get();
+      const batch = res.data || [];
+      allRecords = allRecords.concat(batch);
+      if (batch.length < batchSize) {
+        break;
+      }
+      skip += batchSize;
+    }
+
+    return sortLogRecordsDescending(filterLogRecords(allRecords, {
+      searchVal,
+      dateFilter,
+      typeFilter,
+      operatorFilter,
+      getCstRange
+    }));
+  },
+
+  onUnload() {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
+  }
 
 });

@@ -4,9 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  summarizeLocationScope,
   buildGroupedInventoryCardState,
   buildBatchCardState,
   resolveInventoryExpiryDisplay,
+  getInventoryExpiryAlertState,
   getInventoryQuantityDisplayState,
   getInventorySpecDisplayState
 } = require('../miniprogram/utils/inventory-display');
@@ -23,7 +25,8 @@ test('grouped inventory card shows subcategory and single-location summary witho
     materialName: '化材-1',
     subcategoryLabel: '主胶',
     batchCountLabel: '2 批次',
-    locationSummary: '实验室2 | A-01'
+    locationSummary: '实验室2 | A-01',
+    matchReasonText: ''
   });
 });
 
@@ -35,16 +38,20 @@ test('grouped inventory card compresses multi-location inventory into a short su
     locations: ['研发仓1', '研发仓2', '研发仓1']
   });
 
-  assert.equal(state.locationSummary, '多库位');
+  assert.equal(state.locationSummary, '2个库位');
 });
 
-test('batch card exposes explicit batch semantics and keeps subcategory available for display', () => {
+test('location summary uses a concrete count once one product spans multiple locations', () => {
+  assert.equal(summarizeLocationScope(['研发仓1', '研发仓2', '研发仓1']), '2个库位');
+});
+
+test('batch card exposes explicit batch semantics with label count and location summary', () => {
   const state = buildBatchCardState({
     batch_number: '20260523',
     material_name: '化材-1',
     sub_category: '主胶',
-    expiry: '2026-05-21',
-    location: '实验室2 | A-01'
+    itemCount: 10,
+    locations: ['实验室2 | A-01', '实验室2 | A-02']
   });
 
   assert.deepEqual(state, {
@@ -52,9 +59,32 @@ test('batch card exposes explicit batch semantics and keeps subcategory availabl
     batchValue: '20260523',
     materialName: '化材-1',
     subcategoryLabel: '主胶',
-    expiryLabel: '2026-05-21',
-    locationLabel: '实验室2 | A-01'
+    labelCountLabel: '10个标签',
+    locationSummary: '2个库位',
+    expiryBadgeText: ''
   });
+});
+
+test('batch card uses grouped expiry wording for multi-label batches and keeps single-label wording otherwise', () => {
+  const multiLabelState = buildBatchCardState({
+    batch_number: '234',
+    material_name: '膜材-3',
+    sub_category: '保护膜',
+    itemCount: 2,
+    isExpiring: true,
+    category: 'film'
+  });
+  const singleLabelState = buildBatchCardState({
+    batch_number: '234',
+    material_name: '膜材-3',
+    sub_category: '保护膜',
+    itemCount: 1,
+    isExpiring: true,
+    category: 'film'
+  });
+
+  assert.equal(multiLabelState.expiryBadgeText, '包含临期');
+  assert.equal(singleLabelState.expiryBadgeText, '即将过期');
 });
 
 test('inventory expiry display distinguishes explicit long-term validity from missing expiry data', () => {
@@ -79,6 +109,19 @@ test('inventory expiry display distinguishes explicit long-term validity from mi
       isMissing: true
     }
   );
+});
+
+test('label-level expiry alert follows detail-page wording and only marks row tone as warning', () => {
+  const soon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const state = getInventoryExpiryAlertState({
+    expiry_date: soon
+  });
+
+  assert.deepEqual(state, {
+    isExpiring: true,
+    expiryBadgeText: '即将过期',
+    rowTone: 'warning'
+  });
 });
 
 test('film inventory display follows the latest master default unit while keeping base length truth', () => {
@@ -200,10 +243,10 @@ test('batch card component supports popup-style totalQuantity data when no quant
   assert.match(file, /item\.unit/);
   assert.match(file, /type="subcategory"/);
   assert.doesNotMatch(file, /type="category"/);
-  assert.match(file, /class="batch-meta-row"/);
-  assert.match(file, /class="batch-meta-group"/);
-  assert.match(file, /type="meta" text="有效期"/);
-  assert.match(file, /type="meta" text="库位"/);
+  assert.match(file, /class="batch-tags-row"/);
+  assert.match(file, /display\.labelCountLabel/);
+  assert.match(file, /display\.locationSummary/);
+  assert.doesNotMatch(file, /有效期/);
 });
 
 test('batch selection popup keeps context minimal and does not repeat the material name', () => {

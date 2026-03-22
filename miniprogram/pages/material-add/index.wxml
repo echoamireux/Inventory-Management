@@ -58,12 +58,12 @@
              <van-icon name="info-o" size="48px" color="#ff976a" />
              <view class="text-lg font-bold mt-10 text-dark">该物料已归档</view>
              <view class="text-sm text-secondary mt-10 mb-20 text-left">
-                代码 <text class="font-bold text-primary">{{form.product_code}}</text> 曾存在于系统中，但已被归档。
+                产品代码 <text class="font-bold text-primary">{{form.product_code}}</text> 曾存在于系统中，但已被归档。
                 <view class="mt-5 text-gray-400">归档原因: {{ archiveReason }}</view>
                 <view class="mt-15 font-bold text-dark">需联系管理员还原后方可使用。</view>
              </view>
              <view class="flex-row">
-                <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1 mr-10">修改代码</van-button>
+                <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1 mr-10">修改产品代码</van-button>
                 <van-button type="warning" block round bind:click="onContactAdmin" custom-class="flex-1">联系管理员</van-button>
              </view>
         </block>
@@ -74,25 +74,25 @@
                 <van-icon name="records" size="48px" color="#1989fa" />
                 <view class="text-lg font-bold mt-10 text-dark">该物料尚未建档</view>
                 <view class="text-sm text-secondary mt-10 mb-20 text-left">
-                    代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在主数据中找到。
+                    产品代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在主数据中找到。
                     <view class="mt-5">你可以直接创建正式物料档案，建档完成后再继续入库。</view>
                 </view>
                 <view class="flex-row">
                     <van-button type="primary" block round bind:click="goToAdminCreateMaterial" custom-class="flex-1 mr-10">直接建档</van-button>
-                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
+                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改产品代码</van-button>
                 </view>
             </block>
             <block wx:else>
                 <van-icon name="warning-o" size="48px" color="#ee0a24" />
                 <view class="text-lg font-bold mt-10 text-dark">非标物料阻断</view>
                 <view class="text-sm text-secondary mt-10 mb-20 text-left">
-                    代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在标准库中找到。
+                    产品代码 <text class="font-bold text-primary">{{form.product_code}}</text> 未在标准库中找到。
                     <view class="mt-5">根据实验室 MDM 规范，禁止随意录入非标物料。</view>
                     <view>请先提交建档申请，管理员审批通过后方可入库。</view>
                 </view>
                 <view class="flex-row">
                     <van-button type="info" block round bind:click="showRequestPopup" custom-class="flex-1 mr-10">立即申请建档</van-button>
-                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改代码</van-button>
+                    <van-button type="default" block round bind:click="onEditCode" custom-class="flex-1">修改产品代码</van-button>
                 </view>
             </block>
         </block>
@@ -417,7 +417,7 @@
 
         <van-cell-group>
           <van-field label="大类(自动)" value="{{ activeTab === 'chemical' ? '化材' : '膜材' }}" readonly />
-          <van-field label="代码(自动)" value="{{ form.product_code }}" readonly />
+          <van-field label="产品代码(自动)" value="{{ form.product_code }}" readonly />
 
           <van-field
             label="物料名称"

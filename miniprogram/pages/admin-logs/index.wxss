@@ -97,13 +97,6 @@
   padding: 20px;
 }
 
-.end-text {
-  text-align: center;
-  color: #969799;
-  font-size: 12px;
-  padding: 10px;
-}
-
 /* 底部操作栏 */
 .bottom-bar {
   position: fixed;

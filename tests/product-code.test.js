@@ -63,3 +63,43 @@ test('single stock-in product-code lookup only runs after blur or confirm instea
   assert.match(pageJs, /await this\.searchSuggestions\(normalizedCode\.product_code\)/);
   assert.doesNotMatch(pageJs, /suggestionTimer:\s*setTimeout\(\s*\(\)\s*=>\s*\{\s*this\.searchSuggestions/);
 });
+
+test('frontend: exact product code matching helper returns only the governed code hit', () => {
+  const exactMatch = frontendProductCode.findExactProductCodeMatch([
+    { product_code: 'J-001', material_name: '丙酮' },
+    { product_code: 'J-002', material_name: '乙酸乙酯' }
+  ], 'J-001');
+
+  assert.deepEqual(exactMatch, {
+    product_code: 'J-001',
+    material_name: '丙酮'
+  });
+  assert.equal(frontendProductCode.findExactProductCodeMatch([], 'J-001'), null);
+});
+
+test('single stock-in exact product-code lookup auto-applies an exact material match without an extra tap', () => {
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.js'),
+    'utf8'
+  );
+
+  assert.match(pageJs, /findExactProductCodeMatch/);
+  assert.match(pageJs, /this\.applyMaterialSuggestion\(exactMatch/);
+});
+
+test('batch entry supports blur or confirm driven exact product-code retrieval in addition to suggestions', () => {
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),
+    'utf8'
+  );
+  const pageWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.wxml'),
+    'utf8'
+  );
+
+  assert.match(pageJs, /onMaterialCodeBlur/);
+  assert.match(pageJs, /onMaterialCodeConfirm/);
+  assert.match(pageJs, /await this\.fetchMaterialByCode\(normalizedCode\.product_code\)/);
+  assert.match(pageWxml, /bindblur="onMaterialCodeBlur"/);
+  assert.match(pageWxml, /bindconfirm="onMaterialCodeConfirm"/);
+});

@@ -17,6 +17,7 @@
     "pages/admin/subcategory-manage/index",
     "pages/admin/material-import/index",
     "pages/inventory/detail-list",
+    "pages/inventory/labels/index",
     "pages/material-add/batch-entry",
     "pages/my-requests/index",
     "pages/admin/approval-center/index",

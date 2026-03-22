@@ -3,6 +3,7 @@ const cloud = require('wx-server-sdk');
 const { normalizeUnitInput } = require('./material-units');
 const { validateStandardProductCode } = require('./product-code');
 const { createImportResultTracker } = require('./import-batch-results');
+const { buildContainsRegExp, normalizeSearchKeyword } = require('./search');
 const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
@@ -67,6 +68,29 @@ function normalizeOptionalNumber(value) {
   }
 
   return normalized;
+}
+
+function buildMaterialSearchCondition(regex, normalizedKeyword) {
+  const textSearchConditions = [
+    { product_code: regex },
+    { material_name: regex },
+    { supplier: regex },
+    { supplier_model: regex },
+    { package_type: regex },
+    { subcategory_key: regex },
+    { sub_category: regex }
+  ];
+
+  const numericSearchValue = Number(normalizedKeyword);
+  if (normalizedKeyword && Number.isFinite(numericSearchValue)) {
+    textSearchConditions.push(
+      { 'specs.thickness_um': numericSearchValue },
+      { 'specs.standard_width_mm': numericSearchValue },
+      { 'specs.width_mm': numericSearchValue }
+    );
+  }
+
+  return textSearchConditions;
 }
 
 async function getOperator(openid) {
@@ -272,15 +296,12 @@ async function listMaterials(params = {}) {
     query.category = category;
   }
 
-  if (searchVal) {
-    const regex = db.RegExp({ regexp: '.*' + searchVal + '.*', options: 'i' });
+  const normalizedKeyword = normalizeSearchKeyword(searchVal);
+  const regex = buildContainsRegExp(db, normalizedKeyword);
+  if (regex) {
     query = _.and([
       query,
-      _.or([
-        { product_code: regex },
-        { material_name: regex },
-        { supplier: regex }
-      ])
+      _.or(buildMaterialSearchCondition(regex, normalizedKeyword))
     ]);
   }
 

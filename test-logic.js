@@ -51,7 +51,7 @@ const testCases = {
     console.assert(nextForm.location === 'A-01', '库位应保留');
 
     // 验证重置字段
-    console.assert(nextForm.unique_code === '', '标签号应清空 (需扫新码)');
+    console.assert(nextForm.unique_code === '', '标签编号应清空 (需扫新码)');
     console.assert(nextForm.batch_number === '', '批号应清空 (虽可能相同但需确认)');
 
     console.log('测试通过：连录逻辑符合预期');

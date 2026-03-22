@@ -92,7 +92,7 @@ exports.main = async (event, context) => {
 
     if (existCode.total > 0) {
         // Explicit Chinese error for better user understanding
-        return { success: false, msg: `冲突：标签号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络` };
+        return { success: false, msg: `冲突：标签编号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络` };
     }
 
     return await db.runTransaction(async transaction => {
@@ -108,7 +108,7 @@ exports.main = async (event, context) => {
           materialId = materialQuery.data[0]._id;
       } else {
           // 不存在：禁止入库！
-          throw new Error(`物料代码 ${base.product_code} 未在标准库中，请先申请建档`);
+          throw new Error(`产品代码 ${base.product_code} 未在标准库中，请先申请建档`);
       }
 
       /* 废弃：不再自动新建主数据

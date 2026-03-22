@@ -1,0 +1,82 @@
+.label-page {
+  padding: 24rpx;
+}
+
+.page-loading-state {
+  min-height: 320rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-refresh-state {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0 24rpx;
+}
+
+.label-row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(220rpx, 1.35fr) minmax(170rpx, auto) minmax(0, 1fr);
+  column-gap: 24rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 16rpx;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.label-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.label-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-brand);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-badge {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(249, 115, 22, 0.14);
+  color: var(--color-warning);
+  font-size: 18rpx;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.label-qty {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-brand);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.label-qty.is-warning {
+  color: var(--color-warning);
+}
+
+.label-location {
+  min-width: 0;
+  justify-self: end;
+  font-size: 24rpx;
+  color: #6B7280;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

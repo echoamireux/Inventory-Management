@@ -18,3 +18,10 @@
   margin-bottom: 0;
   line-height: 1.35;
 }
+
+.material-match-reason {
+  margin: -2px 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9CA3AF;
+}

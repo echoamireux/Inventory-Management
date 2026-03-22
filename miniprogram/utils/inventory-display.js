@@ -1,4 +1,7 @@
 const { getFilmDisplayState, roundNumber } = require('./film');
+const EXPIRY_ALERT_DAYS = 30;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const CST_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function uniqueNonEmpty(values = []) {
   return [...new Set(
@@ -16,7 +19,7 @@ function summarizeLocationScope(locations = []) {
   if (normalized.length === 1) {
     return normalized[0];
   }
-  return '多库位';
+  return `${normalized.length}个库位`;
 }
 
 function formatDateLabel(value) {
@@ -62,24 +65,61 @@ function resolveInventoryExpiryDisplay(item = {}) {
   };
 }
 
+function checkInventoryExpiring(item = {}) {
+  const expirySource = item.expiry_date || (item.dynamic_attrs && item.dynamic_attrs.expiry_date);
+  if (!expirySource) {
+    return false;
+  }
+
+  const expiryDate = new Date(expirySource);
+  if (Number.isNaN(expiryDate.getTime())) {
+    return false;
+  }
+
+  const diff = expiryDate.getTime() - (Date.now() + CST_OFFSET_MS);
+  const days = Math.ceil(diff / ONE_DAY_MS);
+  return days <= EXPIRY_ALERT_DAYS;
+}
+
+function getInventoryExpiryAlertState(item = {}) {
+  const isExpiring = checkInventoryExpiring(item);
+
+  return {
+    isExpiring,
+    expiryBadgeText: isExpiring ? '即将过期' : '',
+    rowTone: isExpiring ? 'warning' : 'brand'
+  };
+}
+
 function buildGroupedInventoryCardState(item = {}) {
   return {
     materialName: String(item.material_name || '').trim(),
     subcategoryLabel: String(item.sub_category || '').trim(),
     batchCountLabel: Number(item.totalCount) > 0 ? `${item.totalCount} 批次` : '',
-    locationSummary: summarizeLocationScope(item.locations || [])
+    locationSummary: summarizeLocationScope(item.locations || []),
+    matchReasonText: String(item.matchReasonText || '').trim()
   };
 }
 
 function buildBatchCardState(item = {}) {
-  const expiry = resolveInventoryExpiryDisplay(item);
+  const labelCount = Number(item.labelCount !== undefined ? item.labelCount : item.itemCount);
+  const locationSummary = String(item.locationSummary || '').trim() || summarizeLocationScope(item.locations || []);
+  let expiryBadgeText = '';
+
+  if (item.isExpiring) {
+    expiryBadgeText = labelCount > 1
+      ? '包含临期'
+      : (item.category === 'chemical' ? '临期' : '即将过期');
+  }
+
   return {
     batchLabel: '批号',
     batchValue: String(item.batch_number || '').trim() || '未填写',
     materialName: String(item.material_name || '').trim(),
     subcategoryLabel: String(item.sub_category || '').trim(),
-    expiryLabel: String(item.expiry || expiry.label || '').trim() || '未设置过期日',
-    locationLabel: String(item.location || '').trim() || '--'
+    labelCountLabel: labelCount > 0 ? `${labelCount}个标签` : '',
+    locationSummary,
+    expiryBadgeText
   };
 }
 
@@ -181,6 +221,7 @@ module.exports = {
   summarizeLocationScope,
   resolveInventoryExpiryDisplay,
   buildGroupedInventoryCardState,
+  getInventoryExpiryAlertState,
   buildBatchCardState,
   buildMaterialMap,
   mergeInventoryMaterialData,

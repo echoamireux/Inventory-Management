@@ -45,6 +45,8 @@
             placeholder="输入3位编号"
             value="{{ materialCodeInput }}"
             bindinput="onMaterialCodeInput"
+            bindblur="onMaterialCodeBlur"
+            bindconfirm="onMaterialCodeConfirm"
           />
           <van-button size="small" plain type="primary" custom-class="code-query-btn" bind:click="onSearchMaterial">
             查询

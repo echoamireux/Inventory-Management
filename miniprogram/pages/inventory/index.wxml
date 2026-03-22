@@ -7,11 +7,12 @@
       <view class="flex-1">
         <van-search
           value="{{ searchVal }}"
-          placeholder="搜索 名称 / 料号 / 批号 / 供应商"
+          placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
           shape="round"
           bind:search="onSearch"
           bind:change="onSearchChange"
-          bind:clear="onSearch"
+          bind:clear="onSearchClear"
+          custom-class="search-compact"
         />
       </view>
       <!-- 导出按钮 (圆形) -->
@@ -61,8 +62,8 @@
   <view wx:if="{{ loading && hasLoadedOnce }}" class="text-center p-10">
     <van-loading size="24px">加载中...</van-loading>
   </view>
-  <view wx:if="{{ isEnd && list.length > 0 }}" class="text-center p-10 text-secondary text-xs">
-    - 已无更多 -
+  <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
+    已无更多
   </view>
 
   <van-dialog id="van-dialog" />

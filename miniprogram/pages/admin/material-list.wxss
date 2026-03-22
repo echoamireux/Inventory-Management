@@ -31,6 +31,7 @@
   align-items: center;
 }
 
+
 /* 列表容器 */
 .list-wrapper {
   padding: 0 24rpx;
@@ -104,14 +105,6 @@
   flex-direction: column;
   flex-shrink: 0;
   margin-left: 16rpx;
-}
-
-/* 底部文字 */
-.end-text {
-  text-align: center;
-  color: #c8c9cc;
-  font-size: 24rpx;
-  padding: 30rpx 0;
 }
 
 /* 批量操作栏 */

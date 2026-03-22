@@ -46,6 +46,7 @@
   flex-shrink: 0;
 }
 
+
 .inventory-card:active {
   background-color: #fafafa;
   transform: scale(0.98);

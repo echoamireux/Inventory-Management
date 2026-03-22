@@ -16,6 +16,7 @@ const {
   buildInventoryExportRow,
   buildInventoryExportWorkbook
 } = require('./export-report');
+const { buildContainsRegExp } = require('./search');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -36,13 +37,16 @@ exports.main = async (event, context) => {
         match.category = category;
     }
 
-    if (searchVal) {
-        // Regex Match on Inventory Fields
+    const searchRegex = buildContainsRegExp(db, searchVal);
+    if (searchRegex) {
         match.$or = [
-            { material_name: db.RegExp({ regexp: searchVal, options: 'i' }) },
-            { product_code: db.RegExp({ regexp: searchVal, options: 'i' }) },
-            { unique_code: db.RegExp({ regexp: searchVal, options: 'i' }) },
-            { batch_number: db.RegExp({ regexp: searchVal, options: 'i' }) }
+            { material_name: searchRegex },
+            { product_code: searchRegex },
+            { unique_code: searchRegex },
+            { batch_number: searchRegex },
+            { supplier: searchRegex },
+            { location: searchRegex },
+            { location_text: searchRegex }
         ];
     }
 

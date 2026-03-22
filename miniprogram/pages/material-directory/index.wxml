@@ -8,11 +8,12 @@
   <view class="search-transparent bg-white">
     <van-search
         value="{{ searchVal }}"
-        placeholder="搜索产品代码 / 名称 / 供应商"
+        placeholder="产品代码/物料名称/子类/供应商/型号/包装/规格"
         shape="round"
         bind:search="onSearch"
         bind:clear="onSearchClear"
-        bind:change="onSearch"
+        bind:change="onSearchChange"
+        custom-class="search-compact"
     />
   </view>
 
@@ -43,6 +44,6 @@
   </view>
 
   <van-empty wx:if="{{ !loading && list.length === 0 }}" description="暂无相关物料主数据" />
-  <view class="text-center text-secondary text-xs my-20" wx:if="{{ isEnd && list.length > 0 }}">- 到底了 -</view>
+  <view class="list-end-state" wx:if="{{ isEnd && list.length > 0 }}">已无更多</view>
 </view>
 <van-toast id="van-toast" />

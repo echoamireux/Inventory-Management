@@ -6,7 +6,7 @@
       <view class="batch-code-row">
         <material-tag type="brand" text="{{ display.batchLabel }}" />
         <view class="batch-code">{{ display.batchValue }}</view>
-        <view wx:if="{{ item.isExpiring }}" class="badge-expiry">{{ item.category === 'chemical' ? '临期' : '即将过期' }}</view>
+        <view wx:if="{{ display.expiryBadgeText }}" class="badge-expiry">{{ display.expiryBadgeText }}</view>
         <view wx:if="{{ item.isArchived }}" class="badge-archived">已归档停用</view>
       </view>
     </view>
@@ -30,15 +30,16 @@
     />
   </view>
 
-  <!-- 第三行：辅助信息 -->
-  <view class="batch-meta-row">
-    <view class="batch-meta-group">
-      <material-tag type="meta" text="有效期" />
-      <text class="batch-meta-value">{{ display.expiryLabel }}</text>
-    </view>
-    <view class="batch-meta-group batch-meta-group-location">
-      <material-tag type="meta" text="库位" />
-      <text class="batch-meta-value">{{ display.locationLabel }}</text>
-    </view>
+  <view class="batch-tags-row">
+    <material-tag
+      wx:if="{{ display.labelCountLabel }}"
+      type="brand"
+      text="{{ display.labelCountLabel }}"
+    />
+    <material-tag
+      wx:if="{{ display.locationSummary }}"
+      type="gray"
+      text="{{ display.locationSummary }}"
+    />
   </view>
 </view>

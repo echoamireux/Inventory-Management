@@ -1,6 +1,19 @@
 // cloudfunctions/getLogs/index.js
 const cloud = require('wx-server-sdk');
 const { getCstRange } = require('./cst-time');
+const { buildLogSearchWhere } = require('./log-search');
+
+const LOG_SEARCH_FIELD_NAMES = [
+  'material_name',
+  'product_code',
+  'unique_code',
+  'batch_number',
+  'operator',
+  'operator_name',
+  'type',
+  'description',
+  'note'
+];
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -22,66 +35,17 @@ exports.main = async (event, context) => {
   const skip = (page - 1) * limit;
 
   try {
-      let conditions = [];
       const collection = db.collection('inventory_log');
-
-      // 1. queryCode 筛选（特殊筛选，如今日入库）
-      if (queryCode === 'today_in') {
-          const { start: today } = getCstRange('today', new Date());
-          conditions.push({ type: _.in(['inbound', 'create', 'IN', 'CREATE']) });
-          conditions.push({ timestamp: _.gte(today) });
-      } else if (queryCode === 'today_out') {
-          const { start: today } = getCstRange('today', new Date());
-          conditions.push({ type: _.in(['outbound', 'OUT']) });
-          conditions.push({ timestamp: _.gte(today) });
-      } else if (queryCode) {
-          conditions.push(_.or([
-              { unique_code: queryCode },
-              { inventory_id: queryCode }
-          ]));
-      }
-
-      // 2. 搜索关键词（物料名称、产品代码、操作人）
-      if (searchVal && searchVal.trim()) {
-          const regex = db.RegExp({
-              regexp: searchVal.trim(),
-              options: 'i'
-          });
-          conditions.push(_.or([
-              { material_name: regex },
-              { product_code: regex },
-              { operator: regex },
-              { operator_name: regex }
-          ]));
-      }
-
-      // 3. 日期筛选
-      if (dateFilter && dateFilter !== 'all') {
-          const { start: startDate } = getCstRange(dateFilter, new Date());
-          if (startDate) {
-              conditions.push({ timestamp: _.gte(startDate) });
-          }
-      }
-
-      // 4. 类型筛选
-      if (typeFilter && typeFilter !== 'all') {
-          if (typeFilter === 'inbound') {
-              conditions.push({ type: _.in(['inbound', 'create']) });
-          } else {
-              conditions.push({ type: typeFilter });
-          }
-      }
-
-      // 5. 操作人筛选
-      if (operatorFilter && operatorFilter !== 'all') {
-          conditions.push(_.or([
-              { operator: operatorFilter },
-              { operator_name: operatorFilter }
-          ]));
-      }
-
-      // 组合条件
-      const where = conditions.length > 0 ? _.and(conditions) : {};
+      const where = buildLogSearchWhere({
+          db,
+          _,
+          queryCode,
+          searchVal,
+          dateFilter,
+          typeFilter,
+          operatorFilter,
+          getCstRange
+      });
 
       // Query
       const totalRes = await collection.where(where).count();

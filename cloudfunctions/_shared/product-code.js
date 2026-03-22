@@ -82,6 +82,17 @@ function validateStandardProductCode(category, productCode) {
   };
 }
 
+function findExactProductCodeMatch(list = [], productCode = '') {
+  const normalizedCode = String(productCode || '').trim().toUpperCase();
+  if (!normalizedCode) {
+    return null;
+  }
+
+  return list.find((item) => (
+    String(item && item.product_code || '').trim().toUpperCase() === normalizedCode
+  )) || null;
+}
+
 module.exports = {
   PRODUCT_CODE_DIGITS,
   CATEGORY_PREFIX,
@@ -91,5 +102,6 @@ module.exports = {
   getPrefixValidationMessage,
   getStandardValidationMessage,
   normalizeProductCodeInput,
-  validateStandardProductCode
+  validateStandardProductCode,
+  findExactProductCodeMatch
 };

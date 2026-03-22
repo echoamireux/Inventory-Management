@@ -17,7 +17,8 @@ Component({
       materialName: '',
       subcategoryLabel: '',
       batchCountLabel: '',
-      locationSummary: ''
+      locationSummary: '',
+      matchReasonText: ''
     }
   },
   properties: {

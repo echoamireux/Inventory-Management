@@ -1,9 +1,9 @@
 /**
  * batch-list-item 组件
- * 统一批次卡片，适用于批次选择弹窗和库存详情页
+ * 统一批次卡片，适用于批次选择弹窗和批次查询页
  *
  * @property {Object} item - 批次数据对象
- * @event tap - 点击事件，返回 item 数据
+ * @event itemtap - 点击事件，返回 item 数据
  */
 Component({
   options: {
@@ -15,8 +15,9 @@ Component({
       batchValue: '',
       materialName: '',
       subcategoryLabel: '',
-      expiryLabel: '未设置过期日',
-      locationLabel: '--'
+      labelCountLabel: '',
+      locationSummary: '',
+      expiryBadgeText: ''
     }
   },
   properties: {
@@ -33,7 +34,7 @@ Component({
   },
   methods: {
     onTap() {
-      this.triggerEvent('tap', { item: this.data.item });
+      this.triggerEvent('itemtap', { item: this.data.item });
     }
   }
 });
