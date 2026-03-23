@@ -5,7 +5,8 @@ const {
   compareInventoryAllocationOrder,
   getAvailableAllocationStock,
   sortInventoryAllocationCandidates,
-  pickPreferredAllocationItem
+  pickPreferredAllocationItem,
+  buildInventoryAllocationRecommendation
 } = require('../cloudfunctions/_shared/inventory-allocation');
 
 test('allocation helper sorts explicit expiry before long-term and missing-expiry records', () => {
@@ -132,4 +133,36 @@ test('allocation helper filters non-in-stock and zero-stock items using category
 
   assert.equal(getAvailableAllocationStock(sorted[0]), 12.5);
   assert.deepEqual(sorted.map(item => item._id), ['usable-film']);
+});
+
+test('allocation helper builds a stable FEFO recommendation with the first batch and label', () => {
+  const recommendation = buildInventoryAllocationRecommendation([
+    {
+      _id: 'later-batch',
+      unique_code: 'L000202',
+      batch_number: 'PET2601',
+      status: 'in_stock',
+      category: 'film',
+      quantity: { val: 80, unit: 'm' },
+      dynamic_attrs: { current_length_m: 80 },
+      expiry_date: '2026-04-05T00:00:00.000Z',
+      create_time: '2026-03-20T08:00:00.000Z'
+    },
+    {
+      _id: 'earliest-batch',
+      unique_code: 'L000203',
+      batch_number: 'PET2512',
+      status: 'in_stock',
+      category: 'film',
+      quantity: { val: 40, unit: 'm' },
+      dynamic_attrs: { current_length_m: 40 },
+      expiry_date: '2026-04-01T00:00:00.000Z',
+      create_time: '2026-03-21T08:00:00.000Z'
+    }
+  ]);
+
+  assert.deepEqual(recommendation, {
+    recommendedCode: 'L000203',
+    recommendedBatchNumber: 'PET2512'
+  });
 });

@@ -148,11 +148,15 @@ function decorateImportPreviewRows(rows = []) {
   return (Array.isArray(rows) ? rows : []).map((item) => {
     const error = String(item && item.error ? item.error : '').trim();
     const warning = String(item && item.warning ? item.warning : '').trim();
+    const productCode = String(item && item.product_code ? item.product_code : '').trim();
+    const rowIndex = Number(item && item.rowIndex ? item.rowIndex : 0) || 0;
+    const previewKey = [rowIndex, productCode, error || 'ok', warning || 'clear'].join(':');
 
     return {
       ...item,
       error,
       warning,
+      previewKey,
       hasError: !!error,
       hasWarning: !!warning
     };

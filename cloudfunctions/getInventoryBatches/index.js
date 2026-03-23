@@ -6,7 +6,10 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
-const { pickPreferredAllocationItem } = require('./inventory-allocation');
+const {
+  pickPreferredAllocationItem,
+  buildInventoryAllocationRecommendation
+} = require('./inventory-allocation');
 
 const ALERT_CONFIG = {
   EXPIRY_DAYS: 30
@@ -106,6 +109,7 @@ exports.main = async (event) => {
 
       const locations = Array.from(group.locations);
       const recommendedRecord = pickPreferredAllocationItem(group.records);
+      const recommendation = buildInventoryAllocationRecommendation(group.records);
 
       return {
         batch_number: group.batch_number,
@@ -124,7 +128,8 @@ exports.main = async (event) => {
         minExpiry: group.minExpiry,
         isExpiring: checkExpiring(group.minExpiry),
         isArchived: material.status === 'archived',
-        recommendedCode: recommendedRecord ? String(recommendedRecord.unique_code || '').trim() : ''
+        recommendedCode: recommendation.recommendedCode || (recommendedRecord ? String(recommendedRecord.unique_code || '').trim() : ''),
+        recommendedBatchNumber: recommendation.recommendedBatchNumber || group.batch_number
       };
     }).sort((left, right) => {
       const timeLeft = left.minExpiry ? new Date(left.minExpiry).getTime() : Number.MAX_SAFE_INTEGER;

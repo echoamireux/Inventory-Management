@@ -182,6 +182,7 @@ test('search-driven list pages keep an explicit request id so stale responses ca
 test('home retrieval popup paginates inventory suggestions instead of stopping at the first page', () => {
   const homeIndexJs = read('miniprogram/pages/index/index.js');
   const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+  const appCss = read('miniprogram/app.wxss');
 
   assert.match(homeIndexJs, /selectPage:/);
   assert.match(homeIndexJs, /selectPageSize:/);
@@ -189,6 +190,21 @@ test('home retrieval popup paginates inventory suggestions instead of stopping a
   assert.match(homeIndexJs, /selectRequestId:/);
   assert.match(homeIndexJs, /onSelectPopupReachBottom/);
   assert.match(homeIndexWxml, /bindscrolltolower="onSelectPopupReachBottom"/);
+  assert.match(appCss, /\.page-loading-state[\s\S]*justify-content:\s*center/);
+});
+
+test('home quick-withdraw popup exposes product and batch modes under one action entry', () => {
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+
+  assert.match(homeIndexJs, /quickWithdrawMode:/);
+  assert.match(homeIndexJs, /onQuickWithdrawModeChange/);
+  assert.match(homeIndexJs, /withdrawMode:/);
+  assert.match(homeIndexJs, /mode === 'product'|quickWithdrawMode === 'product'/);
+  assert.match(homeIndexWxml, /快捷领料/);
+  assert.match(homeIndexWxml, /按产品代码领料/);
+  assert.match(homeIndexWxml, /按批次领料/);
+  assert.match(homeIndexWxml, /mode="\{\{ withdrawMode \}\}"/);
 });
 
 test('grouped inventory cards expose a compact match reason hint during searches', () => {

@@ -256,7 +256,7 @@ Page({
 
           const validCount = previewData.filter(item => !item.error).length;
           const errorCount = previewData.filter(item => item.error).length;
-          const warningCount = previewData.filter(item => item.warning && !item.error).length;
+          const warningCount = previewData.filter(item => item.hasWarning && !item.hasError && item.warning).length;
 
           this.setData({
             previewData,
@@ -314,7 +314,7 @@ Page({
   // 确认导入
   async onImport() {
     const previewErrors = this.data.previewData.filter(item => item.error);
-    const previewWarnings = this.data.previewData.filter(item => item.warning && !item.error);
+    const previewWarnings = this.data.previewData.filter(item => item.hasWarning && !item.hasError && item.warning);
     const validItems = this.data.previewData.filter(item => !item.error);
 
     if (validItems.length === 0) {

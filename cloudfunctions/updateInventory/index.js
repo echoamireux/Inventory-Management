@@ -47,6 +47,16 @@ async function loadWithdrawCandidates({ unique_code, product_code, batch_no }) {
     return sortInventoryAllocationCandidates(res.data || []);
   }
 
+  if (product_code) {
+    const res = await db.collection('inventory')
+      .where({
+        product_code,
+        status: 'in_stock'
+      })
+      .get();
+    return sortInventoryAllocationCandidates(res.data || []);
+  }
+
   return [];
 }
 

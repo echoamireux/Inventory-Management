@@ -151,16 +151,29 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
 
 test('home batch recommendation and batch-mode deduction share one FEFO allocation contract', () => {
   const homeIndex = read('miniprogram/pages/index/index.js');
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
   const batchCf = read('cloudfunctions/getInventoryBatches/index.js');
   const updateInventory = read('cloudfunctions/updateInventory/index.js');
+  const withdrawDialogJs = read('miniprogram/components/withdraw-dialog/index.js');
   const withdrawDialogWxml = read('miniprogram/components/withdraw-dialog/index.wxml');
 
+  assert.match(groupedCf, /recommendedCode/);
+  assert.match(groupedCf, /recommendedBatchNumber/);
+  assert.match(groupedCf, /buildInventoryAllocationRecommendation|pickPreferredAllocationItem/);
   assert.match(batchCf, /recommendedCode/);
   assert.match(batchCf, /pickPreferredAllocationItem|sortInventoryAllocationCandidates/);
+  assert.match(batchCf, /recommendedBatchNumber/);
   assert.match(updateInventory, /sortInventoryAllocationCandidates/);
   assert.match(updateInventory, /status:\s*'in_stock'/);
+  assert.match(updateInventory, /product_code,\s*status:\s*'in_stock'/);
   assert.match(homeIndex, /batch\.recommendedCode/);
+  assert.match(homeIndex, /recommendedBatchNumber/);
+  assert.match(homeIndex, /withdrawMode:/);
+  assert.match(homeIndex, /quickWithdrawMode:/);
+  assert.doesNotMatch(homeIndex, /isSmartBatchMode/);
   assert.doesNotMatch(homeIndex, /orderBy\('expiry_date', 'asc'\)/);
+  assert.match(withdrawDialogJs, /scan' \|\| this\.data\.mode === 'product'|mode === 'product'/);
+  assert.match(withdrawDialogWxml, /首个推荐批次|推荐批次/);
   assert.match(withdrawDialogWxml, /效期优先|FEFO/);
 });
 
@@ -226,4 +239,11 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   assert.match(adminLogsJs, /batch_number/);
   assert.match(adminLogsJs, /description/);
   assert.match(adminLogsJs, /note/);
+});
+
+test('material import preview only renders warning rows when text exists and forces keyed refresh when warning state changes', () => {
+  const importWxml = read('miniprogram/pages/admin/material-import/index.wxml');
+
+  assert.match(importWxml, /wx:key="previewKey"/);
+  assert.match(importWxml, /wx:else-if="\{\{ item\.hasWarning && item\.warning \}\}"/);
 });

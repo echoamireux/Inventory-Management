@@ -32,10 +32,10 @@
        </view>
     </view>
 
-    <!-- 检索领料 (独立辅助入口 - 按钮样式) -->
+    <!-- 快捷领料 (独立辅助入口 - 按钮样式) -->
     <view class="mb-15">
       <view class="btn-retrieve" bindtap="onShowMaterialSelect" hover-class="btn-hover">
-        <van-icon name="search" class="mr-5" size="18px" /> 检索领料 (免扫码)
+        <van-icon name="search" class="mr-5" size="18px" /> 快捷领料
       </view>
     </view>
 
@@ -101,7 +101,19 @@
     <view class="flex-col h-full bg-page">
        <view class="bg-white sticky-top z-index-100">
            <!-- 使用公共组件 popup-header -->
-           <popup-header title="物料检索" bind:close="onCloseSelectPopup" />
+           <popup-header title="快捷领料" bind:close="onCloseSelectPopup" />
+
+           <van-tabs
+              id="mode-tabs"
+              active="{{ quickWithdrawMode }}"
+              bind:change="onQuickWithdrawModeChange"
+              color="#2C68FF"
+              line-width="56px"
+              border="{{ false }}"
+           >
+               <van-tab title="按产品代码领料" name="product"></van-tab>
+               <van-tab title="按批次领料" name="batch"></van-tab>
+           </van-tabs>
 
            <view class="px-safe pb-5">
               <van-search
@@ -117,7 +129,7 @@
            </view>
 
            <van-tabs
-              id="tabs"
+              id="category-tabs"
               active="{{ selectActiveTab }}"
               bind:change="onSelectTabChange"
               color="#2C68FF"
@@ -200,7 +212,7 @@
   <withdraw-dialog
     show="{{ showWithdrawDialog }}"
     item="{{ withdrawItem }}"
-    mode="{{ isSmartBatchMode ? 'batch' : 'scan' }}"
+    mode="{{ withdrawMode }}"
     recommendedCode="{{ recommendedCode }}"
     bind:close="onWithdrawClose"
     bind:confirm="onWithdrawConfirmFn"

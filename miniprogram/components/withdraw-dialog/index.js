@@ -14,15 +14,20 @@ Component({
       type: Object,
       value: null,
       observer: function(newVal) {
-          if (newVal) {
-              this.formatDisplay();
-          }
+        if (newVal) {
+          this.formatDisplay();
+        }
       }
     },
-    // 'scan' or 'batch'
+    // 'scan' or 'batch' or 'product'
     mode: {
       type: String,
-      value: 'scan'
+      value: 'scan',
+      observer: function() {
+        if (this.data.item) {
+          this.formatDisplay();
+        }
+      }
     },
     // For batch mode, passed in list of sibling items to find recommendation
     // Or we can just pass the "Recommended Code" string directly as a prop to keep it simple.
@@ -56,10 +61,10 @@ Component({
         const quantity = item.quantity || {};
         let displayStock = '0';
         let displayStockUnit = quantity.unit || 'kg';
-        let inputUnitLabel = item.category === 'film' ? 'm' : (quantity.unit || 'kg');
+        let inputUnitLabel = item.category === 'film' ? 'm' : (item.unit || quantity.unit || 'kg');
         let availableInputStock = 0;
 
-        if (this.data.mode === 'batch' && item.totalQuantity !== undefined) {
+        if ((this.data.mode === 'batch' || this.data.mode === 'product') && item.totalQuantity !== undefined) {
             displayStock = String(Number(item.totalQuantity) || 0);
             displayStockUnit = item.unit || quantity.unit || (item.category === 'film' ? 'm' : 'kg');
             availableInputStock = Number(item.totalBaseLengthM) || Number(item.totalQuantity) || 0;

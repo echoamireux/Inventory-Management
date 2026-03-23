@@ -59,7 +59,8 @@ Page({
     batchList: [],
     selectedAggItem: null,
 
-    isSmartBatchMode: false,
+    quickWithdrawMode: "product",
+    withdrawMode: "scan",
     recommendedCode: "",
     alertConfig: alertConfig,
 
@@ -207,29 +208,22 @@ Page({
     const unit = batch.unit || 'kg';
     const selectedAggItem = this.data.selectedAggItem || {};
     const category = selectedAggItem.category || this.data.selectActiveTab;
-
-    let currentStockDesc = `${totalQty} ${unit} (批次总计)`;
-    let inputLabel = `领用量 (${unit})`;
-
-    if (category === 'film') {
-      currentStockDesc = `${totalQty} ${unit} (批次总计)`;
-      inputLabel = "领用长度 (米)";
-    }
-
     const recommendedCode = String(batch.recommendedCode || '').trim();
 
     this.setData({
-        withdrawItem: {
+      withdrawItem: {
         product_code: batch.product_code,
         material_name: batch.material_name,
         batch_number: batch.batch_number,
+        recommendedBatchNumber: String(batch.recommendedBatchNumber || batch.batch_number || '').trim(),
         category: category,
-        currentStockDesc,
-        inputLabel,
+        totalQuantity: totalQty,
+        totalBaseLengthM: Number(batch.totalBaseLengthM) || Number(totalQty) || 0,
         quantity: { val: totalQty, unit },
-        location: batch.location,
         unique_code: recommendedCode,
-        isArchived: batch.isArchived || selectedAggItem.isArchived || false
+        recommendedCode,
+        isArchived: batch.isArchived || selectedAggItem.isArchived || false,
+        isExpiring: !!batch.isExpiring
       },
       withdrawAmount: "",
       selectedUsage: "",
@@ -237,13 +231,44 @@ Page({
       recommendedCode,
       showUsagePicker: false,
       showWithdrawDialog: true,
-      isSmartBatchMode: true,
+      withdrawMode: "batch",
+    });
+  },
+
+  async handleProductWithdraw(item) {
+    const recommendedCode = String(item.recommendedCode || '').trim();
+    const recommendedBatchNumber = String(item.recommendedBatchNumber || '').trim();
+    const totalQty = Number(item.totalQuantity) || 0;
+    const unit = item.unit || 'kg';
+
+    this.setData({
+      showSelectPopup: false,
+      withdrawItem: {
+        product_code: item.product_code,
+        material_name: item.material_name,
+        category: item.category || this.data.selectActiveTab,
+        totalQuantity: totalQty,
+        totalBaseLengthM: Number(item.totalBaseLengthM) || totalQty,
+        quantity: { val: totalQty, unit },
+        unique_code: recommendedCode,
+        recommendedCode,
+        recommendedBatchNumber,
+        isArchived: !!item.isArchived,
+        isExpiring: !!item.isExpiring
+      },
+      withdrawAmount: "",
+      selectedUsage: "",
+      usageDetail: "",
+      recommendedCode,
+      showUsagePicker: false,
+      showWithdrawDialog: true,
+      withdrawMode: "product",
     });
   },
 
   // === 扫码领料核心逻辑 ===
   async onScanWithdraw() {
-    this.setData({ isSmartBatchMode: false }); // Reset mode
+    this.setData({ withdrawMode: "scan" });
     try {
       const res = await wx.scanCode();
       const code = res.result;
@@ -255,7 +280,7 @@ Page({
 
   // 用于手动输入测试
   async onManualInput() {
-    this.setData({ isSmartBatchMode: false }); // Reset mode
+    this.setData({ withdrawMode: "scan" });
     wx.showModal({
       title: "手动输入(测试用)",
       editable: true,
@@ -348,7 +373,7 @@ Page({
         usageDetail: "", // Reset detail
         showUsagePicker: false,
         showWithdrawDialog: true,
-        isSmartBatchMode: false, // Explicitly single item mode
+        withdrawMode: "scan",
       });
     } catch (err) {
       Toast.clear();
@@ -386,7 +411,7 @@ Page({
 
   async onWithdrawConfirmFn(e) {
     const { withdraw_amount, note } = e.detail;
-    const { withdrawItem, isSmartBatchMode } = this.data;
+    const { withdrawItem, withdrawMode } = this.data;
 
     this.setData({ showWithdrawDialog: false }); // 先关闭，后续用 Loading
     Toast.loading({ message: "处理中...", forbidClick: true });
@@ -403,8 +428,9 @@ Page({
         operator_name: operator,
       };
 
-      // Smart Mode vs Single Item Mode
-      if (isSmartBatchMode) {
+      if (withdrawMode === 'product') {
+        payload.product_code = withdrawItem.product_code;
+      } else if (withdrawMode === 'batch') {
         payload.product_code = withdrawItem.product_code;
         payload.batch_no = withdrawItem.batch_number;
       } else {
@@ -451,13 +477,16 @@ Page({
         selectIsEnd: false,
         selectLoading: false,
         selectTotal: 0,
+        quickWithdrawMode: this.data.quickWithdrawMode || "product",
         selectActiveTab: this.data.selectActiveTab || "chemical", // Default
       },
       () => {
         // Fix tab underline position
         setTimeout(() => {
-          const tabs = this.selectComponent("#tabs");
-          if (tabs) tabs.resize();
+          const categoryTabs = this.selectComponent("#category-tabs");
+          const modeTabs = this.selectComponent("#mode-tabs");
+          if (categoryTabs) categoryTabs.resize();
+          if (modeTabs) modeTabs.resize();
         }, 200);
       },
     );
@@ -481,6 +510,12 @@ Page({
       selectIsEnd: false
     });
     this.loadAggregatedMaterials(true);
+  },
+
+  onQuickWithdrawModeChange(e) {
+    this.setData({
+      quickWithdrawMode: e.detail.name
+    });
   },
 
   navigateToInventorySearch(value) {
@@ -606,6 +641,11 @@ Page({
     // 支持两种模式：1. dataset.item  2. 组件返回的 e.detail.item
     const item = (e.detail && e.detail.item) || e.currentTarget.dataset.item;
     this.setData({ selectedAggItem: item });
+
+    if (this.data.quickWithdrawMode === 'product') {
+      await this.handleProductWithdraw(item);
+      return;
+    }
 
     wx.showLoading({ title: "加载批次..." });
     try {

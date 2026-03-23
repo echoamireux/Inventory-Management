@@ -86,9 +86,25 @@ function pickPreferredAllocationItem(items = []) {
   return sorted.length > 0 ? sorted[0] : null;
 }
 
+function buildInventoryAllocationRecommendation(items = []) {
+  const preferred = pickPreferredAllocationItem(items);
+  if (!preferred) {
+    return {
+      recommendedCode: '',
+      recommendedBatchNumber: ''
+    };
+  }
+
+  return {
+    recommendedCode: String(preferred.unique_code || '').trim(),
+    recommendedBatchNumber: String(preferred.batch_number || '').trim()
+  };
+}
+
 module.exports = {
   getAvailableAllocationStock,
   compareInventoryAllocationOrder,
   sortInventoryAllocationCandidates,
-  pickPreferredAllocationItem
+  pickPreferredAllocationItem,
+  buildInventoryAllocationRecommendation
 };

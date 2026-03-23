@@ -25,6 +25,9 @@ const {
   normalizeSearchKeyword
 } = require('./search');
 const {
+  buildInventoryAllocationRecommendation
+} = require('./inventory-allocation');
+const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
   buildSubcategoryMap,
@@ -66,6 +69,7 @@ exports.main = async (event, context) => {
       const res = await db.collection('inventory')
         .where(where)
         .field({
+          _id: true,
           material_name: true,
           category: true,
           subcategory_key: true,
@@ -80,7 +84,9 @@ exports.main = async (event, context) => {
           zone_key: true,
           batch_number: true,
           supplier: true,
-          unique_code: true
+          unique_code: true,
+          status: true,
+          create_time: true
         })
         .skip(skip)
         .limit(inventoryBatchSize)
@@ -163,6 +169,7 @@ exports.main = async (event, context) => {
 
     const filteredGroups = groups.map(item => {
         const material = materialMap.get(item.product_code) || {};
+        const recommendation = buildInventoryAllocationRecommendation(item.items);
         let totalQuantity = 0;
         let totalBaseLengthM = 0;
         let unit = item.items[0] && item.items[0].quantity ? item.items[0].quantity.unit : '';
@@ -200,6 +207,8 @@ exports.main = async (event, context) => {
           unit: unit,
           minExpiry: item.minExpiry,
           locations: Array.from(item.locations),
+          recommendedCode: recommendation.recommendedCode,
+          recommendedBatchNumber: recommendation.recommendedBatchNumber,
           matchReasonText: resolveGroupMatchReasonText(item, normalizedKeyword, zoneMap),
           isExpiring,
           isLowStock,

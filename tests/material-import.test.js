@@ -266,8 +266,12 @@ test('preview row decoration keeps empty warnings from rendering as visible warn
 
   assert.equal(rows[0].hasWarning, true);
   assert.equal(rows[0].hasError, false);
+  assert.match(rows[0].previewKey, /J-001/);
+  assert.match(rows[0].previewKey, /编号 001 同时出现在化材和膜材中/);
   assert.equal(rows[1].hasWarning, false);
   assert.equal(rows[1].hasError, false);
+  assert.match(rows[1].previewKey, /J-002/);
+  assert.doesNotMatch(rows[1].previewKey, /warning/);
 });
 
 test('import result message includes row-level duplicate and failure feedback', () => {

@@ -33,7 +33,7 @@
                  <!-- Name (Secondary, 14px) -->
                  <view class="text-main font-medium text-base mb-2">{{ item.material_name }}</view>
 
-                <view class="mt-4 flex-row items-center justify-between">
+                <view wx:if="{{ mode === 'scan' && item.batch_number }}" class="mt-4 flex-row items-center justify-between">
                     <view class="flex-row items-center">
                         <view class="tag-base tag-brand mr-8">批号</view>
                         <text class="text-sub text-sm font-din">{{ item.batch_number }}</text>
@@ -41,21 +41,41 @@
                 </view>
 
                 <!-- 非批次模式（扫码/详情页）：显示标签编号 -->
-                <view wx:if="{{ mode !== 'batch' && item.unique_code }}" class="mt-2 flex-row items-center">
+                <view wx:if="{{ mode === 'scan' && item.unique_code }}" class="mt-2 flex-row items-center">
                      <view class="tag-base tag-success mr-8">标签编号</view>
                      <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
                 </view>
 
-                <!-- 批次模式：显示系统推荐 -->
-                <view wx:if="{{ mode === 'batch' && item.unique_code }}" class="mt-2 flex-row items-center">
-                    <view class="tag-base tag-warning mr-8">系统推荐</view>
-                    <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
-                    <text class="text-sub text-sm ml-8">(效期优先)</text>
+                <view wx:if="{{ mode === 'batch' }}" class="mt-4 fifo-hint">
+                    <view wx:if="{{ item.batch_number }}" class="flex-row items-center">
+                        <view class="tag-base tag-brand mr-8">批号</view>
+                        <text class="text-sub text-sm font-din">{{ item.batch_number }}</text>
+                    </view>
+                    <view wx:if="{{ item.unique_code }}" class="mt-2 flex-row items-center">
+                        <view class="tag-base tag-warning mr-8">系统首扣</view>
+                        <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
+                    </view>
+                    <view class="fifo-desc mt-2">本次将按 FEFO（效期优先）在该批次内自动扣减。</view>
+                </view>
+
+                <view wx:if="{{ mode === 'product' }}" class="mt-4 fifo-hint">
+                    <view class="flex-row items-center">
+                        <view class="tag-base tag-brand mr-8">自动扣减</view>
+                        <text class="text-sub text-sm">系统将按 FEFO（效期优先）跨批次自动扣减</text>
+                    </view>
+                    <view wx:if="{{ item.recommendedBatchNumber }}" class="mt-2 flex-row items-center">
+                        <view class="tag-base tag-warning mr-8">首个推荐批次</view>
+                        <text class="text-sub text-sm font-din">{{ item.recommendedBatchNumber }}</text>
+                    </view>
+                    <view wx:if="{{ item.unique_code }}" class="mt-2 flex-row items-center">
+                        <view class="tag-base tag-success mr-8">首个推荐标签</view>
+                        <text class="text-sub text-sm font-din">{{ item.unique_code }}</text>
+                    </view>
                 </view>
 
                  <view wx:if="{{ item.isExpiring }}" class="mt-2 alert-box-orange">
                     <van-icon name="warning-o" color="#F97316" size="14px" class="mr-8"/>
-                    <text class="text-alert-orange">该批次即将过期</text>
+                    <text class="text-alert-orange">{{ mode === 'product' ? '该产品包含即将过期库存' : '该批次即将过期' }}</text>
                  </view>
 
                  <!-- 归档警告 -->
