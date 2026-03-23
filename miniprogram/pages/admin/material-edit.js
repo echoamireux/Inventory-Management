@@ -1,6 +1,6 @@
 // pages/admin/material-edit.js
 import Toast from '@vant/weapp/toast/toast';
-import { PACKAGE_TYPES } from '../../utils/constants';
+const { PACKAGE_TYPES } = require('../../utils/constants');
 const {
   getAllowedUnits,
   getDefaultUnit,

@@ -1,10 +1,10 @@
 // pages/material-add/batch-entry.js
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
-import {
+const {
   SEARCH_DEBOUNCE_MS,
   CATEGORY_PREFIX
-} from '../../utils/constants';
+} = require('../../utils/constants');
 const {
   buildLocationZoneActions,
   composeLocation,

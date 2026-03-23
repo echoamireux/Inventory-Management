@@ -262,12 +262,18 @@ exports.main = async (event, context) => {
         }
       }
 
+      // 根据调用模式确定剩余量的范围描述
+      const remainingScope = unique_code
+        ? '本标签'
+        : (batch_no ? '本批次' : '该产品');
+
       return {
         success: true,
         remaining: Number(totalRemaining.toFixed(2)),
         unit,
         displayRemaining: Number(displayRemaining.toFixed(2)),
-        displayUnit
+        displayUnit,
+        remainingScope
       };
     });
 

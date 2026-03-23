@@ -281,7 +281,8 @@ Page({
                 ? res.result.displayRemaining
                 : res.result.remaining;
               const unit = res.result.displayUnit || res.result.unit || '';
-              Toast.success(`领用成功，剩余: ${remaining !== undefined ? remaining + ' ' + unit : '--'}`);
+              const scope = res.result.remainingScope || '';
+              Toast.success(`领用成功，${scope}剩余: ${remaining !== undefined ? remaining + ' ' + unit : '--'}`);
               // Refresh details
               setTimeout(() => {
                   this.fetchDetail(this.data.id);

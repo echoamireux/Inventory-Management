@@ -1,4 +1,6 @@
 // app.js
+const { USER_STATUS } = require('./utils/constants');
+
 App({
   onLaunch: function () {
     if (!wx.cloud) {
@@ -57,18 +59,18 @@ App({
 
         console.log('用户状态:', user.status);
 
-        if (user.status === 'pending') {
+        if (user.status === USER_STATUS.PENDING) {
            // B: 审核中 -> 等待页
            if (this.getActivePageName() !== 'pages/status/pending') {
               wx.reLaunch({ url: '/pages/status/pending' });
            }
-        } else if (user.status === 'disabled') {
+        } else if (user.status === USER_STATUS.DISABLED) {
            // C: 已禁用
            wx.showModal({
              title: '账号已禁用',
              content: '请联系管理员',
            });
-        } else if (user.status === 'rejected') {
+        } else if (user.status === USER_STATUS.REJECTED) {
            // D: 已拒绝
            if (this.getActivePageName() !== 'pages/status/pending') {
               wx.reLaunch({
@@ -76,7 +78,7 @@ App({
               });
            }
         } else {
-           // D: 已激活 -> 首页 (如果还在其他页面比如注册页，则跳转)
+           // E: 已激活 -> 首页 (如果还在其他页面比如注册页，则跳转)
            // 如果已经在首页或其他业务页面，则不动
            const cur = this.getActivePageName();
            if (cur === 'pages/register/index' || cur === 'pages/status/pending') {

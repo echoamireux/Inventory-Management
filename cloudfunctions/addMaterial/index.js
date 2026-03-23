@@ -78,14 +78,8 @@ exports.main = async (event, context) => {
       locationDetail: inventory.location_detail
     }, zoneMap);
 
-    const result = await db.runTransaction(async transaction => {
-      // 1.1 唯一码查重 (必须全局唯一)
-      // 注意：transaction 中不支持 where 查询，必须用 db.collection 直接查，或者假定重复会报错。
-      // 但为了健壮性，我们可以先查一下 (非事务内)，或者依赖数据库的唯一索引 (如果设置了)。
-      // 云开发事务限制比较多，这里先在事务外查重，虽然理论上有并发风险，但标签是物理唯一的，风险极低。
-    });
-
-    // 为了避开事务限制，先查重
+    // 标签编号查重（事务外执行，因云开发事务不支持 where 查询）
+    // 物理标签天然唯一，并发风险极低；建议在 inventory collection 上建立 unique_code 唯一索引作为兜底
     const existCode = await db.collection('inventory').where({
         unique_code: normalizedUniqueCode
     }).count();

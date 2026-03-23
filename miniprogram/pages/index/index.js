@@ -125,6 +125,11 @@ Page({
   },
 
   onSearch(e) {
+    // 清除防抖定时器，避免回车确认和防抖回调同时触发两次导航
+    if (this.homeSearchTimer) {
+      clearTimeout(this.homeSearchTimer);
+      this.homeSearchTimer = null;
+    }
     const val = resolveSearchValue(e && e.detail);
     if (val) {
       this.navigateToInventorySearch(val);
@@ -449,8 +454,9 @@ Page({
           ? res.result.displayRemaining
           : res.result.remaining;
         const unit = res.result.displayUnit || res.result.unit || '';
+        const scope = res.result.remainingScope || '';
         if (remaining !== undefined) {
-          Toast.success(`领用成功，剩余: ${remaining} ${unit}`);
+          Toast.success(`领用成功，${scope}剩余: ${remaining} ${unit}`);
         } else {
           Toast.success("领用成功");
         }

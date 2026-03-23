@@ -1,11 +1,11 @@
 // pages/material-add/index.js
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
-import {
+const {
   CATEGORY_PREFIX,
   PACKAGE_TYPES,
   DEFAULT_FORM
-} from '../../utils/constants';
+} = require('../../utils/constants');
 const {
   buildLocationZoneActions,
   buildZoneMap,
