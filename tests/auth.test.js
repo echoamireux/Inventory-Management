@@ -7,7 +7,8 @@ const {
   isAllowedManagedRole,
   assertActiveUserAccess,
   assertAdminAccess,
-  assertSuperAdminAccess
+  assertSuperAdminAccess,
+  assertAdminMutationAccess
 } = require('../cloudfunctions/_shared/auth');
 
 test('admin and super_admin both satisfy admin access', () => {
@@ -51,5 +52,22 @@ test('non-admin active users still cannot pass admin-only gate', () => {
   assert.deepEqual(assertAdminAccess({ role: 'user', status: 'active' }), {
     ok: false,
     msg: 'Permission denied'
+  });
+});
+
+test('admin mutation gate requires both active status and admin role', () => {
+  assert.deepEqual(assertAdminMutationAccess({ role: 'admin', status: 'active' }), {
+    ok: true
+  });
+  assert.deepEqual(assertAdminMutationAccess({ role: 'super_admin', status: 'active' }), {
+    ok: true
+  });
+  assert.deepEqual(assertAdminMutationAccess({ role: 'admin', status: 'disabled' }), {
+    ok: false,
+    msg: '仅管理员可执行该操作'
+  });
+  assert.deepEqual(assertAdminMutationAccess({ role: 'user', status: 'active' }), {
+    ok: false,
+    msg: '仅管理员可执行该操作'
   });
 });

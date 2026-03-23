@@ -6,7 +6,7 @@
   <view class="search-transparent">
     <van-search
         value="{{ searchVal }}"
-        placeholder="产品代码/物料名称/标签编号/批号/操作/备注"
+        placeholder="产品代码/物料名称/标签编号/批号/操作人/类型/描述/备注"
         shape="round"
         bind:search="onSearch"
         bind:change="onSearchChange"

@@ -4,6 +4,7 @@ const { normalizeUnitInput } = require('./material-units');
 const { validateStandardProductCode } = require('./product-code');
 const { createImportResultTracker } = require('./import-batch-results');
 const { buildContainsRegExp, normalizeSearchKeyword } = require('./search');
+const { assertAdminMutationAccess, assertActiveUserAccess } = require('./auth');
 const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
@@ -76,6 +77,7 @@ function buildMaterialSearchCondition(regex, normalizedKeyword) {
     { material_name: regex },
     { supplier: regex },
     { supplier_model: regex },
+    { default_unit: regex },
     { package_type: regex },
     { subcategory_key: regex },
     { sub_category: regex }
@@ -101,6 +103,16 @@ async function getOperator(openid) {
   return operatorRes.data && operatorRes.data.length > 0
     ? operatorRes.data[0]
     : null;
+}
+
+async function assertManageMaterialAdminMutation(openid, message = '仅管理员可执行该操作') {
+  const operator = await getOperator(openid);
+  const authResult = assertAdminMutationAccess(operator, message);
+  if (!authResult.ok) {
+    return authResult;
+  }
+
+  return { ok: true, operator };
 }
 
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
@@ -370,6 +382,10 @@ async function getMaterial(params) {
  */
 async function createMaterial(data, openid) {
   const { product_code, material_name, category } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid);
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
 
   // 验证必填字段
   if (!product_code || !material_name || !category) {
@@ -437,6 +453,10 @@ async function createMaterial(data, openid) {
  */
 async function updateMaterial(data, openid) {
   const { id, ...updateData } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid);
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
 
   if (!id) {
     return { success: false, msg: '缺少物料ID' };
@@ -521,8 +541,9 @@ async function completeFilmSpecsFromInbound(data, openid) {
   }
 
   const operator = await getOperator(openid);
-  if (!operator || operator.status !== 'active') {
-    return { success: false, msg: '仅已激活用户可补齐首批膜材规格' };
+  const authResult = assertActiveUserAccess(operator, '仅已激活用户可补齐首批膜材规格');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
   }
 
   const materialRes = await db.collection('materials').doc(id).get();
@@ -608,6 +629,10 @@ async function completeFilmSpecsFromInbound(data, openid) {
  */
 async function archiveMaterial(data, openid) {
   const { id } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid);
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
 
   if (!id) {
     return { success: false, msg: '缺少物料ID' };
@@ -656,6 +681,10 @@ async function logMaterialChange(logData) {
  */
 async function batchCreateMaterials(data, openid) {
   const { items } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid, '仅管理员可导入物料主数据');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return { success: false, msg: '无有效数据' };
@@ -799,6 +828,10 @@ async function batchCreateMaterials(data, openid) {
  */
 async function batchDeleteMaterials(data, openid) {
   const { ids, archive_reason } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid);
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return { success: false, msg: '请选择要删除的物料' };
   }
@@ -854,6 +887,10 @@ async function batchDeleteMaterials(data, openid) {
  */
 async function restoreMaterial(data, openid) {
   const { id } = data;
+  const authResult = await assertManageMaterialAdminMutation(openid);
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
   if (!id) return { success: false, msg: '缺少参数' };
 
   try {

@@ -51,14 +51,14 @@ exports.main = async (event, context) => {
         category: $.first('$category'),
         earliestExpiry: $.min('$expiry_date'),
         earliestDynamicExpiry: $.min('$dynamic_attrs.expiry_date'),
-        minChemicalQty: $.min('$quantity.val'),
-        minFilmLength: $.min('$dynamic_attrs.current_length_m')
+        totalChemicalQty: $.sum('$quantity.val'),
+        totalFilmLength: $.sum('$dynamic_attrs.current_length_m')
       })
       .end();
 
     const groupedInventory = groupedInventoryRes.list || [];
     const futureTime = future30d.getTime();
-    let lowStock = 0;
+    let riskCount = 0;
 
     groupedInventory.forEach((item) => {
       let isRisky = false;
@@ -71,14 +71,14 @@ exports.main = async (event, context) => {
         }
       }
 
-      if (!isRisky) {
+        if (!isRisky) {
         if (item.category === 'chemical') {
-          const qty = Number(item.minChemicalQty) || 0;
+          const qty = Number(item.totalChemicalQty) || 0;
           if (qty <= ALERT_CONFIG.LOW_STOCK.chemical) {
             isRisky = true;
           }
         } else if (item.category === 'film') {
-          const len = Number(item.minFilmLength) || 0;
+          const len = Number(item.totalFilmLength) || 0;
           if (len <= ALERT_CONFIG.LOW_STOCK.film) {
             isRisky = true;
           }
@@ -86,7 +86,7 @@ exports.main = async (event, context) => {
       }
 
       if (isRisky) {
-        lowStock += 1;
+        riskCount += 1;
       }
     });
 
@@ -94,7 +94,8 @@ exports.main = async (event, context) => {
         totalMaterials: groupedInventory.length,
         todayIn: inboundCount.total,
         todayOut: outboundCount.total,
-        lowStock,
+        lowStock: riskCount,
+        riskCount,
         success: true
     };
 

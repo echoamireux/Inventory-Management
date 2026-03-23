@@ -1,43 +1,55 @@
 function calculateDashboardStatsFromItems(items, alertConfig) {
-  const uniqueMaterials = new Set();
-  const riskyProducts = new Set();
+  const grouped = new Map();
   const futureTime = Date.now() + (alertConfig.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
   for (const item of items || []) {
     const productCode = item.product_code || 'UNKNOWN';
-    uniqueMaterials.add(productCode);
-
-    let isRisky = false;
-    let expiry = null;
-
-    if (item.expiry_date) {
-      expiry = new Date(item.expiry_date);
-    } else if (item.dynamic_attrs && item.dynamic_attrs.expiry_date) {
-      expiry = new Date(item.dynamic_attrs.expiry_date);
+    if (!grouped.has(productCode)) {
+      grouped.set(productCode, {
+        category: item.category,
+        earliestExpiryTime: Number.POSITIVE_INFINITY,
+        totalChemicalQty: 0,
+        totalFilmLength: 0
+      });
     }
 
-    if (expiry && !isNaN(expiry.getTime()) && expiry.getTime() <= futureTime) {
-      isRisky = true;
+    const current = grouped.get(productCode);
+    if (!current.category && item.category) {
+      current.category = item.category;
     }
 
-    if (!isRisky) {
-      if (item.category === 'chemical') {
-        const qty = Number(item.quantity && item.quantity.val) || 0;
-        if (qty <= alertConfig.LOW_STOCK.chemical) isRisky = true;
-      } else if (item.category === 'film') {
-        const len = Number(item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
-        if (len <= alertConfig.LOW_STOCK.film) isRisky = true;
+    const rawExpiry = item.expiry_date || (item.dynamic_attrs && item.dynamic_attrs.expiry_date);
+    if (rawExpiry) {
+      const expiryTime = new Date(rawExpiry).getTime();
+      if (!Number.isNaN(expiryTime)) {
+        current.earliestExpiryTime = Math.min(current.earliestExpiryTime, expiryTime);
       }
     }
 
-    if (isRisky) {
-      riskyProducts.add(productCode);
+    if (item.category === 'film') {
+      current.totalFilmLength += Number(item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
+    } else {
+      current.totalChemicalQty += Number(item.quantity && item.quantity.val) || 0;
     }
   }
 
+  let riskCount = 0;
+  grouped.forEach((item) => {
+    const hasExplicitExpiry = Number.isFinite(item.earliestExpiryTime);
+    const isExpiring = hasExplicitExpiry && item.earliestExpiryTime <= futureTime;
+    const isLowStock = item.category === 'film'
+      ? item.totalFilmLength <= alertConfig.LOW_STOCK.film
+      : item.totalChemicalQty <= alertConfig.LOW_STOCK.chemical;
+
+    if (isExpiring || isLowStock) {
+      riskCount += 1;
+    }
+  });
+
   return {
-    totalMaterials: uniqueMaterials.size,
-    lowStock: riskyProducts.size
+    totalMaterials: grouped.size,
+    lowStock: riskCount,
+    riskCount
   };
 }
 

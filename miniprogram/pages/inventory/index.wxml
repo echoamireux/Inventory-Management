@@ -30,10 +30,10 @@
 
       <!-- 预警筛选提示 (Notice Bar) -->
       <van-notice-bar
-        wx:if="{{ isExpiryFilter }}"
+        wx:if="{{ activeFilter !== 'all' }}"
         mode="closeable"
         left-icon="info-o"
-        text="正在筛选：即将过期的物料 (30天内)"
+        text="{{ filterNoticeText }}"
         bind:close="clearFilter"
         color="#ed6a0c"
         background="#fffbe8"

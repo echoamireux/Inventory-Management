@@ -24,9 +24,11 @@ Page({
     stats: {
       totalMaterials: 0,
       lowStock: 0,
+      riskCount: 0,
       todayIn: 0,
       todayOut: 0,
     },
+    homeSearchVal: '',
 
     // 领料弹窗
     showWithdrawDialog: false,
@@ -97,6 +99,7 @@ Page({
 
   onShow: function () {
     // 每次显示页面时（包括从其他页面返回）自动刷新数据
+    this._homeSearchNavigating = false;
     this.refreshStats();
   },
 
@@ -109,8 +112,7 @@ Page({
   },
 
   onStatWarning() {
-    wx.setStorageSync("filterAction", "expiry");
-    wx.navigateTo({ url: "/pages/inventory/index" });
+    wx.navigateTo({ url: "/pages/inventory/index?filter=risk" });
   },
 
   onStatTodayIn() {
@@ -124,10 +126,32 @@ Page({
   onSearch(e) {
     const val = resolveSearchValue(e && e.detail);
     if (val) {
-      wx.navigateTo({
-        url: `/pages/inventory/index?search=${encodeURIComponent(val)}`,
-      });
+      this.navigateToInventorySearch(val);
     }
+  },
+
+  onSearchChange(e) {
+    const val = resolveSearchValue(e && e.detail);
+    this.setData({ homeSearchVal: val });
+
+    if (this.homeSearchTimer) {
+      clearTimeout(this.homeSearchTimer);
+    }
+
+    if (!String(val || '').trim()) {
+      return;
+    }
+
+    this.homeSearchTimer = setTimeout(() => {
+      this.navigateToInventorySearch(val);
+    }, 500);
+  },
+
+  onSearchClear() {
+    if (this.homeSearchTimer) {
+      clearTimeout(this.homeSearchTimer);
+    }
+    this.setData({ homeSearchVal: '' });
   },
 
   onJumpToInventory() {
@@ -145,9 +169,10 @@ Page({
 
       if (res.result && res.result.success) {
         this.setData({
-          stats: {
+              stats: {
             totalMaterials: res.result.totalMaterials,
-            lowStock: res.result.lowStock,
+            lowStock: Number(res.result.riskCount ?? res.result.lowStock) || 0,
+            riskCount: Number(res.result.riskCount ?? res.result.lowStock) || 0,
             todayIn: res.result.todayIn,
             todayOut: res.result.todayOut,
           },
@@ -456,6 +481,28 @@ Page({
       selectIsEnd: false
     });
     this.loadAggregatedMaterials(true);
+  },
+
+  navigateToInventorySearch(value) {
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedValue || this._homeSearchNavigating) {
+      return;
+    }
+
+    if (this.homeSearchTimer) {
+      clearTimeout(this.homeSearchTimer);
+    }
+
+    this._homeSearchNavigating = true;
+    this.setData({ homeSearchVal: normalizedValue });
+    wx.navigateTo({
+      url: `/pages/inventory/index?search=${encodeURIComponent(normalizedValue)}`,
+      complete: () => {
+        setTimeout(() => {
+          this._homeSearchNavigating = false;
+        }, 300);
+      }
+    });
   },
 
   async loadAggregatedMaterials(reset = true) {

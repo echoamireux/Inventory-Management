@@ -112,6 +112,46 @@ test('inventory query pages expose explicit pagination state instead of silent t
   assert.doesNotMatch(groupedCf, /\.slice\(0,\s*50\)/);
 });
 
+test('home risk entry routes into a real inventory filter instead of a dead storage flag', () => {
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const inventoryJs = read('miniprogram/pages/inventory/index.js');
+  const inventoryWxml = read('miniprogram/pages/inventory/index.wxml');
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+
+  assert.match(homeIndexJs, /filter=risk/);
+  assert.doesNotMatch(homeIndexJs, /setStorageSync\(\s*["']filterAction["']/);
+  assert.match(inventoryJs, /activeFilter:/);
+  assert.match(inventoryJs, /options\.filter/);
+  assert.match(inventoryJs, /clearFilter/);
+  assert.match(inventoryWxml, /activeFilter/);
+  assert.match(groupedCf, /const \{ searchVal, category, filter/);
+  assert.match(groupedCf, /isLowStock/);
+  assert.match(groupedCf, /isRisky/);
+});
+
+test('home and search-driven pages expose consistent search trigger wiring and field descriptions', () => {
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+  const inventoryIndexWxml = read('miniprogram/pages/inventory/index.wxml');
+  const materialDirectoryWxml = read('miniprogram/pages/material-directory/index.wxml');
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+  const logsWxml = read('miniprogram/pages/logs/index.wxml');
+  const adminLogsWxml = read('miniprogram/pages/admin-logs/index.wxml');
+
+  assert.match(homeIndexJs, /homeSearchVal:/);
+  assert.match(homeIndexJs, /onSearchChange/);
+  assert.match(homeIndexJs, /onSearchClear/);
+  assert.match(homeIndexWxml, /value="\{\{ homeSearchVal \}\}"/);
+  assert.match(homeIndexWxml, /bind:change="onSearchChange"/);
+  assert.match(homeIndexWxml, /bind:clear="onSearchClear"/);
+
+  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
+  assert.match(materialListWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
+  assert.match(logsWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/操作人\/类型\/描述\/备注"/);
+  assert.match(adminLogsWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/操作人\/类型\/描述\/备注"/);
+});
+
 test('inventory change token propagates from detail page back to list pages', () => {
   const appJs = read('miniprogram/app.js');
   const detailJs = read('miniprogram/pages/inventory-detail/index.js');

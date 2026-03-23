@@ -24,6 +24,13 @@ function assertAdminAccess(operator, message = 'Permission denied') {
   return { ok: true };
 }
 
+function assertActiveUserAccess(operator, message = '仅已激活用户可执行该操作') {
+  if (!isActiveUser(operator)) {
+    return { ok: false, msg: message };
+  }
+  return { ok: true };
+}
+
 function assertAdminMutationAccess(operator, message = '仅管理员可执行该操作') {
   const activeResult = assertActiveUserAccess(operator, message);
   if (!activeResult.ok) {
@@ -34,13 +41,6 @@ function assertAdminMutationAccess(operator, message = '仅管理员可执行该
     return { ok: false, msg: message };
   }
 
-  return { ok: true };
-}
-
-function assertActiveUserAccess(operator, message = '仅已激活用户可执行该操作') {
-  if (!isActiveUser(operator)) {
-    return { ok: false, msg: message };
-  }
   return { ok: true };
 }
 

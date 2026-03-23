@@ -10,7 +10,7 @@
   <view class="search-transparent bg-white">
     <van-search
         value="{{ searchVal }}"
-        placeholder="产品代码/物料名称/子类/供应商/型号/包装/规格"
+        placeholder="产品代码/物料名称/子类别/供应商/原厂型号/包装形式/规格"
         shape="round"
         bind:search="onSearch"
         bind:clear="onSearchClear"

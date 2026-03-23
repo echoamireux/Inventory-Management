@@ -64,6 +64,23 @@ test('material import batchCreate keeps create-only semantics while writing gove
         };
       }
 
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -245,6 +262,23 @@ test('material import batchCreate allows film creation without default width whi
         };
       }
 
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -375,6 +409,23 @@ test('material import batchCreate rejects film rows that omit thickness even if 
         return {
           async add() {
             return { _id: 'log-1' };
+          }
+        };
+      }
+
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
           }
         };
       }
@@ -519,6 +570,23 @@ test('material import batchCreate blocks same-code rows in one file when their g
         return {
           async add() {
             return { _id: 'log-1' };
+          }
+        };
+      }
+
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
           }
         };
       }
@@ -688,6 +756,23 @@ test('material import batchCreate ignores film-only fields on chemical rows and 
         return {
           async add() {
             return { _id: 'log-1' };
+          }
+        };
+      }
+
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
           }
         };
       }

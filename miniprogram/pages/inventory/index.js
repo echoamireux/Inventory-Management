@@ -15,6 +15,8 @@ Page({
   data: {
     activeTab: 0, // 0: 全部, 1: 化材, 2: 膜材
     searchVal: '',
+    activeFilter: 'all',
+    filterNoticeText: '',
     list: [],
     loading: false,
     hasLoadedOnce: false,
@@ -38,6 +40,14 @@ Page({
     // 模块三：接收首页搜索参数
     if (options.search) {
         this.setData({ searchVal: decodeURIComponent(options.search) });
+    }
+
+    const activeFilter = normalizeInventoryFilter(options && options.filter);
+    if (activeFilter !== 'all') {
+      this.setData({
+        activeFilter,
+        filterNoticeText: getInventoryFilterNoticeText(activeFilter)
+      });
     }
   },
 
@@ -109,7 +119,7 @@ Page({
     });
 
     try {
-      const { searchVal, activeTab, pageSize, list } = this.data;
+      const { searchVal, activeTab, pageSize, list, activeFilter } = this.data;
       let category = '';
       if (activeTab === 1) category = 'chemical';
       if (activeTab === 2) category = 'film';
@@ -120,6 +130,7 @@ Page({
           data: {
               searchVal,
               category,
+              filter: activeFilter,
               page: nextPage,
               pageSize
           }
@@ -161,6 +172,20 @@ Page({
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
     }
+  },
+
+  clearFilter() {
+    if (this.data.activeFilter === 'all') {
+      return;
+    }
+
+    this.setData({
+      activeFilter: 'all',
+      filterNoticeText: '',
+      page: 1,
+      isEnd: false
+    });
+    this.getList(true);
   },
 
   // 点击分组卡片 -> 查看详情
@@ -277,3 +302,24 @@ Page({
     }
   }
 });
+
+function normalizeInventoryFilter(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'risk' || normalized === 'expiry' || normalized === 'low_stock') {
+    return normalized;
+  }
+  return 'all';
+}
+
+function getInventoryFilterNoticeText(filter) {
+  if (filter === 'risk') {
+    return '正在筛选：风险预警库存（临期或低库存）';
+  }
+  if (filter === 'expiry') {
+    return '正在筛选：即将过期库存';
+  }
+  if (filter === 'low_stock') {
+    return '正在筛选：低库存';
+  }
+  return '';
+}

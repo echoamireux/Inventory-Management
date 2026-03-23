@@ -32,10 +32,11 @@ const {
 } = require('./material-subcategories');
 
 exports.main = async (event, context) => {
-  const { searchVal, category } = event;
+  const { searchVal, category, filter } = event;
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
   const normalizedKeyword = normalizeSearchKeyword(searchVal);
+  const normalizedFilter = String(filter || '').trim().toLowerCase();
 
   try {
     const conditions = [{ status: 'in_stock' }];
@@ -160,7 +161,7 @@ exports.main = async (event, context) => {
       });
     }
 
-    const sortedGroups = groups.map(item => {
+    const filteredGroups = groups.map(item => {
         const material = materialMap.get(item.product_code) || {};
         let totalQuantity = 0;
         let totalBaseLengthM = 0;
@@ -179,6 +180,14 @@ exports.main = async (event, context) => {
           }, 0).toFixed(2));
         }
 
+        const isExpiring = checkExpiring(item.minExpiry, item.category);
+        const isLowStock = checkLowStock({
+          category: item.category,
+          totalQuantity,
+          totalBaseLengthM
+        });
+        const isRisky = isExpiring || isLowStock;
+
         return {
           product_code: item.product_code,
           material_name: item.material_name,
@@ -192,9 +201,22 @@ exports.main = async (event, context) => {
           minExpiry: item.minExpiry,
           locations: Array.from(item.locations),
           matchReasonText: resolveGroupMatchReasonText(item, normalizedKeyword, zoneMap),
-          isExpiring: checkExpiring(item.minExpiry, item.category),
+          isExpiring,
+          isLowStock,
+          isRisky,
           isArchived: material.status === 'archived'
         };
+    }).filter((item) => {
+      if (normalizedFilter === 'expiry') {
+        return item.isExpiring;
+      }
+      if (normalizedFilter === 'low_stock') {
+        return item.isLowStock;
+      }
+      if (normalizedFilter === 'risk') {
+        return item.isRisky;
+      }
+      return true;
     }).sort((a, b) => {
       const timeA = a.minExpiry ? new Date(a.minExpiry).getTime() : Number.MAX_SAFE_INTEGER;
       const timeB = b.minExpiry ? new Date(b.minExpiry).getTime() : Number.MAX_SAFE_INTEGER;
@@ -204,9 +226,9 @@ exports.main = async (event, context) => {
       return String(a.product_code).localeCompare(String(b.product_code));
     });
 
-    const total = sortedGroups.length;
+    const total = filteredGroups.length;
     const start = (page - 1) * pageSize;
-    const list = sortedGroups.slice(start, start + pageSize);
+    const list = filteredGroups.slice(start, start + pageSize);
     const isEnd = start + list.length >= total;
 
     return { success: true, list, total, page, pageSize, isEnd };
@@ -243,6 +265,14 @@ function checkExpiring(dateStr, category) {
 
     const days = Math.ceil(diff / ONE_DAY_MS);
     return days <= ALERT_CONFIG.EXPIRY_DAYS;
+}
+
+function checkLowStock(item = {}) {
+    if (String(item.category || '').trim() === 'film') {
+      return (Number(item.totalBaseLengthM) || 0) <= ALERT_CONFIG.LOW_STOCK.film;
+    }
+
+    return (Number(item.totalQuantity) || 0) <= ALERT_CONFIG.LOW_STOCK.chemical;
 }
 
 function resolveGroupMatchReasonText(group, keyword, zoneMap) {

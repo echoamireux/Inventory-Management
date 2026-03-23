@@ -43,6 +43,8 @@ test('manageMaterial cloud function persists package_type and film specs as gove
   assert.match(file, /material_standard_width_mm/);
   assert.match(file, /fields\.specs/);
   assert.match(file, /buildGovernedMaterialMasterFields/);
+  assert.match(file, /assertAdminMutationAccess/);
+  assert.match(file, /assertActiveUserAccess/);
   assert.doesNotMatch(file, /shelf_life_days/);
 });
 
@@ -142,6 +144,9 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
   assert.match(file, /type/);
   assert.match(file, /旧快捷出入库协议已停用|请使用正式入库流程或库存详情页领用/);
   assert.match(file, /withdraw_amount/);
+  assert.match(file, /assertActiveUserAccess/);
+  assert.doesNotMatch(file, /transaction\.collection\('inventory'\)\.where/);
+  assert.match(file, /transaction\.collection\('inventory'\)\.doc\(/);
 });
 
 test('home batch recommendation and batch-mode deduction share one FEFO allocation contract', () => {

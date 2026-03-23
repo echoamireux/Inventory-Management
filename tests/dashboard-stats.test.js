@@ -40,6 +40,7 @@ test('dashboard stats count unique products and risky products correctly', () =>
 
   assert.deepEqual(calculateDashboardStatsFromItems(items, alertConfig), {
     totalMaterials: 3,
-    lowStock: 2
+    lowStock: 1,
+    riskCount: 1
   });
 });
