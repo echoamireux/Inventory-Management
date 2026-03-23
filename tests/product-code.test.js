@@ -60,7 +60,7 @@ test('single stock-in product-code lookup only runs after blur or confirm instea
   assert.match(pageJs, /onProductCodeConfirm/);
   assert.match(pageJs, /confirmProductCodeLookup/);
   assert.match(pageJs, /normalizeProductCodeInput\(this\.data\.activeTab, rawValue\)/);
-  assert.match(pageJs, /await this\.searchSuggestions\(normalizedCode\.product_code\)/);
+  assert.match(pageJs, /await this\.searchSuggestions\((lookupCode|normalizedCode\.product_code)\)/);
   assert.doesNotMatch(pageJs, /suggestionTimer:\s*setTimeout\(\s*\(\)\s*=>\s*\{\s*this\.searchSuggestions/);
 });
 
@@ -85,6 +85,46 @@ test('single stock-in exact product-code lookup auto-applies an exact material m
 
   assert.match(pageJs, /findExactProductCodeMatch/);
   assert.match(pageJs, /this\.applyMaterialSuggestion\(exactMatch/);
+});
+
+test('material add page fully resets old product-code context and ignores stale lookup responses', () => {
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.js'),
+    'utf8'
+  );
+  const searchSuggestionsSection = pageJs.match(
+    /async searchSuggestions\(keyword\)\s*\{([\s\S]*?)\n  },\n\n  applyMaterialSuggestion/
+  );
+
+  assert.ok(searchSuggestionsSection);
+  assert.match(pageJs, /buildProductCodeResetForm/);
+  assert.match(pageJs, /buildEmptyRequestForm/);
+  assert.match(pageJs, /buildProductCodeResetUpdates\(nextProductCode = ''\)/);
+  assert.match(pageJs, /this\._productCodeLookupRequestId = \(this\._productCodeLookupRequestId \|\| 0\) \+ 1/);
+  assert.match(pageJs, /if \(requestId !== this\._productCodeLookupRequestId\) \{/);
+  assert.match(pageJs, /this\.setData\(this\.buildProductCodeResetUpdates\(value\)\)/);
+  assert.match(pageJs, /this\.setData\(this\.buildProductCodeResetUpdates\(\)\)/);
+  assert.doesNotMatch(searchSuggestionsSection[1], /this\.setData\(/);
+  assert.match(searchSuggestionsSection[1], /status:\s*'matched'/);
+  assert.match(searchSuggestionsSection[1], /status:\s*'archived'/);
+  assert.match(searchSuggestionsSection[1], /status:\s*'unknown'/);
+});
+
+test('material add page gives the blocking card and normal form a softened entry transition', () => {
+  const pageWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
+    'utf8'
+  );
+  const pageWxss = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.wxss'),
+    'utf8'
+  );
+
+  assert.match(pageWxml, /class="material-add-panel material-add-panel--blocking/);
+  assert.match(pageWxml, /class="form-card bg-white rounded-lg overflow-hidden shadow-sm material-add-panel material-add-panel--form"/);
+  assert.match(pageWxss, /\.material-add-panel\s*\{/);
+  assert.match(pageWxss, /animation:\s*panelFadeIn 0\.2s ease-out/);
+  assert.match(pageWxss, /@keyframes panelFadeIn/);
 });
 
 test('batch entry supports blur or confirm driven exact product-code retrieval in addition to suggestions', () => {

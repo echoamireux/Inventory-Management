@@ -3,6 +3,37 @@ const {
   normalizeUnitInput
 } = require('./material-units');
 
+const EMPTY_MATERIAL_ADD_FORM = {
+  unique_code: '',
+  label_code_digits: '',
+  name: '',
+  sub_category: '',
+  subcategory_key: '',
+  product_code: '',
+  supplier: '',
+  supplier_model: '',
+  batch_number: '',
+  zone_key: '',
+  location_zone: '',
+  location_detail: '',
+  unit: '',
+  net_content: '',
+  package_type: '',
+  expiry_date: '',
+  is_long_term_valid: false,
+  thickness_um: '',
+  thickness_locked: false,
+  width_mm: '',
+  length_m: ''
+};
+
+const EMPTY_REQUEST_FORM = {
+  name: '',
+  subcategory_key: '',
+  sub_category: '',
+  supplier: ''
+};
+
 function stripProductCodePrefix(productCode, prefix) {
   const value = String(productCode || '').trim();
   if (!value) {
@@ -81,8 +112,22 @@ function buildContinueEntryForm(form, activeTab, item, prefix) {
   };
 }
 
+function buildProductCodeResetForm(activeTab, nextProductCode = '') {
+  return {
+    ...EMPTY_MATERIAL_ADD_FORM,
+    product_code: String(nextProductCode || ''),
+    unit: getDefaultUnit(activeTab)
+  };
+}
+
+function buildEmptyRequestForm() {
+  return { ...EMPTY_REQUEST_FORM };
+}
+
 module.exports = {
   stripProductCodePrefix,
   syncFormWithMaterialMaster,
-  buildContinueEntryForm
+  buildContinueEntryForm,
+  buildProductCodeResetForm,
+  buildEmptyRequestForm
 };

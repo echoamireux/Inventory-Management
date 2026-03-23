@@ -56,7 +56,7 @@
     </view>
 
     <!-- 强管控：未知代码阻断 / 归档提示 -->
-    <view wx:if="{{isUnknownCode}}" class="bg-white rounded-lg shadow-sm p-20 text-center mb-15">
+    <view wx:if="{{isUnknownCode}}" class="material-add-panel material-add-panel--blocking bg-white rounded-lg shadow-sm p-20 text-center mb-15">
         <!-- Case A: 已归档 -->
         <block wx:if="{{isArchived}}">
              <van-icon name="info-o" size="48px" color="#ff976a" />
@@ -103,7 +103,7 @@
     </view>
 
     <!-- 正常填单区域 (只有代码已知时显示) -->
-    <view wx:else class="form-card bg-white rounded-lg overflow-hidden shadow-sm">
+    <view wx:else class="form-card bg-white rounded-lg overflow-hidden shadow-sm material-add-panel material-add-panel--form">
       <van-cell-group title="基础信息">
         <!-- 1. 产品代码 (SKU) -->
         <van-field

@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  buildContinueEntryForm
+  buildContinueEntryForm,
+  buildProductCodeResetForm,
+  buildEmptyRequestForm
 } = require('../miniprogram/utils/material-add-form');
 const {
   resolveFilmThicknessGovernance
@@ -81,4 +83,39 @@ test('material add page and addMaterial cloud function wire the new thickness go
 
   assert.match(pageJs, /buildContinueEntryForm/);
   assert.match(addMaterialJs, /resolveFilmThicknessGovernance/);
+});
+
+test('product code reset helper clears the single-entry form while preserving tab unit and optional new digits', () => {
+  const resetForm = buildProductCodeResetForm('film', '009');
+
+  assert.deepEqual(resetForm, {
+    unique_code: '',
+    label_code_digits: '',
+    name: '',
+    sub_category: '',
+    subcategory_key: '',
+    product_code: '009',
+    supplier: '',
+    supplier_model: '',
+    batch_number: '',
+    zone_key: '',
+    location_zone: '',
+    location_detail: '',
+    unit: 'm',
+    net_content: '',
+    package_type: '',
+    expiry_date: '',
+    is_long_term_valid: false,
+    thickness_um: '',
+    thickness_locked: false,
+    width_mm: '',
+    length_m: ''
+  });
+
+  assert.deepEqual(buildEmptyRequestForm(), {
+    name: '',
+    subcategory_key: '',
+    sub_category: '',
+    supplier: ''
+  });
 });

@@ -27,7 +27,9 @@ const {
 } = require('../../utils/material-units');
 const {
   syncFormWithMaterialMaster,
-  buildContinueEntryForm
+  buildContinueEntryForm,
+  buildProductCodeResetForm,
+  buildEmptyRequestForm
 } = require('../../utils/material-add-form');
 const {
   buildSubcategoryActions,
@@ -75,16 +77,13 @@ Page({
 
     // MDM 强管控状态
     isUnknownCode: false,
+    isArchived: false,
+    archiveReason: '',
     showRequestPopup: false,
     requestLoading: false,
     requestSubCategoryActions: [],
     showRequestSubCategorySheet: false,
-    requestForm: {
-        name: '',
-        subcategory_key: '',
-        sub_category: '',
-        supplier: ''
-    },
+    requestForm: buildEmptyRequestForm(),
 
     // 联想建议
     suggestions: [],
@@ -239,6 +238,7 @@ Page({
 
   onTabChange(e) {
     const tab = e.detail.name;
+    this.invalidateProductCodeLookup();
 
     this.setData({
         activeTab: tab,
@@ -262,7 +262,13 @@ Page({
         labelCodeChecking: false,
         // We can keep unique_code
         suggestions: [],
-        isUnknownCode: false // fix: reset blocking state
+        isUnknownCode: false,
+        isArchived: false,
+        archiveReason: '',
+        showRequestPopup: false,
+        requestLoading: false,
+        showRequestSubCategorySheet: false,
+        requestForm: buildEmptyRequestForm()
     }, () => {
         this.loadSubcategories(tab);
         this.updateUnitActions(tab);
@@ -299,6 +305,51 @@ Page({
       return CATEGORY_PREFIX[tab] || 'J-';
   },
 
+  buildProductCodeResetUpdates(nextProductCode = '') {
+    return {
+      form: buildProductCodeResetForm(this.data.activeTab, nextProductCode),
+      suggestions: [],
+      isUnknownCode: false,
+      isArchived: false,
+      archiveReason: '',
+      showRequestPopup: false,
+      requestLoading: false,
+      showRequestSubCategorySheet: false,
+      requestForm: buildEmptyRequestForm(),
+      labelCodeError: '',
+      labelCodeChecking: false
+    };
+  },
+
+  hasProductCodeResetContext() {
+    const { form, suggestions, isUnknownCode, isArchived, showRequestPopup } = this.data;
+
+    return Boolean(
+      this._lastConfirmedProductCode ||
+      isUnknownCode ||
+      isArchived ||
+      showRequestPopup ||
+      (Array.isArray(suggestions) && suggestions.length > 0) ||
+      form.name ||
+      form.sub_category ||
+      form.subcategory_key ||
+      form.supplier ||
+      form.supplier_model ||
+      form.net_content ||
+      form.package_type ||
+      form.thickness_um ||
+      form.thickness_locked ||
+      form.width_mm
+    );
+  },
+
+  invalidateProductCodeLookup() {
+    this._productCodeLookupRequestId = (this._productCodeLookupRequestId || 0) + 1;
+    this._activeProductCodeLookupCode = '';
+    this._lastConfirmedProductCode = '';
+    return this._productCodeLookupRequestId;
+  },
+
   onInput(e) {
     const field = e.currentTarget.dataset.field;
     let value = resolveInputValue(e.detail);
@@ -308,12 +359,20 @@ Page({
     const updates = { [`form.${field}`]: value };
 
     if (field === 'product_code') {
+      const shouldResetProductContext = this.hasProductCodeResetContext();
+      this.invalidateProductCodeLookup();
+      if (shouldResetProductContext) {
+        this.setData(this.buildProductCodeResetUpdates(value));
+        return;
+      }
       updates.suggestions = [];
       updates.isUnknownCode = false;
       updates.isArchived = false;
       updates.archiveReason = '';
-      this._activeProductCodeLookupCode = '';
-      this._lastConfirmedProductCode = '';
+      updates.showRequestPopup = false;
+      updates.requestLoading = false;
+      updates.showRequestSubCategorySheet = false;
+      updates.requestForm = buildEmptyRequestForm();
     }
 
     this.setData(updates);
@@ -331,28 +390,34 @@ Page({
     const rawValue = sanitizeProductCodeNumberInput(resolveInputValue(e && e.detail !== undefined ? e.detail : this.data.form.product_code));
 
     if (!rawValue) {
-      this._activeProductCodeLookupCode = '';
-      this._lastConfirmedProductCode = '';
+      this.invalidateProductCodeLookup();
       this.setData({
         'form.product_code': '',
         suggestions: [],
         isUnknownCode: false,
         isArchived: false,
-        archiveReason: ''
+        archiveReason: '',
+        showRequestPopup: false,
+        requestLoading: false,
+        showRequestSubCategorySheet: false,
+        requestForm: buildEmptyRequestForm()
       });
       return;
     }
 
     const normalizedCode = normalizeProductCodeInput(this.data.activeTab, rawValue);
     if (!normalizedCode.ok) {
-      this._activeProductCodeLookupCode = '';
-      this._lastConfirmedProductCode = '';
+      this.invalidateProductCodeLookup();
       this.setData({
         'form.product_code': rawValue,
         suggestions: [],
         isUnknownCode: false,
         isArchived: false,
-        archiveReason: ''
+        archiveReason: '',
+        showRequestPopup: false,
+        requestLoading: false,
+        showRequestSubCategorySheet: false,
+        requestForm: buildEmptyRequestForm()
       });
       return;
     }
@@ -372,24 +437,67 @@ Page({
       return;
     }
 
+    const requestId = this.invalidateProductCodeLookup();
     this._activeProductCodeLookupCode = lookupCode;
     this.setData({
       'form.product_code': normalizedCode.number,
       suggestions: [],
       isUnknownCode: false,
       isArchived: false,
-      archiveReason: ''
+      archiveReason: '',
+      showRequestPopup: false,
+      requestLoading: false,
+      showRequestSubCategorySheet: false
     });
 
     try {
-      const suggestions = await this.searchSuggestions(normalizedCode.product_code);
-      const exactMatch = findExactProductCodeMatch(suggestions, normalizedCode.product_code);
-      if (exactMatch) {
-        this.applyMaterialSuggestion(exactMatch, { showToast: false });
+      const lookupResult = await this.searchSuggestions(lookupCode);
+      if (requestId !== this._productCodeLookupRequestId) {
+        return;
       }
+
+      if (lookupResult.status === 'matched') {
+        this.setData({
+          suggestions: lookupResult.suggestions,
+          isUnknownCode: false,
+          isArchived: false,
+          archiveReason: ''
+        });
+
+        const exactMatch = findExactProductCodeMatch(lookupResult.suggestions, lookupCode);
+        if (exactMatch) {
+          this.applyMaterialSuggestion(exactMatch, { showToast: false });
+        }
+      } else if (lookupResult.status === 'archived') {
+        this.setData({
+          suggestions: [],
+          isUnknownCode: true,
+          isArchived: true,
+          archiveReason: lookupResult.archiveReason || ''
+        });
+      } else if (lookupResult.status === 'unknown') {
+        this.setData({
+          suggestions: [],
+          isUnknownCode: true,
+          isArchived: false,
+          archiveReason: ''
+        });
+      } else {
+        this.setData({
+          suggestions: [],
+          isUnknownCode: false,
+          isArchived: false,
+          archiveReason: ''
+        });
+        if (lookupResult.message) {
+          Toast.fail(lookupResult.message);
+        }
+        return;
+      }
+
       this._lastConfirmedProductCode = lookupCode;
     } finally {
-      if (this._activeProductCodeLookupCode === lookupCode) {
+      if (requestId === this._productCodeLookupRequestId) {
         this._activeProductCodeLookupCode = '';
       }
     }
@@ -500,7 +608,12 @@ Page({
 
   // 查询联想词 (从主数据表查询)
   async searchSuggestions(keyword) {
-      if (!keyword) return [];
+      if (!keyword) {
+          return {
+              status: 'idle',
+              suggestions: []
+          };
+      }
       try {
           const res = await wx.cloud.callFunction({
               name: 'manageMaterial',
@@ -515,7 +628,7 @@ Page({
           });
 
           if (res.result && res.result.success) {
-             const list = res.result.list;
+             const list = Array.isArray(res.result.list) ? res.result.list : [];
 
              // MDM 强管控：如果没有匹配到任何结果 -> 检查是否为归档物料 or 阻断
              if (!list || list.length === 0) {
@@ -529,28 +642,22 @@ Page({
                       console.log('[Debug] checkStatus res:', checkRes);
 
                       if (checkRes.result.success && checkRes.result.isArchived) {
-                          this.setData({
+                          return {
+                              status: 'archived',
                               suggestions: [],
-                              isUnknownCode: true,
-                              isArchived: true,
-                              archiveReason: checkRes.result.reason
-                          });
-                          return [];
+                              archiveReason: checkRes.result.reason || ''
+                          };
                       }
                   } catch(e) {
                       console.error('[Debug] checkStatus failed:', e);
                   }
 
-                 this.setData({
+                 return {
+                     status: 'unknown',
                      suggestions: [],
-                     isUnknownCode: true,
-                     isArchived: false
-                 });
-                 return [];
+                     archiveReason: ''
+                 };
              }
-
-             // 匹配到了 -> 解除阻断
-             this.setData({ isUnknownCode: false, isArchived: false });
 
              // 将主数据结果映射为建议格式
              const suggestions = list.map(m => ({
@@ -566,13 +673,27 @@ Page({
                  package_type: m.package_type || '',
                  specs: m.specs || {}
              }));
-             this.setData({ suggestions });
-             return suggestions;
+             return {
+                 status: 'matched',
+                 suggestions,
+                 archiveReason: ''
+             };
           }
       } catch(err) {
           console.error('[Suggestion Error]', err);
+          return {
+              status: 'error',
+              suggestions: [],
+              archiveReason: '',
+              message: '产品代码查询失败，请稍后重试'
+          };
       }
-      return [];
+      return {
+          status: 'error',
+          suggestions: [],
+          archiveReason: '',
+          message: '产品代码查询失败，请稍后重试'
+      };
   },
 
   applyMaterialSuggestion(item, options = {}) {
@@ -586,7 +707,11 @@ Page({
 
       this.setData({
           form: newForm,
-          suggestions: []
+          suggestions: [],
+          isUnknownCode: false,
+          isArchived: false,
+          archiveReason: '',
+          showRequestPopup: false
       });
 
       if (showToast) {
@@ -933,11 +1058,8 @@ Page({
   },
 
   onEditCode() {
-      this.setData({
-          isUnknownCode: false,
-          suggestions: [],
-          'form.product_code': '' // Clear code to allow re-entry
-      });
+      this.invalidateProductCodeLookup();
+      this.setData(this.buildProductCodeResetUpdates());
   },
 
   onCloseRequestPopup() {

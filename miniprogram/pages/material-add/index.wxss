@@ -125,6 +125,23 @@
   color: var(--color-danger, #ee0a24);
 }
 
+.material-add-panel {
+  animation: panelFadeIn 0.2s ease-out;
+  transform-origin: top center;
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10rpx);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 建议框 */
 .suggestion-box {
   position: absolute;
