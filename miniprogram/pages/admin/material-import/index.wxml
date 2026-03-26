@@ -9,8 +9,8 @@
     <view class="text-sm text-secondary leading-loose">
       <view>1. 请先导出系统当前的<text class="font-bold text-main">最新模板（.xlsx）</text></view>
       <view>2. 若刚调整过子类别，请重新导出，不要复用旧模板</view>
-      <view>3. 填写完成后，请将文件<text class="font-bold text-main">另存为 CSV 格式</text></view>
-      <view>4. 点击下方按钮上传 CSV 文件完成导入</view>
+      <view>3. 填写完成后，<text class="font-bold text-main">直接上传 .xlsx</text></view>
+      <view>4. 仅支持上传系统导出的<text class="font-bold text-main">.xlsx</text>模板文件</view>
     </view>
   </view>
 
@@ -37,8 +37,8 @@
           <van-icon name="add-o" size="20px" color="#10B981" />
         </view>
         <view class="flex-1">
-          <view class="text-base font-bold text-main">第二步：上传 CSV</view>
-          <view class="text-xs text-secondary mt-4">{{ selectedFile ? selectedFile.name : '选择编辑好的 CSV 文件导入' }}</view>
+          <view class="text-base font-bold text-main">第二步：上传文件</view>
+          <view class="text-xs text-secondary mt-4">{{ selectedFile ? selectedFile.name : '选择编辑好的 .xlsx 文件导入' }}</view>
         </view>
         <van-icon name="arrow" color="#C8C9CC" />
       </view>
@@ -108,7 +108,7 @@
   <van-empty
     wx:if="{{ !selectedFile && !parsing }}"
     image="search"
-    description="请先导出模板并上传 CSV 文件"
+    description="请先导出模板并上传 .xlsx 文件"
     custom-class="mt-40"
   />
 </view>

@@ -69,7 +69,7 @@ Page({
     loading: false,
 
     // UI状态
-    showUnitSheet: false,
+    showRequestUnitSheet: false,
     showPackageTypeSheet: false,
     showLocationSheet: false,
     showDatePicker: false,
@@ -83,7 +83,7 @@ Page({
     requestLoading: false,
     requestSubCategoryActions: [],
     showRequestSubCategorySheet: false,
-    requestForm: buildEmptyRequestForm(),
+    requestForm: buildEmptyRequestForm('chemical'),
 
     // 联想建议
     suggestions: [],
@@ -105,10 +105,12 @@ Page({
 
     currentDate: new Date().getTime(),
     minDate: new Date().getTime(),
+    maxDate: new Date(9999, 11, 31).getTime(),
     canManageZones: false,
     isManager: false,
     labelCodeError: '',
-    labelCodeChecking: false
+    labelCodeChecking: false,
+    labelCodeNotice: ''
   },
 
   onLoad(options) {
@@ -120,7 +122,8 @@ Page({
               this.setData({
                   'form.unique_code': normalizedLabelCode,
                   'form.label_code_digits': extractLabelCodeDigits(options.id),
-                  labelCodeError: ''
+                  labelCodeError: '',
+                  labelCodeNotice: ''
               });
           }
           if (options.product_code) {
@@ -158,6 +161,12 @@ Page({
   goToBatchEntry() {
       wx.navigateTo({
           url: `/pages/material-add/batch-entry?tab=${this.data.activeTab}`
+      });
+  },
+
+  goToTemplateImport() {
+      wx.navigateTo({
+          url: '/pages/material-add/template-import/index'
       });
   },
 
@@ -260,15 +269,17 @@ Page({
         'form.location_detail': '',
         labelCodeError: '',
         labelCodeChecking: false,
+        labelCodeNotice: '',
         // We can keep unique_code
         suggestions: [],
         isUnknownCode: false,
         isArchived: false,
         archiveReason: '',
         showRequestPopup: false,
+        showRequestUnitSheet: false,
         requestLoading: false,
         showRequestSubCategorySheet: false,
-        requestForm: buildEmptyRequestForm()
+        requestForm: buildEmptyRequestForm(tab)
     }, () => {
         this.loadSubcategories(tab);
         this.updateUnitActions(tab);
@@ -313,11 +324,13 @@ Page({
       isArchived: false,
       archiveReason: '',
       showRequestPopup: false,
+      showRequestUnitSheet: false,
       requestLoading: false,
       showRequestSubCategorySheet: false,
-      requestForm: buildEmptyRequestForm(),
+      requestForm: buildEmptyRequestForm(this.data.activeTab),
       labelCodeError: '',
-      labelCodeChecking: false
+      labelCodeChecking: false,
+      labelCodeNotice: ''
     };
   },
 
@@ -370,9 +383,10 @@ Page({
       updates.isArchived = false;
       updates.archiveReason = '';
       updates.showRequestPopup = false;
+      updates.showRequestUnitSheet = false;
       updates.requestLoading = false;
       updates.showRequestSubCategorySheet = false;
-      updates.requestForm = buildEmptyRequestForm();
+      updates.requestForm = buildEmptyRequestForm(this.data.activeTab);
     }
 
     this.setData(updates);
@@ -398,9 +412,10 @@ Page({
         isArchived: false,
         archiveReason: '',
         showRequestPopup: false,
+        showRequestUnitSheet: false,
         requestLoading: false,
         showRequestSubCategorySheet: false,
-        requestForm: buildEmptyRequestForm()
+        requestForm: buildEmptyRequestForm(this.data.activeTab)
       });
       return;
     }
@@ -417,7 +432,7 @@ Page({
         showRequestPopup: false,
         requestLoading: false,
         showRequestSubCategorySheet: false,
-        requestForm: buildEmptyRequestForm()
+        requestForm: buildEmptyRequestForm(this.data.activeTab)
       });
       return;
     }
@@ -446,6 +461,7 @@ Page({
       isArchived: false,
       archiveReason: '',
       showRequestPopup: false,
+      showRequestUnitSheet: false,
       requestLoading: false,
       showRequestSubCategorySheet: false
     });
@@ -509,7 +525,8 @@ Page({
     this.setData({
       'form.label_code_digits': digits,
       'form.unique_code': normalizedLabelCode,
-      labelCodeError: ''
+      labelCodeError: '',
+      labelCodeNotice: ''
     });
   },
 
@@ -519,7 +536,8 @@ Page({
       this.setData({
         'form.label_code_digits': '',
         'form.unique_code': '',
-        labelCodeError: ''
+        labelCodeError: '',
+        labelCodeNotice: ''
       });
       return;
     }
@@ -528,12 +546,14 @@ Page({
     this.setData({
       'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
       'form.unique_code': normalizedLabelCode,
-      labelCodeError: ''
+      labelCodeError: '',
+      labelCodeNotice: ''
     });
 
     if (!isValidLabelCode(normalizedLabelCode)) {
       this.setData({
-        labelCodeError: '请输入6位数字编码'
+        labelCodeError: '请输入6位数字编码',
+        labelCodeNotice: ''
       });
       return;
     }
@@ -544,6 +564,9 @@ Page({
   async checkDuplicateLabelCode(uniqueCode, options = {}) {
     const { showDialog = false } = options;
     const normalizedLabelCode = normalizeLabelCodeInput(uniqueCode);
+    const currentCategory = this.data.activeTab;
+    const normalizedCode = normalizeProductCodeInput(currentCategory, this.data.form.product_code);
+    const currentBatchNumber = String(this.data.form.batch_number || '').trim();
 
     if (!normalizedLabelCode || !isValidLabelCode(normalizedLabelCode)) {
       return {
@@ -557,11 +580,80 @@ Page({
     try {
       const res = await db.collection('inventory').where({
         unique_code: normalizedLabelCode
-      }).count();
+      }).get();
 
-      if (res.total > 0) {
-        const message = `标签编号 ${normalizedLabelCode} 已入库，不能重复登记`;
-        this.setData({ labelCodeError: message });
+      const existingItems = res.data || [];
+      if (existingItems.length > 0) {
+        const existingItem = existingItems[0];
+        const isChemicalCandidate = (
+          currentCategory === 'chemical'
+          && existingItem.category === 'chemical'
+          && (existingItem.status || 'in_stock') === 'in_stock'
+        );
+        const matchesRefillContext = (
+          isChemicalCandidate
+          && normalizedCode.ok
+          && !!currentBatchNumber
+          && String(existingItem.product_code || '').trim() === normalizedCode.product_code
+          && String(existingItem.batch_number || '').trim() === currentBatchNumber
+        );
+
+        if (matchesRefillContext) {
+          const noticeMessage = `当前在库已有同标签化材（${normalizedLabelCode}），提交时将确认是否按补料入库`;
+          this.setData({
+            labelCodeError: '',
+            labelCodeNotice: showDialog ? '' : noticeMessage
+          });
+
+          if (showDialog) {
+            const confirmed = await Dialog.confirm({
+              title: '补料入库确认',
+              message: `标签编号 ${normalizedLabelCode} 已存在。\n当前产品代码和批号与原标签一致，是否按补料入库处理？`,
+              messageAlign: 'left',
+              confirmButtonText: '按补料入库',
+              cancelButtonText: '取消'
+            }).then(() => true).catch(() => false);
+
+            if (!confirmed) {
+              return {
+                duplicated: false,
+                refill: false,
+                cancelled: true,
+                uniqueCode: normalizedLabelCode
+              };
+            }
+          }
+
+          return {
+            duplicated: false,
+            refill: true,
+            uniqueCode: normalizedLabelCode,
+            existingItem,
+            message: noticeMessage
+          };
+        }
+
+        if (isChemicalCandidate && !showDialog) {
+          this.setData({
+            labelCodeError: '',
+            labelCodeNotice: `系统中已存在同标签在库化材（${normalizedLabelCode}），提交时会按产品代码和批号判断是否允许补料`
+          });
+          return {
+            duplicated: false,
+            refillCandidate: true,
+            uniqueCode: normalizedLabelCode,
+            existingItem
+          };
+        }
+
+        // 膜材或非化材：保持严格冲突
+        const message = isChemicalCandidate
+          ? `标签编号 ${normalizedLabelCode} 已存在，仅同产品代码同批号的在库化材才可补料`
+          : `标签编号 ${normalizedLabelCode} 已入库，不能重复登记`;
+        this.setData({
+          labelCodeError: message,
+          labelCodeNotice: ''
+        });
 
         if (showDialog) {
           await Dialog.alert({
@@ -578,7 +670,10 @@ Page({
         };
       }
 
-      this.setData({ labelCodeError: '' });
+      this.setData({
+        labelCodeError: '',
+        labelCodeNotice: ''
+      });
       return {
         duplicated: false,
         uniqueCode: normalizedLabelCode
@@ -711,7 +806,8 @@ Page({
           isUnknownCode: false,
           isArchived: false,
           archiveReason: '',
-          showRequestPopup: false
+          showRequestPopup: false,
+          showRequestUnitSheet: false
       });
 
       if (showToast) {
@@ -770,7 +866,8 @@ Page({
               this.setData({
                 'form.unique_code': normalizedLabelCode,
                 'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
-                labelCodeError: ''
+                labelCodeError: '',
+                labelCodeNotice: ''
               });
               const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode);
               if (duplicateResult.duplicated) {
@@ -784,12 +881,14 @@ Page({
       });
   },
 
-  // 单位选择
-  showUnitSheet() { this.setData({ showUnitSheet: true }); },
-  onUnitClose() { this.setData({ showUnitSheet: false }); },
-  onUnitSelect(e) {
-    // e.detail.name is now just 'kg', 'g', etc.
-    this.setData({ 'form.unit': e.detail.name, showUnitSheet: false });
+  // 申请建档默认单位选择
+  showRequestUnitSheet() { this.setData({ showRequestUnitSheet: true }); },
+  onRequestUnitClose() { this.setData({ showRequestUnitSheet: false }); },
+  onRequestUnitSelect(e) {
+    this.setData({
+      'requestForm.default_unit': e.detail.name,
+      showRequestUnitSheet: false
+    });
   },
 
   // 包装形式选择 (New)
@@ -873,10 +972,11 @@ Page({
     this.setData({
       'form.unique_code': normalizedLabelCode,
       'form.label_code_digits': extractLabelCodeDigits(normalizedLabelCode),
-      labelCodeError: ''
+      labelCodeError: '',
+      labelCodeNotice: ''
     });
     const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode, { showDialog: true });
-    if (duplicateResult.duplicated) {
+    if (duplicateResult.duplicated || duplicateResult.cancelled) {
       return;
     }
     if (!form.product_code) return Toast.fail('请填写产品代码');
@@ -1030,7 +1130,8 @@ Page({
           form: nextForm,
           showSuccessDialog: false,
           labelCodeError: '',
-          labelCodeChecking: false
+          labelCodeChecking: false,
+          labelCodeNotice: ''
       });
 
       wx.pageScrollTo({ scrollTop: 0 }); // 回顶方便扫码
@@ -1049,11 +1150,7 @@ Page({
   showRequestPopup() {
     this.setData({
         showRequestPopup: true,
-        // Reset form but keep code
-        'requestForm.name': '',
-        'requestForm.subcategory_key': '',
-        'requestForm.sub_category': '',
-        'requestForm.supplier': ''
+        requestForm: buildEmptyRequestForm(this.data.activeTab)
     });
   },
 
@@ -1063,12 +1160,12 @@ Page({
   },
 
   onCloseRequestPopup() {
-    this.setData({ showRequestPopup: false });
+    this.setData({ showRequestPopup: false, showRequestUnitSheet: false });
   },
 
   onRequestInput(e) {
       const field = e.currentTarget.dataset.field;
-      this.setData({ [`requestForm.${field}`]: e.detail });
+      this.setData({ [`requestForm.${field}`]: resolveInputValue(e.detail) });
   },
 
   showRequestSubCategorySheet() {
@@ -1106,6 +1203,10 @@ Page({
       // 1. 校验必填项
       if (!requestForm.name) return Toast.fail('请填写物料名称');
       if (!requestForm.sub_category) return Toast.fail('请选择子类别');
+      const normalizedRequestUnit = normalizeUnitInput(activeTab, requestForm.default_unit);
+      if (!normalizedRequestUnit.ok || !requestForm.default_unit) {
+          return Toast.fail(normalizedRequestUnit.msg || '请选择默认单位');
+      }
       const selectedSubcategory = this.data.subCategoryRecords.find((item) => (
           item.subcategory_key === requestForm.subcategory_key && isSelectableSubcategoryRecord(item)
       ));
@@ -1131,14 +1232,15 @@ Page({
                   material_name: requestForm.name,
                   subcategory_key: requestForm.subcategory_key || '',
                   sub_category: requestForm.sub_category,
-                  supplier: requestForm.supplier || ''
+                  supplier: requestForm.supplier || '',
+                  default_unit: normalizedRequestUnit.unit
               }
           });
           const result = (res && res.result) || {};
 
           if (result.success) {
               wx.showToast({ title: '申请已提交', icon: 'success' });
-              this.setData({ showRequestPopup: false });
+              this.setData({ showRequestPopup: false, showRequestUnitSheet: false });
           } else {
               wx.showToast({ title: result.msg || '提交失败', icon: 'none' });
           }

@@ -110,6 +110,8 @@ test('template spec keeps representative example rows aligned with the new gover
 
   assert.match(spec.helpLines[spec.helpLines.length - 2], /当前化材子类别：主胶 \/ 树脂 \/ 溶剂/);
   assert.match(spec.helpLines[spec.helpLines.length - 1], /当前膜材子类别：基材-PET \/ 基材-BOPP \/ 保护膜/);
+  assert.doesNotMatch(helpText, /CSV/);
+  assert.match(helpText, /直接上传 \.xlsx/);
   assert.match(helpText, /产品代码\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);

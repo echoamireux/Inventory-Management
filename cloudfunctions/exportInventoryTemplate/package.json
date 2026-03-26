@@ -1,0 +1,13 @@
+{
+  "name": "exportInventoryTemplate",
+  "version": "1.0.0",
+  "description": "Export inventory stock-in template",
+  "main": "index.js",
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "wx-server-sdk": "latest"
+  }
+}

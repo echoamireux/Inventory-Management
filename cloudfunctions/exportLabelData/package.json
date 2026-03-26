@@ -1,0 +1,13 @@
+{
+  "name": "exportLabelData",
+  "version": "1.0.0",
+  "description": "Export label info data to Excel",
+  "main": "index.js",
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "wx-server-sdk": "latest"
+  }
+}

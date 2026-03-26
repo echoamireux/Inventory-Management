@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="30mm" viewBox="0 0 1000 300">
+  <rect x="5" y="5" width="990" height="290" rx="16" fill="white" stroke="#111" stroke-width="2"/>
+  <rect x="270" y="34" width="150" height="150" fill="white" stroke="#111" stroke-width="4"/>
+  <rect x="288" y="52" width="114" height="114" fill="none" stroke="#111" stroke-width="16" stroke-dasharray="12 9"/>
+  <text x="345" y="215" text-anchor="middle" font-family="Arial, Microsoft YaHei" font-size="26" font-weight="700">L000123</text>
+  <text x="470" y="128" font-family="Arial, Microsoft YaHei" font-size="64" font-weight="700">J-001</text>
+</svg>

@@ -7,6 +7,16 @@
   </van-tabs>
 
   <view class="p-15">
+    <view class="mb-15 template-entry-card" bind:tap="goToTemplateImport">
+        <view class="template-entry-card__header">
+            <view>
+                <view class="template-entry-card__title">模板导入入库</view>
+                <view class="template-entry-card__desc">导出最新 XLSX 模板，填写后直接上传</view>
+            </view>
+            <view class="template-entry-card__badge">化材 / 膜材通用</view>
+        </view>
+    </view>
+
     <!-- 0. 顶部操作区 -->
     <view class="mb-15 top-action-bar {{ isManager ? 'top-action-bar--single' : 'top-action-bar--dual' }}">
         <view class="top-action-bar__item top-action-bar__item--primary">
@@ -47,6 +57,9 @@
                 </view>
                 <view wx:if="{{ labelCodeChecking }}" class="label-code-helper">
                     正在校验标签编号...
+                </view>
+                <view wx:if="{{ labelCodeNotice && !labelCodeError }}" class="label-code-notice">
+                    {{ labelCodeNotice }}
                 </view>
                 <view wx:if="{{ labelCodeError }}" class="label-code-error">
                     {{ labelCodeError }}
@@ -235,11 +248,13 @@
             use-button-slot
             label-class="field-label-bold"
           >
-              <view slot="button" class="flex-row items-center" bindtap="showUnitSheet">
+              <view slot="button" class="flex-row items-center">
                  <text class="mr-5">{{ form.unit || '单位' }}</text>
-                 <van-icon name="arrow-down" size="12px" />
               </view>
           </van-field>
+          <view class="field-governed-hint">
+            默认单位自动跟随主数据
+          </view>
 
           <!-- C. 包装形式 -->
           <van-cell
@@ -294,19 +309,16 @@
               label-class="field-label-bold"
             />
             <van-field
-              value="{{ form.unit || 'm' }}"
+              value="{{ form.unit || '' }}"
               label="默认单位"
+              placeholder="匹配主数据后自动填入"
               readonly
               required
-              data-field="unit"
-              use-button-slot
               label-class="field-label-bold"
-            >
-              <view slot="button" class="flex-row items-center" bindtap="showUnitSheet">
-                 <text class="mr-5 text-primary">切换单位</text>
-                 <van-icon name="arrow-down" size="12px" color="#1989fa" />
-              </view>
-            </van-field>
+            />
+            <view class="field-governed-hint">
+              默认单位自动跟随主数据
+            </view>
             <van-cell title="过期日期" value="{{ form.is_long_term_valid ? '长期有效' : (form.expiry_date || '请选择') }}" is-link="{{ !form.is_long_term_valid }}" bind:click="showDatePicker" required title-class="field-label-bold" />
             <view class="validity-switch-row">
               <text class="validity-switch-label">设为长期有效</text>
@@ -325,12 +337,11 @@
     </view>
     </view>
 
-  <!-- 动作面板：单位选择 -->
   <van-action-sheet
-    show="{{ showUnitSheet }}"
+    show="{{ showRequestUnitSheet }}"
     actions="{{ unitActions }}"
-    bind:close="onUnitClose"
-    bind:select="onUnitSelect"
+    bind:close="onRequestUnitClose"
+    bind:select="onRequestUnitSelect"
   />
 
   <!-- 包装形式选择 -->
@@ -363,6 +374,7 @@
       type="date"
       value="{{ currentDate }}"
       min-date="{{ minDate }}"
+      max-date="{{ maxDate }}"
       bind:confirm="onDateConfirm"
       bind:cancel="onDateCancel"
     />
@@ -438,6 +450,13 @@
               is-link
               required
               bind:click="showRequestSubCategorySheet"
+          />
+          <van-cell
+              title="默认单位"
+              value="{{ requestForm.default_unit || '请选择' }}"
+              is-link
+              required
+              bind:click="showRequestUnitSheet"
           />
           <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
             <text class="zone-manage-link" bindtap="onManageSubcategories">管理子类别</text>

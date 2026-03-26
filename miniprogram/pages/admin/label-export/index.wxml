@@ -1,0 +1,88 @@
+<view class="container label-export-page">
+  <view class="sticky-panel">
+    <view class="template-panel">
+      <view class="template-panel__title">选择打印模板</view>
+      <van-tabs
+        active="{{ templateType }}"
+        bind:change="onTemplateChange"
+        color="#2C68FF"
+        line-width="48px"
+        border="{{ false }}"
+      >
+        <van-tab title="膜材信息标签" name="film"></van-tab>
+        <van-tab title="化材标准瓶信息标签" name="chemical_std"></van-tab>
+        <van-tab title="化材小瓶信息标签" name="chemical_mini"></van-tab>
+      </van-tabs>
+    </view>
+
+    <van-search
+      value="{{ searchVal }}"
+      placeholder="标签编号/产品代码/物料名称/批号"
+      shape="round"
+      bind:search="onSearch"
+      bind:change="onSearchChange"
+      bind:clear="onSearchClear"
+      custom-class="search-compact"
+    />
+
+    <view class="selection-brief">
+      <text>已勾选 {{ selectedIds.length }} 个标签</text>
+    </view>
+    <view class="selection-tip">
+      请按标签编号对应基础二维码标签粘贴
+    </view>
+  </view>
+
+  <view wx:if="{{ loading && !hasLoadedOnce }}" class="page-loading-state">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <block wx:elif="{{ list.length > 0 }}">
+    <view
+      wx:for="{{ list }}"
+      wx:key="_id"
+      class="label-export-row {{ item._selected ? 'is-selected' : '' }}"
+      bindtap="toggleSelectItem"
+      data-id="{{ item._id }}"
+    >
+      <view class="label-export-row__selector {{ item._selected ? 'is-selected' : '' }}">
+        <text wx:if="{{ item._selected }}">✓</text>
+      </view>
+      <view class="label-export-row__content">
+        <view class="label-export-row__title">
+          <text class="label-export-row__code">{{ item.unique_code }}</text>
+          <text class="label-export-row__product">{{ item.product_code }}</text>
+        </view>
+        <view class="label-export-row__name">{{ item.material_name || '--' }}</view>
+        <view class="label-export-row__meta">
+          <text wx:if="{{ item.batch_number }}">批号 {{ item.batch_number }}</text>
+          <text wx:else>未填写批号</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无可打印标签" />
+
+  <view wx:if="{{ loading && hasLoadedOnce }}" class="inline-refresh-state">
+    <van-loading size="20px">刷新中...</van-loading>
+  </view>
+  <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
+    已无更多
+  </view>
+
+  <view class="footer-bar safe-area-bottom">
+    <view class="footer-bar__hint">
+      {{ selectedIds.length > 0 ? ('已勾选 ' + selectedIds.length + ' 个标签') : '请先勾选需要打印的标签' }}
+    </view>
+    <view
+      class="footer-bar__button {{ exporting || selectedIds.length === 0 ? 'is-disabled' : '' }}"
+      bindtap="onExportSelected"
+    >
+      <van-loading wx:if="{{ exporting }}" color="#FFFFFF" size="18px" />
+      <text wx:else>导出信息标签 Excel</text>
+    </view>
+  </view>
+</view>
+
+<van-toast id="van-toast" />

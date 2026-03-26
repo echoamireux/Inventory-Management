@@ -1,0 +1,9 @@
+{
+  "name": "importInventoryTemplate",
+  "version": "1.0.0",
+  "description": "Preview and submit inventory stock-in template rows",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

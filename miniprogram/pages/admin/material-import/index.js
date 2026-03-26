@@ -15,6 +15,19 @@ const {
 const {
   resolveOpenDocumentPath
 } = require('../../../utils/download-file');
+const {
+  parseImportTemplateFileBuffer,
+  getParsedTemplateMeta,
+  resolveImportTemplateErrorMessage
+} = require('../../../utils/import-file-parser');
+
+const MATERIAL_TEMPLATE_HEADER_ROWS = [
+  ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号'],
+  ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填']
+];
+const INVALID_MATERIAL_TEMPLATE_MESSAGE = '请使用系统导出的最新版物料导入模板';
+const MATERIAL_TEMPLATE_BINARY_HINT = '当前运行环境未正确识别文件内容，请重新选择文件后再试';
+const MATERIAL_TEMPLATE_RUNTIME_HINT = '当前前端与物料模板协议不一致，请更新小程序后重试';
 
 Page({
   options: {
@@ -108,7 +121,7 @@ Page({
 
       await Dialog.alert({
         title: '模板已打开',
-        message: '已生成并打开最新模板。\n\n请填写后另存为 CSV，再回到本页上传导入。',
+        message: '已生成并打开最新模板。\n\n请直接上传系统导出的 .xlsx 文件回到本页预览并导入。',
         messageAlign: 'left',
         confirmButtonText: '我知道了'
       });
@@ -148,7 +161,7 @@ Page({
       ['2. 每行填写一个物料，【不要留空行】', '', '', '', '', '', '', '', '', ''],
       ['3. 如果数据超过5行，请在第6行之前【插入】新行，不要在说明区填写', '', '', '', '', '', '', '', '', ''],
       ['4. 填写完成后，【删除】所有空行和本说明区', '', '', '', '', '', '', '', '', ''],
-      ['5. 另存为 CSV 格式（文件 → 另存为 → 选择 CSV）', '', '', '', '', '', '', '', '', ''],
+      ['5. 填写完成后请直接保存并上传 .xlsx 文件', '', '', '', '', '', '', '', '', ''],
       ['', '', '', '', '', '', '', '', '', ''],
       ['▶ 字段说明：（* 表示必填）', '', '', '', '', '', '', '', '', ''],
       ['产品代码*：必填，建议填写 3 位数字（如 001）；系统会统一成标准格式', '', '', '', '', '', '', '', '', ''],
@@ -183,7 +196,7 @@ Page({
       success: () => {
         Dialog.alert({
           title: '简易结构已复制',
-          message: '此内容仅包含最基础的列名结构，不带正式下拉和校验。\n\n建议优先使用“导出最新模板”获取系统当前规则，再填写后另存为 CSV 导入。',
+          message: '此内容仅包含最基础的列名结构，不带正式下拉和校验。\n\n建议优先使用“导出最新模板”获取系统当前规则，再填写后直接上传 .xlsx。',
           messageAlign: 'left',
           confirmButtonText: '我知道了'
         });
@@ -194,7 +207,7 @@ Page({
     });
   },
 
-  // 选择文件 - 支持 CSV 和 Excel
+  // 选择文件 - 仅支持 XLSX
   async onChooseFile() {
     if (
       !this.data.subcategoriesByCategory.chemical.length ||
@@ -206,51 +219,41 @@ Page({
     wx.chooseMessageFile({
       count: 1,
       type: 'file',
-      extension: ['csv'],
+      extension: ['xlsx'],
       success: (res) => {
         const file = res.tempFiles[0];
         this.setData({ selectedFile: file });
-
-        if (file.name.toLowerCase().endsWith('.csv')) {
-          this.parseCSV(file.path);
-        } else {
-          Toast.fail('请使用 CSV 格式文件');
-        }
+        this.parseImportFile(file);
       }
     });
   },
 
-  // 解析 CSV
-  parseCSV(filePath) {
+  parseImportFile(file) {
     this.setData({ parsing: true, previewData: [] });
 
     const fsm = wx.getFileSystemManager();
     fsm.readFile({
-      filePath: filePath,
-      encoding: 'utf8',
+      filePath: file.path,
       success: (res) => {
         try {
-          // 移除 BOM
-          let content = res.data;
-          if (content.charCodeAt(0) === 0xFEFF) {
-            content = content.substring(1);
-          }
-
-          // 解析 CSV
-          const lines = content.split('\n').filter(line => line.trim());
-
-          // 跳过表头，过滤有效数据行
-          const dataRows = lines.slice(1).filter((line) => {
-            const parts = this.parseCSVLine(line);
-            if (isTemplateInlineHintRow(parts)) {
-              return false;
-            }
-            return parts.length >= 3 && parts[0] && parts[1] && parts[2];
+          const rows = parseImportTemplateFileBuffer(res.data, {
+            fileName: file.name || file.path || '',
+            sheetName: '物料导入表',
+            expectedHeaderRows: MATERIAL_TEMPLATE_HEADER_ROWS,
+            invalidTemplateMessage: INVALID_MATERIAL_TEMPLATE_MESSAGE,
+            binaryPayloadMessage: MATERIAL_TEMPLATE_BINARY_HINT,
+            legacyRuntimeMessage: MATERIAL_TEMPLATE_RUNTIME_HINT
           });
+          const templateMeta = getParsedTemplateMeta(rows) || {};
+          const dataStartRowIndex = Number(templateMeta.dataStartRowIndex) || 3;
+          const dataRows = rows
+            .filter(item => item.rowIndex >= dataStartRowIndex)
+            .filter(item => item.values.some(value => String(value == null ? '' : value).trim()))
+            .filter(item => !isTemplateInlineHintRow(item.values))
+            .filter(item => item.values.length >= 3 && item.values[0] && item.values[1] && item.values[2]);
 
-          const rawPreviewData = dataRows.map((line, index) => {
-            const row = this.parseCSVLine(line);
-            return this.validateRow(row, index);
+          const rawPreviewData = dataRows.map((row) => {
+            return this.validateRow(row.values, row.rowIndex - 2);
           });
           const previewData = decorateImportPreviewRows(applyImportDuplicateGuards(rawPreviewData));
 
@@ -267,11 +270,17 @@ Page({
           });
 
           if (previewData.length === 0) {
-            Toast.fail('未找到有效数据');
+            Toast.fail('未检测到有效数据行');
           }
         } catch (err) {
           console.error('解析失败', err);
-          Toast.fail('文件解析失败');
+          Toast.fail(resolveImportTemplateErrorMessage(err, {
+            fallbackMessage: '文件解析失败',
+            sheetName: '物料导入表',
+            invalidTemplateMessage: INVALID_MATERIAL_TEMPLATE_MESSAGE,
+            binaryPayloadMessage: MATERIAL_TEMPLATE_BINARY_HINT,
+            legacyRuntimeMessage: MATERIAL_TEMPLATE_RUNTIME_HINT
+          }));
           this.setData({ parsing: false });
         }
       },
@@ -281,29 +290,6 @@ Page({
         this.setData({ parsing: false });
       }
     });
-  },
-
-  // 解析 CSV 行（处理逗号和引号）
-  parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-
-    return result;
   },
 
   // 校验单行数据

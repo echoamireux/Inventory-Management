@@ -29,6 +29,7 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/addWarehouseZone/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/editInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."
@@ -62,6 +63,7 @@ cp cloudfunctions/_shared/search.js cloudfunctions/getInventoryGrouped/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/manageMaterial/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
 
 echo "   -> Updating log-search.js..."
 cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js

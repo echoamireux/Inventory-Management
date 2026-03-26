@@ -7,6 +7,8 @@ const {
 const DATA_SHEET_NAME = '物料导入表';
 const CONFIG_SHEET_NAME = 'Config';
 const HELP_SHEET_NAME = '【必看】填写指导与示例';
+const TEMPLATE_KIND = 'material_import';
+const TEMPLATE_SCHEMA_VERSION = 'material-import-v1';
 const TEMPLATE_HEADERS = [
   '产品代码',
   '物料名称',
@@ -101,6 +103,8 @@ function buildMaterialTemplateSpec({
     dataSheetName: DATA_SHEET_NAME,
     configSheetName: CONFIG_SHEET_NAME,
     helpSheetName: HELP_SHEET_NAME,
+    templateKind: TEMPLATE_KIND,
+    schemaVersion: TEMPLATE_SCHEMA_VERSION,
     headers: TEMPLATE_HEADERS.slice(),
     inlineHints: TEMPLATE_INLINE_HINTS.slice(),
     maxRow: TEMPLATE_MAX_ROW,
@@ -149,7 +153,7 @@ function buildMaterialTemplateSpec({
       '',
       '1. 请先使用本系统导出的最新模板，不要复用旧模板。',
       '2. 若刚调整过子类别，请重新导出模板后再填写。',
-      '3. 模板填写完成后，请另存为 CSV，再回到系统上传导入。',
+      '3. 模板填写完成后，请直接上传 .xlsx 文件回到系统导入。',
       '',
       '▶ 字段说明',
       '产品代码*：必填。模板内建议填写 3 位数字，例如 001。',
@@ -178,6 +182,8 @@ module.exports = {
   DATA_SHEET_NAME,
   CONFIG_SHEET_NAME,
   HELP_SHEET_NAME,
+  TEMPLATE_KIND,
+  TEMPLATE_SCHEMA_VERSION,
   TEMPLATE_HEADERS,
   CATEGORY_OPTIONS,
   UNIT_OPTIONS,
