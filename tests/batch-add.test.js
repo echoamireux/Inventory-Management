@@ -205,5 +205,25 @@ test('batch add still rejects invalid expiry date values', () => {
       product_code: 'J-004',
       category: 'chemical'
     }, 0);
-  }, /过期日期格式非法/);
+    }, /过期日期格式非法/);
+});
+
+test('batch add rejects expiry dates earlier than today', () => {
+  assert.throws(() => {
+    buildBatchInventoryPayload({
+      unique_code: 'L000008',
+      batch_number: 'B-202606',
+      location: 'A区 | 2层-06',
+      expiry_date: '2026-03-25',
+      quantity: {
+        val: 10,
+        unit: 'kg'
+      }
+    }, {
+      _id: 'mat-9',
+      material_name: '甲苯',
+      product_code: 'J-006',
+      category: 'chemical'
+    }, 0);
+  }, /过期日期不能早于当天/);
 });

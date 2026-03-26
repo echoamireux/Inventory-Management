@@ -94,6 +94,9 @@ test('single stock-in page handles film thickness as governed input and fixes sq
   assert.match(pageWxml, /厚度以主数据为准/);
   assert.match(pageWxml, /label="幅宽\(mm\)"/);
   assert.match(pageWxml, /label="默认单位"/);
+  assert.match(pageWxml, /默认单位自动跟随主数据/);
+  assert.equal((pageWxml.match(/默认单位自动跟随主数据/g) || []).length >= 2, true);
+  assert.doesNotMatch(pageWxml, /label="默认单位"[\s\S]*?slot="button"/);
   assert.doesNotMatch(pageWxml, /label="宽度\(mm\)"/);
   assert.doesNotMatch(pageWxml, /label="计价单位"/);
 });

@@ -8,6 +8,7 @@ const {
   buildSubcategoryMap,
   resolveSubcategorySelection
 } = require('./material-subcategories');
+const { normalizeUnitInput } = require('./material-units');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -112,6 +113,10 @@ exports.main = async (event, context) => {
         if (!resolvedSubcategory.subcategory_key) {
             return { success: false, msg: '申请单子类别无效，请先修正后再审批' };
         }
+        const normalizedUnit = normalizeUnitInput(request.category, request.default_unit);
+        if (!normalizedUnit.ok) {
+            return { success: false, msg: '申请单默认单位无效，请先修正后再审批' };
+        }
 
         const newMaterial = {
             product_code: request.product_code,
@@ -120,6 +125,7 @@ exports.main = async (event, context) => {
             subcategory_key: resolvedSubcategory.subcategory_key,
             sub_category: resolvedSubcategory.sub_category,
             supplier: request.supplier,
+            default_unit: normalizedUnit.unit,
             // 默认初始字段
             batch_count: 0,
             quantity: 0,

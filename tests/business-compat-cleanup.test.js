@@ -324,6 +324,14 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
           sub_category: '溶剂'
         };
       }
+    },
+    './material-units': {
+      normalizeUnitInput(category, unit) {
+        if (category === 'chemical' && unit === 'kg') {
+          return { ok: true, unit: 'kg' };
+        }
+        return { ok: false, msg: '默认单位不合法' };
+      }
     }
   });
 
@@ -334,11 +342,13 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
     subcategory_key: 'builtin:chemical:solvent',
     sub_category: '溶剂',
     supplier: '供应商A',
+    default_unit: 'kg',
     suggested_sub_category: '旧建议'
   });
 
   assert.equal(result.success, true);
   assert.ok(insertedRequest);
+  assert.equal(insertedRequest.default_unit, 'kg');
   assert.equal(Object.prototype.hasOwnProperty.call(insertedRequest, 'suggested_sub_category'), false);
 });
 
@@ -351,7 +361,161 @@ test('material add page routes request submission through the addMaterialRequest
 
   assert.match(file, /name:\s*'addMaterialRequest'/);
   assert.match(file, /action:\s*'submit'/);
+  assert.match(file, /default_unit:\s*normalizedRequestUnit\.unit/);
   assert.doesNotMatch(file, /db\.collection\('material_requests'\)\.add/);
+});
+
+test('material add request popup exposes governed default unit selection and existing material stock-in no longer offers unit switching', () => {
+  const fs = require('node:fs');
+  const wxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
+    'utf8'
+  );
+
+  assert.match(wxml, /title="默认单位"/);
+  assert.match(wxml, /requestForm\.default_unit \|\| '请选择'/);
+  assert.match(wxml, /bind:click="showRequestUnitSheet"/);
+  assert.doesNotMatch(wxml, /slot="button" class="flex-row items-center" bindtap="showUnitSheet"/);
+  assert.doesNotMatch(wxml, /切换单位/);
+});
+
+test('approval center material request cards surface the requested default unit', () => {
+  const fs = require('node:fs');
+  const wxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/admin/approval-center/index.wxml'),
+    'utf8'
+  );
+
+  assert.match(wxml, /默认单位：/);
+  assert.match(wxml, /item\.default_unit \|\| '未填写'/);
+});
+
+test('approveMaterialRequest writes request default unit into the formal material record', async () => {
+  let insertedMaterial = null;
+  let updatedRequest = null;
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              async get() {
+                return {
+                  data: [{ role: 'admin', status: 'active', name: '审批管理员' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'material_requests') {
+        return {
+          doc() {
+            return {
+              async get() {
+                return {
+                  data: {
+                    _id: 'req-1',
+                    status: 'pending',
+                    product_code: 'J-001',
+                    category: 'chemical',
+                    material_name: '异丙醇',
+                    subcategory_key: 'builtin:chemical:solvent',
+                    sub_category: '溶剂',
+                    supplier: '供应商A',
+                    default_unit: 'kg',
+                    applicant: 'openid-user'
+                  }
+                };
+              },
+              async update({ data }) {
+                updatedRequest = data;
+                return {};
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'materials') {
+        return {
+          where() {
+            return {
+              async count() {
+                return { total: 0 };
+              }
+            };
+          },
+          async add({ data }) {
+            insertedMaterial = data;
+            return { _id: 'mat-1' };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    }
+  };
+
+  const cloudStub = {
+    init() {},
+    getWXContext() {
+      return { OPENID: 'openid-admin' };
+    },
+    database() {
+      return db;
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/approveMaterialRequest/index.js', {
+    'wx-server-sdk': cloudStub,
+    './auth': {
+      assertAdminAccess() {
+        return { ok: true };
+      }
+    },
+    './material-subcategories': {
+      ensureBuiltinSubcategories: async () => [],
+      sortSubcategoryRecords(records) {
+        return records;
+      },
+      filterSubcategoryRecordsByCategory(records) {
+        return records;
+      },
+      buildSubcategoryMap() {
+        return new Map();
+      },
+      resolveSubcategorySelection() {
+        return {
+          subcategory_key: 'builtin:chemical:solvent',
+          sub_category: '溶剂'
+        };
+      }
+    },
+    './material-units': {
+      normalizeUnitInput(category, unit) {
+        if (category === 'chemical' && unit === 'kg') {
+          return { ok: true, unit: 'kg' };
+        }
+        return { ok: false, msg: '默认单位不合法' };
+      }
+    }
+  });
+
+  const result = await mod.main({
+    request_id: 'req-1',
+    action: 'approve'
+  });
+
+  assert.equal(result.success, true);
+  assert.ok(insertedMaterial);
+  assert.equal(insertedMaterial.default_unit, 'kg');
+  assert.equal(updatedRequest.status, 'approved');
 });
 
 test('my-requests loads only current applicant records through the cloud function path', async () => {

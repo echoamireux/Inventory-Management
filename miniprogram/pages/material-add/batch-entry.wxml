@@ -183,7 +183,10 @@
           <view class="bg-white p-3 rounded-md flex-row items-center border-b">
              <view class="flex-1">
                 <view class="flex-row items-center justify-between">
-                  <view class="text-base font-bold">标签编号: {{ item.unique_code }}</view>
+                  <view class="flex-row items-center">
+                    <view class="text-base font-bold">标签编号: {{ item.unique_code }}</view>
+                    <view wx:if="{{ item.submit_action === 'refill' }}" class="entry-refill-badge ml-2">待补料</view>
+                  </view>
                   <text class="text-xs text-secondary ml-2">{{ item.product_code }}</text>
                 </view>
                 <view class="text-sm mt-1">
@@ -196,6 +199,9 @@
                 </view>
                 <view class="text-sm mt-1">
                     <text>库位: {{ item.location || defaultLocationDisplay || '--' }}</text>
+                </view>
+                <view wx:if="{{ item.pending_notice }}" class="entry-notice entry-notice--refill mt-1">
+                    {{ item.pending_notice }}
                 </view>
                 <view class="mt-2 flex-row items-center">
                     <text class="text-sm mr-2">数量:</text>
@@ -227,6 +233,7 @@
       bind:confirm="onDateConfirm"
       bind:cancel="onDateClose"
       min-date="{{ minDate }}"
+      max-date="{{ maxDate }}"
     />
   </van-popup>
 

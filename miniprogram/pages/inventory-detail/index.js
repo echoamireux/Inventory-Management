@@ -169,12 +169,18 @@ Page({
       // ... (Status Logic remains same)
       let _statusBadge = { text: '使用中', type: 'success' };
       let originalQty = item.quantity.val;
+      let currentQty = _qtyVal;
 
       if (item.category === 'film') {
-          originalQty = item.inventory ? item.inventory.length_m : 0;
+          originalQty = item.dynamic_attrs && item.dynamic_attrs.initial_length_m
+            ? Number(item.dynamic_attrs.initial_length_m)
+            : 0;
+          currentQty = item.dynamic_attrs && item.dynamic_attrs.current_length_m !== undefined
+            ? Number(item.dynamic_attrs.current_length_m)
+            : 0;
       }
 
-      if (Math.abs(_qtyVal - originalQty) < 0.1) {
+      if (Math.abs(currentQty - originalQty) < 0.1) {
           _statusBadge = { text: '未开封', type: 'primary' };
       }
 

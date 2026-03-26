@@ -205,6 +205,31 @@ test('batch submit payload composes zone-only and zone-detail locations consiste
   assert.match(items[1].expiry_date, /^2026-07-01T/);
 });
 
+test('batch submit payload preserves refill metadata for pending refill rows', () => {
+  const items = buildBatchSubmitItems([
+    {
+      unique: 'tmp-3',
+      unique_code: 'L000601',
+      batch_number: 'AC240601',
+      expiry_date: '2026-07-01',
+      zone_key: 'builtin:chemical:lab1',
+      location_zone: '实验室1',
+      location_detail: 'A-01',
+      location: '实验室1 | A-01',
+      quantity: { val: 2, unit: 'kg' },
+      submit_action: 'refill',
+      refill_inventory_id: 'inv-refill'
+    }
+  ], {
+    defaultLocationZoneKey: 'builtin:chemical:lab2',
+    defaultLocationZoneName: '实验室2',
+    defaultLocationZone: '实验室2'
+  });
+
+  assert.equal(items[0].submit_action, 'refill');
+  assert.equal(items[0].refill_inventory_id, 'inv-refill');
+});
+
 test('batch entry page requires a selected material template before scanning labels', () => {
   const pageJs = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),
@@ -225,5 +250,8 @@ test('batch entry page requires a selected material template before scanning lab
   assert.match(pageWxml, /主数据默认幅宽/);
   assert.match(pageWxml, /本批次实际幅宽\(mm\)/);
   assert.match(pageWxml, /确认本批次幅宽|保存并开始本批次/);
+  assert.match(pageJs, /待补料/);
+  assert.match(pageJs, /本次将新增/);
+  assert.match(pageWxml, /待补料/);
   assert.doesNotMatch(pageWxml, /van-field[\s\S]*class="product-code-field/);
 });

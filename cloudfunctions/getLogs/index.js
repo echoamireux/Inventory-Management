@@ -2,6 +2,7 @@
 const cloud = require('wx-server-sdk');
 const { getCstRange } = require('./cst-time');
 const { buildLogSearchWhere } = require('./log-search');
+const { assertActiveUserAccess } = require('./auth');
 
 const LOG_SEARCH_FIELD_NAMES = [
   'material_name',
@@ -23,6 +24,7 @@ const db = cloud.database();
 const _ = db.command;
 
 exports.main = async (event, context) => {
+  const { OPENID } = cloud.getWXContext();
   const {
     queryCode,
     searchVal,
@@ -35,6 +37,19 @@ exports.main = async (event, context) => {
   const skip = (page - 1) * limit;
 
   try {
+      const userRes = await db.collection('users')
+        .where({ _openid: OPENID })
+        .limit(1)
+        .get();
+      const operator = userRes.data && userRes.data[0] ? userRes.data[0] : null;
+      const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看操作日志');
+      if (!authResult.ok) {
+        return {
+          success: false,
+          msg: authResult.msg
+        };
+      }
+
       const collection = db.collection('inventory_log');
       const where = buildLogSearchWhere({
           db,

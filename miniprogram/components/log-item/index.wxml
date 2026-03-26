@@ -30,4 +30,9 @@
     </view>
   </view>
 
+  <!-- 入库记录可发起纠错申请 -->
+  <view wx:if="{{ item.type === 'inbound' || item._typeText === '入库' }}" style="display: flex; justify-content: flex-end; padding-top: 8px;">
+    <view style="font-size: 12px; color: #1989fa; padding: 4px 10px; border: 1px solid #1989fa; border-radius: 4px;" bindtap="onRequestCorrection">发起纠错申请</view>
+  </view>
+
 </view>

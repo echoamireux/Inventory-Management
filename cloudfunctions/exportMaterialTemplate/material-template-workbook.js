@@ -69,6 +69,13 @@ function defineConfigRanges(workbook, configSheet, spec) {
     });
     workbook.definedNames.add(column.definedName.range, column.definedName.name);
   });
+
+  // Hidden protocol markers let import parsers distinguish template kind/version
+  // without relying only on visible captions that spreadsheet apps may rewrite.
+  configSheet.getCell('X1').value = 'template_kind';
+  configSheet.getCell('Y1').value = spec.templateKind || 'material_import';
+  configSheet.getCell('X2').value = 'schema_version';
+  configSheet.getCell('Y2').value = spec.schemaVersion || 'material-import-v1';
 }
 
 function decorateHeaderRow(row) {

@@ -42,6 +42,10 @@ Component({
   methods: {
     onLongPress() {
       this.triggerEvent('longpress', { item: this.data.item });
+    },
+    // 发起库存纠错申请
+    onRequestCorrection() {
+      this.triggerEvent('requestcorrection', { item: this.data.item });
     }
   }
 });

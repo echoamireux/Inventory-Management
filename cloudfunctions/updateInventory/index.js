@@ -205,7 +205,7 @@ exports.main = async (event, context) => {
           quantity_change: -deduct,
           unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
           spec_change_unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
-          operator: event.operator_name || 'System',
+          operator: (operator && operator.name) || 'System',
           operator_id: OPENID,
           _openid: OPENID,
           timestamp: db.serverDate(),

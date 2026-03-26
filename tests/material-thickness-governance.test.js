@@ -116,6 +116,7 @@ test('product code reset helper clears the single-entry form while preserving ta
     name: '',
     subcategory_key: '',
     sub_category: '',
-    supplier: ''
+    supplier: '',
+    default_unit: ''
   });
 });

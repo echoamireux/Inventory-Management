@@ -28,6 +28,9 @@
           <view class="text-sm text-gray-600 mb-5">
             <text class="font-bold">供应商：</text>{{ item.supplier || '未填写' }}
           </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">默认单位：</text>{{ item.default_unit || '未填写' }}
+          </view>
           <view class="text-xs text-gray-400 mt-10">
             申请人: <text class="text-dark font-bold">{{ item.applicant_name || '未知' }}</text> <text class="ml-5">(ID: {{ item._openid }})</text>
           </view>
@@ -110,6 +113,68 @@
          </view>
       </block>
 
+
+    </view>
+  </van-tab>
+
+  <!-- Tab 3: 库存纠错 -->
+  <van-tab title="库存纠错" name="correction">
+    <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
+
+      <block wx:if="{{ correctionLoading }}">
+        <view class="p-20 text-center text-gray-500">加载中...</view>
+      </block>
+
+      <block wx:elif="{{ correctionList.length === 0 }}">
+        <van-empty description="暂无待审核纠错申请" />
+      </block>
+
+      <block wx:else>
+        <view wx:for="{{ correctionList }}" wx:key="_id" class="bg-white p-15 mb-10 rounded-lg shadow-sm">
+          <view class="flex-row justify-between mb-10 border-b pb-10 border-gray-100">
+             <view class="font-bold text-lg text-dark">标签：{{ item.unique_code }}</view>
+             <van-tag type="warning">库存纠错</van-tag>
+          </view>
+
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">产品代码：</text>{{ item.product_code }}
+          </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">原数量：</text>{{ item.original_quantity }} {{ item.unit }}
+          </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">申请数量：</text><text class="text-danger font-bold">{{ item.requested_quantity }} {{ item.unit }}</text>
+          </view>
+          <view class="text-sm text-gray-600 mb-5">
+            <text class="font-bold">纠错原因：</text>{{ item.reason || '未填写' }}
+          </view>
+          <view class="text-xs text-gray-400 mt-10">
+            申请人: <text class="text-dark font-bold">{{ item.applicant_name || '未知' }}</text>
+          </view>
+          <view class="text-xs text-gray-400">
+            申请时间: {{ item._timeStr }}
+          </view>
+
+          <view class="flex-row justify-end mt-15 pt-10 border-t border-gray-100">
+            <van-button
+              size="small"
+              type="danger"
+              plain
+              custom-class="mr-10"
+              data-id="{{ item._id }}"
+              data-type="correction"
+              bind:click="onReject"
+            >驳回</van-button>
+            <van-button
+              size="small"
+              type="primary"
+              data-id="{{ item._id }}"
+              data-type="correction"
+              bind:click="onApprove"
+            >通过</van-button>
+          </view>
+        </view>
+      </block>
 
     </view>
   </van-tab>

@@ -7,6 +7,7 @@ const {
   buildSubcategoryMap,
   resolveSubcategorySelection
 } = require('./material-subcategories');
+const { normalizeUnitInput } = require('./material-units');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -31,7 +32,8 @@ async function submitRequest(event, openid) {
     material_name,
     subcategory_key,
     sub_category,
-    supplier
+    supplier,
+    default_unit
   } = event;
 
   if (!product_code || !category || !material_name) {
@@ -51,6 +53,11 @@ async function submitRequest(event, openid) {
   }, subcategoryRecords, subcategoryMap);
   if (!resolvedSubcategory.subcategory_key) {
     return { success: false, msg: '请选择有效子类别' };
+  }
+
+  const normalizedUnit = normalizeUnitInput(category, default_unit);
+  if (!normalizedUnit.ok) {
+    return { success: false, msg: normalizedUnit.msg || '请选择有效默认单位' };
   }
 
   const existing = await db.collection('material_requests')
@@ -81,6 +88,7 @@ async function submitRequest(event, openid) {
       subcategory_key: resolvedSubcategory.subcategory_key,
       sub_category: resolvedSubcategory.sub_category,
       supplier: supplier || '',
+      default_unit: normalizedUnit.unit,
       status: 'pending',
       applicant: openid,
       applicant_name: applicant_name || '',

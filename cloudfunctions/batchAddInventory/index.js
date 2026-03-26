@@ -1,6 +1,11 @@
 // cloudfunctions/batchAddInventory/index.js
 const cloud = require('wx-server-sdk');
 const { assertUniqueCodes, buildBatchInventoryPayload } = require('./batch-add');
+const { assertActiveUserAccess } = require('./auth');
+const {
+  isChemicalRefillEligible,
+  buildChemicalRefillUpdate
+} = require('./inventory-quantity');
 const {
   ensureBuiltinZones,
   sortZoneRecords,
@@ -16,15 +21,30 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+
+  return res.data && res.data[0] ? res.data[0] : null;
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { items, operator_name } = event;
+  const { items } = event;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return { success: false, msg: '未提供待入库数据' };
   }
 
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可执行批量入库');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     assertUniqueCodes(items);
 
     const materialIds = Array.from(new Set(
@@ -88,7 +108,47 @@ exports.main = async (event, context) => {
         const exist = await transaction.collection('inventory').where({
           unique_code: inventoryData.unique_code
         }).get();
+
         if (exist.data && exist.data.length > 0) {
+          const existingItem = exist.data[0];
+
+          // 化材补料条件：同产品代码、同批号、在库状态
+          if (
+            inventoryData.category === 'chemical'
+            && isChemicalRefillEligible(existingItem, {
+              category: inventoryData.category,
+              product_code: inventoryData.product_code,
+              batch_number: inventoryData.batch_number
+            })
+          ) {
+            const addQty = (inventoryData.quantity && inventoryData.quantity.val) || 0;
+            const refillUpdate = buildChemicalRefillUpdate(existingItem, addQty);
+
+            await transaction.collection('inventory').doc(existingItem._id).update({
+              data: {
+                ...refillUpdate.updateData,
+                update_time: db.serverDate()
+              }
+            });
+
+            // 写 refill 类型日志
+            await transaction.collection('inventory_log').add({
+              data: Object.assign({}, prepared.logData, {
+                type: 'refill',
+                description: '补料入库',
+                inventory_id: existingItem._id,
+                operator: (operator && operator.name) || 'System',
+                operator_id: OPENID,
+                _openid: OPENID,
+                timestamp: db.serverDate()
+              })
+            });
+
+            ids.push(existingItem._id);
+            continue;
+          }
+
+          // 非化材或不满足补料条件：冲突回滚
           throw new Error(`冲突：标签编号 ${inventoryData.unique_code} 已存在，批量操作已回滚`);
         }
 
@@ -99,7 +159,7 @@ exports.main = async (event, context) => {
         await transaction.collection('inventory_log').add({
           data: Object.assign({}, prepared.logData, {
             inventory_id: addRes._id,
-            operator: operator_name || 'System',
+            operator: (operator && operator.name) || 'System',
             operator_id: OPENID,
             _openid: OPENID,
             timestamp: db.serverDate()

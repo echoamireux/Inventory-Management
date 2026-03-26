@@ -35,7 +35,7 @@ exports.main = async (event, context) => {
 
     // 2. Today In/Out Logs (使用修复后的时区计算)
     const inboundCount = await db.collection('inventory_log').where({
-        type: 'inbound',
+        type: _.in(['inbound', 'refill']),
         timestamp: _.gte(startOfDayUTC)
     }).count();
 

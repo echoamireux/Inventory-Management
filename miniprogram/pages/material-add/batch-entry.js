@@ -72,6 +72,7 @@ Page({
     showDate: false,
     currentDate: new Date().getTime(),
     minDate: new Date().getTime(),
+    maxDate: new Date(9999, 11, 31).getTime(),
     isScanning: false
   },
 
@@ -529,11 +530,41 @@ Page({
       try {
           const existsRes = await db.collection('inventory').where({
               unique_code: uniqueCode
-          }).count();
+          }).get();
 
-          if (existsRes.total > 0) {
+          const existingItems = existsRes.data || [];
+          if (existingItems.length > 0) {
+              const existingItem = existingItems[0];
+              const selectedProductCode = String(this.data.selectedMaterial.product_code || '').trim();
+              const selectedBatchNumber = String(this.data.defaultBatchNo || '').trim();
+              const canRefill = (
+                  this.data.activeTab === 'chemical'
+                  && existingItem.category === 'chemical'
+                  && (existingItem.status || 'in_stock') === 'in_stock'
+                  && String(existingItem.product_code || '').trim() === selectedProductCode
+                  && String(existingItem.batch_number || '').trim() === selectedBatchNumber
+              );
+
+              if (canRefill) {
+                  Toast.clear();
+                  this.addItemToList(this.data.selectedMaterial, uniqueCode, {
+                      submitAction: 'refill',
+                      refillInventoryId: existingItem._id,
+                      pendingNotice: '待补料：同标签在库化材，提交时将按补料入库'
+                  });
+                  wx.showToast({ title: '已加入待补料列表', icon: 'none', duration: 2000 });
+                  return;
+              }
+
               Toast.clear();
-              this.showBusinessError(`标签编号 ${uniqueCode} 已入库，不能重复登记`, '标签已入库');
+              const conflictMessage = (
+                  this.data.activeTab === 'chemical'
+                  && existingItem.category === 'chemical'
+                  && (existingItem.status || 'in_stock') === 'in_stock'
+              )
+                  ? `标签编号 ${uniqueCode} 已存在，仅同产品代码同批号的在库化材才可补料`
+                  : `标签编号 ${uniqueCode} 已入库，不能重复登记`;
+              this.showBusinessError(conflictMessage, '标签已入库');
               return;
           }
 
@@ -546,7 +577,7 @@ Page({
       }
   },
 
-  addItemToList(material, uniqueCode) {
+  addItemToList(material, uniqueCode, overrides = {}) {
       const newItem = buildBatchListItem(material, uniqueCode, {
           defaultBatchNo: this.data.defaultBatchNo,
           defaultExpiry: this.data.defaultExpiry,
@@ -555,7 +586,10 @@ Page({
           defaultLocationZoneName: this.data.defaultLocationZone,
           defaultLocationZone: this.data.defaultLocationZone,
           defaultLocationDetail: this.data.defaultLocationDetail,
-          currentBatchWidthMm: this.data.currentBatchWidthMm
+          currentBatchWidthMm: this.data.currentBatchWidthMm,
+          submitAction: overrides.submitAction,
+          refillInventoryId: overrides.refillInventoryId,
+          pendingNotice: overrides.pendingNotice
       });
 
       this.setData({
@@ -741,8 +775,6 @@ Page({
           return;
       }
 
-      wx.showLoading({ title: '提交中...', mask: true });
-
       try {
           const app = getApp();
           const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
@@ -756,6 +788,29 @@ Page({
               defaultLocationZone: this.data.defaultLocationZone,
               defaultLocationDetail: this.data.defaultLocationDetail
           });
+          const refillCount = items.filter(item => item.submit_action === 'refill').length;
+          const createCount = items.length - refillCount;
+          const confirmLines = [];
+
+          if (createCount > 0) {
+              confirmLines.push(`本次将新增 ${createCount} 条`);
+          }
+          if (refillCount > 0) {
+              confirmLines.push(`本次将补料 ${refillCount} 条`);
+          }
+          confirmLines.push('是否继续？');
+
+          const confirmed = await Dialog.confirm({
+              title: '确认入库',
+              message: confirmLines.join('\n'),
+              messageAlign: 'left'
+          }).then(() => true).catch(() => false);
+
+          if (!confirmed) {
+              return;
+          }
+
+          wx.showLoading({ title: '提交中...', mask: true });
 
           const res = await wx.cloud.callFunction({
               name: 'batchAddInventory',
@@ -767,7 +822,14 @@ Page({
 
           if (res.result.success) {
               wx.hideLoading();
-              Toast.success(`成功入库 ${res.result.total} 项`);
+              const successParts = [];
+              if (createCount > 0) {
+                  successParts.push(`新增 ${createCount} 条`);
+              }
+              if (refillCount > 0) {
+                  successParts.push(`补料 ${refillCount} 条`);
+              }
+              Toast.success(successParts.length ? successParts.join('，') : `成功入库 ${res.result.total} 项`);
               this.setData({ list: [] });
 
               // Navigate back or stay?

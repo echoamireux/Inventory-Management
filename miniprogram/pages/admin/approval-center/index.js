@@ -9,7 +9,7 @@ const {
 
 Page({
   data: {
-    activeTab: 'material', // 'material' | 'user'
+    activeTab: 'material', // 'material' | 'user' | 'correction'
 
     // Material Data
     materialList: [],
@@ -18,6 +18,10 @@ Page({
     // User Data
     userList: [],
     userLoading: false,
+
+    // Correction Data
+    correctionList: [],
+    correctionLoading: false,
 
     // Reject Dialog State
     showRejectDialog: false,
@@ -59,6 +63,8 @@ Page({
   loadData() {
       if (this.data.activeTab === 'material') {
           this.fetchMaterials();
+      } else if (this.data.activeTab === 'correction') {
+          this.fetchCorrections();
       } else {
           this.fetchUsers();
       }
@@ -124,16 +130,40 @@ Page({
     }
   },
 
+  async fetchCorrections() {
+    this.setData({ correctionLoading: true });
+    try {
+        const res = await db.collection('inventory_correction_requests')
+            .where({ status: 'pending' })
+            .orderBy('created_at', 'desc')
+            .get();
+        const list = (res.data || []).map(item => ({
+            ...item,
+            _timeStr: this.formatTime(item.created_at)
+        }));
+        this.setData({ correctionList: list });
+    } catch(err) {
+        console.error(err);
+        wx.showToast({ title: '加载纠错申请失败', icon: 'none' });
+    } finally {
+        this.setData({ correctionLoading: false });
+    }
+  },
+
   // Actions
   onApprove(e) {
       const { id, type } = e.currentTarget.dataset;
+      let message = '确认激活该用户账号？';
+      if (type === 'material') message = '确认将该物料加入正式库？';
+      if (type === 'correction') message = '确认通过该库存纠错申请？';
       Dialog.confirm({
           title: '确认通过',
-          message: type === 'material' ? '确认将该物料加入正式库？' : '确认激活该用户账号？'
+          message
       }).then(() => {
           if (type === 'material') this.handleMaterialAction(id, 'approve');
+          else if (type === 'correction') this.handleCorrectionAction(id, 'approve');
           else this.handleUserAction(id, 'approve');
-      }).catch(() => {});
+      }).catch(() => {})
   },
 
   onReject(e) {
@@ -156,6 +186,8 @@ Page({
       const { id, type } = currentAction;
       if (type === 'material') {
           this.handleMaterialAction(id, 'reject', rejectReason);
+      } else if (type === 'correction') {
+          this.handleCorrectionAction(id, 'reject', rejectReason);
       } else {
           this.handleUserAction(id, 'reject', rejectReason);
       }
@@ -212,6 +244,33 @@ Page({
           if (res.result && res.result.success) {
               wx.showToast({ title: '操作成功', icon: 'success' });
               this.fetchUsers(); // Reload
+          } else {
+              wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
+          }
+      } catch(err) {
+          wx.hideLoading();
+          wx.showToast({ title: '网络异常', icon: 'none' });
+          console.error(err);
+      }
+  },
+
+  async handleCorrectionAction(id, action, reason = '') {
+      wx.showLoading({ title: '处理中...' });
+      try {
+          const res = await wx.cloud.callFunction({
+              name: 'approveInventoryCorrectionRequest',
+              data: {
+                  request_id: id,
+                  action: action,
+                  reject_reason: reason
+              }
+          });
+
+          wx.hideLoading();
+
+          if (res.result && res.result.success) {
+              wx.showToast({ title: '操作成功', icon: 'success' });
+              this.fetchCorrections();
           } else {
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }

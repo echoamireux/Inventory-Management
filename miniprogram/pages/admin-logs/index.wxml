@@ -24,7 +24,7 @@
   <view class="list-container">
     <block wx:if="{{ list.length > 0 }}">
       <view wx:for="{{ list }}" wx:key="_id">
-        <log-item item="{{ item }}" mode="full" />
+        <log-item item="{{ item }}" mode="full" bind:requestcorrection="onRequestCorrection" />
       </view>
     </block>
 

@@ -10,12 +10,17 @@ const {
   resolveFilmThicknessGovernance
 } = require('./thickness-governance');
 const {
+  isChemicalRefillEligible,
+  buildChemicalRefillUpdate
+} = require('./inventory-quantity');
+const {
   ensureBuiltinZones,
   sortZoneRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
   buildInventoryLocationPayload
 } = require('./warehouse-zones');
+const { assertActiveUserAccess } = require('./auth');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -23,6 +28,49 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+
+  return res.data && res.data[0] ? res.data[0] : null;
+}
+
+function normalizeExplicitExpiryDate(value) {
+  if (!value) {
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return {
+      ok: false,
+      msg: '过期日期格式不正确'
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const normalizedDate = new Date(parsed.getTime());
+  normalizedDate.setHours(0, 0, 0, 0);
+  if (normalizedDate.getTime() < today.getTime()) {
+    return {
+      ok: false,
+      msg: '过期日期不能早于当天'
+    };
+  }
+
+  return {
+    ok: true,
+    value: parsed
+  };
+}
 
 // 生成唯一码: 前缀 + 年月日 + 4位随机
 function generateUniqueCode(prefix) {
@@ -50,11 +98,17 @@ exports.main = async (event, context) => {
 
   // 1.2 数量有效性校验 (Security Fix)
   const quantityVal = Number(inventory.quantity_val);
-  if (isNaN(quantityVal) || quantityVal <= 0) {
+  if (!Number.isFinite(quantityVal) || quantityVal <= 0) {
       return { success: false, msg: '错误：入库数量必须为有效的正数' };
   }
 
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可执行入库');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     const hasExpiryDate = !!inventory.expiry_date;
     const isLongTermValid = !!inventory.is_long_term_valid;
 
@@ -66,10 +120,11 @@ exports.main = async (event, context) => {
       return { success: false, msg: '过期日期和长期有效不能同时设置' };
     }
 
-    const explicitExpiryDate = hasExpiryDate ? new Date(inventory.expiry_date) : null;
-    if (explicitExpiryDate && Number.isNaN(explicitExpiryDate.getTime())) {
-      return { success: false, msg: '过期日期格式不正确' };
+    const explicitExpiryState = normalizeExplicitExpiryDate(hasExpiryDate ? inventory.expiry_date : null);
+    if (!explicitExpiryState.ok) {
+      return { success: false, msg: explicitExpiryState.msg };
     }
+    const explicitExpiryDate = explicitExpiryState.value;
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
     const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, base.category));
@@ -78,16 +133,10 @@ exports.main = async (event, context) => {
       locationDetail: inventory.location_detail
     }, zoneMap);
 
-    // 标签编号查重（事务外执行，因云开发事务不支持 where 查询）
-    // 物理标签天然唯一，并发风险极低；建议在 inventory collection 上建立 unique_code 唯一索引作为兜底
-    const existCode = await db.collection('inventory').where({
-        unique_code: normalizedUniqueCode
-    }).count();
-
-    if (existCode.total > 0) {
-        // Explicit Chinese error for better user understanding
-        return { success: false, msg: `冲突：标签编号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络` };
-    }
+    const existingInventoryRes = await db.collection('inventory').where({
+      unique_code: normalizedUniqueCode
+    }).get();
+    const existingInventory = existingInventoryRes.data && existingInventoryRes.data[0];
 
     return await db.runTransaction(async transaction => {
       // 2. 写入/验证 Materials 集合
@@ -118,15 +167,70 @@ exports.main = async (event, context) => {
       const materialRecord = materialQuery.data[0];
       const category = materialRecord.category || base.category;
       const materialSpecs = materialRecord.specs || {};
+      const defaultUnit = String(materialRecord.default_unit || inventory.quantity_unit || '').trim();
+      const productCode = materialRecord.product_code || base.product_code || '';
+      const materialName = materialRecord.material_name || base.name;
+
+      if (existingInventory) {
+        const canRefill = isChemicalRefillEligible(existingInventory, {
+          category,
+          product_code: productCode,
+          batch_number: inventory.batch_number
+        });
+
+        if (!canRefill) {
+          throw new Error(`冲突：标签编号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络`);
+        }
+
+        const refillUpdate = buildChemicalRefillUpdate(existingInventory, Number(inventory.quantity_val));
+        await transaction.collection('inventory').doc(existingInventory._id).update({
+          data: {
+            ...refillUpdate.updateData,
+            update_time: db.serverDate()
+          }
+        });
+
+        await transaction.collection('inventory_log').add({
+          data: {
+            type: 'refill',
+            inventory_id: existingInventory._id,
+            material_id: materialId,
+            material_name: materialName,
+            category,
+            product_code: productCode,
+            unique_code: normalizedUniqueCode,
+            quantity_change: Number(inventory.quantity_val),
+            spec_change_unit: existingInventory.quantity && existingInventory.quantity.unit
+              ? existingInventory.quantity.unit
+              : (defaultUnit || '份'),
+            unit: existingInventory.quantity && existingInventory.quantity.unit
+              ? existingInventory.quantity.unit
+              : (defaultUnit || '份'),
+            operator: (operator && operator.name) || 'System',
+            operator_id: OPENID,
+            _openid: OPENID,
+            timestamp: db.serverDate(),
+            description: '补料入库'
+          }
+        });
+
+        return {
+          success: true,
+          materialId,
+          inventoryId: existingInventory._id,
+          uniqueCode: normalizedUniqueCode,
+          action: 'refill'
+        };
+      }
 
       // 4. 写入 Inventory 集合
       const invData = {
         material_id: materialId,
-        material_name: materialRecord.material_name || base.name,
+        material_name: materialName,
         category,
         subcategory_key: materialRecord.subcategory_key || '',
         sub_category: materialRecord.sub_category || '',
-        product_code: materialRecord.product_code || base.product_code || '',
+        product_code: productCode,
         unique_code: normalizedUniqueCode, // 使用传入的 code
         supplier: materialRecord.supplier || base.supplier || '',
         supplier_model: materialRecord.supplier_model || base.supplier_model || '',
@@ -134,7 +238,7 @@ exports.main = async (event, context) => {
         status: 'in_stock',
         quantity: {
           val: Number(inventory.quantity_val),
-          unit: inventory.quantity_unit
+          unit: defaultUnit
         },
         create_time: db.serverDate(),
         update_time: db.serverDate()
@@ -148,7 +252,7 @@ exports.main = async (event, context) => {
       }
 
       let logQuantityChange = Number(inventory.quantity_val);
-      let logUnit = inventory.quantity_unit || '份';
+      let logUnit = defaultUnit || '份';
 
       if (category === 'chemical') {
         invData.batch_number = inventory.batch_number;
@@ -215,7 +319,7 @@ exports.main = async (event, context) => {
 
          const filmState = buildFilmInventoryState(
            Number(inventory.length_m || 0),
-           inventory.quantity_unit,
+           defaultUnit,
            resolvedWidthMm,
            Number(inventory.length_m || 0)
          );
@@ -242,13 +346,13 @@ exports.main = async (event, context) => {
             type: 'inbound', // 初始入库
             inventory_id: invRes._id,
             material_id: materialId,
-            material_name: base.name,
-            category: base.category, // Added for Log Display Logic
-            product_code: base.product_code, // Added for Log Display Logic
+            material_name: materialName,
+            category, // Added for Log Display Logic
+            product_code: productCode, // Added for Log Display Logic
             quantity_change: logQuantityChange,
             spec_change_unit: logUnit,
             unit: logUnit,
-            operator: event.operator_name || 'System',
+            operator: (operator && operator.name) || 'System',
             operator_id: OPENID,
             _openid: OPENID,
             timestamp: db.serverDate(),

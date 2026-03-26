@@ -31,7 +31,8 @@ const EMPTY_REQUEST_FORM = {
   name: '',
   subcategory_key: '',
   sub_category: '',
-  supplier: ''
+  supplier: '',
+  default_unit: ''
 };
 
 function stripProductCodePrefix(productCode, prefix) {
@@ -120,8 +121,11 @@ function buildProductCodeResetForm(activeTab, nextProductCode = '') {
   };
 }
 
-function buildEmptyRequestForm() {
-  return { ...EMPTY_REQUEST_FORM };
+function buildEmptyRequestForm(category = '') {
+  return {
+    ...EMPTY_REQUEST_FORM,
+    default_unit: category ? getDefaultUnit(category) : ''
+  };
 }
 
 module.exports = {

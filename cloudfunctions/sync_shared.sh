@@ -34,14 +34,23 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/addMaterial/film-quantity.js
+cp cloudfunctions/_shared/film-quantity.js cloudfunctions/approveInventoryCorrectionRequest/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/batchAddInventory/film-quantity.js
+cp cloudfunctions/_shared/film-quantity.js cloudfunctions/importInventoryTemplate/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/updateInventory/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/getInventoryGrouped/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/exportData/film-quantity.js
 
+echo "   -> Updating inventory-quantity.js..."
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/addMaterial/inventory-quantity.js
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/approveInventoryCorrectionRequest/inventory-quantity.js
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/batchAddInventory/inventory-quantity.js
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/importInventoryTemplate/inventory-quantity.js
+
 echo "   -> Updating material-map.js and export-order.js..."
 cp cloudfunctions/_shared/material-map.js cloudfunctions/getInventoryGrouped/material-map.js
 cp cloudfunctions/_shared/export-order.js cloudfunctions/exportData/export-order.js
+cp cloudfunctions/_shared/export-report.js cloudfunctions/exportData/export-report.js
 
 echo "   -> Updating material-subcategories.js..."
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/manageSubcategory/material-subcategories.js

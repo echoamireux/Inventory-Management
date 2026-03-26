@@ -107,6 +107,9 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
       unit: material.default_unit || material.unit || 'kg'
     },
     unique_code: String(uniqueCode || '').trim(),
+    submit_action: String(defaults.submitAction || 'create').trim() || 'create',
+    refill_inventory_id: String(defaults.refillInventoryId || '').trim(),
+    pending_notice: String(defaults.pendingNotice || '').trim(),
     thickness_um: material && material.specs && material.specs.thickness_um !== undefined
       ? Number(material.specs.thickness_um)
       : undefined,

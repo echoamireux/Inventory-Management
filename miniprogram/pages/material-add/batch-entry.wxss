@@ -129,6 +129,29 @@ page {
   color: var(--color-text-secondary);
 }
 
+.entry-refill-badge {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1D4ED8;
+  font-size: 22rpx;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.entry-notice {
+  padding: 10rpx 14rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.entry-notice--refill {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1D4ED8;
+}
+
 .spec-hint-text {
   color: #2563EB;
 }

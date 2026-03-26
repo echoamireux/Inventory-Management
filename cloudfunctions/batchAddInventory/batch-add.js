@@ -37,6 +37,14 @@ function parseOptionalDate(value, rowLabel) {
     throw new Error(`${rowLabel}过期日期格式非法`);
   }
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const normalizedParsed = new Date(parsed.getTime());
+  normalizedParsed.setHours(0, 0, 0, 0);
+  if (normalizedParsed.getTime() < today.getTime()) {
+    throw new Error(`${rowLabel}过期日期不能早于当天`);
+  }
+
   return parsed;
 }
 
