@@ -44,6 +44,24 @@ function createMockDb(initialRecords) {
             ...state.records[index],
             ...data
           };
+        },
+        async set({ data }) {
+          const index = state.records.findIndex(item => item._id === id);
+          if (index === -1) {
+            state.records.push({ _id: id, ...data });
+          } else {
+            state.records[index] = {
+              ...state.records[index],
+              ...data
+            };
+          }
+          return { _id: id };
+        },
+        async remove() {
+          const index = state.records.findIndex(item => item._id === id);
+          if (index >= 0) {
+            state.records.splice(index, 1);
+          }
         }
       };
     },
@@ -128,6 +146,43 @@ test('category filtering keeps builtins plus active global zones in stable order
   assert.deepEqual(filtered.map(item => item.zone_key), [
     'builtin:chemical:safe-cabinet-01',
     'global:temp'
+  ]);
+});
+
+test('zone sorting collapses duplicated zone keys left by concurrent builtin initialization', () => {
+  const sorted = sortZoneRecords([
+    {
+      _id: 'auto-doc-1',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    },
+    {
+      _id: 'auto-doc-2',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    },
+    {
+      _id: 'auto-doc-3',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      name: '防爆柜02',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 20
+    }
+  ]);
+
+  assert.deepEqual(sorted.map(item => item.zone_key), [
+    'builtin:chemical:safe-cabinet-01',
+    'builtin:chemical:safe-cabinet-02'
   ]);
 });
 
@@ -229,4 +284,20 @@ test('ensureBuiltinZones initializes clean default zone set when collection is e
       { zone_key: 'builtin:film:pilot-line', name: '实验线', scope: 'film' }
     ]
   );
+});
+
+test('ensureBuiltinZones stays idempotent when empty collection initialization runs concurrently', async () => {
+  const db = createMockDb([]);
+
+  await Promise.all([
+    ensureBuiltinZones(db),
+    ensureBuiltinZones(db)
+  ]);
+
+  const storedBuiltinKeys = db.state.records
+    .filter(item => item.is_builtin)
+    .map(item => item.zone_key);
+
+  assert.equal(storedBuiltinKeys.length, BUILTIN_ZONE_SEEDS.length);
+  assert.equal(new Set(storedBuiltinKeys).size, BUILTIN_ZONE_SEEDS.length);
 });

@@ -89,6 +89,8 @@ const BUILTIN_ZONE_SEEDS = [
   }
 ];
 
+const BUILTIN_ZONE_KEY_SET = new Set(BUILTIN_ZONE_SEEDS.map(item => item.zone_key));
+
 function normalizeScope(scope) {
   return scope === 'chemical' || scope === 'film' ? scope : 'global';
 }
@@ -129,6 +131,64 @@ function normalizeZoneRecord(record) {
   };
 }
 
+function buildBuiltinZoneDocId(zoneKey) {
+  return String(zoneKey || '').trim().replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+function compareZoneRecordOrder(left, right) {
+  if (left.sort_order !== right.sort_order) {
+    return left.sort_order - right.sort_order;
+  }
+
+  const keyCompare = String(left.zone_key).localeCompare(String(right.zone_key));
+  if (keyCompare !== 0) {
+    return keyCompare;
+  }
+
+  return String(left._id || '').localeCompare(String(right._id || ''));
+}
+
+function chooseBuiltinZoneKeeper(records) {
+  const sorted = records.slice().sort((left, right) => {
+    const leftExpectedId = left._id === buildBuiltinZoneDocId(left.zone_key) ? 0 : 1;
+    const rightExpectedId = right._id === buildBuiltinZoneDocId(right.zone_key) ? 0 : 1;
+    if (leftExpectedId !== rightExpectedId) {
+      return leftExpectedId - rightExpectedId;
+    }
+
+    return compareZoneRecordOrder(left, right);
+  });
+
+  return sorted[0];
+}
+
+async function removeDuplicateBuiltinZoneRecords(collection, records) {
+  const groups = new Map();
+  records
+    .map(normalizeZoneRecord)
+    .filter(item => item._id && BUILTIN_ZONE_KEY_SET.has(item.zone_key))
+    .forEach((item) => {
+      if (!groups.has(item.zone_key)) {
+        groups.set(item.zone_key, []);
+      }
+      groups.get(item.zone_key).push(item);
+    });
+
+  let removed = false;
+  const duplicateGroups = Array.from(groups.values()).filter(group => group.length > 1);
+  for (let i = 0; i < duplicateGroups.length; i += 1) {
+    const group = duplicateGroups[i];
+    const keeper = chooseBuiltinZoneKeeper(group);
+    const duplicates = group.filter(item => item._id !== keeper._id);
+    for (let j = 0; j < duplicates.length; j += 1) {
+      await collection.doc(duplicates[j]._id).remove();
+      removed = true;
+    }
+  }
+
+  return removed;
+}
+
 async function loadAllZoneRecords(db, pageSize = 100) {
   const collection = db.collection('warehouse_zones');
   let skip = 0;
@@ -158,7 +218,12 @@ async function loadAllZoneRecords(db, pageSize = 100) {
 
 async function ensureBuiltinZones(db) {
   const collection = db.collection('warehouse_zones');
-  const existingRecords = await loadAllZoneRecords(db);
+  let existingRecords = await loadAllZoneRecords(db);
+  const removedDuplicates = await removeDuplicateBuiltinZoneRecords(collection, existingRecords);
+  if (removedDuplicates) {
+    existingRecords = await loadAllZoneRecords(db);
+  }
+
   const normalizedRecords = existingRecords.map(normalizeZoneRecord);
   const byKey = new Map(normalizedRecords.map(item => [item.zone_key, item]));
   const byName = new Map(normalizedRecords.map(item => [item.name, item]));
@@ -196,7 +261,7 @@ async function ensureBuiltinZones(db) {
       continue;
     }
 
-    await collection.add({
+    await collection.doc(buildBuiltinZoneDocId(seed.zone_key)).set({
       data: {
         zone_key: seed.zone_key,
         name: seed.name,
@@ -214,15 +279,18 @@ async function ensureBuiltinZones(db) {
 }
 
 function sortZoneRecords(records) {
-  return (records || [])
+  const byKey = new Map();
+  (records || [])
     .map(normalizeZoneRecord)
     .filter(item => item.zone_key && item.name)
-    .sort((left, right) => {
-      if (left.sort_order !== right.sort_order) {
-        return left.sort_order - right.sort_order;
+    .sort(compareZoneRecordOrder)
+    .forEach((item) => {
+      if (!byKey.has(item.zone_key)) {
+        byKey.set(item.zone_key, item);
       }
-      return String(left.zone_key).localeCompare(String(right.zone_key));
     });
+
+  return Array.from(byKey.values());
 }
 
 function filterZoneRecordsByCategory(records, category, options = {}) {
