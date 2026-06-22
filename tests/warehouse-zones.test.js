@@ -70,13 +70,31 @@ test('builtin zone seeds cover both chemical and film defaults', () => {
   const zoneKeys = BUILTIN_ZONE_SEEDS.map(item => item.zone_key);
 
   assert.deepEqual(zoneKeys, [
-    'builtin:chemical:lab1',
-    'builtin:chemical:lab2',
-    'builtin:chemical:lab3',
-    'builtin:chemical:store-room',
-    'builtin:film:rnd1',
-    'builtin:film:rnd2',
-    'builtin:film:line'
+    'builtin:chemical:safe-cabinet-01',
+    'builtin:chemical:safe-cabinet-02',
+    'builtin:chemical:safe-cabinet-03',
+    'builtin:chemical:safe-cabinet-04',
+    'builtin:chemical:safe-cabinet-05',
+    'builtin:chemical:safe-cabinet-06',
+    'builtin:chemical:safe-cabinet-07',
+    'builtin:film:research-warehouse-01',
+    'builtin:film:research-warehouse-02',
+    'builtin:film:research-warehouse-03',
+    'builtin:film:pilot-line'
+  ]);
+
+  assert.deepEqual(BUILTIN_ZONE_SEEDS.map(item => item.name), [
+    '防爆柜01',
+    '防爆柜02',
+    '防爆柜03',
+    '防爆柜04',
+    '防爆柜05',
+    '防爆柜06',
+    '防爆柜07',
+    '研发仓1',
+    '研发仓2',
+    '研发仓3',
+    '实验线'
   ]);
 });
 
@@ -102,29 +120,29 @@ test('legacy zone docs normalize into unified active global records', () => {
 test('category filtering keeps builtins plus active global zones in stable order', () => {
   const filtered = filterZoneRecordsByCategory(sortZoneRecords([
     { zone_key: 'global:temp', name: '公共暂存', scope: 'global', status: 'active', sort_order: 30 },
-    { zone_key: 'builtin:film:rnd1', name: '研发仓1', scope: 'film', status: 'active', sort_order: 10 },
-    { zone_key: 'builtin:chemical:lab1', name: '实验室1', scope: 'chemical', status: 'active', sort_order: 10 },
+    { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1', scope: 'film', status: 'active', sort_order: 10 },
+    { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01', scope: 'chemical', status: 'active', sort_order: 10 },
     { zone_key: 'global:disabled', name: '旧库位', scope: 'global', status: 'disabled', sort_order: 40 }
   ]), 'chemical');
 
   assert.deepEqual(filtered.map(item => item.zone_key), [
-    'builtin:chemical:lab1',
+    'builtin:chemical:safe-cabinet-01',
     'global:temp'
   ]);
 });
 
 test('inventory location payload stores zone reference and resolves renamed display text', () => {
   const zoneMap = buildZoneMap([
-    { zone_key: 'builtin:film:rnd1', name: '研发仓1' }
+    { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1' }
   ]);
 
   assert.deepEqual(
     buildInventoryLocationPayload({
-      zoneKey: 'builtin:film:rnd1',
+      zoneKey: 'builtin:film:research-warehouse-01',
       locationDetail: '机台-A'
     }, zoneMap),
     {
-      zone_key: 'builtin:film:rnd1',
+      zone_key: 'builtin:film:research-warehouse-01',
       location_detail: '机台-A',
       location_text: '研发仓1 | 机台-A',
       location: '研发仓1 | 机台-A'
@@ -132,12 +150,12 @@ test('inventory location payload stores zone reference and resolves renamed disp
   );
 
   const renamedZoneMap = buildZoneMap([
-    { zone_key: 'builtin:film:rnd1', name: '研发一仓' }
+    { zone_key: 'builtin:film:research-warehouse-01', name: '研发一仓' }
   ]);
 
   assert.equal(
     resolveInventoryLocationText({
-      zone_key: 'builtin:film:rnd1',
+      zone_key: 'builtin:film:research-warehouse-01',
       location_detail: '机台-A',
       location: '研发仓1 | 机台-A'
     }, renamedZoneMap),
@@ -149,18 +167,18 @@ test('inventory location payload stores zone reference and resolves renamed disp
 test('ensureBuiltinZones preserves reordered builtin sort order already stored in database', async () => {
   const db = createMockDb([
     {
-      _id: 'zone-lab1',
-      zone_key: 'builtin:chemical:lab1',
-      name: '实验室1',
+      _id: 'zone-safe-01',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
       scope: 'chemical',
       is_builtin: true,
       status: 'active',
       sort_order: 20
     },
     {
-      _id: 'zone-lab2',
-      zone_key: 'builtin:chemical:lab2',
-      name: '实验室2',
+      _id: 'zone-safe-02',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      name: '防爆柜02',
       scope: 'chemical',
       is_builtin: true,
       status: 'active',
@@ -179,8 +197,36 @@ test('ensureBuiltinZones preserves reordered builtin sort order already stored i
       sort_order: item.sort_order
     })),
     [
-      { zone_key: 'builtin:chemical:lab2', sort_order: 10 },
-      { zone_key: 'builtin:chemical:lab1', sort_order: 20 }
+      { zone_key: 'builtin:chemical:safe-cabinet-02', sort_order: 10 },
+      { zone_key: 'builtin:chemical:safe-cabinet-01', sort_order: 20 }
+    ]
+  );
+});
+
+test('ensureBuiltinZones initializes clean default zone set when collection is empty', async () => {
+  const db = createMockDb([]);
+
+  const synced = sortZoneRecords(await ensureBuiltinZones(db));
+  const builtins = synced.filter(item => item.is_builtin);
+
+  assert.deepEqual(
+    builtins.map(item => ({
+      zone_key: item.zone_key,
+      name: item.name,
+      scope: item.scope
+    })),
+    [
+      { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-02', name: '防爆柜02', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-03', name: '防爆柜03', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-04', name: '防爆柜04', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-05', name: '防爆柜05', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-06', name: '防爆柜06', scope: 'chemical' },
+      { zone_key: 'builtin:chemical:safe-cabinet-07', name: '防爆柜07', scope: 'chemical' },
+      { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1', scope: 'film' },
+      { zone_key: 'builtin:film:research-warehouse-02', name: '研发仓2', scope: 'film' },
+      { zone_key: 'builtin:film:research-warehouse-03', name: '研发仓3', scope: 'film' },
+      { zone_key: 'builtin:film:pilot-line', name: '实验线', scope: 'film' }
     ]
   );
 });

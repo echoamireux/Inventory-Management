@@ -18,14 +18,14 @@ test('grouped inventory card shows subcategory and single-location summary witho
     material_name: '化材-1',
     sub_category: '主胶',
     totalCount: 2,
-    locations: ['实验室2 | A-01']
+    locations: ['防爆柜02 | A-01']
   });
 
   assert.deepEqual(state, {
     materialName: '化材-1',
     subcategoryLabel: '主胶',
     batchCountLabel: '2 批次',
-    locationSummary: '实验室2 | A-01',
+    locationSummary: '防爆柜02 | A-01',
     matchReasonText: ''
   });
 });
@@ -51,7 +51,7 @@ test('batch card exposes explicit batch semantics with label count and location 
     material_name: '化材-1',
     sub_category: '主胶',
     itemCount: 10,
-    locations: ['实验室2 | A-01', '实验室2 | A-02']
+    locations: ['防爆柜02 | A-01', '防爆柜02 | A-02']
   });
 
   assert.deepEqual(state, {

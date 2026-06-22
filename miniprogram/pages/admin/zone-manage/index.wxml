@@ -38,4 +38,40 @@
       </view>
     </block>
   </view>
+
+  <van-popup
+    show="{{ showCreatePopup }}"
+    position="bottom"
+    round
+    closeable
+    bind:close="onCloseCreatePopup"
+  >
+    <view class="zone-create-panel">
+      <view class="zone-create-panel__title">新建库区</view>
+      <van-field
+        label="库区名称"
+        value="{{ createForm.name }}"
+        placeholder="请输入库区名称"
+        required
+        bind:change="onCreateNameChange"
+      />
+      <view class="zone-create-panel__section">
+        <view class="zone-create-panel__label">库区类型</view>
+        <van-radio-group value="{{ createForm.scope }}" bind:change="onCreateScopeChange">
+          <view class="zone-scope-options">
+            <van-radio
+              wx:for="{{ scopeOptions }}"
+              wx:key="value"
+              name="{{ item.value }}"
+            >
+              {{ item.name }}
+            </van-radio>
+          </view>
+        </van-radio-group>
+      </view>
+      <van-button type="primary" round block bind:click="onSubmitCreateZone">
+        创建库区
+      </van-button>
+    </view>
+  </van-popup>
 </view>

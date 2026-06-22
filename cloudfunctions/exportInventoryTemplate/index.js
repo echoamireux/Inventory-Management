@@ -13,8 +13,8 @@ cloud.init({
 
 const db = cloud.database();
 const DEFAULT_ZONES = {
-  chemical: ['实验室1', '实验室2', '实验室3', '物料间'],
-  film: ['研发仓1', '研发仓2', '实验线']
+  chemical: ['防爆柜01', '防爆柜02', '防爆柜03', '防爆柜04', '防爆柜05', '防爆柜06', '防爆柜07'],
+  film: ['研发仓1', '研发仓2', '研发仓3', '实验线']
 };
 const OFFSET_MS = 8 * 60 * 60 * 1000;
 

@@ -61,7 +61,7 @@ test('shared import parser rejects csv uploads and keeps xlsx as the only suppor
 
 test('shared import parser reads inventory template xlsx data rows from the governed sheet', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1'],
+    chemicalZones: ['防爆柜01'],
     filmZones: ['研发仓1']
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);
@@ -69,7 +69,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
   sheet.getCell('B4').value = '001';
   sheet.getCell('C4').value = '化材';
   sheet.getCell('D4').value = 'AC240301';
-  sheet.getCell('E4').value = '实验室1';
+  sheet.getCell('E4').value = '防爆柜01';
   sheet.getCell('F4').value = 'A01';
   sheet.getCell('G4').value = 2;
   sheet.getCell('N4').value = new Date('2027-03-25T00:00:00.000Z');
@@ -84,7 +84,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
 
   assert.equal(rows[3].rowIndex, 4);
   assert.deepEqual(rows[3].values, [
-    'L000301', '001', '化材', 'AC240301', '实验室1', 'A01', '2', '', '', '', '', '', '', '2027-03-25', ''
+    'L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '2027-03-25', ''
   ]);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'inventory_import',
@@ -97,7 +97,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
 
 test('shared import parser accepts cross-realm ArrayBuffer payloads from mini-program runtimes', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1'],
+    chemicalZones: ['防爆柜01'],
     filmZones: ['研发仓1']
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);
@@ -122,7 +122,7 @@ test('shared import parser accepts cross-realm ArrayBuffer payloads from mini-pr
 
 test('shared import parser accepts inventory workbooks when grouped caption rows drift but the governed field row stays intact', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1'],
+    chemicalZones: ['防爆柜01'],
     filmZones: ['研发仓1']
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);
@@ -144,7 +144,7 @@ test('shared import parser accepts inventory workbooks when grouped caption rows
 
 test('shared import parser can still detect xlsx content when the runtime omits the file extension metadata', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1'],
+    chemicalZones: ['防爆柜01'],
     filmZones: ['研发仓1']
   }));
   const buffer = await workbook.xlsx.writeBuffer();
@@ -237,7 +237,7 @@ test('shared import parser rejects workbooks that do not contain the governed da
 
 test('shared import parser reports a structured header_mismatch when the governed field row changes order', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1'],
+    chemicalZones: ['防爆柜01'],
     filmZones: ['研发仓1']
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);

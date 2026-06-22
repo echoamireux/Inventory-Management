@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const { assertAdminMutationAccess } = require('./auth');
 const {
   normalizeZoneName,
+  normalizeScope,
   normalizeStatus,
   ensureBuiltinZones,
   sortZoneRecords,
@@ -39,7 +40,7 @@ async function listZones(event) {
   };
 }
 
-async function createZone(name, openid) {
+async function createZone(name, scope, openid) {
   const operator = await getOperator(openid);
   const authResult = assertAdminMutationAccess(operator, '仅管理员可新建库存区域');
   if (!authResult.ok) {
@@ -47,6 +48,7 @@ async function createZone(name, openid) {
   }
 
   const normalizedName = normalizeZoneName(name);
+  const normalizedScope = normalizeScope(scope);
   if (!normalizedName) {
     return { success: false, msg: '请输入区域名称' };
   }
@@ -57,6 +59,7 @@ async function createZone(name, openid) {
     if (existing.status === 'disabled' && existing._id) {
       await db.collection('warehouse_zones').doc(existing._id).update({
         data: {
+          scope: normalizedScope,
           status: 'active',
           updated_at: db.serverDate()
         }
@@ -79,7 +82,7 @@ async function createZone(name, openid) {
     data: {
       zone_key: zoneKey,
       name: normalizedName,
-      scope: 'global',
+      scope: normalizedScope,
       is_builtin: false,
       status: 'active',
       sort_order: maxSortOrder + 10,
@@ -202,7 +205,7 @@ exports.main = async (event, context) => {
       return await listZones(event || {});
     }
     if (action === 'create') {
-      return await createZone(event && event.name, OPENID);
+      return await createZone(event && event.name, event && event.scope, OPENID);
     }
     if (action === 'rename') {
       return await renameExistingZone(String(event && event.zone_key || '').trim(), event && event.name, OPENID);

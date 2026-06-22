@@ -30,13 +30,13 @@ test('export report row keeps governed field labels and avoids fake chemical spe
     batch_number: '20260523',
     expiry_date: new Date('2026-05-21T00:00:00.000Z'),
     quantity: { val: 20, unit: 'kg' },
-    zone_key: 'builtin:chemical:lab2',
+    zone_key: 'builtin:chemical:safe-cabinet-02',
     location_detail: 'A-01',
     create_time: new Date('2026-03-21T07:22:52.000Z')
   }, {
     material: {},
     zoneMap: new Map([
-      ['builtin:chemical:lab2', { zone_key: 'builtin:chemical:lab2', name: '实验室2' }]
+      ['builtin:chemical:safe-cabinet-02', { zone_key: 'builtin:chemical:safe-cabinet-02', name: '防爆柜02' }]
     ]),
     subcategoryMap: new Map([
       ['builtin:chemical:adhesive', { subcategory_key: 'builtin:chemical:adhesive', name: '主胶' }]
@@ -52,7 +52,7 @@ test('export report row keeps governed field labels and avoids fake chemical spe
     batchNumber: '20260523',
     currentStock: 20,
     unit: 'kg',
-    zoneLabel: '实验室2',
+    zoneLabel: '防爆柜02',
     locationDetail: 'A-01',
     chemicalPackageType: '--',
     filmWidthMm: '--',
@@ -156,7 +156,7 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
         batchNumber: '20260523',
         currentStock: 20,
         unit: 'kg',
-        zoneLabel: '实验室2',
+        zoneLabel: '防爆柜02',
         locationDetail: 'A-01',
         chemicalPackageType: '铁桶',
         filmWidthMm: '--',
@@ -190,7 +190,7 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
   assert.equal(sheet.views[0].xSplit, 2);
   assert.equal(sheet.getCell('A6').value, 'J-001');
   assert.equal(sheet.getCell('B6').value, '化材-1');
-  assert.equal(sheet.getCell('I6').value, '实验室2');
+  assert.equal(sheet.getCell('I6').value, '防爆柜02');
   assert.equal(sheet.getCell('J6').value, 'A-01');
   assert.equal(sheet.getCell('K6').value, '铁桶');
 });

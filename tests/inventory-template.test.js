@@ -66,7 +66,7 @@ test('inventory template headers keep label-first structure and consecutive film
 
 test('inventory template workbook keeps category-driven zone validation compatible with WPS and Excel', async () => {
   const buffer = await buildInventoryTemplateWorkbookBuffer({
-    chemicalZones: ['实验室1', '实验室2'],
+    chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线']
   });
 
@@ -83,7 +83,7 @@ test('inventory template workbook keeps category-driven zone validation compatib
 
 test('inventory template workbook uses three-tier headers and governed hints aligned with the template columns', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
-    chemicalZones: ['实验室1', '实验室2'],
+    chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线']
   }));
 
@@ -119,4 +119,5 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.match(String(helpSheet.getCell('A17').value || ''), /膜材厚度/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
+  assert.match(helpText, /当前化材库区：防爆柜01 \/ 防爆柜02/);
 });

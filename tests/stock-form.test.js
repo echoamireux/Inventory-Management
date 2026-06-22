@@ -13,7 +13,7 @@ test('material add submit validation reports missing batch number before storage
     getMaterialSubmitValidationMessage({
       batch_number: '',
       zone_key: '',
-      location_zone: '实验室2'
+      location_zone: '防爆柜02'
     }),
     '请填写生产批号'
   );
@@ -24,7 +24,7 @@ test('material add submit validation reports missing storage zone when batch num
     getMaterialSubmitValidationMessage({
       batch_number: '20260523',
       zone_key: '',
-      location_zone: '实验室2'
+      location_zone: '防爆柜02'
     }),
     '请选择存储区域'
   );
@@ -34,8 +34,8 @@ test('material add submit validation passes when batch number and structured sto
   assert.equal(
     getMaterialSubmitValidationMessage({
       batch_number: '20260523',
-      zone_key: 'builtin:chemical:lab2',
-      location_zone: '实验室2'
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      location_zone: '防爆柜02'
     }),
     ''
   );
@@ -170,6 +170,14 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /直接建档/);
   assert.match(zoneManageJs, /请输入库区名称/);
   assert.match(zoneManageJs, /请输入新的库区名称/);
+  assert.match(zoneManageJs, /createZone\(name,\s*this\.data\.createForm\.scope\)/);
+  assert.match(zoneManageJs, /chemical[\s\S]*化材专用/);
+  assert.match(zoneManageJs, /film[\s\S]*膜材专用/);
+  assert.match(zoneManageJs, /global/);
+  assert.match(zoneManageJs, /共享/);
+  assert.match(zoneManageWxml, /van-radio-group/);
+  assert.match(zoneManageWxml, /scopeOptions/);
+  assert.match(zoneManageWxml, /\{\{ item\.name \}\}/);
   assert.doesNotMatch(zoneManageWxml, /本轮不做回写/);
   assert.match(zoneManageWxml, /历史库存记录仍保留原库区信息/);
 });

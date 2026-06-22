@@ -29,7 +29,7 @@ test('save-and-continue re-syncs film thickness from material master instead of 
     expiry_date: '2027-03-21',
     is_long_term_valid: false,
     length_m: '1000',
-    zone_key: 'builtin:film:rnd1',
+    zone_key: 'builtin:film:research-warehouse-01',
     location_zone: '研发仓1',
     location_detail: 'A-01'
   };
@@ -59,7 +59,7 @@ test('save-and-continue re-syncs film thickness from material master instead of 
   assert.equal(nextForm.expiry_date, '');
   assert.equal(nextForm.is_long_term_valid, false);
   assert.equal(nextForm.length_m, '');
-  assert.equal(nextForm.zone_key, 'builtin:film:rnd1');
+  assert.equal(nextForm.zone_key, 'builtin:film:research-warehouse-01');
 });
 
 test('film thickness governance rejects inbound thickness that conflicts with locked master data', () => {

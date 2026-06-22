@@ -1,38 +1,62 @@
 const BUILTIN_ZONE_SEEDS = [
   {
-    zone_key: 'builtin:chemical:lab1',
-    name: '实验室1',
+    zone_key: 'builtin:chemical:safe-cabinet-01',
+    name: '防爆柜01',
     scope: 'chemical',
     is_builtin: true,
     status: 'active',
     sort_order: 10
   },
   {
-    zone_key: 'builtin:chemical:lab2',
-    name: '实验室2',
+    zone_key: 'builtin:chemical:safe-cabinet-02',
+    name: '防爆柜02',
     scope: 'chemical',
     is_builtin: true,
     status: 'active',
     sort_order: 20
   },
   {
-    zone_key: 'builtin:chemical:lab3',
-    name: '实验室3',
+    zone_key: 'builtin:chemical:safe-cabinet-03',
+    name: '防爆柜03',
     scope: 'chemical',
     is_builtin: true,
     status: 'active',
     sort_order: 30
   },
   {
-    zone_key: 'builtin:chemical:store-room',
-    name: '物料间',
+    zone_key: 'builtin:chemical:safe-cabinet-04',
+    name: '防爆柜04',
     scope: 'chemical',
     is_builtin: true,
     status: 'active',
     sort_order: 40
   },
   {
-    zone_key: 'builtin:film:rnd1',
+    zone_key: 'builtin:chemical:safe-cabinet-05',
+    name: '防爆柜05',
+    scope: 'chemical',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 50
+  },
+  {
+    zone_key: 'builtin:chemical:safe-cabinet-06',
+    name: '防爆柜06',
+    scope: 'chemical',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 60
+  },
+  {
+    zone_key: 'builtin:chemical:safe-cabinet-07',
+    name: '防爆柜07',
+    scope: 'chemical',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 70
+  },
+  {
+    zone_key: 'builtin:film:research-warehouse-01',
     name: '研发仓1',
     scope: 'film',
     is_builtin: true,
@@ -40,7 +64,7 @@ const BUILTIN_ZONE_SEEDS = [
     sort_order: 110
   },
   {
-    zone_key: 'builtin:film:rnd2',
+    zone_key: 'builtin:film:research-warehouse-02',
     name: '研发仓2',
     scope: 'film',
     is_builtin: true,
@@ -48,12 +72,20 @@ const BUILTIN_ZONE_SEEDS = [
     sort_order: 120
   },
   {
-    zone_key: 'builtin:film:line',
-    name: '实验线',
+    zone_key: 'builtin:film:research-warehouse-03',
+    name: '研发仓3',
     scope: 'film',
     is_builtin: true,
     status: 'active',
     sort_order: 130
+  },
+  {
+    zone_key: 'builtin:film:pilot-line',
+    name: '实验线',
+    scope: 'film',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 140
   }
 ];
 

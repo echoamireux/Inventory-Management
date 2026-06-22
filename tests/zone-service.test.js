@@ -13,7 +13,7 @@ test('listZoneRecords returns the current zone list from the deployed cloud func
       callFunction: async () => ({
         result: {
           success: true,
-          list: [{ zone_key: 'builtin:chemical:lab1', name: '实验室1' }]
+          list: [{ zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }]
         }
       })
     }
@@ -21,8 +21,38 @@ test('listZoneRecords returns the current zone list from the deployed cloud func
 
   await assert.doesNotReject(async () => {
     const list = await listZoneRecords('chemical', false);
-    assert.deepEqual(list, [{ zone_key: 'builtin:chemical:lab1', name: '实验室1' }]);
+    assert.deepEqual(list, [{ zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }]);
   });
+});
+
+test('createZone sends the selected scope to the zone cloud function', async () => {
+  const calls = [];
+  const { createZone } = loadZoneServiceWithWx({
+    cloud: {
+      callFunction: async (payload) => {
+        calls.push(payload);
+        return {
+          result: {
+            success: true,
+            zone_key: 'custom-zone'
+          }
+        };
+      }
+    }
+  });
+
+  await createZone('防爆柜08', 'chemical');
+
+  assert.deepEqual(calls, [
+    {
+      name: 'addWarehouseZone',
+      data: {
+        action: 'create',
+        name: '防爆柜08',
+        scope: 'chemical'
+      }
+    }
+  ]);
 });
 
 test('listZoneRecords surfaces a deploy hint when the old zone cloud function is still running', async () => {

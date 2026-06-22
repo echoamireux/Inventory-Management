@@ -21,12 +21,12 @@ function buildContext(overrides = {}) {
     currentInventoryByProductCode: new Map(),
     zoneMapsByCategory: {
       chemical: new Map([
-        ['实验室1', { zone_key: 'builtin:chemical:lab1', name: '实验室1' }],
-        ['物料间', { zone_key: 'builtin:chemical:store-room', name: '物料间' }]
+        ['防爆柜01', { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }],
+        ['防爆柜04', { zone_key: 'builtin:chemical:safe-cabinet-04', name: '防爆柜04' }]
       ]),
       film: new Map([
-        ['研发仓1', { zone_key: 'builtin:film:rnd1', name: '研发仓1' }],
-        ['实验线', { zone_key: 'builtin:film:line', name: '实验线' }]
+        ['研发仓1', { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1' }],
+        ['实验线', { zone_key: 'builtin:film:pilot-line', name: '实验线' }]
       ])
     },
     ...overrides
@@ -305,7 +305,7 @@ test('inventory template import keeps the formal header row as the only hard gat
 test('inventory import preview resolves governed chemical rows against current master data and active zones', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000301', '001', '化材', 'AC240301', '实验室1', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -326,8 +326,8 @@ test('inventory import preview resolves governed chemical rows against current m
   assert.equal(preview.product_code, 'J-001');
   assert.equal(preview.material_name, '丙酮分析纯');
   assert.equal(preview.sub_category, '溶剂');
-  assert.equal(preview.zone_key, 'builtin:chemical:lab1');
-  assert.equal(preview.location, '实验室1 | A01');
+  assert.equal(preview.zone_key, 'builtin:chemical:safe-cabinet-01');
+  assert.equal(preview.location, '防爆柜01 | A01');
   assert.equal(preview.quantity_unit, 'kg');
   assert.equal(preview.quantity_summary, '2 kg');
 });
@@ -335,7 +335,7 @@ test('inventory import preview resolves governed chemical rows against current m
 test('inventory import preview keeps missing-material feedback at row level', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000399', '211', '化材', 'AC260325', '实验室1', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000399', '211', '化材', 'AC260325', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
   }, buildContext());
 
   assert.equal(preview.product_code, 'J-211');
@@ -345,7 +345,7 @@ test('inventory import preview keeps missing-material feedback at row level', ()
 test('inventory import preview treats an eligible duplicate chemical label as refill instead of an error', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000401', '001', '化材', 'AC240401', '实验室1', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000401', '001', '化材', 'AC240401', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -421,7 +421,7 @@ test('inventory import preview keeps duplicate film labels blocked even when the
 test('inventory import preview warns when a chemical row looks duplicated against current in-stock inventory', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000302', '001', '化材', 'AC240301', '实验室1', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000302', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -570,7 +570,7 @@ test('inventory import preview warns on multi-hit film duplicates and ignores no
 test('inventory import preview rejects duplicate labels, archived materials, and missing governed film thickness', () => {
   const duplicate = buildInventoryImportPreviewRow({
     rowIndex: 7,
-    values: ['L000101', '001', '化材', 'AC240302', '实验室1', '', '1', '', '', '', '', '', '', '2026-10-02', '']
+    values: ['L000101', '001', '化材', 'AC240302', '防爆柜01', '', '1', '', '', '', '', '', '', '2026-10-02', '']
   }, buildContext({
     existingUniqueCodes: new Set(['L000101']),
     materialsByCode: new Map([
@@ -587,7 +587,7 @@ test('inventory import preview rejects duplicate labels, archived materials, and
 
   const archived = buildInventoryImportPreviewRow({
     rowIndex: 8,
-    values: ['L000601', '099', '化材', 'OLD2401', '物料间', '', '1', '', '', '', '', '', '', '2026-10-03', '']
+    values: ['L000601', '099', '化材', 'OLD2401', '防爆柜04', '', '1', '', '', '', '', '', '', '2026-10-03', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-099', {
@@ -645,7 +645,7 @@ test('inventory import payload follows manual stock-in semantics for film truth 
     category: 'film',
     sub_category: '基材-PET',
     batch_number: 'PET2603',
-    zone_key: 'builtin:film:rnd1',
+    zone_key: 'builtin:film:research-warehouse-01',
     location: '研发仓1 | F02',
     location_detail: 'F02',
     is_long_term_valid: false,

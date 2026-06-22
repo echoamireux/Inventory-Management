@@ -92,3 +92,35 @@
   flex-wrap: wrap;
   margin-top: 24rpx;
 }
+
+.zone-create-panel {
+  padding: 36rpx 28rpx calc(36rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+}
+
+.zone-create-panel__title {
+  margin-bottom: 24rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.zone-create-panel__section {
+  margin: 24rpx 0 32rpx;
+}
+
+.zone-create-panel__label {
+  margin-bottom: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #374151;
+}
+
+.zone-scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  background: #f8fafc;
+}

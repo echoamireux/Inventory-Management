@@ -46,10 +46,11 @@ function listZoneRecords(category, includeDisabled = false) {
   }).then(result => result.list || []);
 }
 
-function createZone(name) {
+function createZone(name, scope = 'global') {
   return callZoneFunction({
     action: 'create',
-    name
+    name,
+    scope
   });
 }
 

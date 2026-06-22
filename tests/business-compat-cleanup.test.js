@@ -93,14 +93,14 @@ test('editInventory rejects legacy location text update fields', async () => {
       },
       buildInventoryLocationPayload() {
         return {
-          zone_key: 'builtin:chemical:lab1',
+          zone_key: 'builtin:chemical:safe-cabinet-01',
           location_detail: 'A-01',
-          location_text: '实验室1 | A-01',
-          location: '实验室1 | A-01'
+          location_text: '防爆柜01 | A-01',
+          location: '防爆柜01 | A-01'
         };
       },
       resolveInventoryLocationText() {
-        return '实验室1';
+        return '防爆柜01';
       }
     }
   });

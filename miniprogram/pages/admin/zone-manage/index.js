@@ -15,12 +15,30 @@ function resolveTitle(category) {
   return category === 'film' ? '膜材库区管理' : '化材库区管理';
 }
 
+function buildScopeOptions(category) {
+  return [
+    { name: '化材专用', value: 'chemical', checked: category !== 'film' },
+    { name: '膜材专用', value: 'film', checked: category === 'film' },
+    { name: '共享', value: 'global', checked: false }
+  ];
+}
+
+function resolveDefaultScope(category) {
+  return category === 'film' ? 'film' : 'chemical';
+}
+
 Page({
   data: {
     category: 'chemical',
     title: '化材库区管理',
     zones: [],
-    loading: false
+    loading: false,
+    showCreatePopup: false,
+    createForm: {
+      name: '',
+      scope: 'chemical'
+    },
+    scopeOptions: buildScopeOptions('chemical')
   },
 
   onLoad(options) {
@@ -40,7 +58,12 @@ Page({
 
     const category = resolveCategory(options);
     const title = resolveTitle(category);
-    this.setData({ category, title });
+    this.setData({
+      category,
+      title,
+      'createForm.scope': resolveDefaultScope(category),
+      scopeOptions: buildScopeOptions(category)
+    });
     wx.setNavigationBarTitle({ title });
     this.loadZones();
   },
@@ -58,35 +81,53 @@ Page({
     }
   },
 
-  async onCreateZone() {
-    wx.showModal({
-      title: '新建库区',
-      editable: true,
-      placeholderText: '请输入库区名称',
-      success: async (res) => {
-        if (!res.confirm) {
-          return;
-        }
-
-        const name = String(res.content || '').trim();
-        if (!name) {
-          Toast.fail('请输入库区名称');
-          return;
-        }
-
-        wx.showLoading({ title: '创建中...' });
-        try {
-          await createZone(name);
-          Toast.success('创建成功');
-          await this.loadZones();
-        } catch (err) {
-          console.error(err);
-          Toast.fail(err.message || '创建失败');
-        } finally {
-          wx.hideLoading();
-        }
-      }
+  onCreateZone() {
+    const scope = resolveDefaultScope(this.data.category);
+    this.setData({
+      showCreatePopup: true,
+      createForm: {
+        name: '',
+        scope
+      },
+      scopeOptions: buildScopeOptions(this.data.category)
     });
+  },
+
+  onCloseCreatePopup() {
+    this.setData({ showCreatePopup: false });
+  },
+
+  onCreateNameChange(e) {
+    this.setData({
+      'createForm.name': e.detail
+    });
+  },
+
+  onCreateScopeChange(e) {
+    this.setData({
+      'createForm.scope': e.detail
+    });
+  },
+
+  async onSubmitCreateZone() {
+    const name = String(this.data.createForm.name || '').trim();
+    if (!name) {
+      Toast.fail('请输入库区名称');
+      return;
+    }
+
+    wx.showLoading({ title: '创建中...' });
+    try {
+      await createZone(name, this.data.createForm.scope);
+      Toast.success('创建成功');
+      this.setData({ showCreatePopup: false });
+      await this.loadZones();
+    } catch (err) {
+      console.error(err);
+      Toast.fail(err.message || '创建失败');
+    } finally {
+      wx.hideLoading();
+    }
   },
 
   onRenameZone(e) {

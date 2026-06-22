@@ -165,10 +165,10 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
       },
       buildInventoryLocationPayload() {
         return {
-          zone_key: 'builtin:chemical:lab1',
+          zone_key: 'builtin:chemical:safe-cabinet-01',
           location_detail: 'A-01',
-          location_text: '实验室1 | A-01',
-          location: '实验室1 | A-01'
+          location_text: '防爆柜01 | A-01',
+          location: '防爆柜01 | A-01'
         };
       }
     }
@@ -186,7 +186,7 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
       quantity_val: 2,
       quantity_unit: 'kg',
       expiry_date: '2026-12-31',
-      zone_key: 'builtin:chemical:lab1',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
       location_detail: 'A-01'
     },
     unique_code: 'L000501',
@@ -348,10 +348,10 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
       },
       buildInventoryLocationPayload() {
         return {
-          zone_key: 'builtin:chemical:lab1',
+          zone_key: 'builtin:chemical:safe-cabinet-01',
           location_detail: 'A-01',
-          location_text: '实验室1 | A-01',
-          location: '实验室1 | A-01'
+          location_text: '防爆柜01 | A-01',
+          location: '防爆柜01 | A-01'
         };
       }
     },
@@ -499,7 +499,7 @@ test('single stock-in rejects non-active users before attempting any inventory w
       batch_number: 'AC240510',
       quantity_val: 2,
       expiry_date: '2026-12-31',
-      zone_key: 'builtin:chemical:lab1'
+      zone_key: 'builtin:chemical:safe-cabinet-01'
     },
     unique_code: 'L000510'
   });
@@ -572,7 +572,7 @@ test('single stock-in rejects expiry dates earlier than today on the backend', a
       batch_number: 'AC240511',
       quantity_val: 1,
       expiry_date: '2026-03-25',
-      zone_key: 'builtin:chemical:lab1'
+      zone_key: 'builtin:chemical:safe-cabinet-01'
     },
     unique_code: 'L000511'
   });
@@ -760,7 +760,7 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
         { rowIndex: 1, values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '时效信息', ''] },
         { rowIndex: 2, values: ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '过期日期', '长期有效'] },
         { rowIndex: 3, values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '二选一', '二选一'] },
-        { rowIndex: 4, values: ['L000801', '001', '化材', 'AC240801', '实验室1', 'A-01', '2', '', '', '', '', '', '', '2026-12-31', ''] }
+        { rowIndex: 4, values: ['L000801', '001', '化材', 'AC240801', '防爆柜01', 'A-01', '2', '', '', '', '', '', '', '2026-12-31', ''] }
       ]
     }
   });
@@ -950,9 +950,9 @@ test('inventory template submit supports mixed create and refill rows in one req
           sub_category: '溶剂',
           category: 'chemical',
           batch_number: 'AC240901',
-          zone_key: 'builtin:chemical:lab1',
+          zone_key: 'builtin:chemical:safe-cabinet-01',
           location_detail: 'A-01',
-          location: '实验室1 | A-01',
+          location: '防爆柜01 | A-01',
           expiry_date: '2026-12-31',
           is_long_term_valid: false,
           net_content: 2,
@@ -970,9 +970,9 @@ test('inventory template submit supports mixed create and refill rows in one req
           sub_category: '溶剂',
           category: 'chemical',
           batch_number: 'AC240901',
-          zone_key: 'builtin:chemical:lab1',
+          zone_key: 'builtin:chemical:safe-cabinet-01',
           location_detail: 'A-02',
-          location: '实验室1 | A-02',
+          location: '防爆柜01 | A-02',
           expiry_date: '2026-12-31',
           is_long_term_valid: false,
           net_content: 1,
@@ -1116,9 +1116,9 @@ test('inventory template submit rejects invalid refill quantities even if the fr
         sub_category: '溶剂',
         category: 'chemical',
         batch_number: 'AC240903',
-        zone_key: 'builtin:chemical:lab1',
+        zone_key: 'builtin:chemical:safe-cabinet-01',
         location_detail: 'A-01',
-        location: '实验室1 | A-01',
+        location: '防爆柜01 | A-01',
         expiry_date: '2026-12-31',
         is_long_term_valid: false,
         net_content: 0,

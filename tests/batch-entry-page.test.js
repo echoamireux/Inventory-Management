@@ -48,18 +48,18 @@ test('new scanned items inherit batch defaults using zone plus detail format', (
   }, 'L000001', {
     defaultBatchNo: 'B-001',
     defaultExpiry: '2026-06-30',
-    defaultLocationZoneKey: 'builtin:chemical:lab1',
-    defaultLocationZoneName: '实验室1',
-    defaultLocationZone: '实验室1',
+    defaultLocationZoneKey: 'builtin:chemical:safe-cabinet-01',
+    defaultLocationZoneName: '防爆柜01',
+    defaultLocationZone: '防爆柜01',
     defaultLocationDetail: 'A-01'
   });
 
   assert.equal(item.batch_number, 'B-001');
   assert.equal(item.expiry_date, '2026-06-30');
-  assert.equal(item.zone_key, 'builtin:chemical:lab1');
-  assert.equal(item.location_zone, '实验室1');
+  assert.equal(item.zone_key, 'builtin:chemical:safe-cabinet-01');
+  assert.equal(item.location_zone, '防爆柜01');
   assert.equal(item.location_detail, 'A-01');
-  assert.equal(item.location, '实验室1 | A-01');
+  assert.equal(item.location, '防爆柜01 | A-01');
   assert.equal(item.unique_code, 'L000001');
 });
 
@@ -178,29 +178,29 @@ test('batch submit payload composes zone-only and zone-detail locations consiste
       batch_number: 'B-SELF',
       expiry_date: '2026-07-01',
       location: '',
-      zone_key: 'builtin:chemical:store-room',
-      location_zone: '物料间',
+      zone_key: 'builtin:chemical:safe-cabinet-04',
+      location_zone: '防爆柜04',
       location_detail: '',
       quantity: { val: 1, unit: 'kg' }
     }
   ], {
     defaultBatchNo: 'B-DEFAULT',
     defaultExpiry: '2026-06-30',
-    defaultLocationZoneKey: 'builtin:chemical:lab2',
-    defaultLocationZoneName: '实验室2',
-    defaultLocationZone: '实验室2',
+    defaultLocationZoneKey: 'builtin:chemical:safe-cabinet-02',
+    defaultLocationZoneName: '防爆柜02',
+    defaultLocationZone: '防爆柜02',
     defaultLocationDetail: 'B-03'
   });
 
-  assert.equal(items[0].location, '实验室2 | B-03');
-  assert.equal(items[0].zone_key, 'builtin:chemical:lab2');
+  assert.equal(items[0].location, '防爆柜02 | B-03');
+  assert.equal(items[0].zone_key, 'builtin:chemical:safe-cabinet-02');
   assert.equal(items[0].location_detail, 'B-03');
   assert.equal(items[0].batch_number, 'B-DEFAULT');
   assert.match(items[0].expiry_date, /^2026-06-30T/);
   assert.equal(items[0].unique, undefined);
 
-  assert.equal(items[1].location, '物料间');
-  assert.equal(items[1].zone_key, 'builtin:chemical:store-room');
+  assert.equal(items[1].location, '防爆柜04');
+  assert.equal(items[1].zone_key, 'builtin:chemical:safe-cabinet-04');
   assert.equal(items[1].batch_number, 'B-SELF');
   assert.match(items[1].expiry_date, /^2026-07-01T/);
 });
@@ -212,18 +212,18 @@ test('batch submit payload preserves refill metadata for pending refill rows', (
       unique_code: 'L000601',
       batch_number: 'AC240601',
       expiry_date: '2026-07-01',
-      zone_key: 'builtin:chemical:lab1',
-      location_zone: '实验室1',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_zone: '防爆柜01',
       location_detail: 'A-01',
-      location: '实验室1 | A-01',
+      location: '防爆柜01 | A-01',
       quantity: { val: 2, unit: 'kg' },
       submit_action: 'refill',
       refill_inventory_id: 'inv-refill'
     }
   ], {
-    defaultLocationZoneKey: 'builtin:chemical:lab2',
-    defaultLocationZoneName: '实验室2',
-    defaultLocationZone: '实验室2'
+    defaultLocationZoneKey: 'builtin:chemical:safe-cabinet-02',
+    defaultLocationZoneName: '防爆柜02',
+    defaultLocationZone: '防爆柜02'
   });
 
   assert.equal(items[0].submit_action, 'refill');
