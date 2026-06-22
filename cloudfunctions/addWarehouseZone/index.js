@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminAccess } = require('./auth');
+const { assertAdminMutationAccess } = require('./auth');
 const {
   normalizeZoneName,
   normalizeStatus,
@@ -41,7 +41,7 @@ async function listZones(event) {
 
 async function createZone(name, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可新建库存区域');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可新建库存区域');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -98,7 +98,7 @@ async function createZone(name, openid) {
 
 async function renameExistingZone(zoneKey, name, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可重命名库存区域');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可重命名库存区域');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -134,7 +134,7 @@ async function renameExistingZone(zoneKey, name, openid) {
 
 async function setExistingZoneStatus(zoneKey, status, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可启用或停用库存区域');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可启用或停用库存区域');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -161,7 +161,7 @@ async function setExistingZoneStatus(zoneKey, status, openid) {
 
 async function reorderExistingZones(zoneKeys, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可调整库存区域顺序');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可调整库存区域顺序');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }

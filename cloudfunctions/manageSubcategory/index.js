@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminAccess } = require('./auth');
+const { assertAdminMutationAccess } = require('./auth');
 const {
   normalizeParentCategory,
   normalizeSubcategoryName,
@@ -49,7 +49,7 @@ async function listSubcategories(event) {
 
 async function createSubcategory(name, category, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可新建子类别');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可新建子类别');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -113,7 +113,7 @@ async function createSubcategory(name, category, openid) {
 
 async function renameSubcategory(subcategoryKey, name, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可重命名子类别');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可重命名子类别');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -157,7 +157,7 @@ async function renameSubcategory(subcategoryKey, name, openid) {
 
 async function setSubcategoryStatus(subcategoryKey, status, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可启用或停用子类别');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可启用或停用子类别');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
@@ -184,7 +184,7 @@ async function setSubcategoryStatus(subcategoryKey, status, openid) {
 
 async function reorderSubcategories(subcategoryKeys, openid) {
   const operator = await getOperator(openid);
-  const authResult = assertAdminAccess(operator, '仅管理员可调整子类别顺序');
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可调整子类别顺序');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }

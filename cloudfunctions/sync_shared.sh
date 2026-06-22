@@ -30,6 +30,7 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/editInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/exportData/auth.js
 
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."

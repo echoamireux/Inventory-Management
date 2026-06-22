@@ -133,12 +133,12 @@ exports.main = async (event, context) => {
       locationDetail: inventory.location_detail
     }, zoneMap);
 
-    const existingInventoryRes = await db.collection('inventory').where({
-      unique_code: normalizedUniqueCode
-    }).get();
-    const existingInventory = existingInventoryRes.data && existingInventoryRes.data[0];
-
     return await db.runTransaction(async transaction => {
+      const existingInventoryRes = await transaction.collection('inventory').where({
+        unique_code: normalizedUniqueCode
+      }).get();
+      const existingInventory = existingInventoryRes.data && existingInventoryRes.data[0];
+
       // 2. 写入/验证 Materials 集合
       // MDM 强管控模式：必须查到已有主数据，否则报错
       const materialQuery = await db.collection('materials').where({

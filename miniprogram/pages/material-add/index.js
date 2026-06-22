@@ -1159,6 +1159,14 @@ Page({
       this.setData(this.buildProductCodeResetUpdates());
   },
 
+  onContactAdmin() {
+      wx.showToast({
+          title: '请联系管理员恢复该物料后再入库',
+          icon: 'none',
+          duration: 2500
+      });
+  },
+
   onCloseRequestPopup() {
     this.setData({ showRequestPopup: false, showRequestUnitSheet: false });
   },

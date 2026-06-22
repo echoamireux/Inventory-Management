@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminAccess } = require('./auth');
+const { assertAdminMutationAccess } = require('./auth');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -21,7 +21,7 @@ exports.main = async (event, context) => {
       // Since transaction requires all ops to be inside, and we need to read 'users', let's do it inside.
       const userRes = await transaction.collection('users').where({ _openid: OPENID }).get();
       const currentUser = userRes.data[0];
-      const authResult = assertAdminAccess(currentUser, 'Permission denied: Admin only');
+      const authResult = assertAdminMutationAccess(currentUser, 'Permission denied: Admin only');
       if (!authResult.ok) {
           throw new Error(authResult.msg);
       }

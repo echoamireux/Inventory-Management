@@ -108,6 +108,13 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
         collection(name) {
           if (name === 'inventory') {
             return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [inventoryRecord] };
+                  }
+                };
+              },
               doc(id) {
                 assert.equal(id, 'inv-1');
                 return {

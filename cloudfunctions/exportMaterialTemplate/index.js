@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminAccess } = require('./auth');
+const { assertAdminMutationAccess } = require('./auth');
 const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords
@@ -53,7 +53,7 @@ exports.main = async (event, context) => {
 
   try {
     const operator = await getOperator(OPENID);
-    const authResult = assertAdminAccess(operator, '仅管理员可导出最新模板');
+    const authResult = assertAdminMutationAccess(operator, '仅管理员可导出最新模板');
     if (!authResult.ok) {
       return {
         success: false,

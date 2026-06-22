@@ -17,6 +17,7 @@ const {
   buildInventoryExportWorkbook
 } = require('./export-report');
 const { buildContainsRegExp } = require('./search');
+const { assertActiveUserAccess } = require('./auth');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -24,11 +25,22 @@ cloud.init({
 
 const db = cloud.database();
 
+async function getOperator(openid) {
+  const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
+  return res.data && res.data[0];
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { searchVal, category } = event;
 
   try {
+    const operator = await getOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可导出库存报表');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     const dbCmd = db.command;
     let match = {};
 

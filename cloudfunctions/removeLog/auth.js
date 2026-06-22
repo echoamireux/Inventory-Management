@@ -24,6 +24,19 @@ function assertAdminAccess(operator, message = 'Permission denied') {
   return { ok: true };
 }
 
+function assertAdminMutationAccess(operator, message = '仅管理员可执行该操作') {
+  const activeResult = assertActiveUserAccess(operator, message);
+  if (!activeResult.ok) {
+    return activeResult;
+  }
+
+  if (!operator || !isAdminRole(operator.role)) {
+    return { ok: false, msg: message };
+  }
+
+  return { ok: true };
+}
+
 function assertActiveUserAccess(operator, message = '仅已激活用户可执行该操作') {
   if (!isActiveUser(operator)) {
     return { ok: false, msg: message };
@@ -38,6 +51,19 @@ function assertSuperAdminAccess(operator, message = '越权操作：仅超级管
   return { ok: true };
 }
 
+function assertSuperAdminMutationAccess(operator, message = '越权操作：仅超级管理员可执行') {
+  const activeResult = assertActiveUserAccess(operator, message);
+  if (!activeResult.ok) {
+    return activeResult;
+  }
+
+  if (!operator || !isSuperAdminRole(operator.role)) {
+    return { ok: false, msg: message };
+  }
+
+  return { ok: true };
+}
+
 module.exports = {
   ADMIN_ROLES,
   MANAGEABLE_ROLES,
@@ -47,5 +73,7 @@ module.exports = {
   isActiveUser,
   assertActiveUserAccess,
   assertAdminAccess,
-  assertSuperAdminAccess
+  assertAdminMutationAccess,
+  assertSuperAdminAccess,
+  assertSuperAdminMutationAccess
 };

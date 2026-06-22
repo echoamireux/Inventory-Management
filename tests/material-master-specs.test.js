@@ -119,7 +119,7 @@ test('material add top action bar uses a centered single-button layout for manag
 test('admin update user status cloud function still gates target roles through the managed-role whitelist', () => {
   const file = read('cloudfunctions/adminUpdateUserStatus/index.js');
 
-  assert.match(file, /assertSuperAdminAccess/);
+  assert.match(file, /assertSuperAdminMutationAccess/);
   assert.match(file, /isAllowedManagedRole\(role\)/);
   assert.match(file, /仅允许设置为 user 或 admin/);
 });

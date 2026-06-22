@@ -212,7 +212,7 @@ test('editInventory requires admin access for film width correction and logs the
       assertActiveUserAccess() {
         return { ok: true };
       },
-      assertAdminAccess() {
+      assertAdminMutationAccess() {
         return { ok: true };
       }
     },
@@ -475,7 +475,7 @@ test('approveMaterialRequest writes request default unit into the formal materia
   const mod = loadModuleWithMocks('../cloudfunctions/approveMaterialRequest/index.js', {
     'wx-server-sdk': cloudStub,
     './auth': {
-      assertAdminAccess() {
+      assertAdminMutationAccess() {
         return { ok: true };
       }
     },

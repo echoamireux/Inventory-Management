@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertActiveUserAccess, assertAdminAccess } = require('./auth');
+const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 const {
   ensureBuiltinZones,
   sortZoneRecords,
@@ -78,7 +78,7 @@ exports.main = async (event, context) => {
             throw new Error(authResult.msg);
           }
         } else {
-          const authResult = assertAdminAccess(operator, '仅管理员可修正膜材幅宽');
+          const authResult = assertAdminMutationAccess(operator, '仅管理员可修正膜材幅宽');
           if (!authResult.ok) {
             throw new Error(authResult.msg);
           }

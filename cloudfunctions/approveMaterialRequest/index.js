@@ -1,6 +1,6 @@
 // cloudfunctions/approveMaterialRequest/index.js
 const cloud = require('wx-server-sdk');
-const { assertAdminAccess } = require('./auth');
+const { assertAdminMutationAccess } = require('./auth');
 const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
@@ -16,6 +16,65 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+
+function sanitizeText(value) {
+  return String(value || '').trim();
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : null;
+}
+
+function buildGovernedMaterialMasterFields(source = {}, category) {
+  const fields = {
+    material_name: sanitizeText(source.material_name),
+    category,
+    supplier: sanitizeText(source.supplier),
+    supplier_model: sanitizeText(source.supplier_model),
+    default_unit: sanitizeText(source.default_unit)
+  };
+
+  if (category === 'chemical') {
+    fields.package_type = sanitizeText(source.package_type);
+    return fields;
+  }
+
+  if (category === 'film') {
+    const specs = {};
+    const thicknessUm = normalizeOptionalNumber(
+      source.thickness_um !== undefined
+        ? source.thickness_um
+        : source.specs && source.specs.thickness_um
+    );
+    const standardWidthMm = normalizeOptionalNumber(
+      source.width_mm !== undefined
+        ? source.width_mm
+        : (
+          source.standard_width_mm !== undefined
+            ? source.standard_width_mm
+            : (source.specs && (
+              source.specs.standard_width_mm !== undefined
+                ? source.specs.standard_width_mm
+                : source.specs.width_mm
+            ))
+        )
+    );
+
+    if (thicknessUm !== null) {
+      specs.thickness_um = thicknessUm;
+    }
+    if (standardWidthMm !== null) {
+      specs.standard_width_mm = standardWidthMm;
+    }
+    fields.specs = specs;
+  }
+
+  return fields;
+}
 
 async function resolveRequestSubcategory(request) {
   const category = request && request.category === 'film' ? 'film' : 'chemical';
@@ -54,7 +113,7 @@ exports.main = async (event, context) => {
       .get();
 
     const operator = userRes.data[0];
-    const authResult = assertAdminAccess(operator, '无权限操作 (Require Admin)');
+    const authResult = assertAdminMutationAccess(operator, '无权限操作 (Require Admin)');
     if (!authResult.ok) {
          return { success: false, msg: authResult.msg };
     }
@@ -118,14 +177,16 @@ exports.main = async (event, context) => {
             return { success: false, msg: '申请单默认单位无效，请先修正后再审批' };
         }
 
+        const category = request.category === 'film' ? 'film' : 'chemical';
+        const masterFields = buildGovernedMaterialMasterFields({
+            ...request,
+            default_unit: normalizedUnit.unit
+        }, category);
         const newMaterial = {
             product_code: request.product_code,
-            category: request.category,
-            material_name: request.material_name,
             subcategory_key: resolvedSubcategory.subcategory_key,
             sub_category: resolvedSubcategory.sub_category,
-            supplier: request.supplier,
-            default_unit: normalizedUnit.unit,
+            ...masterFields,
             // 默认初始字段
             batch_count: 0,
             quantity: 0,

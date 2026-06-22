@@ -1,7 +1,7 @@
 const cloud = require('wx-server-sdk');
 const {
-  assertAdminAccess,
-  assertSuperAdminAccess,
+  assertAdminMutationAccess,
+  assertSuperAdminMutationAccess,
   isAllowedManagedRole
 } = require('./auth');
 
@@ -28,7 +28,7 @@ exports.main = async (event, context) => {
 
   try {
     if (action === 'updateRole') {
-       const authResult = assertSuperAdminAccess(operator, '越权操作：仅超级管理员可修改权限');
+       const authResult = assertSuperAdminMutationAccess(operator, '越权操作：仅超级管理员可修改权限');
        if (!authResult.ok) {
            return { success: false, msg: authResult.msg };
        }
@@ -43,7 +43,7 @@ exports.main = async (event, context) => {
        });
        return { success: true };
     } else {
-       const authResult = assertAdminAccess(operator, 'Permission denied');
+       const authResult = assertAdminMutationAccess(operator, 'Permission denied');
        if (!authResult.ok) {
          return { success: false, msg: authResult.msg };
        }
