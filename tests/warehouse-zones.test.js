@@ -186,6 +186,45 @@ test('zone sorting collapses duplicated zone keys left by concurrent builtin ini
   ]);
 });
 
+test('zone sorting collapses duplicated builtin names even when legacy keys differ', () => {
+  const sorted = sortZoneRecords([
+    {
+      _id: 'legacy-safe-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    },
+    {
+      _id: 'builtin_chemical_safe-cabinet-01',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    },
+    {
+      _id: 'auto-doc-3',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      name: '防爆柜02',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 20
+    }
+  ]);
+
+  assert.deepEqual(
+    sorted.map(item => ({ zone_key: item.zone_key, name: item.name })),
+    [
+      { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' },
+      { zone_key: 'builtin:chemical:safe-cabinet-02', name: '防爆柜02' }
+    ]
+  );
+});
+
 test('inventory location payload stores zone reference and resolves renamed display text', () => {
   const zoneMap = buildZoneMap([
     { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1' }
@@ -300,4 +339,51 @@ test('ensureBuiltinZones stays idempotent when empty collection initialization r
 
   assert.equal(storedBuiltinKeys.length, BUILTIN_ZONE_SEEDS.length);
   assert.equal(new Set(storedBuiltinKeys).size, BUILTIN_ZONE_SEEDS.length);
+});
+
+test('ensureBuiltinZones removes duplicated builtin names left by legacy initialization', async () => {
+  const db = createMockDb([
+    {
+      _id: 'legacy-safe-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    },
+    {
+      _id: 'builtin_chemical_safe-cabinet-01',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    }
+  ]);
+
+  await ensureBuiltinZones(db);
+  const sameNameRecords = db.state.records.filter(item => item.name === '防爆柜01');
+
+  assert.equal(sameNameRecords.length, 1);
+  assert.equal(sameNameRecords[0].zone_key, 'builtin:chemical:safe-cabinet-01');
+});
+
+test('ensureBuiltinZones does not recreate one deleted builtin while other zones still exist', async () => {
+  const db = createMockDb([
+    {
+      _id: 'builtin_chemical_safe-cabinet-01',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '防爆柜01',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    }
+  ]);
+
+  await ensureBuiltinZones(db);
+  const storedKeys = db.state.records.map(item => item.zone_key);
+
+  assert.deepEqual(storedKeys, ['builtin:chemical:safe-cabinet-01']);
 });

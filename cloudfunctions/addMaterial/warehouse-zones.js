@@ -90,6 +90,8 @@ const BUILTIN_ZONE_SEEDS = [
 ];
 
 const BUILTIN_ZONE_KEY_SET = new Set(BUILTIN_ZONE_SEEDS.map(item => item.zone_key));
+const BUILTIN_ZONE_SEED_BY_KEY = new Map(BUILTIN_ZONE_SEEDS.map(item => [item.zone_key, item]));
+const BUILTIN_ZONE_SEED_BY_NAME = new Map(BUILTIN_ZONE_SEEDS.map(item => [item.name, item]));
 
 function normalizeScope(scope) {
   return scope === 'chemical' || scope === 'film' ? scope : 'global';
@@ -131,6 +133,36 @@ function normalizeZoneRecord(record) {
   };
 }
 
+function resolveBuiltinZoneSeed(zone) {
+  const normalized = normalizeZoneRecord(zone);
+  const seedByKey = BUILTIN_ZONE_SEED_BY_KEY.get(normalized.zone_key);
+  if (seedByKey) {
+    return seedByKey;
+  }
+
+  if (normalized.is_builtin) {
+    return BUILTIN_ZONE_SEED_BY_NAME.get(normalized.name);
+  }
+
+  return undefined;
+}
+
+function normalizeSortableZoneRecord(record) {
+  const zone = normalizeZoneRecord(record);
+  const seed = resolveBuiltinZoneSeed(zone);
+  if (!seed) {
+    return zone;
+  }
+
+  return {
+    ...zone,
+    zone_key: seed.zone_key,
+    scope: seed.scope,
+    is_builtin: true,
+    sort_order: zone.sort_order || seed.sort_order
+  };
+}
+
 function buildBuiltinZoneDocId(zoneKey) {
   return String(zoneKey || '').trim().replace(/[^A-Za-z0-9_-]/g, '_');
 }
@@ -166,6 +198,10 @@ async function removeDuplicateBuiltinZoneRecords(collection, records) {
   const groups = new Map();
   records
     .map(normalizeZoneRecord)
+    .map(item => {
+      const seed = resolveBuiltinZoneSeed(item);
+      return seed ? { ...item, zone_key: seed.zone_key } : item;
+    })
     .filter(item => item._id && BUILTIN_ZONE_KEY_SET.has(item.zone_key))
     .forEach((item) => {
       if (!groups.has(item.zone_key)) {
@@ -225,6 +261,7 @@ async function ensureBuiltinZones(db) {
   }
 
   const normalizedRecords = existingRecords.map(normalizeZoneRecord);
+  const shouldSeedMissingBuiltins = normalizedRecords.length === 0;
   const byKey = new Map(normalizedRecords.map(item => [item.zone_key, item]));
   const byName = new Map(normalizedRecords.map(item => [item.name, item]));
 
@@ -261,6 +298,10 @@ async function ensureBuiltinZones(db) {
       continue;
     }
 
+    if (!shouldSeedMissingBuiltins) {
+      continue;
+    }
+
     await collection.doc(buildBuiltinZoneDocId(seed.zone_key)).set({
       data: {
         zone_key: seed.zone_key,
@@ -281,7 +322,7 @@ async function ensureBuiltinZones(db) {
 function sortZoneRecords(records) {
   const byKey = new Map();
   (records || [])
-    .map(normalizeZoneRecord)
+    .map(normalizeSortableZoneRecord)
     .filter(item => item.zone_key && item.name)
     .sort(compareZoneRecordOrder)
     .forEach((item) => {
