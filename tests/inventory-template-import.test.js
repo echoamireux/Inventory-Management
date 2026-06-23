@@ -113,6 +113,7 @@ test('inventory template inline hint row detection follows the governed stock-in
       '膜材必填',
       '选填',
       '选填',
+      '测试料必填',
       '二选一',
       '二选一'
     ]),
@@ -127,7 +128,7 @@ test('inventory template header row detection supports grouped new template rows
       '库位信息', '',
       '化材信息', '',
       '膜材信息', '', '',
-      '来源信息', '',
+      '来源信息', '', '',
       '时效信息', ''
     ]),
     true
@@ -148,6 +149,7 @@ test('inventory template header row detection supports grouped new template rows
       '长度(m)',
       '供应商',
       '原厂型号',
+      '样品说明/备注',
       '过期日期',
       '长期有效'
     ]),
@@ -159,7 +161,7 @@ test('inventory template import keeps the formal header row as the only hard gat
   const validResult = validateInventoryTemplateHeaderRows([
     {
       rowIndex: 1,
-      values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '时效信息', '']
+      values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', '']
     },
     {
       rowIndex: 2,
@@ -177,13 +179,14 @@ test('inventory template import keeps the formal header row as the only hard gat
         '长度(m)',
         '供应商',
         '原厂型号',
+        '样品说明/备注',
         '过期日期',
         '长期有效'
       ]
     },
     {
       rowIndex: 3,
-      values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '二选一', '二选一']
+      values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '测试料必填', '二选一', '二选一']
     }
   ]);
 
@@ -198,7 +201,7 @@ test('inventory template import keeps the formal header row as the only hard gat
   const weakRowsStillValid = validateInventoryTemplateHeaderRows([
     {
       rowIndex: 1,
-      values: ['基础信息（第三方软件重写）', '', '', '', '时效信息', '', '库位信息', '', '来源信息', '', '化材信息', '', '膜材信息', '', '']
+      values: ['基础信息（第三方软件重写）', '', '', '', '时效信息', '', '库位信息', '', '来源信息', '', '化材信息', '', '膜材信息', '', '', '']
     },
     {
       rowIndex: 2,
@@ -216,13 +219,14 @@ test('inventory template import keeps the formal header row as the only hard gat
         '长度(m)',
         '供应商',
         '原厂型号',
+        '样品说明/备注',
         '过期日期',
         '长期有效'
       ]
     },
     {
       rowIndex: 3,
-      values: ['这一行提示文案被用户改了', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+      values: ['这一行提示文案被用户改了', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
     }
   ]);
 
@@ -237,7 +241,7 @@ test('inventory template import keeps the formal header row as the only hard gat
   const mismatchResult = validateInventoryTemplateHeaderRows([
     {
       rowIndex: 1,
-      values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '时效信息', '']
+      values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', '']
     },
     {
       rowIndex: 2,
@@ -252,6 +256,7 @@ test('inventory template import keeps the formal header row as the only hard gat
         '详细坐标',
         '供应商',
         '原厂型号',
+        '样品说明/备注',
         '净含量',
         '包装形式',
         '膜材厚度(μm)',
@@ -279,6 +284,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     '长度(m)',
     '供应商',
     '原厂型号',
+    '样品说明/备注',
     '过期日期',
     '长期有效'
   ]);
@@ -293,6 +299,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     '详细坐标',
     '供应商',
     '原厂型号',
+    '样品说明/备注',
     '净含量',
     '包装形式',
     '膜材厚度(μm)',
@@ -305,7 +312,7 @@ test('inventory template import keeps the formal header row as the only hard gat
 test('inventory import preview resolves governed chemical rows against current master data and active zones', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -335,7 +342,7 @@ test('inventory import preview resolves governed chemical rows against current m
 test('inventory import preview keeps missing-material feedback at row level', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000399', '211', '化材', 'AC260325', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000399', '211', '化材', 'AC260325', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext());
 
   assert.equal(preview.product_code, 'J-211');
@@ -345,7 +352,7 @@ test('inventory import preview keeps missing-material feedback at row level', ()
 test('inventory import preview treats an eligible duplicate chemical label as refill instead of an error', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000401', '001', '化材', 'AC240401', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000401', '001', '化材', 'AC240401', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -380,7 +387,7 @@ test('inventory import preview treats an eligible duplicate chemical label as re
 test('inventory import preview keeps duplicate film labels blocked even when the batch matches', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000402', '001', '膜材', 'PET240401', '研发仓1', 'B02', '', '', '25', '1080', '100', '', '', '2026-10-01', '']
+    values: ['L000402', '001', '膜材', 'PET240401', '研发仓1', 'B02', '', '', '25', '1080', '100', '', '', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -421,7 +428,7 @@ test('inventory import preview keeps duplicate film labels blocked even when the
 test('inventory import preview warns when a chemical row looks duplicated against current in-stock inventory', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000302', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', '']
+    values: ['L000302', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -452,10 +459,78 @@ test('inventory import preview warns when a chemical row looks duplicated agains
   assert.match(preview.warning, /标签编号：L000101/);
 });
 
+test('inventory import preview requires supplier, supplier model, batch, and sample note for test materials', () => {
+  const missingSource = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000901', '999', '化材', 'TEST-001', '防爆柜01', 'A01', '2', '小瓶', '', '', '', '', 'TM-01', '', '2026-10-01', '']
+  }, buildContext({
+    materialsByCode: new Map([
+      ['J-999', {
+        _id: 'mat-j-999',
+        product_code: 'J-999',
+        category: 'chemical',
+        material_name: '测试料-化材',
+        sub_category: '溶剂',
+        default_unit: 'kg',
+        is_test_material: true
+      }]
+    ])
+  }));
+
+  const missingNote = buildInventoryImportPreviewRow({
+    rowIndex: 5,
+    values: ['L000902', '999', '化材', 'TEST-002', '防爆柜01', 'A02', '1', '小瓶', '', '', '', '供应商A', 'TM-02', '', '2026-10-01', '']
+  }, buildContext({
+    materialsByCode: new Map([
+      ['J-999', {
+        _id: 'mat-j-999',
+        product_code: 'J-999',
+        category: 'chemical',
+        material_name: '测试料-化材',
+        sub_category: '溶剂',
+        default_unit: 'kg',
+        is_test_material: true
+      }]
+    ])
+  }));
+
+  assert.match(missingSource.error, /测试料入库必须填写供应商、原厂型号、生产批号、样品说明\/备注/);
+  assert.match(missingNote.error, /测试料入库必须填写供应商、原厂型号、生产批号、样品说明\/备注/);
+});
+
+test('inventory import preview and payload keep test-material identifiers as inventory-level truth', () => {
+  const material = {
+    _id: 'mat-j-999',
+    product_code: 'J-999',
+    category: 'chemical',
+    material_name: '测试料-化材',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    supplier: '主数据供应商不应覆盖',
+    supplier_model: 'MASTER-MODEL',
+    is_test_material: true
+  };
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000903', '999', '化材', 'TEST-003', '防爆柜01', 'A03', '0.5', '小瓶', '', '', '', '送样供应商', 'SAMPLE-X', '透明小样，客户A评估', '2026-10-01', '']
+  }, buildContext({
+    materialsByCode: new Map([['J-999', material]])
+  }));
+  const payload = buildInventoryImportPayload(preview, material);
+
+  assert.equal(preview.error, '');
+  assert.equal(preview.is_test_material, true);
+  assert.equal(preview.sample_note, '透明小样，客户A评估');
+  assert.equal(payload.inventoryData.is_test_material, true);
+  assert.equal(payload.inventoryData.sample_note, '透明小样，客户A评估');
+  assert.equal(payload.inventoryData.supplier, '送样供应商');
+  assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-X');
+});
+
 test('inventory import preview derives film quantity summary and backfill reminders from manual stock-in rules', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000401', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '是']
+    values: ['L000401', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -480,7 +555,7 @@ test('inventory import preview derives film quantity summary and backfill remind
 test('inventory import preview warns on multi-hit film duplicates and ignores non in-stock or near-miss records', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000402', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '是']
+    values: ['L000402', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -570,7 +645,7 @@ test('inventory import preview warns on multi-hit film duplicates and ignores no
 test('inventory import preview rejects duplicate labels, archived materials, and missing governed film thickness', () => {
   const duplicate = buildInventoryImportPreviewRow({
     rowIndex: 7,
-    values: ['L000101', '001', '化材', 'AC240302', '防爆柜01', '', '1', '', '', '', '', '', '', '2026-10-02', '']
+    values: ['L000101', '001', '化材', 'AC240302', '防爆柜01', '', '1', '', '', '', '', '', '', '', '2026-10-02', '']
   }, buildContext({
     existingUniqueCodes: new Set(['L000101']),
     materialsByCode: new Map([
@@ -587,7 +662,7 @@ test('inventory import preview rejects duplicate labels, archived materials, and
 
   const archived = buildInventoryImportPreviewRow({
     rowIndex: 8,
-    values: ['L000601', '099', '化材', 'OLD2401', '防爆柜04', '', '1', '', '', '', '', '', '', '2026-10-03', '']
+    values: ['L000601', '099', '化材', 'OLD2401', '防爆柜04', '', '1', '', '', '', '', '', '', '', '2026-10-03', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-099', {
@@ -604,7 +679,7 @@ test('inventory import preview rejects duplicate labels, archived materials, and
 
   const missingThickness = buildInventoryImportPreviewRow({
     rowIndex: 9,
-    values: ['L000701', '002', '膜材', 'PET2602', '实验线', '', '', '', '', '1200', '80', '', '', '', '是']
+    values: ['L000701', '002', '膜材', 'PET2602', '实验线', '', '', '', '', '1200', '80', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-002', {

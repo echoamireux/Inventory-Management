@@ -27,6 +27,7 @@ test('export report row keeps governed field labels and avoids fake chemical spe
     sub_category: '主胶',
     supplier: '供应商A',
     supplier_model: 'A-100',
+    sample_note: '客户A送样，透明液体',
     batch_number: '20260523',
     expiry_date: new Date('2026-05-21T00:00:00.000Z'),
     quantity: { val: 20, unit: 'kg' },
@@ -59,6 +60,7 @@ test('export report row keeps governed field labels and avoids fake chemical spe
     filmThicknessUm: '--',
     supplier: '供应商A',
     supplierModel: 'A-100',
+    sampleNote: '客户A送样，透明液体',
     expiryDate: '2026-05-21',
     statusLabel: '在库',
     inboundTime: '2026-03-21 15:22:52'
@@ -163,6 +165,7 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
         filmThicknessUm: '--',
         supplier: '--',
         supplierModel: '--',
+        sampleNote: '--',
         expiryDate: '2026-05-21',
         statusLabel: '在库',
         inboundTime: '2026-03-21 15:22:52'
@@ -180,10 +183,13 @@ test('export workbook uses Chinese sheet title, professional header rows, and fr
   assert.equal(sheet.getCell('I4').value, '库位信息');
   assert.equal(sheet.getCell('L4').value, '膜材规格');
   assert.equal(sheet.getCell('N4').value, '供应商信息');
+  assert.equal(sheet.getCell('Q4').value, '时效状态');
   assert.deepEqual(sheet.getRow(5).values.slice(1), EXPORT_HEADERS);
   assert.equal(sheet.getCell('A5').master.address, 'A4');
   assert.equal(sheet.getCell('K5').master.address, 'K4');
-  assert.equal(sheet.getCell('P5').master.address, 'P4');
+  assert.equal(sheet.getCell('Q5').value, '过期日期');
+  assert.equal(sheet.getCell('R5').value, '状态');
+  assert.equal(sheet.getCell('S5').value, '入库时间');
   assert.equal(sheet.autoFilter.from.row, 5);
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 5);
@@ -220,6 +226,7 @@ test('export workbook hides redundant filter summary when exporting the unfilter
     '膜材厚度(μm)',
     '供应商',
     '原厂型号',
+    '样品说明/备注',
     '过期日期',
     '状态',
     '入库时间'
@@ -228,9 +235,12 @@ test('export workbook hides redundant filter summary when exporting the unfilter
   assert.equal(sheet.getCell('I3').value, '库位信息');
   assert.equal(sheet.getCell('L3').value, '膜材规格');
   assert.equal(sheet.getCell('N3').value, '供应商信息');
+  assert.equal(sheet.getCell('Q3').value, '时效状态');
   assert.equal(sheet.getCell('A4').master.address, 'A3');
   assert.equal(sheet.getCell('K4').master.address, 'K3');
-  assert.equal(sheet.getCell('P4').master.address, 'P3');
+  assert.equal(sheet.getCell('Q4').value, '过期日期');
+  assert.equal(sheet.getCell('R4').value, '状态');
+  assert.equal(sheet.getCell('S4').value, '入库时间');
   assert.equal(sheet.autoFilter.from.row, 4);
   assert.equal(sheet.views[0].xSplit, 2);
   assert.equal(sheet.views[0].ySplit, 4);

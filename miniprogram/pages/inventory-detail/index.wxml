@@ -47,6 +47,7 @@
           <van-cell title="生产批号" value="{{ item.batch_number }}" />
           <van-cell title="供应商" value="{{ item.supplier || '-' }}" />
           <van-cell title="原厂型号" value="{{ item.supplier_model || '-' }}" />
+          <van-cell wx:if="{{ item.sample_note }}" title="样品说明" value="{{ item.sample_note }}" />
           <van-cell title="入库时间" value="{{ item._createdStr }}" />
           <van-cell title="过期时间" value="{{ item._expiryStr }}" title-class="{{ isExpiring ? 'text-danger' : '' }}" value-class="{{ isExpiring ? 'text-danger' : '' }}" />
           <van-cell title="类别" value="{{ item._categoryLabel }}" />

@@ -14,6 +14,11 @@ const {
   buildChemicalRefillUpdate
 } = require('./inventory-quantity');
 const {
+  isTestMaterial,
+  buildTestMaterialStockInValidation,
+  resolveInventorySourceText
+} = require('./test-material');
+const {
   ensureBuiltinZones,
   sortZoneRecords,
   filterZoneRecordsByCategory,
@@ -170,6 +175,19 @@ exports.main = async (event, context) => {
       const defaultUnit = String(materialRecord.default_unit || inventory.quantity_unit || '').trim();
       const productCode = materialRecord.product_code || base.product_code || '';
       const materialName = materialRecord.material_name || base.name;
+      const supplier = resolveInventorySourceText({ material: materialRecord, item: base, field: 'supplier' });
+      const supplierModel = resolveInventorySourceText({ material: materialRecord, item: base, field: 'supplier_model' });
+      const sampleNote = String((inventory && inventory.sample_note) || (base && base.sample_note) || '').trim();
+      const isTest = isTestMaterial(materialRecord, base);
+      const testMaterialValidation = buildTestMaterialStockInValidation({
+        supplier,
+        supplier_model: supplierModel,
+        batch_number: inventory.batch_number,
+        sample_note: sampleNote
+      }, materialRecord);
+      if (!testMaterialValidation.ok) {
+        throw new Error(testMaterialValidation.msg);
+      }
 
       if (existingInventory) {
         const canRefill = isChemicalRefillEligible(existingInventory, {
@@ -232,8 +250,10 @@ exports.main = async (event, context) => {
         sub_category: materialRecord.sub_category || '',
         product_code: productCode,
         unique_code: normalizedUniqueCode, // 使用传入的 code
-        supplier: materialRecord.supplier || base.supplier || '',
-        supplier_model: materialRecord.supplier_model || base.supplier_model || '',
+        supplier,
+        supplier_model: supplierModel,
+        sample_note: sampleNote,
+        is_test_material: isTest,
         ...locationPayload,
         status: 'in_stock',
         quantity: {

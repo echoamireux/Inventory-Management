@@ -60,6 +60,58 @@ test('batch add supports explicit long-term validity instead of silently accepti
   assert.equal(payload.inventoryData.is_long_term_valid, true);
 });
 
+test('batch add requires inventory-level identifiers for test materials and snapshots them', () => {
+  assert.throws(() => {
+    buildBatchInventoryPayload({
+      unique_code: 'L000012',
+      batch_number: 'TEST-001',
+      location: '防爆柜01 | A01',
+      expiry_date: '2026-12-31',
+      supplier: '供应商A',
+      supplier_model: 'TM-01',
+      quantity: {
+        val: 1,
+        unit: 'kg'
+      }
+    }, {
+      _id: 'mat-test',
+      material_name: '测试料-化材',
+      product_code: 'J-999',
+      category: 'chemical',
+      default_unit: 'kg',
+      is_test_material: true
+    }, 0);
+  }, /测试料入库必须填写供应商、原厂型号、生产批号、样品说明\/备注/);
+
+  const payload = buildBatchInventoryPayload({
+    unique_code: 'L000013',
+    batch_number: 'TEST-002',
+    location: '防爆柜01 | A02',
+    expiry_date: '2026-12-31',
+    supplier: '送样供应商',
+    supplier_model: 'SAMPLE-X',
+    sample_note: '客户A送样，透明液体',
+    quantity: {
+      val: 1,
+      unit: 'kg'
+    }
+  }, {
+    _id: 'mat-test',
+    material_name: '测试料-化材',
+    product_code: 'J-999',
+    category: 'chemical',
+    default_unit: 'kg',
+    supplier: '主数据供应商',
+    supplier_model: 'MASTER',
+    is_test_material: true
+  }, 0);
+
+  assert.equal(payload.inventoryData.is_test_material, true);
+  assert.equal(payload.inventoryData.sample_note, '客户A送样，透明液体');
+  assert.equal(payload.inventoryData.supplier, '送样供应商');
+  assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-X');
+});
+
 test('batch add rejects rows that omit both expiry date and long-term validity', () => {
   assert.throws(() => {
     buildBatchInventoryPayload({

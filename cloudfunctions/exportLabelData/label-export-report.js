@@ -161,27 +161,37 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
   const uniqueCode = String(item.unique_code || '').trim() || '--';
   const productCode = String(item.product_code || material.product_code || '').trim() || '--';
   const materialName = String(item.material_name || material.material_name || material.name || '').trim() || '--';
+  const sampleNote = String(item.sample_note || '').trim();
+  const isTestMaterial = !!(item.is_test_material || material.is_test_material);
 
   if (normalizedType === 'chemical_mini') {
-    return {
+    const row = {
       标签编号: uniqueCode,
       产品代码: productCode
     };
+    if (isTestMaterial && sampleNote) {
+      row.样品说明 = sampleNote;
+    }
+    return row;
   }
 
   if (normalizedType === 'chemical_std') {
-    return {
+    const row = {
       标签编号: uniqueCode,
       产品代码: productCode,
       物料名称: materialName
     };
+    if (isTestMaterial && sampleNote) {
+      row.样品说明 = sampleNote;
+    }
+    return row;
   }
 
   const filmSpecParts = resolveFilmSpecParts(item, material);
   const subCategory = String(item.sub_category || material.sub_category || '').trim() || '--';
   const batchNumber = String(item.batch_number || '').trim() || '--';
 
-  return {
+  const row = {
     标签编号: uniqueCode,
     产品代码: productCode,
     物料名称: materialName,
@@ -191,6 +201,10 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
     批次: batchNumber,
     过期日期: resolveExportExpiryLabel(item)
   };
+  if (isTestMaterial && sampleNote) {
+    row.样品说明 = sampleNote;
+  }
+  return row;
 }
 
 function sortLabelExportRecordsBySelection(records = [], selectedIds = []) {
@@ -233,6 +247,30 @@ function buildColumnWidths(templateType = 'film') {
   return [16, 16, 28, 16, 12, 12, 18, 16];
 }
 
+function getExcelColumnName(columnNumber) {
+  let value = Number(columnNumber) || 1;
+  let result = '';
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    value = Math.floor((value - 1) / 26);
+  }
+  return result || 'A';
+}
+
+function buildWorkbookHeaders(templateType, rows = []) {
+  const baseHeaders = LABEL_EXPORT_HEADERS[normalizeTemplateType(templateType)] || [];
+  const headers = baseHeaders.slice();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    Object.keys(row || {}).forEach((key) => {
+      if (!headers.includes(key)) {
+        headers.push(key);
+      }
+    });
+  });
+  return headers;
+}
+
 async function buildLabelExportWorkbook({
   templateType = 'film',
   exportedAt = new Date(),
@@ -240,7 +278,7 @@ async function buildLabelExportWorkbook({
 } = {}) {
   const normalizedType = normalizeTemplateType(templateType);
   const templateLabel = resolveTemplateLabel(normalizedType);
-  const headers = LABEL_EXPORT_HEADERS[normalizedType];
+  const headers = buildWorkbookHeaders(normalizedType, rows);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(templateLabel);
 
@@ -251,7 +289,7 @@ async function buildLabelExportWorkbook({
     width: columnWidths[index] || 18
   }));
 
-  const lastColumnLetter = String.fromCharCode(64 + headers.length);
+  const lastColumnLetter = getExcelColumnName(headers.length);
   sheet.mergeCells(`A1:${lastColumnLetter}1`);
   sheet.getCell('A1').value = templateLabel;
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: '1E3A8A' } };

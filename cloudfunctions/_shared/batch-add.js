@@ -6,6 +6,11 @@ const {
   normalizeLabelCodeInput,
   isValidLabelCode
 } = require('./label-code');
+const {
+  isTestMaterial,
+  buildTestMaterialStockInValidation,
+  resolveInventorySourceText
+} = require('./test-material');
 
 function assertUniqueCodes(items) {
   const seen = new Set();
@@ -100,6 +105,10 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   const uniqueCode = normalizeLabelCodeInput((rawItem && rawItem.unique_code) || '');
   const batchNumber = String((rawItem && rawItem.batch_number) || '').trim();
   const location = String((rawItem && rawItem.location) || '').trim();
+  const supplier = resolveInventorySourceText({ material, item: rawItem, field: 'supplier' });
+  const supplierModel = resolveInventorySourceText({ material, item: rawItem, field: 'supplier_model' });
+  const sampleNote = String((rawItem && rawItem.sample_note) || '').trim();
+  const isTest = isTestMaterial(material, rawItem);
 
   if (!material || !material._id) {
     throw new Error(`${rowLabel}对应的物料主数据不存在`);
@@ -122,6 +131,16 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   if (!batchNumber) {
     throw new Error(`${rowLabel}缺少生产批号`);
   }
+  const testMaterialValidation = buildTestMaterialStockInValidation({
+    ...rawItem,
+    supplier,
+    supplier_model: supplierModel,
+    batch_number: batchNumber,
+    sample_note: sampleNote
+  }, material);
+  if (!testMaterialValidation.ok) {
+    throw new Error(`${rowLabel}${testMaterialValidation.msg}`);
+  }
   if (!location) {
     throw new Error(`${rowLabel}缺少存储区域`);
   }
@@ -134,8 +153,10 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     sub_category: material.sub_category || '',
     product_code: material.product_code,
     unique_code: uniqueCode,
-    supplier: material.supplier || '',
-    supplier_model: material.supplier_model || '',
+    supplier,
+    supplier_model: supplierModel,
+    sample_note: sampleNote,
+    is_test_material: isTest,
     batch_number: batchNumber,
     location,
     status: 'in_stock',

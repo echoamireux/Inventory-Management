@@ -29,9 +29,9 @@ test('generated workbook writes defined names and validation formulas compatible
 
 test('help sheet keeps example columns aligned with the actual import table', async () => {
   const workbook = await buildTemplateWorkbook({
-    headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号'],
+    headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号', '是否测试料'],
     previewStyledRowCount: 50,
-    inlineHints: ['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '两类选填'],
+    inlineHints: ['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '两类选填', '选填'],
     validationRanges: {
       productCode: 'A3:A3000',
       category: 'C3:C3000',
@@ -65,22 +65,22 @@ test('help sheet keeps example columns aligned with the actual import table', as
       '▶ 字段说明'
     ],
     exampleRows: [
-      ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99']
+      ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否']
     ]
   });
 
   const helpSheet = workbook.getWorksheet('【必看】填写指导与示例');
-  const widths = Array.from({ length: 10 }, (_, index) => helpSheet.getColumn(index + 1).width);
+  const widths = Array.from({ length: 11 }, (_, index) => helpSheet.getColumn(index + 1).width);
 
-  assert.deepEqual(widths, [14, 30, 10, 22, 12, 18, 18, 18, 20, 25]);
+  assert.deepEqual(widths, [14, 30, 10, 22, 12, 18, 18, 18, 20, 25, 14]);
   assert.equal(helpSheet.getCell('A1').isMerged, true);
-  assert.equal(helpSheet.getCell('J1').isMerged, true);
+  assert.equal(helpSheet.getCell('K1').isMerged, true);
 });
 
 test('data sheet adds inline hint row, freezes the first two rows, and exposes input prompts', async () => {
   const workbook = await buildTemplateWorkbook({
-    headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号'],
-    inlineHints: ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填'],
+    headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号', '是否测试料'],
+    inlineHints: ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填'],
     previewStyledRowCount: 50,
     validationRanges: {
       productCode: 'A3:A3000',
@@ -114,7 +114,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
 
   const sheet = workbook.getWorksheet('物料导入表');
 
-  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填']);
+  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']);
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 2);
   assert.equal(sheet.getRow(2).height, 22);

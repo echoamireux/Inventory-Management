@@ -11,7 +11,7 @@ const {
   buildMaterialTemplateSpec
 } = require('../cloudfunctions/_shared/material-template');
 
-test('template spec keeps the governed workbook structure and ten-column headers', () => {
+test('template spec keeps the governed workbook structure and eleven-column headers', () => {
   const spec = buildMaterialTemplateSpec({
     chemicalSubcategories: ['主胶', '树脂', '溶剂'],
     filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜']
@@ -21,7 +21,7 @@ test('template spec keeps the governed workbook structure and ten-column headers
   assert.equal(spec.configSheetName, CONFIG_SHEET_NAME);
   assert.equal(spec.helpSheetName, HELP_SHEET_NAME);
   assert.deepEqual(spec.headers, TEMPLATE_HEADERS);
-  assert.equal(spec.headers.length, 10);
+  assert.equal(spec.headers.length, 11);
   assert.deepEqual(spec.unitOptions, {
     chemical: ['kg', 'g', 'L', 'mL'],
     film: ['m', 'm²']
@@ -117,6 +117,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
   assert.match(helpText, /供应商、原厂型号：选填/);
+  assert.match(helpText, /是否测试料：选填/);
   assert.deepEqual(spec.inlineHints, [
     '必填',
     '必填',
@@ -127,12 +128,13 @@ test('template spec keeps representative example rows aligned with the new gover
     '膜材必填',
     '膜材选填',
     '选填',
+    '选填',
     '选填'
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
-    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99'],
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100']
+    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
 });
 

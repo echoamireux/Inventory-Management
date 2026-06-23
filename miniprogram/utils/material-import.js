@@ -7,6 +7,32 @@ const {
   normalizeProductCodeInput
 } = require('./product-code');
 
+function normalizeTestMaterialFlag(value) {
+  if (value === true) {
+    return { ok: true, value: true };
+  }
+  if (value === false || value === undefined || value === null) {
+    return { ok: true, value: false };
+  }
+
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { ok: true, value: false };
+  }
+  if (['是', 'true', 'TRUE', '1', 'Y', 'y', 'yes', 'YES'].includes(raw)) {
+    return { ok: true, value: true };
+  }
+  if (['否', 'false', 'FALSE', '0', 'N', 'n', 'no', 'NO'].includes(raw)) {
+    return { ok: true, value: false };
+  }
+
+  return {
+    ok: false,
+    value: false,
+    msg: '是否测试料仅支持填写“是”或“否”'
+  };
+}
+
 function normalizeCategoryText(categoryText) {
   if (String(categoryText || '').trim() === '膜材') {
     return 'film';
@@ -63,7 +89,8 @@ function buildComparableSignature(item = {}) {
     thickness_um: item.thickness_um == null ? null : Number(item.thickness_um),
     standard_width_mm: item.standard_width_mm == null ? null : Number(item.standard_width_mm),
     supplier: String(item.supplier || '').trim(),
-    supplier_model: String(item.supplier_model || '').trim()
+    supplier_model: String(item.supplier_model || '').trim(),
+    is_test_material: !!item.is_test_material
   });
 }
 
@@ -175,6 +202,7 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
   const standardWidthMm = normalizeOptionalNumber(usesMasterTemplate ? row[7] : '');
   const supplier = String((usesMasterTemplate ? row[8] : row[5]) || '').trim();
   const supplierModel = String((usesMasterTemplate ? row[9] : row[6]) || '').trim();
+  const testMaterialFlag = normalizeTestMaterialFlag(usesMasterTemplate ? row[10] : '');
   let warning = '';
 
   let error = null;
@@ -219,6 +247,10 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
     warning = '默认幅宽未填写，后续需在首次入库或物料管理中补齐';
   }
 
+  if (!error && !testMaterialFlag.ok) {
+    error = testMaterialFlag.msg;
+  }
+
   return {
     rowIndex: index + 2,
     product_code: normalizedCode.ok ? normalizedCode.product_code : '',
@@ -232,6 +264,7 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
     standard_width_mm: category === 'film' ? standardWidthMm : null,
     supplier,
     supplier_model: supplierModel,
+    is_test_material: testMaterialFlag.value,
     warning,
     error
   };

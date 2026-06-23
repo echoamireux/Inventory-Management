@@ -9,6 +9,7 @@ const {
   resolveSubcategorySelection
 } = require('./material-subcategories');
 const { normalizeUnitInput } = require('./material-units');
+const { normalizeTestMaterialFlag } = require('./test-material');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -30,12 +31,14 @@ function normalizeOptionalNumber(value) {
 }
 
 function buildGovernedMaterialMasterFields(source = {}, category) {
+  const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
   const fields = {
     material_name: sanitizeText(source.material_name),
     category,
     supplier: sanitizeText(source.supplier),
     supplier_model: sanitizeText(source.supplier_model),
-    default_unit: sanitizeText(source.default_unit)
+    default_unit: sanitizeText(source.default_unit),
+    is_test_material: testMaterialFlag.value
   };
 
   if (category === 'chemical') {

@@ -34,7 +34,7 @@ const INVENTORY_TEMPLATE_EXPECTED_ROWS = [
     INVENTORY_TEMPLATE_GROUP_HEADERS[1], '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[2], '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[3], '', '',
-    INVENTORY_TEMPLATE_GROUP_HEADERS[4], '',
+    INVENTORY_TEMPLATE_GROUP_HEADERS[4], '', '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[5], ''
   ],
   INVENTORY_TEMPLATE_HEADERS,
@@ -72,7 +72,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
   sheet.getCell('E4').value = '防爆柜01';
   sheet.getCell('F4').value = 'A01';
   sheet.getCell('G4').value = 2;
-  sheet.getCell('N4').value = new Date('2027-03-25T00:00:00.000Z');
+  sheet.getCell('O4').value = new Date('2027-03-25T00:00:00.000Z');
 
   const buffer = await workbook.xlsx.writeBuffer();
   const rows = parseImportTemplateFileBuffer(buffer, {
@@ -84,7 +84,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
 
   assert.equal(rows[3].rowIndex, 4);
   assert.deepEqual(rows[3].values, [
-    'L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '2027-03-25', ''
+    'L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '', '2027-03-25', ''
   ]);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'inventory_import',
@@ -184,10 +184,10 @@ test('shared import parser reads material template xlsx data rows from the gover
   });
 
   assert.equal(rows[2].rowIndex, 3);
-  assert.deepEqual(rows[2].values, ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '']);
+  assert.deepEqual(rows[2].values, ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'material_import',
-    schemaVersion: 'material-import-v1',
+    schemaVersion: 'material-import-v2',
     headerRowIndex: 1,
     dataStartRowIndex: 3,
     sheetName: MATERIAL_SHEET_NAME
@@ -263,22 +263,24 @@ test('shared import parser reports a structured header_mismatch when the governe
   });
 });
 
-test('shared import parser accepts the user-provided inventory workbook as a valid template regression sample when available locally', {
+test('shared import parser rejects the old user-provided inventory workbook after schema adds sample note', {
   skip: !fs.existsSync('/Users/heyu/Desktop/库存入库模板_20260325_1023.xlsx')
 }, () => {
-  const rows = parseImportTemplateFileBuffer(
-    fs.readFileSync('/Users/heyu/Desktop/库存入库模板_20260325_1023.xlsx'),
-    {
-      fileName: '库存入库模板_20260325_1023.xlsx',
-      sheetName: INVENTORY_SHEET_NAME,
-      expectedHeaderRows: INVENTORY_TEMPLATE_EXPECTED_ROWS,
-      invalidTemplateMessage: '请重新导出最新库存入库模板后填写'
-    }
-  );
-
-  assert.equal(rows[0].values[0], '基础信息');
-  assert.equal(rows[1].values[0], '标签编号*');
-  assert.equal(rows[3].values[0], 'L000001');
+  assert.throws(() => {
+    parseImportTemplateFileBuffer(
+      fs.readFileSync('/Users/heyu/Desktop/库存入库模板_20260325_1023.xlsx'),
+      {
+        fileName: '库存入库模板_20260325_1023.xlsx',
+        sheetName: INVENTORY_SHEET_NAME,
+        expectedHeaderRows: INVENTORY_TEMPLATE_EXPECTED_ROWS,
+        invalidTemplateMessage: '请重新导出最新库存入库模板后填写'
+      }
+    );
+  }, (error) => {
+    assert.equal(error.code, 'header_mismatch');
+    assert.match(JSON.stringify(error.details || {}), /样品说明\/备注/);
+    return true;
+  });
 });
 
 test('shared import parser can match expected header rows exactly', () => {

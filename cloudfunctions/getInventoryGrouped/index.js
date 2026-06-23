@@ -55,6 +55,8 @@ exports.main = async (event, context) => {
         { product_code: regex },
         { batch_number: regex },
         { supplier: regex },
+        { supplier_model: regex },
+        { sample_note: regex },
         { unique_code: regex },
         { location: regex },
         { location_text: regex }
@@ -306,6 +308,9 @@ async function loadInventoryItemsByProductCodes(baseWhere, productCodes) {
           zone_key: true,
           batch_number: true,
           supplier: true,
+          supplier_model: true,
+          sample_note: true,
+          is_test_material: true,
           unique_code: true,
           status: true,
           create_time: true
@@ -366,8 +371,11 @@ function resolveGroupMatchReasonText(group, keyword, zoneMap) {
     })) {
       return '库位匹配';
     }
-    if (groupItems.some(item => matchesSearchFields(item, ['supplier'], normalizedKeyword))) {
-      return '供应商匹配';
+    if (groupItems.some(item => matchesSearchFields(item, ['supplier', 'supplier_model'], normalizedKeyword))) {
+      return '供应商/型号匹配';
+    }
+    if (groupItems.some(item => matchesSearchFields(item, ['sample_note'], normalizedKeyword))) {
+      return '样品说明匹配';
     }
 
     return '';

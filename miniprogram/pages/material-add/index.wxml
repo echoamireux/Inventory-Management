@@ -185,7 +185,7 @@
         <van-field
           value="{{ form.supplier_model }}"
           label="原厂型号"
-          placeholder="请输入 (选填)"
+          placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
           data-field="supplier_model"
           bind:change="onInput"
         />
@@ -194,8 +194,20 @@
         <van-field
           value="{{ form.supplier }}"
           label="供应商"
-          placeholder="请输入 (选填)"
+          placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
           data-field="supplier"
+          bind:change="onInput"
+        />
+
+        <view wx:if="{{ form.is_test_material }}" class="duplicate-hint info">
+          测试料入库必须填写供应商、原厂型号、生产批号、样品说明/备注
+        </view>
+
+        <van-field
+          value="{{ form.sample_note }}"
+          label="样品说明/备注"
+          placeholder="{{ form.is_test_material ? '测试料必填，用于区分样品' : '请输入 (选填)' }}"
+          data-field="sample_note"
           bind:change="onInput"
         />
 

@@ -348,6 +348,7 @@ Page({
       form.subcategory_key ||
       form.supplier ||
       form.supplier_model ||
+      form.sample_note ||
       form.net_content ||
       form.package_type ||
       form.thickness_um ||
@@ -761,6 +762,7 @@ Page({
                  name: m.material_name,
                  supplier: m.supplier,
                  supplier_model: m.supplier_model,
+                 is_test_material: !!m.is_test_material,
                  sub_category: m.sub_category,
                  subcategory_key: m.subcategory_key || '',
                  unit: m.default_unit,
@@ -1007,12 +1009,14 @@ Page({
       product_code: fullProductCode,
       supplier: form.supplier,
       supplier_model: form.supplier_model || '',
+      sample_note: form.sample_note || '',
       package_type: form.package_type || '' // New
     };
 
     let specs = {};
     let inventory = {
       batch_number: form.batch_number,
+      sample_note: form.sample_note || '',
       ...locationPayload
     };
 

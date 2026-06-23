@@ -150,6 +150,8 @@ function mergeInventoryMaterialData(item = {}, material = {}) {
     sub_category: inventoryItem.sub_category || materialRecord.sub_category || '',
     supplier: inventoryItem.supplier || materialRecord.supplier || '',
     supplier_model: inventoryItem.supplier_model || materialRecord.supplier_model || '',
+    sample_note: inventoryItem.sample_note || '',
+    is_test_material: !!(inventoryItem.is_test_material || materialRecord.is_test_material),
     default_unit: materialRecord.default_unit || inventoryItem.default_unit || '',
     package_type: materialRecord.package_type || inventoryItem.package_type || '',
     specs: mergedSpecs

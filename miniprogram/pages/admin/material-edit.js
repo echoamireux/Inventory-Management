@@ -33,6 +33,7 @@ Page({
       sub_category: '',
       supplier: '',
       supplier_model: '',
+      is_test_material: false,
       default_unit: '',
       package_type: '',
       thickness_um: '',
@@ -250,6 +251,7 @@ Page({
             sub_category: resolvedSubCategory,
             supplier: data.supplier || '',
             supplier_model: data.supplier_model || '',
+            is_test_material: !!data.is_test_material,
             default_unit: unitState.value,
             package_type: data.package_type || '',
             thickness_um: materialSpecs.thickness_um !== undefined && materialSpecs.thickness_um !== null
@@ -293,6 +295,12 @@ Page({
     const field = e.currentTarget.dataset.field;
     this.setData({
       [`form.${field}`]: e.detail
+    });
+  },
+
+  onTestMaterialChange(e) {
+    this.setData({
+      'form.is_test_material': !!e.detail
     });
   },
 

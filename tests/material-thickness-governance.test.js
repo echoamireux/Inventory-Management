@@ -97,6 +97,8 @@ test('product code reset helper clears the single-entry form while preserving ta
     product_code: '009',
     supplier: '',
     supplier_model: '',
+    is_test_material: false,
+    sample_note: '',
     batch_number: '',
     zone_key: '',
     location_zone: '',

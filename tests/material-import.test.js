@@ -46,9 +46,9 @@ test('import validation rejects malformed product codes even when category and o
   assert.equal(result.error, '产品代码必须为 1-3 位数字');
 });
 
-test('import validation supports the new 10-column master-data template', () => {
+test('import validation supports the new 11-column master-data template with test-material flag', () => {
   const result = validateImportRow(
-    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99'],
+    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '是'],
     0,
     subcategoriesByCategory
   );
@@ -59,7 +59,25 @@ test('import validation supports the new 10-column master-data template', () => 
   assert.equal(result.package_type, '铁桶');
   assert.equal(result.supplier, '国药');
   assert.equal(result.supplier_model, 'IPA-99');
+  assert.equal(result.is_test_material, true);
   assert.equal('shelf_life_days' in result, false);
+});
+
+test('import validation treats blank test-material flag as formal material and rejects unclear values', () => {
+  const blank = validateImportRow(
+    ['003', '正式胶水', '化材', '主胶', 'kg', '', '', '', '', '', ''],
+    0,
+    subcategoriesByCategory
+  );
+  const invalid = validateImportRow(
+    ['004', '不确定样品', '化材', '溶剂', 'kg', '', '', '', '', '', '可能'],
+    1,
+    subcategoriesByCategory
+  );
+
+  assert.equal(blank.error, null);
+  assert.equal(blank.is_test_material, false);
+  assert.equal(invalid.error, '是否测试料仅支持填写“是”或“否”');
 });
 
 test('import validation requires film thickness and default width in the master-data template', () => {
@@ -115,7 +133,7 @@ test('import validation ignores film-only columns for chemicals and chemical-onl
 
 test('template inline hint row detection follows the current concise hint wording', () => {
   assert.equal(
-    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填']),
+    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']),
     true
   );
   assert.equal(

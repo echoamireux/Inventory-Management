@@ -17,7 +17,8 @@ const IMPORT_TEMPLATE_COLUMNS = [
   { header: TEMPLATE_HEADERS[6], key: 'thickness_um', width: 18 },
   { header: TEMPLATE_HEADERS[7], key: 'standard_width_mm', width: 18 },
   { header: TEMPLATE_HEADERS[8], key: 'supplier', width: 20 },
-  { header: TEMPLATE_HEADERS[9], key: 'supplier_model', width: 25 }
+  { header: TEMPLATE_HEADERS[9], key: 'supplier_model', width: 25 },
+  { header: TEMPLATE_HEADERS[10], key: 'is_test_material', width: 14 }
 ];
 
 function buildHeaderFill() {
@@ -75,7 +76,7 @@ function defineConfigRanges(workbook, configSheet, spec) {
   configSheet.getCell('X1').value = 'template_kind';
   configSheet.getCell('Y1').value = spec.templateKind || 'material_import';
   configSheet.getCell('X2').value = 'schema_version';
-  configSheet.getCell('Y2').value = spec.schemaVersion || 'material-import-v1';
+  configSheet.getCell('Y2').value = spec.schemaVersion || 'material-import-v2';
 }
 
 function decorateHeaderRow(row) {
@@ -185,6 +186,18 @@ function applyRangeValidations(sheet, spec) {
     errorTitle: '默认幅宽无效',
     error: '若填写默认幅宽，请输入大于 0 的数值。'
   });
+  sheet.dataValidations.add(`K${spec.maxRow ? 3 : 3}:K${spec.maxRow || 3000}`, {
+    type: 'list',
+    allowBlank: true,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '测试料请选择“是”；正式物料可填“否”或留空。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '是否测试料无效',
+    error: '是否测试料仅支持填写“是”或“否”。',
+    formulae: ['"是,否"']
+  });
 }
 
 async function buildTemplateWorkbook(specInput) {
@@ -216,7 +229,7 @@ async function buildTemplateWorkbook(specInput) {
 
   spec.helpLines.forEach((line, index) => {
     const rowNumber = index + 1;
-    helpSheet.mergeCells(`A${rowNumber}:J${rowNumber}`);
+    helpSheet.mergeCells(`A${rowNumber}:K${rowNumber}`);
     const cell = helpSheet.getRow(rowNumber).getCell(1);
     cell.value = line;
     cell.font = line && (line.startsWith('【') || line.startsWith('▶'))

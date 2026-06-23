@@ -59,6 +59,7 @@ test('inventory template headers keep label-first structure and consecutive film
     '长度(m)',
     '供应商',
     '原厂型号',
+    '样品说明/备注',
     '过期日期',
     '长期有效'
   ]);
@@ -78,7 +79,7 @@ test('inventory template workbook keeps category-driven zone validation compatib
   assert.match(workbookXml, /name="膜材_库区">Config!\$B\$2:\$B\$3</);
 
   assert.match(sheetXml, /<formula1>INDIRECT\(\$C4&amp;&quot;_库区&quot;\)<\/formula1>/);
-  assert.match(sheetXml, /<formula1>OR\(N4=&quot;&quot;,AND\(ISNUMBER\(N4\),N4&gt;=TODAY\(\)\)\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>OR\(O4=&quot;&quot;,AND\(ISNUMBER\(O4\),O4&gt;=TODAY\(\)\)\)<\/formula1>/);
 });
 
 test('inventory template workbook uses three-tier headers and governed hints aligned with the template columns', async () => {
@@ -95,7 +96,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.getCell('G1').value, '化材信息');
   assert.equal(dataSheet.getCell('I1').value, '膜材信息');
   assert.equal(dataSheet.getCell('L1').value, '来源信息');
-  assert.equal(dataSheet.getCell('N1').value, '时效信息');
+  assert.equal(dataSheet.getCell('O1').value, '时效信息');
   assert.deepEqual(dataSheet.getRow(2).values.slice(1), INVENTORY_TEMPLATE_HEADERS);
   assert.equal(dataSheet.getRow(3).values[1], '必填');
   assert.equal(dataSheet.getRow(3).values[5], '必填');
@@ -103,11 +104,12 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.getRow(3).values[9], '膜材条件必填');
   assert.equal(dataSheet.getRow(3).values[10], '膜材必填');
   assert.equal(dataSheet.getRow(3).values[11], '膜材必填');
-  assert.equal(dataSheet.getRow(3).values[14], '二选一');
+  assert.equal(dataSheet.getRow(3).values[14], '测试料必填');
   assert.equal(dataSheet.getRow(3).values[15], '二选一');
+  assert.equal(dataSheet.getRow(3).values[16], '二选一');
   assert.equal(dataSheet.views[0].state, 'frozen');
   assert.equal(dataSheet.views[0].ySplit, 3);
-  assert.equal(dataSheet.getColumn(14).numFmt, 'yyyy-mm-dd');
+  assert.equal(dataSheet.getColumn(15).numFmt, 'yyyy-mm-dd');
 
   assert.ok(helpSheet);
   const helpText = String(helpSheet.getColumn(1).values.join('\n'));
@@ -117,6 +119,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.match(String(helpSheet.getCell('A13').value || ''), /YYYY-MM-DD/);
   assert.match(String(helpSheet.getCell('A14').value || ''), /默认单位由系统按主数据自动带出/);
   assert.match(String(helpSheet.getCell('A17').value || ''), /膜材厚度/);
+  assert.match(helpText, /样品说明\/备注：正式物料选填，测试料必填/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
   assert.match(helpText, /当前化材库区：防爆柜01 \/ 防爆柜02/);

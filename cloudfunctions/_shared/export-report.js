@@ -27,6 +27,7 @@ const EXPORT_HEADERS = [
   '膜材厚度(μm)',
   '供应商',
   '原厂型号',
+  '样品说明/备注',
   '过期日期',
   '状态',
   '入库时间'
@@ -224,6 +225,7 @@ function buildInventoryExportRow(item = {}, context = {}) {
     filmThicknessUm,
     supplier: item.supplier || material.supplier || '--',
     supplierModel: item.supplier_model || material.supplier_model || '--',
+    sampleNote: item.sample_note || '--',
     expiryDate: resolveExportExpiryLabel(item),
     statusLabel: resolveStatusLabel(item, currentStock),
     inboundTime: formatExportDateTime(item.create_time)
@@ -332,9 +334,10 @@ async function buildInventoryExportWorkbook(options = {}) {
     { header: EXPORT_HEADERS[12], key: 'filmThicknessUm', width: 16 },
     { header: EXPORT_HEADERS[13], key: 'supplier', width: 18 },
     { header: EXPORT_HEADERS[14], key: 'supplierModel', width: 20 },
-    { header: EXPORT_HEADERS[15], key: 'expiryDate', width: 14 },
-    { header: EXPORT_HEADERS[16], key: 'statusLabel', width: 10 },
-    { header: EXPORT_HEADERS[17], key: 'inboundTime', width: 20 }
+    { header: EXPORT_HEADERS[15], key: 'sampleNote', width: 24 },
+    { header: EXPORT_HEADERS[16], key: 'expiryDate', width: 14 },
+    { header: EXPORT_HEADERS[17], key: 'statusLabel', width: 10 },
+    { header: EXPORT_HEADERS[18], key: 'inboundTime', width: 20 }
   ];
 
   sheet.mergeCells(1, 1, 1, EXPORT_HEADERS.length);
@@ -371,9 +374,10 @@ async function buildInventoryExportWorkbook(options = {}) {
 
   applyGroupHeaderCell(sheet, groupRowNumber, 9, 10, '库位信息');
   applyGroupHeaderCell(sheet, groupRowNumber, 12, 13, '膜材规格');
-  applyGroupHeaderCell(sheet, groupRowNumber, 14, 15, '供应商信息');
+  applyGroupHeaderCell(sheet, groupRowNumber, 14, 16, '供应商信息');
+  applyGroupHeaderCell(sheet, groupRowNumber, 17, 19, '时效状态');
 
-  [1, 2, 3, 4, 5, 6, 7, 8, 11, 16, 17, 18].forEach((columnIndex) => {
+  [1, 2, 3, 4, 5, 6, 7, 8, 11].forEach((columnIndex) => {
     applyMergedHeaderCell(
       sheet,
       groupRowNumber,
@@ -387,7 +391,7 @@ async function buildInventoryExportWorkbook(options = {}) {
   const headerRow = sheet.getRow(headerRowNumber);
   EXPORT_HEADERS.forEach((header, index) => {
     const columnIndex = index + 1;
-    if ([1, 2, 3, 4, 5, 6, 7, 8, 11, 16, 17, 18].includes(columnIndex)) {
+    if ([1, 2, 3, 4, 5, 6, 7, 8, 11].includes(columnIndex)) {
       return;
     }
     const cell = headerRow.getCell(index + 1);
@@ -417,6 +421,7 @@ async function buildInventoryExportWorkbook(options = {}) {
       rowData.filmThicknessUm,
       rowData.supplier,
       rowData.supplierModel,
+      rowData.sampleNote,
       rowData.expiryDate,
       rowData.statusLabel,
       rowData.inboundTime

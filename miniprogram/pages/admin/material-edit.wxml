@@ -64,6 +64,14 @@
       <view wx:if="{{ hasInvalidSubcategory }}" class="duplicate-hint info">
         当前物料的历史子类别已不在现行正式词表中，请重新选择有效子类别后再保存
       </view>
+      <van-cell title="测试料" label="供应商送样、未细分正式代码时启用">
+        <van-switch
+          slot="right-icon"
+          checked="{{ form.is_test_material }}"
+          size="24px"
+          bind:change="onTestMaterialChange"
+        />
+      </van-cell>
     </van-cell-group>
   </view>
 

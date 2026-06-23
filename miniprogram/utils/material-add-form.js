@@ -12,6 +12,8 @@ const EMPTY_MATERIAL_ADD_FORM = {
   product_code: '',
   supplier: '',
   supplier_model: '',
+  is_test_material: false,
+  sample_note: '',
   batch_number: '',
   zone_key: '',
   location_zone: '',
@@ -57,6 +59,8 @@ function syncFormWithMaterialMaster(form, activeTab, item, prefix) {
   nextForm.name = item && item.name ? item.name : '';
   nextForm.supplier = item && item.supplier ? item.supplier : '';
   nextForm.supplier_model = item && item.supplier_model ? item.supplier_model : '';
+  nextForm.is_test_material = !!(item && item.is_test_material);
+  nextForm.sample_note = '';
   nextForm.subcategory_key = item && item.subcategory_key ? item.subcategory_key : '';
   nextForm.sub_category = item && item.sub_category ? item.sub_category : '';
 
@@ -103,6 +107,7 @@ function buildContinueEntryForm(form, activeTab, item, prefix) {
     unique_code: '',
     label_code_digits: '',
     batch_number: '',
+    sample_note: '',
     expiry_date: '',
     is_long_term_valid: false,
     net_content: '',

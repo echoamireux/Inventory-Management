@@ -99,6 +99,13 @@ cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/exportData/warehouse
 echo "   -> Updating batch-add.js..."
 cp cloudfunctions/_shared/batch-add.js cloudfunctions/batchAddInventory/batch-add.js
 
+echo "   -> Updating test-material.js..."
+cp cloudfunctions/_shared/test-material.js cloudfunctions/addMaterial/test-material.js
+cp cloudfunctions/_shared/test-material.js cloudfunctions/approveMaterialRequest/test-material.js
+cp cloudfunctions/_shared/test-material.js cloudfunctions/batchAddInventory/test-material.js
+cp cloudfunctions/_shared/test-material.js cloudfunctions/importInventoryTemplate/test-material.js
+cp cloudfunctions/_shared/test-material.js cloudfunctions/manageMaterial/test-material.js
+
 echo "   -> Updating label-code.js..."
 cp cloudfunctions/_shared/label-code.js cloudfunctions/addMaterial/label-code.js
 cp cloudfunctions/_shared/label-code.js cloudfunctions/batchAddInventory/label-code.js

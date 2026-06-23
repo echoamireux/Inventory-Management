@@ -1,6 +1,7 @@
 // cloudfunctions/manageMaterial/index.js
 const cloud = require('wx-server-sdk');
 const { normalizeUnitInput } = require('./material-units');
+const { normalizeTestMaterialFlag } = require('./test-material');
 const { validateStandardProductCode } = require('./product-code');
 const { createImportResultTracker } = require('./import-batch-results');
 const { buildContainsRegExp, normalizeSearchKeyword } = require('./search');
@@ -117,12 +118,14 @@ async function assertManageMaterialAdminMutation(openid, message = '仅管理员
 
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
   const removeIrrelevant = !!options.removeIrrelevant;
+  const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
   const fields = {
     material_name: sanitizeText(source.material_name),
     category,
     supplier: sanitizeText(source.supplier),
     supplier_model: sanitizeText(source.supplier_model),
-    default_unit: sanitizeText(source.default_unit)
+    default_unit: sanitizeText(source.default_unit),
+    is_test_material: testMaterialFlag.value
   };
 
   if (category === 'chemical') {
@@ -171,6 +174,14 @@ function buildGovernedMaterialMasterFields(source = {}, category, options = {}) 
 }
 
 function validateBatchCreateMasterFields(item = {}, category = '') {
+  const testMaterialFlag = normalizeTestMaterialFlag(item.is_test_material);
+  if (!testMaterialFlag.ok) {
+    return {
+      ok: false,
+      msg: testMaterialFlag.msg
+    };
+  }
+
   if (category === 'film') {
     const thicknessUm = normalizeOptionalNumber(item.thickness_um);
     if (thicknessUm === null) {
@@ -194,7 +205,8 @@ function buildBatchCreateComparableSignature(payload = {}) {
     thickness_um: payload.thickness_um == null ? null : Number(payload.thickness_um),
     standard_width_mm: payload.standard_width_mm == null ? null : Number(payload.standard_width_mm),
     supplier: sanitizeText(payload.supplier),
-    supplier_model: sanitizeText(payload.supplier_model)
+    supplier_model: sanitizeText(payload.supplier_model),
+    is_test_material: !!payload.is_test_material
   });
 }
 

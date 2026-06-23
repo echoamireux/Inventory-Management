@@ -118,6 +118,33 @@ test('chemical label export rows stay minimal for standard and mini bottle templ
   });
 });
 
+test('label export includes sample note when a selected record is a test material', () => {
+  const filmRow = buildLabelExportRow('film', {
+    unique_code: 'L000901',
+    product_code: 'M-999',
+    material_name: '测试料-膜材',
+    sub_category: '保护膜',
+    batch_number: 'TEST-F01',
+    is_test_material: true,
+    sample_note: '客户A送样，雾面白膜',
+    dynamic_attrs: {
+      width_mm: 520,
+      thickness_um: 50
+    },
+    is_long_term_valid: true
+  }, {});
+  const chemicalRow = buildLabelExportRow('chemical_std', {
+    unique_code: 'L000902',
+    product_code: 'J-999',
+    material_name: '测试料-化材',
+    is_test_material: true,
+    sample_note: '透明液体，客户B打样'
+  }, {});
+
+  assert.equal(filmRow.样品说明, '客户A送样，雾面白膜');
+  assert.equal(chemicalRow.样品说明, '透明液体，客户B打样');
+});
+
 test('label export preserves the user-selected record order when generating print data', () => {
   const records = [
     { _id: 'id-2', unique_code: 'L000102' },

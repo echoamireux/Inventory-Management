@@ -7,6 +7,8 @@ const {
 const DATA_SHEET_NAME = '物料导入表';
 const CONFIG_SHEET_NAME = 'Config';
 const HELP_SHEET_NAME = '【必看】填写指导与示例';
+const TEMPLATE_KIND = 'material_import';
+const TEMPLATE_SCHEMA_VERSION = 'material-import-v2';
 const TEMPLATE_HEADERS = [
   '产品代码',
   '物料名称',
@@ -17,7 +19,8 @@ const TEMPLATE_HEADERS = [
   '膜材厚度(μm)',
   '默认幅宽(mm)',
   '供应商',
-  '原厂型号'
+  '原厂型号',
+  '是否测试料'
 ];
 
 const CATEGORY_OPTIONS = ['化材', '膜材'];
@@ -37,6 +40,7 @@ const TEMPLATE_INLINE_HINTS = [
   '化材选填',
   '膜材必填',
   '膜材选填',
+  '选填',
   '选填',
   '选填'
 ];
@@ -101,6 +105,8 @@ function buildMaterialTemplateSpec({
     dataSheetName: DATA_SHEET_NAME,
     configSheetName: CONFIG_SHEET_NAME,
     helpSheetName: HELP_SHEET_NAME,
+    templateKind: TEMPLATE_KIND,
+    schemaVersion: TEMPLATE_SCHEMA_VERSION,
     headers: TEMPLATE_HEADERS.slice(),
     inlineHints: TEMPLATE_INLINE_HINTS.slice(),
     maxRow: TEMPLATE_MAX_ROW,
@@ -161,6 +167,7 @@ function buildMaterialTemplateSpec({
       '膜材厚度(μm)*：膜材必填；化材请留空。',
       '默认幅宽(mm)：膜材选填；化材请留空。填写即写入主数据默认幅宽，留空则后续补齐。',
       '供应商、原厂型号：选填。',
+      '是否测试料：选填。测试料填“是”，空白按“否”处理。',
       '模板仅用于新建物料；若产品代码已存在，系统会跳过，不会更新现有主数据。',
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
@@ -168,8 +175,8 @@ function buildMaterialTemplateSpec({
       `当前膜材子类别：${filmSubcategories.join(' / ')}`
     ],
     exampleRows: [
-      ['001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99'],
-      ['002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100']
+      ['001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+      ['002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
     ]
   };
 }
@@ -178,6 +185,8 @@ module.exports = {
   DATA_SHEET_NAME,
   CONFIG_SHEET_NAME,
   HELP_SHEET_NAME,
+  TEMPLATE_KIND,
+  TEMPLATE_SCHEMA_VERSION,
   TEMPLATE_HEADERS,
   CATEGORY_OPTIONS,
   UNIT_OPTIONS,

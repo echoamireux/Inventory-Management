@@ -25,6 +25,7 @@ const INVENTORY_TEMPLATE_HEADERS = [
   '长度(m)',
   '供应商',
   '原厂型号',
+  '样品说明/备注',
   '过期日期',
   '长期有效'
 ];
@@ -42,6 +43,7 @@ const TEMPLATE_INLINE_HINTS = [
   '膜材必填',
   '选填',
   '选填',
+  '测试料必填',
   '二选一',
   '二选一'
 ];
@@ -77,12 +79,12 @@ function buildInventoryTemplateSpec({
       thicknessUm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`,
       batchWidthMm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
       lengthM: `K${TEMPLATE_DATA_START_ROW}:K${TEMPLATE_MAX_ROW}`,
-      expiryDate: `N${TEMPLATE_DATA_START_ROW}:N${TEMPLATE_MAX_ROW}`,
-      longTerm: `O${TEMPLATE_DATA_START_ROW}:O${TEMPLATE_MAX_ROW}`
+      expiryDate: `O${TEMPLATE_DATA_START_ROW}:O${TEMPLATE_MAX_ROW}`,
+      longTerm: `P${TEMPLATE_DATA_START_ROW}:P${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
       zone: `INDIRECT($C${TEMPLATE_DATA_START_ROW}&"_库区")`,
-      expiryDate: `OR(N${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(N${TEMPLATE_DATA_START_ROW}),N${TEMPLATE_DATA_START_ROW}>=TODAY()))`
+      expiryDate: `OR(O${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(O${TEMPLATE_DATA_START_ROW}),O${TEMPLATE_DATA_START_ROW}>=TODAY()))`
     },
     definedNames: {
       chemicalZones: {
@@ -117,14 +119,15 @@ function buildInventoryTemplateSpec({
       '包装形式：仅化材选填；膜材请留空。',
       '膜材厚度(μm)：膜材条件必填。主数据已有厚度时可留空，否则必须填写。',
       '本批次实际幅宽(mm) / 长度(m)：仅膜材必填；化材请留空。',
-      '供应商 / 原厂型号：选填，系统会优先沿用当前主数据，不会把 Excel 当成主数据来源。',
+      '供应商 / 原厂型号：正式物料选填；测试料必填，并以本次库存记录填写为准。',
+      '样品说明/备注：正式物料选填，测试料必填。用于区分同一测试料代码下的不同样品。',
       '',
       `当前化材库区：${chemicalZones.join(' / ')}`,
       `当前膜材库区：${filmZones.join(' / ')}`
     ],
     exampleRows: [
-      ['L000101', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '2026-10-01', ''],
-      ['L000201', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', 'F01', '', '', '50', '1080', '100', '东丽', 'T100', '', '是']
+      ['L000101', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
+      ['L000201', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', 'F01', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
     ]
   };
 }

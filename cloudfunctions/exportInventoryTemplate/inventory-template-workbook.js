@@ -27,6 +27,7 @@ const TEMPLATE_COLUMNS = [
   { key: 'length_m', width: 12 },
   { key: 'supplier', width: 18 },
   { key: 'supplier_model', width: 18 },
+  { key: 'sample_note', width: 28 },
   { key: 'expiry_date', width: 14 },
   { key: 'is_long_term_valid', width: 12 }
 ];
@@ -229,7 +230,7 @@ function setRowValues(row, values = []) {
 }
 
 function setGroupHeaderValues(row, values = []) {
-  const anchors = [1, 5, 7, 9, 12, 14];
+  const anchors = [1, 5, 7, 9, 12, 15];
   values.forEach((value, index) => {
     const columnIndex = anchors[index];
     if (columnIndex) {
@@ -243,8 +244,8 @@ function applyGroupHeaderMerges(sheet) {
   sheet.mergeCells('E1:F1');
   sheet.mergeCells('G1:H1');
   sheet.mergeCells('I1:K1');
-  sheet.mergeCells('L1:M1');
-  sheet.mergeCells('N1:O1');
+  sheet.mergeCells('L1:N1');
+  sheet.mergeCells('O1:P1');
 }
 
 async function buildInventoryTemplateWorkbook(specInput) {
@@ -259,7 +260,7 @@ async function buildInventoryTemplateWorkbook(specInput) {
 
   sheet.getColumn(1).numFmt = '@';
   sheet.getColumn(2).numFmt = '@';
-  sheet.getColumn(14).numFmt = 'yyyy-mm-dd';
+  sheet.getColumn(15).numFmt = 'yyyy-mm-dd';
 
   setGroupHeaderValues(sheet.getRow(1), spec.groupHeaders);
   applyGroupHeaderMerges(sheet);
@@ -282,7 +283,7 @@ async function buildInventoryTemplateWorkbook(specInput) {
 
   spec.helpLines.forEach((line, index) => {
     const rowNumber = index + 1;
-    helpSheet.mergeCells(`A${rowNumber}:O${rowNumber}`);
+    helpSheet.mergeCells(`A${rowNumber}:P${rowNumber}`);
     const cell = helpSheet.getRow(rowNumber).getCell(1);
     cell.value = line;
     cell.font = line && (line.startsWith('【') || line.startsWith('▶'))

@@ -230,6 +230,8 @@ Page({
               // Fallbacks
               supplier: item.supplier || '-',
               supplier_model: item.supplier_model || '-',
+              sample_note: item.sample_note || '',
+              is_test_material: !!item.is_test_material,
               product_code: code
           },
           isExpiring

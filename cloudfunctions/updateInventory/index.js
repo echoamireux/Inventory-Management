@@ -7,6 +7,9 @@ const {
 } = require('./film-quantity');
 const { sortInventoryAllocationCandidates } = require('./inventory-allocation');
 const { assertActiveUserAccess } = require('./auth');
+const {
+  shouldBlockTestMaterialProductOnlyWithdrawal
+} = require('./test-material-withdrawal');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -83,6 +86,25 @@ async function loadPreferredFilmUnit(items = []) {
   return '';
 }
 
+async function loadMaterialByProductCode(productCode) {
+  const normalizedCode = String(productCode || '').trim();
+  if (!normalizedCode) {
+    return null;
+  }
+
+  try {
+    const res = await db.collection('materials')
+      .where({ product_code: normalizedCode })
+      .field({ is_test_material: true })
+      .limit(1)
+      .get();
+    return res.data && res.data[0] ? res.data[0] : null;
+  } catch (err) {
+    console.warn('Load material test flag failed', err);
+    return null;
+  }
+}
+
 async function reloadTransactionCandidates(transaction, candidateIds = []) {
   const items = [];
   for (const candidateId of candidateIds) {
@@ -131,6 +153,19 @@ exports.main = async (event, context) => {
       batch_no
     });
     const candidateIds = candidateItems.map(item => item._id);
+    const materialForSelection = (!unique_code && product_code && !batch_no)
+      ? await loadMaterialByProductCode(product_code)
+      : null;
+    const testMaterialGuard = shouldBlockTestMaterialProductOnlyWithdrawal({
+      unique_code,
+      product_code,
+      batch_no,
+      candidates: candidateItems,
+      material: materialForSelection
+    });
+    if (testMaterialGuard.blocked) {
+      return { success: false, msg: testMaterialGuard.msg };
+    }
     const preferredFilmUnit = await loadPreferredFilmUnit(candidateItems);
 
     const result = await db.runTransaction(async transaction => {

@@ -1,10 +1,15 @@
 const PRODUCT_CODE_DIGITS = 3;
 const CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL'];
 const FILM_UNITS = ['m', 'm²'];
-const NEW_TEMPLATE_COLUMN_COUNT = 15;
-const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '时效信息', ''];
-const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '过期日期', '长期有效'];
-const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '二选一', '二选一'];
+const {
+  isTestMaterial,
+  buildTestMaterialStockInValidation,
+  resolveInventorySourceText
+} = require('./test-material');
+const NEW_TEMPLATE_COLUMN_COUNT = 16;
+const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
+const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
+const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '测试料必填', '二选一', '二选一'];
 const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请使用系统当前模板中的正式字段行';
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
 const INVENTORY_TEMPLATE_SCHEMA_VERSION = 'inventory-import-v2';
@@ -666,6 +671,8 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     package_type: '',
     supplier: '',
     supplier_model: '',
+    sample_note: '',
+    is_test_material: false,
     quantity_summary: '',
     error: '',
     warning: ''
@@ -673,8 +680,8 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
 
   const uniqueCode = normalizeLabelCodeInput(values[0]);
   const category = normalizeInventoryCategoryText(values[2]);
-  const longTerm = parseLongTermValue(values[14]);
-  const expiryDate = normalizeDateInput(values[13]);
+  const longTerm = parseLongTermValue(values[15]);
+  const expiryDate = normalizeDateInput(values[14]);
 
   row.unique_code = uniqueCode || values[0];
   row.category = category;
@@ -683,6 +690,7 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.location_detail = values[5];
   row.supplier = values[11];
   row.supplier_model = values[12];
+  row.sample_note = values[13];
   row.package_type = values[7];
 
   if (!row.unique_code) {
@@ -761,6 +769,13 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.material_id = normalizeText(material._id);
   row.material_name = normalizeText(material.material_name || material.name);
   row.sub_category = normalizeText(material.sub_category);
+  row.is_test_material = isTestMaterial(material, row);
+
+  const testMaterialValidation = buildTestMaterialStockInValidation(row, material);
+  if (!testMaterialValidation.ok) {
+    row.error = testMaterialValidation.msg;
+    return row;
+  }
 
   if (!row.batch_number) {
     row.error = '请填写生产批号';
@@ -910,8 +925,10 @@ function buildInventoryImportPayload(item = {}, material = {}) {
   const uniqueCode = normalizeLabelCodeInput(item.unique_code);
   const materialName = normalizeText(material.material_name || material.name || item.material_name);
   const subCategory = normalizeText(material.sub_category || item.sub_category);
-  const supplier = normalizeText(material.supplier || item.supplier);
-  const supplierModel = normalizeText(material.supplier_model || item.supplier_model);
+  const supplier = resolveInventorySourceText({ material, item, field: 'supplier' });
+  const supplierModel = resolveInventorySourceText({ material, item, field: 'supplier_model' });
+  const sampleNote = normalizeText(item.sample_note);
+  const isTest = isTestMaterial(material, item);
   const batchNumber = normalizeText(item.batch_number);
   const zoneKey = normalizeText(item.zone_key);
   const locationDetail = normalizeText(item.location_detail);
@@ -928,6 +945,16 @@ function buildInventoryImportPayload(item = {}, material = {}) {
   }
   if (!batchNumber) {
     throw new Error(`${rowLabel}缺少生产批号`);
+  }
+  const testMaterialValidation = buildTestMaterialStockInValidation({
+    ...item,
+    supplier,
+    supplier_model: supplierModel,
+    batch_number: batchNumber,
+    sample_note: sampleNote
+  }, material);
+  if (!testMaterialValidation.ok) {
+    throw new Error(`${rowLabel}${testMaterialValidation.msg}`);
   }
   if (!zoneKey || !location) {
     throw new Error(`${rowLabel}缺少有效库位信息`);
@@ -952,6 +979,8 @@ function buildInventoryImportPayload(item = {}, material = {}) {
     unique_code: uniqueCode,
     supplier,
     supplier_model: supplierModel,
+    sample_note: sampleNote,
+    is_test_material: isTest,
     batch_number: batchNumber,
     zone_key: zoneKey,
     location_detail: locationDetail,
