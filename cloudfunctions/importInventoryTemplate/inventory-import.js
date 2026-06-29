@@ -9,7 +9,7 @@ const {
 const NEW_TEMPLATE_COLUMN_COUNT = 16;
 const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
 const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
-const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '测试料必填', '二选一', '二选一'];
+const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
 const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请使用系统当前模板中的正式字段行';
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
 const INVENTORY_TEMPLATE_SCHEMA_VERSION = 'inventory-import-v2';
@@ -948,10 +948,7 @@ function buildInventoryImportPayload(item = {}, material = {}) {
   }
   const testMaterialValidation = buildTestMaterialStockInValidation({
     ...item,
-    supplier,
-    supplier_model: supplierModel,
-    batch_number: batchNumber,
-    sample_note: sampleNote
+    batch_number: batchNumber
   }, material);
   if (!testMaterialValidation.ok) {
     throw new Error(`${rowLabel}${testMaterialValidation.msg}`);

@@ -136,6 +136,18 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
             };
           }
 
+          if (name === 'preprinted_labels') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [] };
+                  }
+                };
+              }
+            };
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       });
@@ -201,6 +213,148 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
   assert.equal(addedLog.description, '补料入库');
   assert.equal(addedLog.quantity_change, 2);
   assert.equal(addedLog.operator, '服务端库管');
+});
+
+test('single stock-in rejects voided preprint labels even when manually submitted', async () => {
+  const db = {
+    command: {},
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return {
+                  async get() {
+                    return { data: [{ role: 'user', status: 'active', name: '服务端库管' }] };
+                  }
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'materials') {
+        return {
+          where() {
+            return {
+              async get() {
+                return {
+                  data: [{
+                    _id: 'mat-1',
+                    product_code: 'J-001',
+                    category: 'chemical',
+                    material_name: '丙酮',
+                    default_unit: 'kg'
+                  }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    },
+    runTransaction(fn) {
+      return fn({
+        collection(name) {
+          if (name === 'inventory') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [] };
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'preprinted_labels') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return {
+                      data: [{
+                        _id: 'preprint-voided',
+                        unique_code: 'L000777',
+                        status: 'voided',
+                        material_id: 'mat-1',
+                        product_code: 'J-001',
+                        category: 'chemical'
+                      }]
+                    };
+                  }
+                };
+              }
+            };
+          }
+
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      });
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/addMaterial/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-1' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './warehouse-zones': {
+      ensureBuiltinZones: async () => [],
+      sortZoneRecords(records) {
+        return records;
+      },
+      filterZoneRecordsByCategory(records) {
+        return records;
+      },
+      buildZoneMap() {
+        return new Map();
+      },
+      buildInventoryLocationPayload() {
+        return {
+          zone_key: 'builtin:chemical:safe-cabinet-01',
+          location_detail: 'A-01',
+          location_text: '防爆柜01 | A-01',
+          location_zone_name: '防爆柜01'
+        };
+      }
+    }
+  });
+
+  const result = await mod.main({
+    unique_code: 'L000777',
+    base: {
+      name: '丙酮',
+      category: 'chemical',
+      product_code: 'J-001',
+      supplier_model: 'AC-1'
+    },
+    specs: {},
+    inventory: {
+      quantity_val: 1,
+      quantity_unit: 'kg',
+      batch_number: 'B001',
+      is_long_term_valid: true,
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail: 'A-01'
+    }
+  });
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /已作废/);
 });
 
 test('batch stock-in keeps eligible duplicate chemical labels as refill operations inside one transaction', async () => {
@@ -319,6 +473,18 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
                     return {
                       async update() {
                         return {};
+                      }
+                    };
+                  }
+                };
+              }
+
+              if (name === 'preprinted_labels') {
+                return {
+                  where() {
+                    return {
+                      async get() {
+                        return { data: [] };
                       }
                     };
                   }
@@ -759,7 +925,7 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
       rows: [
         { rowIndex: 1, values: ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''] },
         { rowIndex: 2, values: ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'] },
-        { rowIndex: 3, values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '测试料必填', '二选一', '二选一'] },
+        { rowIndex: 3, values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'] },
         { rowIndex: 4, values: ['L000801', '001', '化材', 'AC240801', '防爆柜01', 'A-01', '2', '', '', '', '', '', '', '', '2026-12-31', ''] }
       ]
     }

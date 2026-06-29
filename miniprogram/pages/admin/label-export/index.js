@@ -6,6 +6,12 @@ const {
   resolveOpenDocumentPath
 } = require('../../../utils/download-file');
 
+const TEMPLATE_CATEGORY_MAP = {
+  film: 'film',
+  chemical_std: 'chemical',
+  chemical_mini: 'chemical'
+};
+
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
     return detail.value;
@@ -31,13 +37,44 @@ function openDocument(options = {}) {
   });
 }
 
+function buildRequestId() {
+  return `label_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function decorateMaterial(item = {}) {
+  return {
+    ...item,
+    display_name: item.material_name || item.name || '--',
+    display_code: item.product_code || '--',
+    display_model: item.supplier_model || '',
+    is_test_material: !!item.is_test_material
+  };
+}
+
 Page({
   options: {
     styleIsolation: 'shared'
   },
 
   data: {
+    mode: 'preprint',
     templateType: 'film',
+    preprintForm: {
+      materialSearchVal: '',
+      selectedMaterial: null,
+      count: 1,
+      supplier_model: '',
+      supplier: '',
+      sample_note: '',
+      requestId: buildRequestId(),
+      lastJobId: '',
+      lastRecords: []
+    },
+    materialSuggestions: [],
+    materialSearching: false,
+    creatingPreprint: false,
+    exportingPreprint: false,
+    voidingPreprint: false,
     searchVal: '',
     list: [],
     loading: false,
@@ -70,11 +107,15 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.getList(true);
+    if (this.data.mode === 'reprint') {
+      this.getList(true);
+    } else {
+      wx.stopPullDownRefresh();
+    }
   },
 
   onReachBottom() {
-    if (this.data.loading || this.data.isEnd) {
+    if (this.data.mode !== 'reprint' || this.data.loading || this.data.isEnd) {
       return;
     }
     this.getList(false);
@@ -84,6 +125,18 @@ Page({
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
       this.searchTimer = null;
+    }
+    if (this.materialSearchTimer) {
+      clearTimeout(this.materialSearchTimer);
+      this.materialSearchTimer = null;
+    }
+  },
+
+  onModeChange(e) {
+    const mode = (e.detail && e.detail.name) || e.detail || 'preprint';
+    this.setData({ mode });
+    if (mode === 'reprint' && !this.data.hasLoadedOnce) {
+      this.getList(true);
     }
   },
 
@@ -97,9 +150,238 @@ Page({
     this.setData({
       templateType,
       page: 1,
-      isEnd: false
+      isEnd: false,
+      materialSuggestions: [],
+      'preprintForm.materialSearchVal': '',
+      'preprintForm.selectedMaterial': null,
+      'preprintForm.supplier_model': '',
+      'preprintForm.supplier': '',
+      'preprintForm.sample_note': '',
+      'preprintForm.requestId': buildRequestId(),
+      'preprintForm.lastJobId': '',
+      'preprintForm.lastRecords': []
     });
     this.getList(true);
+  },
+
+  onPreprintFieldChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const value = resolveSearchValue(e && e.detail);
+    if (!field) {
+      return;
+    }
+    this.setData({
+      [`preprintForm.${field}`]: value
+    });
+  },
+
+  onPreprintCountChange(e) {
+    const value = resolveSearchValue(e && e.detail);
+    this.setData({
+      'preprintForm.count': value
+    });
+  },
+
+  onMaterialSearchChange(e) {
+    const materialSearchVal = resolveSearchValue(e && e.detail);
+    this.setData({
+      'preprintForm.materialSearchVal': materialSearchVal,
+      'preprintForm.selectedMaterial': null,
+      materialSuggestions: materialSearchVal ? this.data.materialSuggestions : []
+    });
+
+    if (this.materialSearchTimer) {
+      clearTimeout(this.materialSearchTimer);
+    }
+    if (!materialSearchVal) {
+      this.setData({ materialSuggestions: [] });
+      return;
+    }
+
+    this.materialSearchTimer = setTimeout(() => {
+      this.searchMaterialSuggestions(materialSearchVal);
+    }, 400);
+  },
+
+  onMaterialSearchClear() {
+    if (this.materialSearchTimer) {
+      clearTimeout(this.materialSearchTimer);
+      this.materialSearchTimer = null;
+    }
+    this.setData({
+      'preprintForm.materialSearchVal': '',
+      'preprintForm.selectedMaterial': null,
+      materialSuggestions: []
+    });
+  },
+
+  async searchMaterialSuggestions(searchVal) {
+    this.setData({ materialSearching: true });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'manageMaterial',
+        data: {
+          action: 'list',
+          data: {
+            searchVal,
+            category: TEMPLATE_CATEGORY_MAP[this.data.templateType],
+            pageSize: 8
+          }
+        }
+      });
+      if (!(res.result && res.result.success)) {
+        throw new Error((res.result && res.result.msg) || '查询物料失败');
+      }
+      const suggestions = Array.isArray(res.result.list)
+        ? res.result.list.map(decorateMaterial)
+        : [];
+      this.setData({ materialSuggestions: suggestions });
+    } catch (error) {
+      console.error(error);
+      Toast.fail(error.message || '查询物料失败');
+    } finally {
+      this.setData({ materialSearching: false });
+    }
+  },
+
+  onSelectMaterial(e) {
+    const item = e.currentTarget.dataset.item;
+    const material = decorateMaterial(item || {});
+    this.setData({
+      'preprintForm.selectedMaterial': material,
+      'preprintForm.materialSearchVal': `${material.display_code} ${material.display_name}`,
+      'preprintForm.supplier_model': material.supplier_model || '',
+      'preprintForm.supplier': material.supplier || '',
+      materialSuggestions: []
+    });
+  },
+
+  async onCreatePreprintJob() {
+    if (this.data.creatingPreprint) {
+      return;
+    }
+    const { preprintForm, templateType } = this.data;
+    const selectedMaterial = preprintForm.selectedMaterial;
+    if (!selectedMaterial || !selectedMaterial._id) {
+      Toast.fail('请先选择物料');
+      return;
+    }
+    if (selectedMaterial.is_test_material && !String(preprintForm.supplier_model || '').trim()) {
+      Toast.fail('测试料必须填写原厂型号');
+      return;
+    }
+
+    this.setData({ creatingPreprint: true });
+    Toast.loading({ message: '正在生成新标签...', forbidClick: true, duration: 0 });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'createPreprintJob',
+          data: {
+            requestId: preprintForm.requestId,
+            templateType,
+            materialId: selectedMaterial._id,
+            count: preprintForm.count,
+            form: {
+              supplier_model: preprintForm.supplier_model,
+              supplier: preprintForm.supplier,
+              sample_note: preprintForm.sample_note
+            }
+          }
+        }
+      });
+      if (!(res.result && res.result.success)) {
+        throw new Error((res.result && res.result.msg) || '生成失败');
+      }
+      Toast.success(res.result.reused ? '已复用本批标签' : '生成成功');
+      this.setData({
+        'preprintForm.lastJobId': res.result.job_id || '',
+        'preprintForm.lastRecords': res.result.records || []
+      });
+    } catch (error) {
+      console.error(error);
+      Toast.fail(error.message || '生成失败');
+    } finally {
+      this.setData({ creatingPreprint: false });
+    }
+  },
+
+  async onExportPreprintJob() {
+    if (this.data.exportingPreprint) {
+      return;
+    }
+    const { preprintForm, templateType } = this.data;
+    if (!preprintForm.lastJobId) {
+      Toast.fail('请先生成新标签');
+      return;
+    }
+
+    this.setData({ exportingPreprint: true });
+    Toast.loading({ message: '正在生成文件...', forbidClick: true, duration: 0 });
+    try {
+      const result = normalizeLabelExportResult(await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'exportPreprintJob',
+          data: {
+            templateType,
+            jobId: preprintForm.lastJobId
+          }
+        }
+      }));
+      await this.downloadAndOpenWorkbook(result);
+      Toast.success('文件已打开');
+    } catch (error) {
+      console.error('导出预生成标签失败', error);
+      Toast.fail(error.message || '导出失败');
+    } finally {
+      this.setData({ exportingPreprint: false });
+    }
+  },
+
+  async onVoidPreprintLabels() {
+    if (this.data.voidingPreprint) {
+      return;
+    }
+    const records = this.data.preprintForm.lastRecords || [];
+    const ids = records
+      .filter(item => item.status === 'unused')
+      .map(item => item._id)
+      .filter(Boolean);
+    if (!ids.length) {
+      Toast.fail('本批没有可作废的未入库标签');
+      return;
+    }
+
+    this.setData({ voidingPreprint: true });
+    Toast.loading({ message: '正在作废标签...', forbidClick: true, duration: 0 });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'voidPreprintLabels',
+          data: {
+            ids
+          }
+        }
+      });
+      if (!(res.result && res.result.success)) {
+        throw new Error((res.result && res.result.msg) || '作废失败');
+      }
+      Toast.success('已作废');
+      const nextRecords = records.map(item => ids.includes(item._id)
+        ? { ...item, status: 'voided' }
+        : item);
+      this.setData({
+        'preprintForm.lastRecords': nextRecords
+      });
+    } catch (error) {
+      console.error('作废预生成标签失败', error);
+      Toast.fail(error.message || '作废失败');
+    } finally {
+      this.setData({ voidingPreprint: false });
+    }
   },
 
   onSearch(e) {
@@ -234,6 +516,32 @@ Page({
     });
   },
 
+  async downloadAndOpenWorkbook(result) {
+    Toast.loading({ message: '正在下载文件...', forbidClick: true, duration: 0 });
+    const downRes = await wx.cloud.downloadFile({
+      fileID: result.fileID
+    });
+
+    if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
+      throw new Error('文件下载失败');
+    }
+
+    const localFilePath = await resolveOpenDocumentPath({
+      tempFilePath: downRes.tempFilePath,
+      fileName: result.fileName || '信息标签.xlsx',
+      fileSystemManager: wx.getFileSystemManager(),
+      userDataPath: wx.env.USER_DATA_PATH,
+      fallbackFileName: '信息标签.xlsx'
+    });
+
+    Toast.clear();
+    await openDocument({
+      filePath: localFilePath,
+      showMenu: true,
+      fileType: 'xlsx'
+    });
+  },
+
   async onExportSelected() {
     if (this.data.exporting || this.data.selectedIds.length === 0) {
       if (this.data.selectedIds.length === 0) {
@@ -257,29 +565,7 @@ Page({
         }
       }));
 
-      Toast.loading({ message: '正在下载文件...', forbidClick: true, duration: 0 });
-      const downRes = await wx.cloud.downloadFile({
-        fileID: result.fileID
-      });
-
-      if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
-        throw new Error('文件下载失败');
-      }
-
-      const localFilePath = await resolveOpenDocumentPath({
-        tempFilePath: downRes.tempFilePath,
-        fileName: result.fileName || '信息标签.xlsx',
-        fileSystemManager: wx.getFileSystemManager(),
-        userDataPath: wx.env.USER_DATA_PATH,
-        fallbackFileName: '信息标签.xlsx'
-      });
-
-      Toast.clear();
-      await openDocument({
-        filePath: localFilePath,
-        showMenu: true,
-        fileType: 'xlsx'
-      });
+      await this.downloadAndOpenWorkbook(result);
       Toast.success('文件已打开');
     } catch (error) {
       console.error('导出信息标签失败', error);

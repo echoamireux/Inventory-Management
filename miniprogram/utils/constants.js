@@ -130,6 +130,7 @@ const DEFAULT_FORM = {
   product_code: '',
   supplier: '',
   supplier_model: '',
+  sample_note: '',
   batch_number: '',
   zone_key: '',
   location_zone: '',

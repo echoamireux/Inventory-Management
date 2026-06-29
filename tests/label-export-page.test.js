@@ -7,18 +7,18 @@ function read(relPath) {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
 }
 
-test('app routes and home shortcuts expose label export to all active users', () => {
+test('app routes and home shortcuts expose label printing to all active users', () => {
   const appJson = read('miniprogram/app.json');
   const homeWxml = read('miniprogram/pages/index/index.wxml');
 
   assert.match(appJson, /"pages\/admin\/label-export\/index"/);
   assert.match(
     homeWxml,
-    /<van-cell title="标签导出" icon="description" is-link url="\/pages\/admin\/label-export\/index"\s*\/>/
+    /<van-cell title="标签打印" icon="description" is-link url="\/pages\/admin\/label-export\/index"\s*\/>/
   );
 });
 
-test('label export page exposes template tabs, governed search fields, selection state, and export action wiring', () => {
+test('label print page exposes preprint and reprint tabs with template controls', () => {
   const pageJs = read('miniprogram/pages/admin/label-export/index.js');
   const pageWxml = read('miniprogram/pages/admin/label-export/index.wxml');
   const pageJson = read('miniprogram/pages/admin/label-export/index.json');
@@ -26,6 +26,11 @@ test('label export page exposes template tabs, governed search fields, selection
 
   assert.match(pageJson, /"enablePullDownRefresh":\s*true/);
 
+  assert.match(pageJs, /mode:\s*'preprint'/);
+  assert.match(pageJs, /onModeChange/);
+  assert.match(pageJs, /onCreatePreprintJob/);
+  assert.match(pageJs, /onExportPreprintJob/);
+  assert.match(pageJs, /onVoidPreprintLabels/);
   assert.match(pageJs, /templateType:/);
   assert.match(pageJs, /selectedIds:/);
   assert.match(pageJs, /requestId:/);
@@ -37,9 +42,14 @@ test('label export page exposes template tabs, governed search fields, selection
   assert.match(pageJs, /仅已激活用户可访问/);
 
   assert.match(pageWxml, /placeholder="标签编号\/产品代码\/物料名称\/批号"/);
+  assert.match(pageWxml, /预生成打印标签/);
+  assert.match(pageWxml, /补打已入库标签/);
   assert.match(pageWxml, /膜材信息标签/);
   assert.match(pageWxml, /化材标准瓶信息标签/);
   assert.match(pageWxml, /化材小瓶信息标签/);
+  assert.match(pageWxml, /二维码内容/);
+  assert.match(pageWxml, /生成新标签/);
+  assert.match(pageWxml, /作废本批未入库标签/);
   assert.match(pageWxml, /selectedIds\.length/);
   assert.match(pageWxml, /bindtap="toggleSelectItem"/);
   assert.match(pageWxml, /bindtap="onExportSelected"/);
@@ -55,10 +65,15 @@ test('label export cloud function separates list and export actions and only all
   assert.match(file, /action/);
   assert.match(file, /case 'list'|if \(action === 'list'\)/);
   assert.match(file, /case 'export'|if \(action === 'export'\)/);
+  assert.match(file, /createPreprintJob/);
+  assert.match(file, /exportPreprintJob/);
+  assert.match(file, /voidPreprintLabels/);
   assert.match(file, /assertActiveUserAccess/);
   assert.match(file, /仅已激活用户可导出信息标签/);
+  assert.match(file, /runTransaction/);
+  assert.match(file, /system_counters/);
   assert.match(file, /templateType/);
   assert.match(file, /selectedIds/);
   assert.match(file, /searchVal/);
-  assert.doesNotMatch(file, /qr_text/);
+  assert.match(file, /qr_content/);
 });

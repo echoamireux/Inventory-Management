@@ -1,5 +1,17 @@
 <view class="container label-export-page">
   <view class="sticky-panel">
+    <van-tabs
+      active="{{ mode }}"
+      bind:change="onModeChange"
+      color="#2C68FF"
+      line-width="56px"
+      border="{{ false }}"
+      custom-class="mode-tabs"
+    >
+      <van-tab title="预生成打印标签" name="preprint"></van-tab>
+      <van-tab title="补打已入库标签" name="reprint"></van-tab>
+    </van-tabs>
+
     <view class="template-panel">
       <view class="template-panel__title">选择打印模板</view>
       <van-tabs
@@ -14,75 +26,202 @@
         <van-tab title="化材小瓶信息标签" name="chemical_mini"></van-tab>
       </van-tabs>
     </view>
-
-    <van-search
-      value="{{ searchVal }}"
-      placeholder="标签编号/产品代码/物料名称/批号"
-      shape="round"
-      bind:search="onSearch"
-      bind:change="onSearchChange"
-      bind:clear="onSearchClear"
-      custom-class="search-compact"
-    />
-
-    <view class="selection-brief">
-      <text>已勾选 {{ selectedIds.length }} 个标签</text>
-    </view>
-    <view class="selection-tip">
-      请按标签编号对应基础二维码标签粘贴
-    </view>
   </view>
 
-  <view wx:if="{{ loading && !hasLoadedOnce }}" class="page-loading-state">
-    <van-loading type="spinner" vertical>加载中...</van-loading>
-  </view>
+  <block wx:if="{{ mode === 'preprint' }}">
+    <view class="preprint-panel">
+      <view class="field-label">选择物料</view>
+      <van-search
+        value="{{ preprintForm.materialSearchVal }}"
+        placeholder="产品代码/物料名称/原厂型号"
+        shape="round"
+        bind:change="onMaterialSearchChange"
+        bind:clear="onMaterialSearchClear"
+        custom-class="search-compact"
+      />
 
-  <block wx:elif="{{ list.length > 0 }}">
-    <view
-      wx:for="{{ list }}"
-      wx:key="_id"
-      class="label-export-row {{ item._selected ? 'is-selected' : '' }}"
-      bindtap="toggleSelectItem"
-      data-id="{{ item._id }}"
-    >
-      <view class="label-export-row__selector {{ item._selected ? 'is-selected' : '' }}">
-        <text wx:if="{{ item._selected }}">✓</text>
+      <view wx:if="{{ materialSuggestions.length > 0 }}" class="suggestion-list">
+        <view
+          wx:for="{{ materialSuggestions }}"
+          wx:key="_id"
+          class="suggestion-row"
+          bindtap="onSelectMaterial"
+          data-item="{{ item }}"
+        >
+          <view class="suggestion-row__title">
+            <text class="code-text">{{ item.display_code }}</text>
+            <text>{{ item.display_name }}</text>
+          </view>
+          <view class="suggestion-row__meta">
+            <text wx:if="{{ item.is_test_material }}">测试料</text>
+            <text wx:if="{{ item.display_model }}">原厂型号 {{ item.display_model }}</text>
+          </view>
+        </view>
       </view>
-      <view class="label-export-row__content">
-        <view class="label-export-row__title">
-          <text class="label-export-row__code">{{ item.unique_code }}</text>
-          <text class="label-export-row__product">{{ item.product_code }}</text>
+
+      <view wx:if="{{ preprintForm.selectedMaterial }}" class="selected-material">
+        <view class="selected-material__title">
+          <text class="code-text">{{ preprintForm.selectedMaterial.display_code }}</text>
+          <text>{{ preprintForm.selectedMaterial.display_name }}</text>
         </view>
-        <view class="label-export-row__name">{{ item.material_name || '--' }}</view>
-        <view class="label-export-row__meta">
-          <text wx:if="{{ item.batch_number }}">批号 {{ item.batch_number }}</text>
-          <text wx:else>未填写批号</text>
+        <view class="selected-material__meta">
+          {{ preprintForm.selectedMaterial.is_test_material ? '测试料：原厂型号会打印在标签上' : '正式料：有原厂型号则打印，没有则留空' }}
         </view>
+      </view>
+
+      <view class="form-grid">
+        <view class="form-item">
+          <view class="field-label">标签数量</view>
+          <van-field
+            value="{{ preprintForm.count }}"
+            type="number"
+            input-align="right"
+            placeholder="请输入数量"
+            bind:change="onPreprintCountChange"
+          />
+        </view>
+        <view class="form-item">
+          <view class="field-label">原厂型号</view>
+          <van-field
+            value="{{ preprintForm.supplier_model }}"
+            placeholder="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material ? '测试料必填' : '选填' }}"
+            data-field="supplier_model"
+            bind:change="onPreprintFieldChange"
+          />
+        </view>
+        <view class="form-item">
+          <view class="field-label">供应商</view>
+          <van-field
+            value="{{ preprintForm.supplier }}"
+            placeholder="选填"
+            data-field="supplier"
+            bind:change="onPreprintFieldChange"
+          />
+        </view>
+        <view class="form-item">
+          <view class="field-label">样品说明</view>
+          <van-field
+            value="{{ preprintForm.sample_note }}"
+            placeholder="选填，测试料可写送样说明"
+            data-field="sample_note"
+            bind:change="onPreprintFieldChange"
+          />
+        </view>
+      </view>
+
+      <view class="print-hint">
+        Excel 会包含标签编号和二维码内容，二维码内容默认等于标签编号；库位、数量和过期日期在扫码入库时填写。
+      </view>
+
+      <view class="preprint-actions">
+        <view
+          class="action-button primary {{ creatingPreprint ? 'is-disabled' : '' }}"
+          bindtap="onCreatePreprintJob"
+        >
+          <van-loading wx:if="{{ creatingPreprint }}" color="#FFFFFF" size="18px" />
+          <text wx:else>生成新标签</text>
+        </view>
+        <view
+          class="action-button secondary {{ exportingPreprint || !preprintForm.lastJobId ? 'is-disabled' : '' }}"
+          bindtap="onExportPreprintJob"
+        >
+          <van-loading wx:if="{{ exportingPreprint }}" size="18px" />
+          <text wx:else>导出本批标签 Excel</text>
+        </view>
+        <view
+          class="action-button danger {{ voidingPreprint || !preprintForm.lastJobId ? 'is-disabled' : '' }}"
+          bindtap="onVoidPreprintLabels"
+        >
+          <van-loading wx:if="{{ voidingPreprint }}" size="18px" />
+          <text wx:else>作废本批未入库标签</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{ preprintForm.lastRecords.length > 0 }}" class="preprint-result">
+      <view class="section-title">本批已生成 {{ preprintForm.lastRecords.length }} 个标签</view>
+      <view
+        wx:for="{{ preprintForm.lastRecords }}"
+        wx:key="_id"
+        class="generated-code-row"
+      >
+        <text class="code-text">{{ item.unique_code }}</text>
+        <text>二维码内容：{{ item.qr_content }} {{ item.status === 'voided' ? '已作废' : '' }}</text>
       </view>
     </view>
   </block>
 
-  <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无可打印标签" />
+  <block wx:else>
+    <view class="sticky-panel reprint-search">
+      <van-search
+        value="{{ searchVal }}"
+        placeholder="标签编号/产品代码/物料名称/批号"
+        shape="round"
+        bind:search="onSearch"
+        bind:change="onSearchChange"
+        bind:clear="onSearchClear"
+        custom-class="search-compact"
+      />
 
-  <view wx:if="{{ loading && hasLoadedOnce }}" class="inline-refresh-state">
-    <van-loading size="20px">刷新中...</van-loading>
-  </view>
-  <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
-    已无更多
-  </view>
+      <view class="selection-brief">
+        <text>已勾选 {{ selectedIds.length }} 个标签</text>
+      </view>
+      <view class="selection-tip">
+        请按标签编号对应基础二维码标签粘贴
+      </view>
+    </view>
 
-  <view class="footer-bar safe-area-bottom">
-    <view class="footer-bar__hint">
-      {{ selectedIds.length > 0 ? ('已勾选 ' + selectedIds.length + ' 个标签') : '请先勾选需要打印的标签' }}
+    <view wx:if="{{ loading && !hasLoadedOnce }}" class="page-loading-state">
+      <van-loading type="spinner" vertical>加载中...</van-loading>
     </view>
-    <view
-      class="footer-bar__button {{ exporting || selectedIds.length === 0 ? 'is-disabled' : '' }}"
-      bindtap="onExportSelected"
-    >
-      <van-loading wx:if="{{ exporting }}" color="#FFFFFF" size="18px" />
-      <text wx:else>导出信息标签 Excel</text>
+
+    <block wx:elif="{{ list.length > 0 }}">
+      <view
+        wx:for="{{ list }}"
+        wx:key="_id"
+        class="label-export-row {{ item._selected ? 'is-selected' : '' }}"
+        bindtap="toggleSelectItem"
+        data-id="{{ item._id }}"
+      >
+        <view class="label-export-row__selector {{ item._selected ? 'is-selected' : '' }}">
+          <text wx:if="{{ item._selected }}">✓</text>
+        </view>
+        <view class="label-export-row__content">
+          <view class="label-export-row__title">
+            <text class="label-export-row__code">{{ item.unique_code }}</text>
+            <text class="label-export-row__product">{{ item.product_code }}</text>
+          </view>
+          <view class="label-export-row__name">{{ item.material_name || '--' }}</view>
+          <view class="label-export-row__meta">
+            <text wx:if="{{ item.batch_number }}">批号 {{ item.batch_number }}</text>
+            <text wx:else>未填写批号</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无可打印标签" />
+
+    <view wx:if="{{ loading && hasLoadedOnce }}" class="inline-refresh-state">
+      <van-loading size="20px">刷新中...</van-loading>
     </view>
-  </view>
+    <view wx:if="{{ isEnd && list.length > 0 }}" class="list-end-state">
+      已无更多
+    </view>
+
+    <view class="footer-bar safe-area-bottom">
+      <view class="footer-bar__hint">
+        {{ selectedIds.length > 0 ? ('已勾选 ' + selectedIds.length + ' 个标签') : '请先勾选需要打印的标签' }}
+      </view>
+      <view
+        class="footer-bar__button {{ exporting || selectedIds.length === 0 ? 'is-disabled' : '' }}"
+        bindtap="onExportSelected"
+      >
+        <van-loading wx:if="{{ exporting }}" color="#FFFFFF" size="18px" />
+        <text wx:else>导出补打标签 Excel</text>
+      </view>
+    </view>
+  </block>
 </view>
 
 <van-toast id="van-toast" />

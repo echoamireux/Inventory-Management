@@ -208,6 +208,53 @@ Page({
           : [];
   },
 
+  async loadPreprintLabel(uniqueCode) {
+      const res = await wx.cloud.callFunction({
+          name: 'exportLabelData',
+          data: {
+              action: 'getPreprintLabel',
+              data: {
+                  unique_code: uniqueCode
+              }
+          }
+      });
+
+      if (!(res.result && res.result.success)) {
+          throw new Error((res.result && res.result.msg) || '预生成标签校验失败');
+      }
+
+      return res.result.data || null;
+  },
+
+  validatePreprintLabelForSelectedMaterial(record) {
+      if (!record) {
+          return { ok: true, overrides: {} };
+      }
+
+      const selectedMaterial = this.data.selectedMaterial;
+      const selectedProductCode = String((selectedMaterial && selectedMaterial.product_code) || '').trim();
+      if (
+          (record.material_id && record.material_id !== selectedMaterial._id)
+          || (record.product_code && record.product_code !== selectedProductCode)
+          || (record.category && record.category !== selectedMaterial.category)
+      ) {
+          return {
+              ok: false,
+              msg: '预生成标签不属于当前物料'
+          };
+      }
+
+      return {
+          ok: true,
+          overrides: {
+              preprintLabelId: record._id,
+              supplier: record.supplier || selectedMaterial.supplier || '',
+              supplier_model: record.supplier_model || selectedMaterial.supplier_model || '',
+              sample_note: record.sample_note || ''
+          }
+      };
+  },
+
   onMaterialCodeInput(e) {
       const rawValue = e && e.detail && Object.prototype.hasOwnProperty.call(e.detail, 'value')
           ? e.detail.value
@@ -568,7 +615,15 @@ Page({
               return;
           }
 
-          this.addItemToList(this.data.selectedMaterial, uniqueCode);
+          const preprintLabel = await this.loadPreprintLabel(uniqueCode);
+          const preprintValidation = this.validatePreprintLabelForSelectedMaterial(preprintLabel);
+          if (!preprintValidation.ok) {
+              Toast.clear();
+              this.showBusinessError(preprintValidation.msg, '预生成标签不匹配');
+              return;
+          }
+
+          this.addItemToList(this.data.selectedMaterial, uniqueCode, preprintValidation.overrides);
           Toast.clear();
           Toast.success('已添加标签');
       } catch (err) {
@@ -587,6 +642,10 @@ Page({
           defaultLocationZone: this.data.defaultLocationZone,
           defaultLocationDetail: this.data.defaultLocationDetail,
           currentBatchWidthMm: this.data.currentBatchWidthMm,
+          preprintLabelId: overrides.preprintLabelId,
+          supplier: overrides.supplier,
+          supplier_model: overrides.supplier_model,
+          sample_note: overrides.sample_note,
           submitAction: overrides.submitAction,
           refillInventoryId: overrides.refillInventoryId,
           pendingNotice: overrides.pendingNotice

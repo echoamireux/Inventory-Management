@@ -230,6 +230,34 @@ test('batch submit payload preserves refill metadata for pending refill rows', (
   assert.equal(items[0].refill_inventory_id, 'inv-refill');
 });
 
+test('batch submit payload preserves preprint label metadata for generated labels', () => {
+  const items = buildBatchSubmitItems([
+    {
+      material_id: 'mat-1',
+      material_name: '测试料-化材',
+      product_code: 'J-999',
+      category: 'chemical',
+      unique_code: 'L000888',
+      preprint_label_id: 'preprint-1',
+      supplier_model: 'TEST-X',
+      sample_note: '小样',
+      quantity: { val: 1, unit: 'kg' },
+      batch_number: 'B001',
+      zone_key: 'zone-1',
+      location_zone: '防爆柜01'
+    }
+  ], {
+    defaultBatchNo: 'B001',
+    defaultIsLongTermValid: true,
+    defaultLocationZoneKey: 'zone-1',
+    defaultLocationZone: '防爆柜01'
+  });
+
+  assert.equal(items[0].preprint_label_id, 'preprint-1');
+  assert.equal(items[0].supplier_model, 'TEST-X');
+  assert.equal(items[0].sample_note, '小样');
+});
+
 test('batch entry page requires a selected material template before scanning labels', () => {
   const pageJs = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),

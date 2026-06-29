@@ -848,6 +848,67 @@ Page({
       return list.find((item) => item.product_code === productCode) || null;
   },
 
+  async loadPreprintLabel(uniqueCode) {
+      const res = await wx.cloud.callFunction({
+          name: 'exportLabelData',
+          data: {
+              action: 'getPreprintLabel',
+              data: {
+                  unique_code: uniqueCode
+              }
+          }
+      });
+
+      if (!(res.result && res.result.success)) {
+          throw new Error((res.result && res.result.msg) || '预生成标签校验失败');
+      }
+
+      return res.result.data || null;
+  },
+
+  async applyPreprintLabel(record) {
+      if (!record || !record.product_code) {
+          return false;
+      }
+
+      const nextTab = record.category === 'film' ? 'film' : 'chemical';
+      const normalizedCode = normalizeProductCodeInput(nextTab, record.product_code);
+      if (!normalizedCode.ok) {
+          throw new Error(normalizedCode.msg || '预生成标签产品代码无效');
+      }
+
+      if (nextTab !== this.data.activeTab) {
+          this.setData({
+              activeTab: nextTab,
+              'form.unit': getDefaultUnit(nextTab)
+          });
+          this.updateUnitActions(nextTab);
+          await this.loadSubcategories(nextTab);
+          await this.loadZones();
+      }
+
+      const material = await this.fetchMaterialSuggestionByCode(normalizedCode.product_code);
+      if (!material) {
+          throw new Error(`预生成标签对应物料 ${normalizedCode.product_code} 不存在`);
+      }
+
+      this.applyMaterialSuggestion(material, { showToast: false });
+      this.setData({
+          'form.unique_code': record.unique_code,
+          'form.preprint_label_id': record._id || '',
+          'form.label_code_digits': extractLabelCodeDigits(record.unique_code),
+          'form.product_code': normalizedCode.product_code.replace(this.getPrefix(nextTab), ''),
+          'form.supplier': record.supplier || material.supplier || '',
+          'form.supplier_model': record.supplier_model || material.supplier_model || '',
+          'form.sample_note': record.sample_note || '',
+          labelCodeError: '',
+          labelCodeNotice: '已识别预生成标签，物料信息已自动带出'
+      });
+
+      Toast.success('已带出预生成标签信息');
+      return true;
+  },
+
   closeSuggestions() {
       this.setData({ suggestions: [] });
   },
@@ -873,6 +934,20 @@ Page({
               });
               const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode);
               if (duplicateResult.duplicated) {
+                return;
+              }
+              try {
+                const preprintLabel = await this.loadPreprintLabel(normalizedLabelCode);
+                if (preprintLabel) {
+                    await this.applyPreprintLabel(preprintLabel);
+                    return;
+                }
+              } catch (error) {
+                await Dialog.alert({
+                    title: '预生成标签不可用',
+                    message: error.message || '该标签不能用于入库',
+                    messageAlign: 'left'
+                });
                 return;
               }
               wx.showToast({ title: '扫码成功', icon: 'success' });
@@ -1081,6 +1156,7 @@ Page({
           specs,
           inventory,
           unique_code: normalizedLabelCode, // Pass code
+          preprint_label_id: form.preprint_label_id || '',
           operator_name: operator
         }
       });

@@ -194,19 +194,19 @@
         <van-field
           value="{{ form.supplier }}"
           label="供应商"
-          placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
+          placeholder="{{ form.is_test_material ? '已知来源时建议填写' : '请输入 (选填)' }}"
           data-field="supplier"
           bind:change="onInput"
         />
 
         <view wx:if="{{ form.is_test_material }}" class="duplicate-hint info">
-          测试料入库必须填写供应商、原厂型号、生产批号、样品说明/备注
+          测试料入库必须填写原厂型号和生产批号；供应商、样品说明可按现场已知信息补充
         </view>
 
         <van-field
           value="{{ form.sample_note }}"
           label="样品说明/备注"
-          placeholder="{{ form.is_test_material ? '测试料必填，用于区分样品' : '请输入 (选填)' }}"
+          placeholder="{{ form.is_test_material ? '选填：颜色、用途、项目等补充信息' : '请输入 (选填)' }}"
           data-field="sample_note"
           bind:change="onInput"
         />

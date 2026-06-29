@@ -133,10 +133,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   }
   const testMaterialValidation = buildTestMaterialStockInValidation({
     ...rawItem,
-    supplier,
-    supplier_model: supplierModel,
-    batch_number: batchNumber,
-    sample_note: sampleNote
+    batch_number: batchNumber
   }, material);
   if (!testMaterialValidation.ok) {
     throw new Error(`${rowLabel}${testMaterialValidation.msg}`);
@@ -245,6 +242,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   }
 
   return {
+    rawItem,
     inventoryData,
     masterSpecBackfill,
     logData: {

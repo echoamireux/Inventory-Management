@@ -41,10 +41,8 @@ function buildTestMaterialStockInValidation(source = {}, material = {}) {
   }
 
   const required = [
-    normalizeText(source.supplier),
     normalizeText(source.supplier_model),
-    normalizeText(source.batch_number),
-    normalizeText(source.sample_note)
+    normalizeText(source.batch_number)
   ];
 
   if (required.every(Boolean)) {
@@ -53,14 +51,19 @@ function buildTestMaterialStockInValidation(source = {}, material = {}) {
 
   return {
     ok: false,
-    msg: '测试料入库必须填写供应商、原厂型号、生产批号、样品说明/备注'
+    msg: '测试料入库必须填写原厂型号和生产批号'
   };
 }
 
 function resolveInventorySourceText({ material = {}, item = {}, field }) {
   const itemValue = normalizeText(item && item[field]);
-  if (isTestMaterial(material, item) && itemValue) {
-    return itemValue;
+  if (isTestMaterial(material, item)) {
+    if (field === 'supplier_model') {
+      return itemValue;
+    }
+    if (itemValue) {
+      return itemValue;
+    }
   }
   return normalizeText((material && material[field]) || itemValue);
 }

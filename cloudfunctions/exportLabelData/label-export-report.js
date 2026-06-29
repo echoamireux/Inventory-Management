@@ -14,9 +14,9 @@ const LABEL_EXPORT_TEMPLATE_TYPES = {
 };
 
 const LABEL_EXPORT_HEADERS = {
-  film: ['标签编号', '产品代码', '物料名称', '子类别', '厚度', '幅宽', '批次', '过期日期'],
-  chemical_std: ['标签编号', '产品代码', '物料名称'],
-  chemical_mini: ['标签编号', '产品代码']
+  film: ['标签编号', '二维码内容', '产品代码', '物料名称', '子类别', '原厂型号', '厚度', '幅宽', '批次', '过期日期'],
+  chemical_std: ['标签编号', '二维码内容', '产品代码', '物料名称', '原厂型号'],
+  chemical_mini: ['标签编号', '二维码内容', '产品代码', '原厂型号']
 };
 
 function pad(value) {
@@ -159,15 +159,19 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
   const normalizedType = normalizeTemplateType(templateType);
   const material = context.material || {};
   const uniqueCode = String(item.unique_code || '').trim() || '--';
+  const qrContent = String(item.qr_content || item.unique_code || '').trim() || uniqueCode;
   const productCode = String(item.product_code || material.product_code || '').trim() || '--';
   const materialName = String(item.material_name || material.material_name || material.name || '').trim() || '--';
+  const supplierModel = String(item.supplier_model || material.supplier_model || '').trim();
   const sampleNote = String(item.sample_note || '').trim();
   const isTestMaterial = !!(item.is_test_material || material.is_test_material);
 
   if (normalizedType === 'chemical_mini') {
     const row = {
       标签编号: uniqueCode,
-      产品代码: productCode
+      二维码内容: qrContent,
+      产品代码: productCode,
+      原厂型号: supplierModel
     };
     if (isTestMaterial && sampleNote) {
       row.样品说明 = sampleNote;
@@ -178,8 +182,10 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
   if (normalizedType === 'chemical_std') {
     const row = {
       标签编号: uniqueCode,
+      二维码内容: qrContent,
       产品代码: productCode,
-      物料名称: materialName
+      物料名称: materialName,
+      原厂型号: supplierModel
     };
     if (isTestMaterial && sampleNote) {
       row.样品说明 = sampleNote;
@@ -193,9 +199,11 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
 
   const row = {
     标签编号: uniqueCode,
+    二维码内容: qrContent,
     产品代码: productCode,
     物料名称: materialName,
     子类别: subCategory,
+    原厂型号: supplierModel,
     厚度: filmSpecParts.thicknessLabel,
     幅宽: filmSpecParts.widthLabel,
     批次: batchNumber,
@@ -239,12 +247,12 @@ function buildThinBorder() {
 function buildColumnWidths(templateType = 'film') {
   const normalizedType = normalizeTemplateType(templateType);
   if (normalizedType === 'chemical_mini') {
-    return [16, 16];
+    return [16, 16, 16, 20];
   }
   if (normalizedType === 'chemical_std') {
-    return [16, 16, 28];
+    return [16, 16, 16, 28, 20];
   }
-  return [16, 16, 28, 16, 12, 12, 18, 16];
+  return [16, 16, 16, 28, 16, 20, 12, 12, 18, 16];
 }
 
 function getExcelColumnName(columnNumber) {

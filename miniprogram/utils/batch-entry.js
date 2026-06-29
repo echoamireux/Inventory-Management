@@ -94,6 +94,9 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
     category: material.category,
     subcategory_key: material.subcategory_key || '',
     sub_category: material.sub_category,
+    supplier: String(defaults.supplier || material.supplier || '').trim(),
+    supplier_model: String(defaults.supplier_model || material.supplier_model || '').trim(),
+    sample_note: String(defaults.sample_note || '').trim(),
     batch_number: defaults.defaultBatchNo || '',
     expiry_date: isLongTermValid ? '' : (defaults.defaultExpiry || ''),
     expiry_date_str: isLongTermValid ? '长期有效' : (defaults.defaultExpiry || ''),
@@ -107,6 +110,7 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
       unit: material.default_unit || material.unit || 'kg'
     },
     unique_code: String(uniqueCode || '').trim(),
+    preprint_label_id: String(defaults.preprintLabelId || defaults.preprint_label_id || '').trim(),
     submit_action: String(defaults.submitAction || 'create').trim() || 'create',
     refill_inventory_id: String(defaults.refillInventoryId || '').trim(),
     pending_notice: String(defaults.pendingNotice || '').trim(),

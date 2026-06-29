@@ -104,7 +104,8 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.getRow(3).values[9], '膜材条件必填');
   assert.equal(dataSheet.getRow(3).values[10], '膜材必填');
   assert.equal(dataSheet.getRow(3).values[11], '膜材必填');
-  assert.equal(dataSheet.getRow(3).values[14], '测试料必填');
+  assert.equal(dataSheet.getRow(3).values[13], '测试料必填');
+  assert.equal(dataSheet.getRow(3).values[14], '选填');
   assert.equal(dataSheet.getRow(3).values[15], '二选一');
   assert.equal(dataSheet.getRow(3).values[16], '二选一');
   assert.equal(dataSheet.views[0].state, 'frozen');
@@ -119,7 +120,8 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.match(String(helpSheet.getCell('A13').value || ''), /YYYY-MM-DD/);
   assert.match(String(helpSheet.getCell('A14').value || ''), /默认单位由系统按主数据自动带出/);
   assert.match(String(helpSheet.getCell('A17').value || ''), /膜材厚度/);
-  assert.match(helpText, /样品说明\/备注：正式物料选填，测试料必填/);
+  assert.match(helpText, /原厂型号：正式物料选填，测试料必填/);
+  assert.match(helpText, /样品说明\/备注：选填/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
   assert.match(helpText, /当前化材库区：防爆柜01 \/ 防爆柜02/);

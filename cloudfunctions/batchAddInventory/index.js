@@ -152,9 +152,52 @@ exports.main = async (event, context) => {
           throw new Error(`冲突：标签编号 ${inventoryData.unique_code} 已存在，批量操作已回滚`);
         }
 
+        const preprintLabelId = String(prepared.rawItem && prepared.rawItem.preprint_label_id || '').trim();
+        let preprintLabel = null;
+        if (preprintLabelId) {
+          const preprintRes = await transaction.collection('preprinted_labels').doc(preprintLabelId).get();
+          preprintLabel = preprintRes.data || null;
+        } else {
+          const preprintRes = await transaction.collection('preprinted_labels').where({
+            unique_code: inventoryData.unique_code
+          }).get();
+          preprintLabel = preprintRes.data && preprintRes.data[0];
+        }
+
+        if (preprintLabel) {
+          if (preprintLabel.unique_code !== inventoryData.unique_code) {
+            throw new Error(`第${i + 1}条预生成标签编号与当前入库标签不一致`);
+          }
+          if (preprintLabel.status !== 'unused') {
+            throw new Error(preprintLabel.status === 'voided'
+              ? `第${i + 1}条预生成标签已作废，不能入库`
+              : `第${i + 1}条预生成标签已入库，不能重复使用`);
+          }
+          if (preprintLabel.material_id && preprintLabel.material_id !== inventoryData.material_id) {
+            throw new Error(`第${i + 1}条预生成标签不属于当前物料`);
+          }
+          if (preprintLabel.product_code && preprintLabel.product_code !== inventoryData.product_code) {
+            throw new Error(`第${i + 1}条预生成标签不属于当前物料`);
+          }
+          if (preprintLabel.category && preprintLabel.category !== inventoryData.category) {
+            throw new Error(`第${i + 1}条预生成标签类型与当前物料不一致`);
+          }
+        }
+
         const addRes = await transaction.collection('inventory').add({
           data: inventoryData
         });
+
+        if (preprintLabel) {
+          await transaction.collection('preprinted_labels').doc(preprintLabel._id).update({
+            data: {
+              status: 'used',
+              inventory_id: addRes._id,
+              used_time: db.serverDate(),
+              update_time: db.serverDate()
+            }
+          });
+        }
 
         await transaction.collection('inventory_log').add({
           data: Object.assign({}, prepared.logData, {

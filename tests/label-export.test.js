@@ -9,6 +9,12 @@ const {
   sortLabelExportRecordsBySelection
 } = require('../cloudfunctions/exportLabelData/label-export-report');
 const {
+  buildNextLabelCodes,
+  buildPreprintLabelRecords,
+  buildPreprintLabelExportRow,
+  assertPreprintPayload
+} = require('../cloudfunctions/exportLabelData/preprint-labels');
+const {
   LEGACY_LABEL_EXPORT_HINT,
   normalizeLabelExportResult
 } = require('../miniprogram/utils/label-export');
@@ -85,9 +91,11 @@ test('film label export row keeps only the governed print fields and resolves la
 
   assert.deepEqual(row, {
     标签编号: 'L000201',
+    二维码内容: 'L000201',
     产品代码: 'M-001',
     物料名称: 'PET离型基膜50u',
     子类别: '基材-PET',
+    原厂型号: '',
     厚度: '50 μm',
     幅宽: '520 mm',
     批次: 'PET2601',
@@ -109,16 +117,20 @@ test('chemical label export rows stay minimal for standard and mini bottle templ
 
   assert.deepEqual(standardRow, {
     标签编号: 'L000101',
+    二维码内容: 'L000101',
     产品代码: 'J-001',
-    物料名称: '丙酮分析纯'
+    物料名称: '丙酮分析纯',
+    原厂型号: ''
   });
   assert.deepEqual(miniRow, {
     标签编号: 'L000105',
-    产品代码: 'J-003'
+    二维码内容: 'L000105',
+    产品代码: 'J-003',
+    原厂型号: ''
   });
 });
 
-test('label export includes sample note when a selected record is a test material', () => {
+test('label export includes source model and sample note for test materials', () => {
   const filmRow = buildLabelExportRow('film', {
     unique_code: 'L000901',
     product_code: 'M-999',
@@ -126,6 +138,7 @@ test('label export includes sample note when a selected record is a test materia
     sub_category: '保护膜',
     batch_number: 'TEST-F01',
     is_test_material: true,
+    supplier_model: 'TEST-FILM-01',
     sample_note: '客户A送样，雾面白膜',
     dynamic_attrs: {
       width_mm: 520,
@@ -138,11 +151,90 @@ test('label export includes sample note when a selected record is a test materia
     product_code: 'J-999',
     material_name: '测试料-化材',
     is_test_material: true,
+    supplier_model: 'TEST-CHEM-01',
     sample_note: '透明液体，客户B打样'
   }, {});
 
+  assert.equal(filmRow.原厂型号, 'TEST-FILM-01');
+  assert.equal(chemicalRow.原厂型号, 'TEST-CHEM-01');
   assert.equal(filmRow.样品说明, '客户A送样，雾面白膜');
   assert.equal(chemicalRow.样品说明, '透明液体，客户B打样');
+});
+
+test('preprint label code generator skips inventory and historical preprint codes', () => {
+  assert.deepEqual(
+    buildNextLabelCodes({
+      count: 4,
+      existingCodes: ['L000001', 'L000003'],
+      startNumber: 1
+    }),
+    ['L000002', 'L000004', 'L000005', 'L000006']
+  );
+});
+
+test('preprint label records snapshot material fields and require model for test materials', () => {
+  assert.throws(() => {
+    assertPreprintPayload({
+      templateType: 'chemical_std',
+      count: 1,
+      material: {
+        _id: 'mat-test',
+        product_code: 'J-999',
+        material_name: '测试料-化材',
+        category: 'chemical',
+        is_test_material: true
+      },
+      form: {}
+    });
+  }, /测试料预生成标签必须填写原厂型号/);
+
+  const records = buildPreprintLabelRecords({
+    templateType: 'chemical_std',
+    labelCodes: ['L000010'],
+    material: {
+      _id: 'mat-test',
+      product_code: 'J-999',
+      material_name: '测试料-化材',
+      category: 'chemical',
+      sub_category: '测试样',
+      is_test_material: true
+    },
+    form: {
+      supplier_model: 'TEST-CHEM-01',
+      supplier: '供应商A',
+      sample_note: '透明液体'
+    },
+    operatorOpenid: 'openid-1',
+    operatorName: '张三',
+    now: new Date('2026-06-25T02:00:00.000Z')
+  });
+
+  assert.equal(records[0].unique_code, 'L000010');
+  assert.equal(records[0].qr_content, 'L000010');
+  assert.equal(records[0].status, 'unused');
+  assert.equal(records[0].supplier_model, 'TEST-CHEM-01');
+  assert.equal(records[0].sample_note, '透明液体');
+});
+
+test('preprint export rows include qr content and template-specific source model', () => {
+  const row = buildPreprintLabelExportRow({
+    template_type: 'chemical_mini',
+    unique_code: 'L000020',
+    qr_content: 'L000020',
+    product_code: 'J-999',
+    material_name: '测试料-化材',
+    supplier_model: 'TEST-CHEM-02',
+    sample_note: '小瓶评估样',
+    is_test_material: true
+  });
+
+  assert.deepEqual(row, {
+    标签编号: 'L000020',
+    二维码内容: 'L000020',
+    产品代码: 'J-999',
+    原厂型号: 'TEST-CHEM-02',
+    样品说明: '小瓶评估样'
+  });
 });
 
 test('label export preserves the user-selected record order when generating print data', () => {
@@ -184,9 +276,11 @@ test('label export workbook uses one business-readable sheet per selected templa
   assert.match(String(sheet.getCell('A2').value || ''), /导出时间：2026-03-24 15:22:52/);
   assert.deepEqual(sheet.getRow(4).values.slice(1), [
     '标签编号',
+    '二维码内容',
     '产品代码',
     '物料名称',
     '子类别',
+    '原厂型号',
     '厚度',
     '幅宽',
     '批次',

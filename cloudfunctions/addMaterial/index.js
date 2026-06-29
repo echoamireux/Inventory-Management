@@ -91,6 +91,7 @@ exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { base, specs, inventory, unique_code } = event; // 接收 unique_code
   const normalizedUniqueCode = normalizeLabelCodeInput(unique_code);
+  const preprintLabelId = String(event.preprint_label_id || '').trim();
 
   // 1. 参数校验
   if (!base.name || !base.category || !normalizedUniqueCode) {
@@ -180,10 +181,8 @@ exports.main = async (event, context) => {
       const sampleNote = String((inventory && inventory.sample_note) || (base && base.sample_note) || '').trim();
       const isTest = isTestMaterial(materialRecord, base);
       const testMaterialValidation = buildTestMaterialStockInValidation({
-        supplier,
-        supplier_model: supplierModel,
-        batch_number: inventory.batch_number,
-        sample_note: sampleNote
+        ...base,
+        batch_number: inventory.batch_number
       }, materialRecord);
       if (!testMaterialValidation.ok) {
         throw new Error(testMaterialValidation.msg);
@@ -239,6 +238,36 @@ exports.main = async (event, context) => {
           uniqueCode: normalizedUniqueCode,
           action: 'refill'
         };
+      }
+
+      let preprintLabel = null;
+      if (preprintLabelId) {
+        const preprintRes = await transaction.collection('preprinted_labels').doc(preprintLabelId).get();
+        preprintLabel = preprintRes.data || null;
+      } else {
+        const preprintRes = await transaction.collection('preprinted_labels').where({
+          unique_code: normalizedUniqueCode
+        }).get();
+        preprintLabel = preprintRes.data && preprintRes.data[0];
+      }
+      if (preprintLabel) {
+        if (preprintLabel.unique_code !== normalizedUniqueCode) {
+          throw new Error('预生成标签编号与当前入库标签不一致');
+        }
+        if (preprintLabel.status !== 'unused') {
+          throw new Error(preprintLabel.status === 'voided'
+            ? '该预生成标签已作废，不能入库'
+            : '该预生成标签已入库，不能重复使用');
+        }
+        if (preprintLabel.material_id && preprintLabel.material_id !== materialId) {
+          throw new Error('预生成标签不属于当前物料');
+        }
+        if (preprintLabel.product_code && preprintLabel.product_code !== productCode) {
+          throw new Error('预生成标签不属于当前物料');
+        }
+        if (preprintLabel.category && preprintLabel.category !== category) {
+          throw new Error('预生成标签类型与当前物料不一致');
+        }
       }
 
       // 4. 写入 Inventory 集合
@@ -359,6 +388,17 @@ exports.main = async (event, context) => {
       const invRes = await transaction.collection('inventory').add({
         data: invData
       });
+
+      if (preprintLabel) {
+        await transaction.collection('preprinted_labels').doc(preprintLabel._id).update({
+          data: {
+            status: 'used',
+            inventory_id: invRes._id,
+            used_time: db.serverDate(),
+            update_time: db.serverDate()
+          }
+        });
+      }
 
       // 5. 写入 inventory_log 集合 (原 logs 集合)
       await transaction.collection('inventory_log').add({

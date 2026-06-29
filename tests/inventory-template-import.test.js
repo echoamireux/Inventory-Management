@@ -112,8 +112,8 @@ test('inventory template inline hint row detection follows the governed stock-in
       '膜材必填',
       '膜材必填',
       '选填',
-      '选填',
       '测试料必填',
+      '选填',
       '二选一',
       '二选一'
     ]),
@@ -186,7 +186,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     },
     {
       rowIndex: 3,
-      values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '选填', '测试料必填', '二选一', '二选一']
+      values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一']
     }
   ]);
 
@@ -459,10 +459,10 @@ test('inventory import preview warns when a chemical row looks duplicated agains
   assert.match(preview.warning, /标签编号：L000101/);
 });
 
-test('inventory import preview requires supplier, supplier model, batch, and sample note for test materials', () => {
-  const missingSource = buildInventoryImportPreviewRow({
+test('inventory import preview requires supplier model but keeps supplier and sample note optional for test materials', () => {
+  const missingModel = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000901', '999', '化材', 'TEST-001', '防爆柜01', 'A01', '2', '小瓶', '', '', '', '', 'TM-01', '', '2026-10-01', '']
+    values: ['L000901', '999', '化材', 'TEST-001', '防爆柜01', 'A01', '2', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-999', {
@@ -477,9 +477,9 @@ test('inventory import preview requires supplier, supplier model, batch, and sam
     ])
   }));
 
-  const missingNote = buildInventoryImportPreviewRow({
+  const optionalSourceAndNote = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000902', '999', '化材', 'TEST-002', '防爆柜01', 'A02', '1', '小瓶', '', '', '', '供应商A', 'TM-02', '', '2026-10-01', '']
+    values: ['L000902', '999', '化材', 'TEST-002', '防爆柜01', 'A02', '1', '小瓶', '', '', '', '', 'TM-02', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-999', {
@@ -494,8 +494,10 @@ test('inventory import preview requires supplier, supplier model, batch, and sam
     ])
   }));
 
-  assert.match(missingSource.error, /测试料入库必须填写供应商、原厂型号、生产批号、样品说明\/备注/);
-  assert.match(missingNote.error, /测试料入库必须填写供应商、原厂型号、生产批号、样品说明\/备注/);
+  assert.match(missingModel.error, /测试料入库必须填写原厂型号和生产批号/);
+  assert.equal(optionalSourceAndNote.error, '');
+  assert.equal(optionalSourceAndNote.supplier, '');
+  assert.equal(optionalSourceAndNote.sample_note, '');
 });
 
 test('inventory import preview and payload keep test-material identifiers as inventory-level truth', () => {

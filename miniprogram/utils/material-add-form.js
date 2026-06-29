@@ -105,6 +105,7 @@ function buildContinueEntryForm(form, activeTab, item, prefix) {
   return {
     ...syncedForm,
     unique_code: '',
+    preprint_label_id: '',
     label_code_digits: '',
     batch_number: '',
     sample_note: '',
