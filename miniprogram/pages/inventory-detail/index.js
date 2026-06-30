@@ -329,9 +329,13 @@ Page({
   },
 
   onViewLogs() {
-      // Filter logs by unique_code or inventory ID
+      const item = this.data.item || {};
+      const uniqueCode = String(item.unique_code || '').trim();
+      const query = uniqueCode
+          ? `unique_code=${encodeURIComponent(uniqueCode)}`
+          : `inventory_id=${encodeURIComponent(this.data.id || item._id || '')}`;
       wx.navigateTo({
-          url: `/pages/logs/index?unique_code=${this.data.item.unique_code}`
+          url: `/pages/logs/index?${query}`
       });
   },
 
@@ -419,43 +423,4 @@ Page({
       }
   },
 
-  onDelete() {
-      const { item } = this.data;
-      wx.showModal({
-          title: '删除警告',
-          content: `确定要删除 "${item.material_name}" 吗？此操作无法撤销。`,
-          confirmColor: '#ee0a24',
-          success: async (res) => {
-              if (res.confirm) {
-                  wx.showLoading({ title: '删除中...' });
-                  try {
-                      const app = getApp();
-                      const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
-
-                      const cloudRes = await wx.cloud.callFunction({
-                          name: 'removeInventory',
-                          data: {
-                              inventory_id: item._id,
-                              operator_name: operator
-                          }
-                      });
-
-                      if (cloudRes.result.success) {
-                          wx.showToast({ title: '已删除' });
-                          setTimeout(() => {
-                              wx.navigateBack();
-                          }, 1500);
-                      } else {
-                          throw new Error(cloudRes.result.msg);
-                      }
-                  } catch (err) {
-                      console.error(err);
-                      wx.showToast({ title: '删除失败', icon: 'none' });
-                  } finally {
-                      wx.hideLoading();
-                  }
-              }
-          }
-      });
-  }
 });

@@ -131,6 +131,206 @@ test('admin-only cloud functions use active-admin mutation gates for write opera
   assert.match(adminUpdate, /assertSuperAdminMutationAccess/);
 });
 
+test('removeInventory soft-deletes material inventory with doc updates inside the transaction', async () => {
+  const file = read('cloudfunctions/removeInventory/index.js');
+  const transactionBody = file.match(/db\.runTransaction\(async transaction => \{([\s\S]*?)\n    \}\);/);
+  assert.ok(transactionBody, 'expected removeInventory to use a transaction');
+  assert.doesNotMatch(transactionBody[1], /transaction\.collection\('inventory'\)\.where\([\s\S]*?\.update\(/);
+  assert.match(file, /loadInventoryIdsByMaterialId/);
+  assert.match(file, /affected_inventory_count/);
+
+  const inventoryDocs = [
+    { _id: 'inv-1', material_id: 'mat-1', material_name: '库存快照名' },
+    { _id: 'inv-2', material_id: 'mat-1', material_name: '库存快照名' }
+  ];
+  const inventoryUpdates = [];
+  let logPayload = null;
+
+  const db = {
+    command: {},
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where(query) {
+            assert.deepEqual(query, { _openid: 'openid-admin' });
+            return {
+              async get() {
+                return { data: [{ role: 'admin', status: 'active', name: '管理员' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where(query) {
+            assert.deepEqual(query, { material_id: 'mat-1' });
+            return {
+              skip(value) {
+                this._skip = value;
+                return this;
+              },
+              limit(value) {
+                this._limit = value;
+                return this;
+              },
+              async get() {
+                const skip = this._skip || 0;
+                const limit = this._limit || 100;
+                return { data: inventoryDocs.slice(skip, skip + limit) };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    runTransaction(fn) {
+      const transaction = {
+        collection(name) {
+          if (name === 'users') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [{ role: 'admin', status: 'active', name: '管理员' }] };
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'materials') {
+            return {
+              doc(id) {
+                assert.equal(id, 'mat-1');
+                return {
+                  async get() {
+                    return { data: { _id: 'mat-1', material_name: '正式物料名', name: '旧字段名' } };
+                  },
+                  async update({ data }) {
+                    assert.equal(data.status, 'deleted');
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'inventory') {
+            return {
+              where() {
+                throw new Error('transaction inventory where update should not be used');
+              },
+              doc(id) {
+                return {
+                  async update({ data }) {
+                    inventoryUpdates.push({ id, data });
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'inventory_log') {
+            return {
+              async add({ data }) {
+                logPayload = data;
+              }
+            };
+          }
+
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      };
+      return fn(transaction);
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/removeInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const result = await mod.main({ material_id: 'mat-1', operator_name: '张三' }, {});
+
+  assert.equal(result.success, true);
+  assert.deepEqual(inventoryUpdates.map(item => item.id), ['inv-1', 'inv-2']);
+  assert.equal(logPayload.material_name, '正式物料名');
+  assert.equal(logPayload.affected_inventory_count, 2);
+  assert.equal(logPayload.inventory_id, 'N/A');
+  assert.equal(logPayload.operator, '张三');
+});
+
+test('removeInventory rejects unauthorized users before scanning material inventory ids', async () => {
+  let inventoryScanned = false;
+  let transactionStarted = false;
+
+  const db = {
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where(query) {
+            assert.deepEqual(query, { _openid: 'openid-disabled' });
+            return {
+              async get() {
+                return { data: [{ role: 'admin', status: 'disabled', name: '停用管理员' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        inventoryScanned = true;
+        throw new Error('unauthorized deletion should not scan inventory ids');
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    runTransaction() {
+      transactionStarted = true;
+      throw new Error('unauthorized deletion should not start a transaction');
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/removeInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-disabled' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const originalError = console.error;
+  let result;
+  try {
+    console.error = () => {};
+    result = await mod.main({ material_id: 'mat-1', operator_name: '停用管理员' }, {});
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(result.success, false);
+  assert.equal(inventoryScanned, false);
+  assert.equal(transactionStarted, false);
+});
+
 test('material add archived-product branch exposes a working contact-admin handler', () => {
   const pageJs = read('miniprogram/pages/material-add/index.js');
   const pageWxml = read('miniprogram/pages/material-add/index.wxml');

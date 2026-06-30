@@ -177,6 +177,21 @@ test('inventory change token propagates from detail page back to list pages', ()
   assert.match(inventoryIndexJs, /inventoryChangedAt/);
 });
 
+test('inventory detail exposes label logs but keeps destructive delete entry retired', () => {
+  const detailJs = read('miniprogram/pages/inventory-detail/index.js');
+  const detailWxml = read('miniprogram/pages/inventory-detail/index.wxml');
+
+  assert.match(detailWxml, /查看标签日志/);
+  assert.match(detailWxml, /bindtap="onViewLogs"/);
+  assert.match(detailJs, /onViewLogs/);
+  assert.match(detailJs, /inventory_id=/);
+  assert.match(detailJs, /this\.data\.id\s*\|\|\s*item\._id/);
+  assert.match(detailJs, /encodeURIComponent/);
+  assert.doesNotMatch(detailJs, /onDelete\s*\(/);
+  assert.doesNotMatch(detailJs, /removeInventory/);
+  assert.doesNotMatch(detailWxml, /删除警告|删除库存|bindtap="onDelete"|bind:click="onDelete"/);
+});
+
 test('search-driven list pages keep an explicit request id so stale responses can be ignored safely', () => {
   const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
   const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');

@@ -1,7 +1,6 @@
 const { getFilmDisplayState, roundNumber } = require('./film');
 const EXPIRY_ALERT_DAYS = 30;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const CST_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function uniqueNonEmpty(values = []) {
   return [...new Set(
@@ -76,7 +75,7 @@ function checkInventoryExpiring(item = {}) {
     return false;
   }
 
-  const diff = expiryDate.getTime() - (Date.now() + CST_OFFSET_MS);
+  const diff = expiryDate.getTime() - Date.now();
   const days = Math.ceil(diff / ONE_DAY_MS);
   return days <= EXPIRY_ALERT_DAYS;
 }

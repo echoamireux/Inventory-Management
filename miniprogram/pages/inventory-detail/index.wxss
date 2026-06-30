@@ -119,6 +119,24 @@
   color: var(--color-text-secondary);
 }
 
+.log-link-btn {
+  flex-shrink: 0;
+  min-height: 52rpx;
+  padding: 0 20rpx;
+  margin: 0;
+  background: rgba(44, 104, 255, 0.08);
+  border: 1px solid rgba(44, 104, 255, 0.22);
+  border-radius: 999rpx;
+  color: var(--color-brand);
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 52rpx;
+}
+
+.log-link-btn::after {
+  border: 0;
+}
+
 /* 3. Detail Groups */
 .detail-groups {
   margin-top: 30rpx;

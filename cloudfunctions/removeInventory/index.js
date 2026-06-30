@@ -7,6 +7,31 @@ cloud.init({
 
 const db = cloud.database();
 
+async function loadInventoryIdsByMaterialId(materialId, pageSize = 100) {
+  if (!materialId) {
+    return [];
+  }
+
+  const ids = [];
+  let skip = 0;
+
+  while (true) {
+    const res = await db.collection('inventory')
+      .where({ material_id: materialId })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+    const batch = res.data || [];
+    ids.push(...batch.map(item => item._id).filter(Boolean));
+    if (batch.length < pageSize) {
+      break;
+    }
+    skip += pageSize;
+  }
+
+  return ids;
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { material_id, inventory_id, operator_name } = event;
@@ -16,49 +41,57 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const preAuthRes = await db.collection('users').where({ _openid: OPENID }).get();
+    const preAuthResult = assertAdminMutationAccess((preAuthRes.data || [])[0], 'Permission denied: Admin only');
+    if (!preAuthResult.ok) {
+      throw new Error(preAuthResult.msg);
+    }
+
+    const inventoryIdsForMaterial = material_id && !inventory_id
+      ? await loadInventoryIdsByMaterialId(material_id)
+      : [];
+
     const transactionResult = await db.runTransaction(async transaction => {
-      // 0. Permission Check (Inside Transaction or Before)
-      // Since transaction requires all ops to be inside, and we need to read 'users', let's do it inside.
       const userRes = await transaction.collection('users').where({ _openid: OPENID }).get();
       const currentUser = userRes.data[0];
       const authResult = assertAdminMutationAccess(currentUser, 'Permission denied: Admin only');
       if (!authResult.ok) {
-          throw new Error(authResult.msg);
+        throw new Error(authResult.msg);
       }
 
       let materialName = 'Unknown Material';
+      let affectedInventoryCount = 0;
 
-      // 1. Try to get material info if material_id exists
       if (material_id) {
         const materialRes = await transaction.collection('materials').doc(material_id).get();
         if (materialRes.data) {
-          materialName = materialRes.data.name;
-          // Soft delete material
+          materialName = materialRes.data.material_name || materialRes.data.name || materialName;
           await transaction.collection('materials').doc(material_id).update({
             data: { status: 'deleted', update_time: db.serverDate() }
           });
         }
       }
 
-      // 2. Soft delete inventory (using inventory_id or material_id)
-      // 修复: 先读取再更新，避免事务中先 update 后 get 的潜在问题
       if (inventory_id) {
-        // 先获取 inventory 信息（在更新之前）
         if (materialName === 'Unknown Material') {
-           const invRes = await transaction.collection('inventory').doc(inventory_id).get();
-           if (invRes.data) materialName = invRes.data.material_name || materialName;
+          const invRes = await transaction.collection('inventory').doc(inventory_id).get();
+          if (invRes.data) {
+            materialName = invRes.data.material_name || materialName;
+          }
         }
-        // 再执行软删除
         await transaction.collection('inventory').doc(inventory_id).update({
           data: { status: 'deleted', update_time: db.serverDate() }
         });
+        affectedInventoryCount = 1;
       } else if (material_id) {
-        await transaction.collection('inventory').where({ material_id: material_id }).update({
-          data: { status: 'deleted', update_time: db.serverDate() }
-        });
+        for (const id of inventoryIdsForMaterial) {
+          await transaction.collection('inventory').doc(id).update({
+            data: { status: 'deleted', update_time: db.serverDate() }
+          });
+        }
+        affectedInventoryCount = inventoryIdsForMaterial.length;
       }
 
-      // 3. Log
       await transaction.collection('inventory_log').add({
         data: {
           type: 'delete',
@@ -68,9 +101,12 @@ exports.main = async (event, context) => {
           quantity_change: 0,
           operator: operator_name || 'Admin',
           operator_id: OPENID,
-          _openid: OPENID, // Ensure openid is recorded
+          _openid: OPENID,
+          affected_inventory_count: affectedInventoryCount,
           timestamp: db.serverDate(),
-          description: '管理员删除物料' + (material_id ? '' : ' (仅库存)')
+          description: material_id
+            ? `管理员删除物料，影响库存标签 ${affectedInventoryCount} 个`
+            : '管理员删除库存标签'
         }
       });
 

@@ -37,6 +37,7 @@
       <view class="location-bar">
           <van-icon name="location-o" size="18px" class="icon-location" />
           <text class="location-text">{{ item.location }}</text>
+          <button class="log-link-btn" bindtap="onViewLogs">查看标签日志</button>
       </view>
   </view>
 

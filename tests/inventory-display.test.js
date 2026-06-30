@@ -124,6 +124,24 @@ test('label-level expiry alert follows detail-page wording and only marks row to
   });
 });
 
+test('label-level expiry alert does not add an extra CST offset on the frontend', () => {
+  const originalNow = Date.now;
+  try {
+    Date.now = () => new Date('2026-06-30T00:00:00.000Z').getTime();
+    const justOutsideThirtyDays = new Date('2026-07-30T01:00:00.000Z').toISOString();
+
+    assert.deepEqual(getInventoryExpiryAlertState({
+      expiry_date: justOutsideThirtyDays
+    }), {
+      isExpiring: false,
+      expiryBadgeText: '',
+      rowTone: 'brand'
+    });
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('film inventory display follows the latest master default unit while keeping base length truth', () => {
   const state = getInventoryQuantityDisplayState({
     category: 'film',
