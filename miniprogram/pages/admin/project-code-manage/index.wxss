@@ -6,3 +6,68 @@
   color: #2563eb;
   letter-spacing: 0;
 }
+
+.project-count {
+  align-self: flex-start;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.project-state {
+  padding: 56rpx 32rpx;
+  border-radius: 24rpx;
+  background: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+  text-align: center;
+}
+
+.project-state__title {
+  margin-bottom: 12rpx;
+  color: #111827;
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.project-state__text {
+  margin-bottom: 28rpx;
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.project-form-panel {
+  padding: 36rpx 28rpx calc(36rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+}
+
+.project-form-panel__title {
+  margin-bottom: 12rpx;
+  color: #111827;
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.project-form-panel__hint {
+  margin-bottom: 24rpx;
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.project-form-panel__example {
+  margin: 8rpx 0 18rpx 204rpx;
+  color: #94a3b8;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.project-form-panel__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}

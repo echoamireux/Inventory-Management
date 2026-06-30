@@ -4,6 +4,7 @@
     <view class="zone-toolbar__hint">
       领料时必须选择项目编码。改名后新领料会使用最新名称，历史领料记录保留当时的项目快照。
     </view>
+    <view wx:if="{{ !loading && !loadError }}" class="project-count">共 {{ projects.length }} 个项目编码</view>
     <van-button type="primary" round block bind:click="onCreateProject">新建项目编码</van-button>
   </view>
 
@@ -13,6 +14,18 @@
 
   <view wx:if="{{ loading }}" class="zone-loading">
     <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <view wx:elif="{{ loadError }}" class="project-state">
+    <view class="project-state__title">加载项目编码失败</view>
+    <view class="project-state__text">{{ loadError }}</view>
+    <van-button size="small" type="primary" plain round bind:click="onReloadProjects">重新加载</van-button>
+  </view>
+
+  <view wx:elif="{{ projects.length === 0 }}" class="project-state">
+    <view class="project-state__title">暂无项目编码</view>
+    <view class="project-state__text">请确认云函数已部署或点击重新加载，系统会自动初始化默认项目编码。</view>
+    <van-button size="small" type="primary" plain round bind:click="onReloadProjects">重新加载</van-button>
   </view>
 
   <view wx:else class="zone-list">
@@ -38,4 +51,50 @@
       </view>
     </block>
   </view>
+
+  <van-popup
+    show="{{ projectFormVisible }}"
+    position="bottom"
+    round
+    closeable
+    bind:close="onCloseProjectForm"
+  >
+    <view class="project-form-panel">
+      <view class="project-form-panel__title">
+        {{ projectFormMode === 'create' ? '新建项目编码' : '修改项目名称' }}
+      </view>
+      <view class="project-form-panel__hint">
+        项目编码用于领料归属统计，请按项目台账填写；项目名称会在领料选择和日志中展示。
+      </view>
+
+      <van-field
+        label="项目编码"
+        value="{{ projectForm.project_code }}"
+        placeholder="OR2026RD99999"
+        required
+        readonly="{{ projectFormMode === 'rename' }}"
+        input-align="left"
+        bind:change="onProjectCodeInput"
+      />
+      <view class="project-form-panel__example">示例：OR2026RD99999</view>
+
+      <van-field
+        label="项目名称"
+        value="{{ projectForm.project_name }}"
+        placeholder="OR2026RD99-新增项目名称"
+        required
+        clearable
+        input-align="left"
+        bind:change="onProjectNameInput"
+      />
+      <view class="project-form-panel__example">示例：OR2026RD99-新增项目名称</view>
+
+      <view class="project-form-panel__actions">
+        <van-button plain round block bind:click="onCloseProjectForm" disabled="{{ formSubmitting }}">取消</van-button>
+        <van-button type="primary" round block loading="{{ formSubmitting }}" bind:click="onSubmitProjectForm">
+          {{ projectFormMode === 'create' ? '创建项目编码' : '保存项目名称' }}
+        </van-button>
+      </view>
+    </view>
+  </van-popup>
 </view>

@@ -99,6 +99,43 @@ test('cloudfunction local require targets exist in deployable packages', () => {
   assert.deepEqual(missing, []);
 });
 
+test('cloudfunctions requiring wx-server-sdk declare it in their package dependencies', () => {
+  const cloudfunctionsDir = path.join(repoRoot, 'cloudfunctions');
+  const missing = [];
+  const functionDirs = fs.readdirSync(cloudfunctionsDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name !== '_shared' && entry.name !== 'node_modules');
+
+  for (const entry of functionDirs) {
+    const functionDir = path.join(cloudfunctionsDir, entry.name);
+    const jsFiles = walkJsFiles(functionDir);
+    const requiresWxServerSdk = jsFiles.some((filePath) => {
+      const source = fs.readFileSync(filePath, 'utf8');
+      return /require\(\s*['"]wx-server-sdk['"]\s*\)/.test(source);
+    });
+
+    if (!requiresWxServerSdk) {
+      continue;
+    }
+
+    const packageJsonPath = path.join(functionDir, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      missing.push(`${entry.name}/package.json`);
+      continue;
+    }
+
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const dependencies = {
+      ...(packageJson.dependencies || {}),
+      ...(packageJson.devDependencies || {})
+    };
+    if (!dependencies['wx-server-sdk']) {
+      missing.push(`${entry.name}/package.json`);
+    }
+  }
+
+  assert.deepEqual(missing, []);
+});
+
 test('importInventoryTemplate keeps a deployable local film helper and sync script covers shared helper copies', () => {
   const syncScript = read('cloudfunctions/sync_shared.sh');
   const importInventoryQuantity = read('cloudfunctions/importInventoryTemplate/inventory-quantity.js');

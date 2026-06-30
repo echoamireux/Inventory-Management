@@ -7,10 +7,35 @@ const {
   reorderProjectCodes
 } = require('../../../utils/project-code-service');
 
+const PROJECT_CODE_PATTERN = /^OR\d{4}RD\d{5}$/;
+
+function getInputValue(e) {
+  if (e && e.detail && e.detail.value !== undefined) {
+    return e.detail.value;
+  }
+  if (e && e.detail !== undefined) {
+    return e.detail;
+  }
+  return '';
+}
+
+function normalizeProjectCodeInput(value) {
+  return String(value || '').replace(/\s+/g, '').toUpperCase();
+}
+
 Page({
   data: {
     projects: [],
-    loading: false
+    loading: false,
+    loadError: '',
+    projectFormVisible: false,
+    projectFormMode: 'create',
+    editingProjectCode: '',
+    formSubmitting: false,
+    projectForm: {
+      project_code: '',
+      project_name: ''
+    }
   },
 
   onLoad() {
@@ -33,44 +58,32 @@ Page({
   },
 
   async loadProjects() {
-    this.setData({ loading: true });
+    this.setData({ loading: true, loadError: '' });
     try {
       const projects = await listProjectCodes(true);
-      this.setData({ projects });
+      this.setData({ projects, loadError: '' });
     } catch (err) {
       console.error(err);
-      Toast.fail(err.message || '加载项目编码失败');
+      const message = err.message || '加载项目编码失败';
+      this.setData({ loadError: message });
+      Toast.fail(message);
     } finally {
       this.setData({ loading: false });
     }
   },
 
+  onReloadProjects() {
+    this.loadProjects();
+  },
+
   onCreateProject() {
-    wx.showModal({
-      title: '新建项目编码',
-      editable: true,
-      placeholderText: '输入格式：项目编码 项目名称',
-      success: async (res) => {
-        if (!res.confirm) return;
-
-        const raw = String(res.content || '').trim();
-        const match = raw.match(/^(\S+)\s+(.+)$/);
-        if (!match) {
-          Toast.fail('请按“项目编码 项目名称”填写');
-          return;
-        }
-
-        wx.showLoading({ title: '创建中...' });
-        try {
-          await createProjectCode(match[1], match[2]);
-          Toast.success('创建成功');
-          await this.loadProjects();
-        } catch (err) {
-          console.error(err);
-          Toast.fail(err.message || '创建失败');
-        } finally {
-          wx.hideLoading();
-        }
+    this.setData({
+      projectFormVisible: true,
+      projectFormMode: 'create',
+      editingProjectCode: '',
+      projectForm: {
+        project_code: '',
+        project_name: ''
       }
     });
   },
@@ -79,32 +92,75 @@ Page({
     const project = this.data.projects[e.currentTarget.dataset.index];
     if (!project || !project.project_code) return;
 
-    wx.showModal({
-      title: '修改项目名称',
-      editable: true,
-      placeholderText: project.project_name || project.project_code,
-      success: async (res) => {
-        if (!res.confirm) return;
-
-        const nextName = String(res.content || '').trim();
-        if (!nextName) {
-          Toast.fail('请输入项目名称');
-          return;
-        }
-
-        wx.showLoading({ title: '保存中...' });
-        try {
-          await updateProjectCode(project.project_code, nextName);
-          Toast.success('已保存');
-          await this.loadProjects();
-        } catch (err) {
-          console.error(err);
-          Toast.fail(err.message || '保存失败');
-        } finally {
-          wx.hideLoading();
-        }
+    this.setData({
+      projectFormVisible: true,
+      projectFormMode: 'rename',
+      editingProjectCode: project.project_code,
+      projectForm: {
+        project_code: project.project_code,
+        project_name: project.project_name || ''
       }
     });
+  },
+
+  onCloseProjectForm() {
+    if (this.data.formSubmitting) {
+      return;
+    }
+    this.setData({ projectFormVisible: false });
+  },
+
+  onProjectCodeInput(e) {
+    this.setData({
+      'projectForm.project_code': normalizeProjectCodeInput(getInputValue(e))
+    });
+  },
+
+  onProjectNameInput(e) {
+    this.setData({
+      'projectForm.project_name': String(getInputValue(e) || '')
+    });
+  },
+
+  async onSubmitProjectForm() {
+    const mode = this.data.projectFormMode;
+    const projectCode = mode === 'rename'
+      ? normalizeProjectCodeInput(this.data.editingProjectCode)
+      : normalizeProjectCodeInput(this.data.projectForm.project_code);
+    const projectName = String(this.data.projectForm.project_name || '').trim();
+
+    if (!projectCode) {
+      Toast.fail('请输入项目编码');
+      return;
+    }
+    if (mode === 'create' && !PROJECT_CODE_PATTERN.test(projectCode)) {
+      Toast.fail('项目编码格式应类似 OR2026RD99999');
+      return;
+    }
+    if (!projectName) {
+      Toast.fail('请输入项目名称');
+      return;
+    }
+
+    this.setData({ formSubmitting: true });
+    wx.showLoading({ title: mode === 'create' ? '创建中...' : '保存中...' });
+    try {
+      if (mode === 'create') {
+        await createProjectCode(projectCode, projectName);
+        Toast.success('创建成功');
+      } else {
+        await updateProjectCode(projectCode, projectName);
+        Toast.success('已保存');
+      }
+      this.setData({ projectFormVisible: false });
+      await this.loadProjects();
+    } catch (err) {
+      console.error(err);
+      Toast.fail(err.message || (mode === 'create' ? '创建失败' : '保存失败'));
+    } finally {
+      wx.hideLoading();
+      this.setData({ formSubmitting: false });
+    }
   },
 
   async onToggleProject(e) {

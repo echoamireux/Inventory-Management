@@ -1,8 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const projectCodes = require('../cloudfunctions/_shared/project-codes');
+
+const repoRoot = path.join(__dirname, '..');
+
+function read(relPath) {
+  return fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+}
 
 function loadModuleWithMocks(modulePath, mocks) {
   const resolvedModulePath = require.resolve(modulePath);
@@ -270,4 +278,32 @@ test('frontend project code service calls manageProjectCode with business action
   assert.equal(calls[0].name, 'manageProjectCode');
   assert.equal(calls[1].data.project_code, 'OR2026RD99999');
   assert.equal(calls[2].data.project_name, '改名项目');
+});
+
+test('project code management page uses structured forms and clear loading states', () => {
+  const pageJs = read('miniprogram/pages/admin/project-code-manage/index.js');
+  const pageWxml = read('miniprogram/pages/admin/project-code-manage/index.wxml');
+  const pageJson = read('miniprogram/pages/admin/project-code-manage/index.json');
+
+  assert.doesNotMatch(pageJs, /wx\.showModal\(\{\s*title:\s*['"]新建项目编码['"]/);
+  assert.doesNotMatch(pageJs, /placeholderText:\s*['"]输入格式：项目编码 项目名称['"]/);
+  assert.match(pageJs, /projectFormVisible/);
+  assert.match(pageJs, /projectFormMode/);
+  assert.match(pageJs, /onProjectCodeInput/);
+  assert.match(pageJs, /onProjectNameInput/);
+  assert.match(pageJs, /请输入项目编码/);
+  assert.match(pageJs, /请输入项目名称/);
+  assert.match(pageJs, /OR2026RD99999/);
+
+  assert.match(pageWxml, /van-popup/);
+  assert.match(pageWxml, /项目编码/);
+  assert.match(pageWxml, /项目名称/);
+  assert.match(pageWxml, /OR2026RD99999/);
+  assert.match(pageWxml, /OR2026RD99-新增项目名称/);
+  assert.match(pageWxml, /重新加载/);
+  assert.match(pageWxml, /暂无项目编码/);
+  assert.match(pageWxml, /共 \{\{ projects\.length \}\} 个项目编码/);
+
+  assert.match(pageJson, /"van-field"/);
+  assert.match(pageJson, /"van-popup"/);
 });
