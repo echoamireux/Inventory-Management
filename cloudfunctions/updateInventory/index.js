@@ -152,7 +152,6 @@ exports.main = async (event, context) => {
     withdraw_amount,
     quantity,
     type,
-    note,
     project_code,
     project_name,
     withdraw_note
@@ -177,7 +176,7 @@ exports.main = async (event, context) => {
     }
 
     const totalNeed = Number(withdraw_amount);
-    const projectCode = sanitizeText(project_code || note);
+    const projectCode = sanitizeText(project_code);
     const projectName = sanitizeText(project_name);
     const withdrawNote = sanitizeText(withdraw_note);
     if (!projectCode) {

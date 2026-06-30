@@ -186,6 +186,7 @@
           value="{{ form.supplier_model }}"
           label="原厂型号"
           placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
+          required="{{ form.is_test_material }}"
           data-field="supplier_model"
           bind:change="onInput"
         />

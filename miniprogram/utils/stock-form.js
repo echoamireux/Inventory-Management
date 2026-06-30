@@ -10,6 +10,10 @@ function getMaterialSubmitValidationMessage(form = {}) {
     return '请选择存储区域';
   }
 
+  if (form.is_test_material && !hasFilledValue(form.supplier_model)) {
+    return '测试料请填写原厂型号';
+  }
+
   return '';
 }
 

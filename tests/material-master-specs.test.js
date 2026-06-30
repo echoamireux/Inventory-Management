@@ -232,6 +232,7 @@ test('withdrawal flow requires project codes and writes structured project log f
   assert.match(updateInventoryJs, /project_code/);
   assert.match(updateInventoryJs, /project_name/);
   assert.match(updateInventoryJs, /withdraw_note/);
+  assert.doesNotMatch(updateInventoryJs, /project_code\s*\|\|\s*note/);
   assert.match(updateInventoryJs, /description:\s*buildWithdrawDescription/);
 });
 

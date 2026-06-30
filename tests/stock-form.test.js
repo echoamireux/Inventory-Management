@@ -30,6 +30,28 @@ test('material add submit validation reports missing storage zone when batch num
   );
 });
 
+test('material add submit validation requires supplier model for test materials', () => {
+  assert.equal(
+    getMaterialSubmitValidationMessage({
+      batch_number: '20260523',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      is_test_material: true,
+      supplier_model: ''
+    }),
+    '测试料请填写原厂型号'
+  );
+
+  assert.equal(
+    getMaterialSubmitValidationMessage({
+      batch_number: '20260523',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      is_test_material: true,
+      supplier_model: 'TEST-IPA-01'
+    }),
+    ''
+  );
+});
+
 test('material add submit validation passes when batch number and structured storage zone are both ready', () => {
   assert.equal(
     getMaterialSubmitValidationMessage({
@@ -158,6 +180,7 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /bind:blur="onProductCodeBlur"/);
   assert.match(materialAddWxml, /bind:confirm="onProductCodeConfirm"/);
   assert.match(materialAddWxml, /confirm-type="done"/);
+  assert.match(materialAddWxml, /label="原厂型号"[\s\S]*required="\{\{ form\.is_test_material \}\}"/);
   assert.match(materialAddWxml, /title="子类别"/);
   assert.equal(
     fs.existsSync(path.join(__dirname, '../miniprogram/pages/stock-in-out/index.js')),
