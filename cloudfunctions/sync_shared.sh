@@ -21,6 +21,7 @@ cp cloudfunctions/_shared/response.js cloudfunctions/searchInventory/response.js
 # 3. Sync Auth Helper
 echo "   -> Updating auth.js..."
 cp cloudfunctions/_shared/auth.js cloudfunctions/adminUpdateUserStatus/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/addMaterialRequest/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/approveMaterialRequest/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/removeInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/removeLog/auth.js

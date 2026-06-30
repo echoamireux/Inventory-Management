@@ -104,11 +104,14 @@ test('importInventoryTemplate keeps a deployable local film helper and sync scri
   const importInventoryQuantity = read('cloudfunctions/importInventoryTemplate/inventory-quantity.js');
   const importFilmQuantityPath = path.join(repoRoot, 'cloudfunctions/importInventoryTemplate/film-quantity.js');
   const exportDataCstTimePath = path.join(repoRoot, 'cloudfunctions/exportData/cst-time.js');
+  const addMaterialRequestAuthPath = path.join(repoRoot, 'cloudfunctions/addMaterialRequest/auth.js');
 
   assert.match(importInventoryQuantity, /require\(['"]\.\/film-quantity['"]\)/);
   assert.equal(fs.existsSync(importFilmQuantityPath), true);
   assert.equal(fs.existsSync(exportDataCstTimePath), true);
+  assert.equal(fs.existsSync(addMaterialRequestAuthPath), true);
 
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/addMaterialRequest\/auth\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/approveInventoryCorrectionRequest\/film-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/importInventoryTemplate\/film-quantity\.js/);
 

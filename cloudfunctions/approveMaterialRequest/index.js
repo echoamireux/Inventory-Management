@@ -201,6 +201,7 @@ exports.main = async (event, context) => {
                     subcategory_key: resolvedSubcategory.subcategory_key,
                     sub_category: resolvedSubcategory.sub_category,
                     ...masterFields,
+                    status: 'active',
                     batch_count: 0,
                     quantity: 0,
                     created_by: txRequest.applicant || txRequest._openid || '',

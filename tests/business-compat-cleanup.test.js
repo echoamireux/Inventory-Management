@@ -297,6 +297,23 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
         };
       }
 
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-2', role: 'user', status: 'active', name: '申请人A' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -356,6 +373,244 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
   assert.ok(insertedRequest);
   assert.equal(insertedRequest.default_unit, 'kg');
   assert.equal(Object.prototype.hasOwnProperty.call(insertedRequest, 'suggested_sub_category'), false);
+});
+
+test('addMaterialRequest requires active users for submit and listMine actions', async () => {
+  const userCases = [
+    ['pending', { _openid: 'openid-2', role: 'user', status: 'pending' }],
+    ['rejected', { _openid: 'openid-2', role: 'user', status: 'rejected' }],
+    ['disabled', { _openid: 'openid-2', role: 'user', status: 'disabled' }],
+    ['missing', null]
+  ];
+
+  for (const [caseName, user] of userCases) {
+    let insertedRequest = null;
+    let materialRequestsQueried = false;
+
+    const db = {
+      serverDate() {
+        return { $date: true };
+      },
+      collection(name) {
+        if (name === 'users') {
+          return {
+            where() {
+              return {
+                limit() {
+                  return this;
+                },
+                async get() {
+                  return { data: user ? [user] : [] };
+                }
+              };
+            }
+          };
+        }
+
+        if (name === 'material_requests') {
+          materialRequestsQueried = true;
+          return {
+            where() {
+              return {
+                orderBy() {
+                  return this;
+                },
+                async get() {
+                  return { data: [] };
+                },
+                async count() {
+                  return { total: 0 };
+                }
+              };
+            },
+            async add({ data }) {
+              insertedRequest = data;
+              return { _id: 'req-1' };
+            }
+          };
+        }
+
+        if (name === 'materials') {
+          return {
+            where() {
+              return {
+                async count() {
+                  return { total: 0 };
+                }
+              };
+            }
+          };
+        }
+
+        throw new Error(`unexpected collection: ${name}`);
+      }
+    };
+
+    const cloudStub = {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-2' };
+      },
+      database() {
+        return db;
+      }
+    };
+
+    const mod = loadModuleWithMocks('../cloudfunctions/addMaterialRequest/index.js', {
+      'wx-server-sdk': cloudStub,
+      './material-subcategories': {
+        ensureBuiltinSubcategories: async () => [],
+        sortSubcategoryRecords(records) {
+          return records;
+        },
+        filterSubcategoryRecordsByCategory(records) {
+          return records;
+        },
+        buildSubcategoryMap() {
+          return new Map();
+        },
+        resolveSubcategorySelection() {
+          return {
+            subcategory_key: 'builtin:chemical:solvent',
+            sub_category: '溶剂'
+          };
+        }
+      },
+      './material-units': {
+        normalizeUnitInput() {
+          return { ok: true, unit: 'kg' };
+        }
+      },
+      './auth': {
+        assertActiveUserAccess(operator, message) {
+          if (!operator || operator.status !== 'active') {
+            return { ok: false, msg: message };
+          }
+          return { ok: true };
+        }
+      }
+    });
+
+    const submitResult = await mod.main({
+      action: 'submit',
+      product_code: 'J-001',
+      category: 'chemical',
+      material_name: `异丙醇-${caseName}`,
+      subcategory_key: 'builtin:chemical:solvent',
+      sub_category: '溶剂',
+      default_unit: 'kg'
+    });
+    assert.equal(submitResult.success, false);
+    assert.equal(submitResult.msg, '仅已激活用户可提交物料申请');
+    assert.equal(insertedRequest, null);
+
+    materialRequestsQueried = false;
+    const listResult = await mod.main({ action: 'listMine' });
+    assert.equal(listResult.success, false);
+    assert.equal(listResult.msg, '仅已激活用户可查看物料申请');
+    assert.equal(materialRequestsQueried, false);
+  }
+});
+
+test('addMaterialRequest allows active users to list their own requests', async () => {
+  let queriedWhere = null;
+
+  const db = {
+    command: {
+      or(parts) {
+        return { __or: parts };
+      }
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-2', role: 'user', status: 'active', name: '申请人A' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'material_requests') {
+        return {
+          where(query) {
+            queriedWhere = query;
+            return {
+              orderBy() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _id: 'req-1', product_code: 'J-001', applicant: 'openid-2' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    }
+  };
+
+  const cloudStub = {
+    init() {},
+    getWXContext() {
+      return { OPENID: 'openid-2' };
+    },
+    database() {
+      return db;
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/addMaterialRequest/index.js', {
+    'wx-server-sdk': cloudStub,
+    './material-subcategories': {
+      ensureBuiltinSubcategories: async () => [],
+      sortSubcategoryRecords(records) {
+        return records;
+      },
+      filterSubcategoryRecordsByCategory(records) {
+        return records;
+      },
+      buildSubcategoryMap() {
+        return new Map();
+      },
+      resolveSubcategorySelection() {
+        return {
+          subcategory_key: 'builtin:chemical:solvent',
+          sub_category: '溶剂'
+        };
+      }
+    },
+    './material-units': {
+      normalizeUnitInput() {
+        return { ok: true, unit: 'kg' };
+      }
+    },
+    './auth': {
+      assertActiveUserAccess(operator, message) {
+        if (!operator || operator.status !== 'active') {
+          return { ok: false, msg: message };
+        }
+        return { ok: true };
+      }
+    }
+  });
+
+  const result = await mod.main({ action: 'listMine' });
+
+  assert.equal(result.success, true);
+  assert.equal(result.list.length, 1);
+  assert.ok(queriedWhere);
 });
 
 test('material add page routes request submission through the addMaterialRequest cloud function', () => {
@@ -530,6 +785,7 @@ test('approveMaterialRequest writes request default unit into the formal materia
   assert.equal(result.success, true);
   assert.ok(insertedMaterial);
   assert.equal(insertedMaterial.default_unit, 'kg');
+  assert.equal(insertedMaterial.status, 'active');
   assert.equal(updatedRequest.status, 'approved');
 });
 

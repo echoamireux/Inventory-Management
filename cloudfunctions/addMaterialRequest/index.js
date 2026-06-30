@@ -8,6 +8,7 @@ const {
   resolveSubcategorySelection
 } = require('./material-subcategories');
 const { normalizeUnitInput } = require('./material-units');
+const { assertActiveUserAccess } = require('./auth');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -23,6 +24,15 @@ async function resolveApplicantName(openid) {
   } catch (err) {
     return '';
   }
+}
+
+async function getOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+
+  return (res.data && res.data[0]) || null;
 }
 
 async function submitRequest(event, openid) {
@@ -120,11 +130,21 @@ exports.main = async (event, context) => {
   const action = event && event.action ? event.action : 'submit';
 
   try {
+    const operator = await getOperator(OPENID);
+
     if (action === 'listMine') {
+      const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看物料申请');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
       return await listMine(OPENID);
     }
 
     if (action === 'submit') {
+      const authResult = assertActiveUserAccess(operator, '仅已激活用户可提交物料申请');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
       return await submitRequest(event, OPENID);
     }
 
