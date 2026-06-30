@@ -2,7 +2,6 @@
 import Dialog from "@vant/weapp/dialog/dialog";
 import Toast from "@vant/weapp/toast/toast";
 const db = require("../../utils/db");
-const alertConfig = require("../../utils/alert-config");
 const {
   mergeInventoryMaterialData,
   getInventoryQuantityDisplayState
@@ -56,7 +55,6 @@ Page({
     quickWithdrawMode: "product",
     withdrawMode: "scan",
     recommendedCode: "",
-    alertConfig: alertConfig,
 
     isAdmin: false,
     isUserReady: false, // Access Control

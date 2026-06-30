@@ -2,9 +2,29 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const Module = require('node:module');
 
 function read(relPath) {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
+}
+
+function loadModuleWithMocks(modulePath, mocks) {
+  const resolvedModulePath = require.resolve(modulePath);
+  delete require.cache[resolvedModulePath];
+
+  const originalLoad = Module._load;
+  Module._load = function patchedLoader(request, parent, isMain) {
+    if (Object.prototype.hasOwnProperty.call(mocks, request)) {
+      return mocks[request];
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    return require(resolvedModulePath);
+  } finally {
+    Module._load = originalLoad;
+  }
 }
 
 test('admin material edit page exposes governed master spec fields for chemical and film materials', () => {
@@ -164,6 +184,322 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
   assert.match(file, /transaction\.collection\('inventory'\)\.doc\(/);
 });
 
+test('updateInventory retries transient transaction conflicts and then completes withdrawal', async () => {
+  const inventoryRecord = {
+    _id: 'inv-1',
+    material_id: 'mat-1',
+    material_name: '测试化材',
+    category: 'chemical',
+    product_code: 'J-001',
+    unique_code: 'L000001',
+    status: 'in_stock',
+    quantity: { val: 5, unit: 'kg' }
+  };
+  let transactionAttempts = 0;
+  let updateCount = 0;
+  let logCount = 0;
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ _openid: 'openid-user', status: 'active', role: 'user', name: '领料人' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where(query) {
+            assert.deepEqual(query, { unique_code: 'L000001' });
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    async runTransaction(handler) {
+      transactionAttempts += 1;
+      if (transactionAttempts === 1) {
+        throw new Error('transaction conflict: document version changed');
+      }
+
+      const transaction = {
+        collection(name) {
+          if (name === 'inventory') {
+            return {
+              doc(id) {
+                assert.equal(id, 'inv-1');
+                return {
+                  async get() {
+                    return { data: { ...inventoryRecord } };
+                  },
+                  async update({ data }) {
+                    updateCount += 1;
+                    assert.equal(data['quantity.val'], 4);
+                    assert.equal(data.status, 'in_stock');
+                    return {};
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'inventory_log') {
+            return {
+              async add({ data }) {
+                logCount += 1;
+                assert.equal(data.project_code, 'OR2026RD02001');
+                assert.equal(data.quantity_change, -1);
+                return { _id: 'log-1' };
+              }
+            };
+          }
+
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      };
+
+      return handler(transaction);
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/updateInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-user' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const result = await mod.main({
+    unique_code: 'L000001',
+    withdraw_amount: 1,
+    project_code: 'OR2026RD02001',
+    project_name: '复合双面胶带',
+    withdraw_note: ''
+  }, {});
+
+  assert.equal(result.success, true);
+  assert.equal(transactionAttempts, 2);
+  assert.equal(updateCount, 1);
+  assert.equal(logCount, 1);
+});
+
+test('updateInventory does not retry business validation errors from the transaction', async () => {
+  const inventoryRecord = {
+    _id: 'inv-1',
+    material_id: 'mat-1',
+    material_name: '测试化材',
+    category: 'chemical',
+    product_code: 'J-001',
+    unique_code: 'L000001',
+    status: 'in_stock',
+    quantity: { val: 0.5, unit: 'kg' }
+  };
+  let transactionAttempts = 0;
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ _openid: 'openid-user', status: 'active', role: 'user', name: '领料人' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    async runTransaction(handler) {
+      transactionAttempts += 1;
+      const transaction = {
+        collection(name) {
+          if (name === 'inventory') {
+            return {
+              doc(id) {
+                assert.equal(id, 'inv-1');
+                return {
+                  async get() {
+                    return { data: { ...inventoryRecord } };
+                  },
+                  async update() {
+                    throw new Error('库存不足场景不应写入库存');
+                  }
+                };
+              }
+            };
+          }
+
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      };
+
+      return handler(transaction);
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/updateInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-user' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const originalError = console.error;
+  let result;
+  try {
+    console.error = () => {};
+    result = await mod.main({
+      unique_code: 'L000001',
+      withdraw_amount: 2,
+      project_code: 'OR2026RD02001'
+    }, {});
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /库存不足/);
+  assert.equal(transactionAttempts, 1);
+});
+
+test('updateInventory stops retrying transient transaction conflicts after three attempts', async () => {
+  const inventoryRecord = {
+    _id: 'inv-1',
+    material_id: 'mat-1',
+    material_name: '测试化材',
+    category: 'chemical',
+    product_code: 'J-001',
+    unique_code: 'L000001',
+    status: 'in_stock',
+    quantity: { val: 5, unit: 'kg' }
+  };
+  let transactionAttempts = 0;
+
+  const db = {
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ _openid: 'openid-user', status: 'active', role: 'user', name: '领料人' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    async runTransaction() {
+      transactionAttempts += 1;
+      throw new Error('事务冲突：版本已变化');
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/updateInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-user' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const originalError = console.error;
+  let result;
+  try {
+    console.error = () => {};
+    result = await mod.main({
+      unique_code: 'L000001',
+      withdraw_amount: 1,
+      project_code: 'OR2026RD02001'
+    }, {});
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /事务冲突/);
+  assert.equal(transactionAttempts, 3);
+});
+
 test('audit hardening fixes admin page bindings, material add dialog mount, and approval routing', () => {
   const materialListJs = read('miniprogram/pages/admin/material-list.js');
   const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
@@ -260,6 +596,21 @@ test('project code management page is registered and exposed to admins', () => {
   assert.equal(fs.existsSync(servicePath), true);
   assert.equal(fs.existsSync(pageJsPath), true);
   assert.equal(fs.existsSync(cloudFnPath), true);
+});
+
+test('README documents production database indexes and manual cloud console steps', () => {
+  const readme = read('README.md');
+
+  assert.match(readme, /生产索引配置建议/);
+  assert.match(readme, /inventory\.unique_code[\s\S]*唯一索引/);
+  assert.match(readme, /materials\.product_code[\s\S]*唯一索引/);
+  assert.match(readme, /inventory\.product_code \+ status/);
+  assert.match(readme, /inventory\.product_code \+ status \+ batch_number/);
+  assert.match(readme, /inventory\.status \+ expiry_date/);
+  assert.match(readme, /inventory_log\.inventory_id \+ timestamp desc/);
+  assert.match(readme, /inventory_log\.unique_code \+ timestamp desc/);
+  assert.match(readme, /微信开发者工具[\s\S]*云开发[\s\S]*数据库[\s\S]*索引[\s\S]*新建索引/);
+  assert.match(readme, /唯一索引创建前[\s\S]*重复/);
 });
 
 test('log pages no longer expose delete actions or call destructive log cloud functions', () => {

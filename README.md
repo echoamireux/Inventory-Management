@@ -308,17 +308,36 @@ module.exports = {
 - `exportMaterialTemplate`
 - `getLogs`
 
-### 6. 数据库建议
+### 6. 生产索引配置建议
 
-建议为高频查询字段建立索引，至少包括：
+云数据库索引需要在微信云开发控制台手动创建。正式投产前，建议至少配置以下索引：
 
-- `inventory.product_code`
-- `inventory.unique_code`
-- `inventory.batch_number`
-- `inventory.status`
-- `inventory.create_time`
-- `inventory_log.timestamp`
-- `inventory_log.unique_code`
+| 集合 | 索引字段 | 类型 | 用途 |
+| --- | --- | --- | --- |
+| `inventory` | `inventory.unique_code` | 唯一索引，升序 | 确保标签编号全库唯一，支持扫码查询 |
+| `materials` | `materials.product_code` | 唯一索引，升序 | 确保标准物料代码全库唯一 |
+| `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
+| `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
+| `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
+| `inventory_log` | `inventory_log.inventory_id + timestamp desc` | 复合索引，升序 + 降序 | 支持标签详情页查看历史日志 |
+| `inventory_log` | `inventory_log.unique_code + timestamp desc` | 复合索引，升序 + 降序 | 支持按标签编号追溯日志 |
+| `inventory_log` | `inventory_log.timestamp desc` | 普通索引，降序 | 支持日志列表按时间倒序加载 |
+
+创建步骤：
+
+1. 打开微信开发者工具。
+2. 进入“云开发”，并确认选择的是正式环境。
+3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
+4. 打开“索引”页签，点击“新建索引”。
+5. 按上表字段顺序添加字段，并选择升序或降序。
+6. 对 `inventory.unique_code` 和 `materials.product_code` 勾选“唯一索引”。
+7. 保存后等待索引构建完成，再继续大量导入或正式使用。
+
+注意：
+
+- 唯一索引创建前必须确认集合中没有重复值，否则索引会创建失败。
+- 索引构建期间不要批量导入大量数据。
+- 索引创建完成后，建议重新测试库存查询、扫码领料、日志查看和库存导出。
 
 ## 模板导入说明
 

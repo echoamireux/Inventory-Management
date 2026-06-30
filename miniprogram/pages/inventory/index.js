@@ -26,14 +26,6 @@ Page({
     total: 0,
     isEnd: false,
     requestId: 0,
-
-    // Aggregation Mode
-    isGrouped: true, // Default to grouped view
-    // Detail View State
-    showDetailPopup: false,
-    detailList: [],
-    detailTitle: '',
-    detailTotal: 0
   },
 
   onLoad: function (options) {
@@ -202,21 +194,7 @@ Page({
       }
       if (!item) return;
 
-      // Navigate to detail list page (new idea: reuse this page or popup?)
-      // Let's use a simple navigation to a sub-page logic for now,
-      // OR navigate to inventory-detail but that's for single item.
-      // Better: Show a "Group Detail" popup or page.
-      // Let's go with a specific "group detail" logic.
-      // Since we didn't create a new page in the plan, let's implement a "Filter Mode" on this page?
-      // No, that's confusing.
-      // Let's use the standard "inventory list" (non-grouped) for details.
-
-      // We can use a query param 'product_code' to this same page to show flattened list?
-      // But we set `isGrouped: true` by default.
-
-      // Let's navigate to a new page `pages/inventory/list?code=...`?
-      // Actually, let's just use `navigateTo` with filtered parameters to the SAME page, but add a flag `mode=flat`.
-
+      // 进入批次层，继续按产品代码和当前筛选上下文加载。
       const code = item.product_code !== '无产品代码' ? item.product_code : '';
       const name = item.material_name;
 

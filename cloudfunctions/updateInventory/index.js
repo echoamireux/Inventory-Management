@@ -143,6 +143,15 @@ function buildWithdrawDescription(projectCode, projectName, withdrawNote, unique
   return `领料项目：${projectLabel}${noteText} (系统分配: ${String(uniqueCode || '').slice(-6)})`;
 }
 
+function isRetryableTransactionConflict(error) {
+  const message = String((error && (error.errMsg || error.message)) || error || '').toLowerCase();
+  return /transaction|conflict|version|事务|冲突|版本/.test(message);
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const {
@@ -204,7 +213,7 @@ exports.main = async (event, context) => {
     }
     const preferredFilmUnit = await loadPreferredFilmUnit(candidateItems);
 
-    const result = await db.runTransaction(async transaction => {
+    const runWithdrawalTransaction = () => db.runTransaction(async transaction => {
       const itemsToProcess = await reloadTransactionCandidates(transaction, candidateIds);
       if (itemsToProcess.length === 0) {
         throw new Error('No available inventory found for this selection.');
@@ -352,7 +361,20 @@ exports.main = async (event, context) => {
       };
     });
 
-    return result;
+    let lastTransactionError = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await runWithdrawalTransaction();
+      } catch (err) {
+        lastTransactionError = err;
+        if (!isRetryableTransactionConflict(err) || attempt >= 3) {
+          throw err;
+        }
+        await wait(attempt * 80);
+      }
+    }
+
+    throw lastTransactionError;
   } catch (err) {
     console.error(err);
     return { success: false, msg: err.message };

@@ -192,6 +192,18 @@ test('inventory detail exposes label logs but keeps destructive delete entry ret
   assert.doesNotMatch(detailWxml, /删除警告|删除库存|bindtap="onDelete"|bind:click="onDelete"/);
 });
 
+test('home and inventory pages do not keep retired client state fields', () => {
+  const homeJs = read('miniprogram/pages/index/index.js');
+  const homeWxml = read('miniprogram/pages/index/index.wxml');
+  const inventoryJs = read('miniprogram/pages/inventory/index.js');
+  const inventoryWxml = read('miniprogram/pages/inventory/index.wxml');
+
+  assert.doesNotMatch(homeJs, /alertConfig/);
+  assert.doesNotMatch(homeWxml, /alertConfig/);
+  assert.doesNotMatch(inventoryJs, /isGrouped|showDetailPopup|detailList|detailTitle|detailTotal/);
+  assert.doesNotMatch(inventoryWxml, /isGrouped|showDetailPopup|detailList|detailTitle|detailTotal/);
+});
+
 test('search-driven list pages keep an explicit request id so stale responses can be ignored safely', () => {
   const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
   const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');
