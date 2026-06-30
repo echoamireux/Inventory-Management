@@ -173,6 +173,25 @@ function buildGovernedMaterialMasterFields(source = {}, category, options = {}) 
   return fields;
 }
 
+function validateTestMaterialSupplierModel(source = {}) {
+  const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
+  if (!testMaterialFlag.ok) {
+    return {
+      ok: false,
+      msg: testMaterialFlag.msg
+    };
+  }
+
+  if (testMaterialFlag.value && !sanitizeText(source.supplier_model)) {
+    return {
+      ok: false,
+      msg: '测试料请填写原厂型号'
+    };
+  }
+
+  return { ok: true };
+}
+
 function validateBatchCreateMasterFields(item = {}, category = '') {
   const testMaterialFlag = normalizeTestMaterialFlag(item.is_test_material);
   if (!testMaterialFlag.ok) {
@@ -417,6 +436,10 @@ async function createMaterial(data, openid) {
   if (!resolvedSubcategory.ok) {
     return { success: false, msg: resolvedSubcategory.msg };
   }
+  const testMaterialValidation = validateTestMaterialSupplierModel(data);
+  if (!testMaterialValidation.ok) {
+    return { success: false, msg: testMaterialValidation.msg };
+  }
 
   // 检查 product_code 是否已存在
   const existing = await db.collection('materials')
@@ -514,18 +537,24 @@ async function updateMaterial(data, openid) {
     return { success: false, msg: resolvedSubcategory.msg };
   }
 
+  const nextMaterialData = {
+    ...oldData,
+    ...updateData,
+    default_unit: normalizedUnit.unit,
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category
+  };
+  const testMaterialValidation = validateTestMaterialSupplierModel(nextMaterialData);
+  if (!testMaterialValidation.ok) {
+    return { success: false, msg: testMaterialValidation.msg };
+  }
+
   updateData.default_unit = normalizedUnit.unit;
   updateData.subcategory_key = resolvedSubcategory.subcategory_key;
   updateData.sub_category = resolvedSubcategory.sub_category;
   Object.assign(
     updateData,
-    buildGovernedMaterialMasterFields({
-      ...oldData,
-      ...updateData,
-      default_unit: normalizedUnit.unit,
-      subcategory_key: resolvedSubcategory.subcategory_key,
-      sub_category: resolvedSubcategory.sub_category
-    }, nextCategory, { removeIrrelevant: true })
+    buildGovernedMaterialMasterFields(nextMaterialData, nextCategory, { removeIrrelevant: true })
   );
   updateData.updated_by = openid;
   updateData.updated_at = db.serverDate();

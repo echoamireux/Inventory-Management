@@ -24,6 +24,18 @@ test('admin material edit page exposes governed master spec fields for chemical 
   assert.match(js, /packageTypeOptions/);
 });
 
+test('admin material edit page marks supplier model required when creating or editing test materials', () => {
+  const wxml = read('miniprogram/pages/admin/material-edit.wxml');
+  const js = read('miniprogram/pages/admin/material-edit.js');
+
+  assert.doesNotMatch(wxml, /label="厂家型号"/);
+  assert.match(wxml, /label="原厂型号"/);
+  assert.match(wxml, /label="原厂型号"[\s\S]*?required="\{\{ form\.is_test_material \}\}"/);
+  assert.match(wxml, /placeholder="\{\{ form\.is_test_material \? '测试料必填' : '请输入 \(选填\)' \}\}"/);
+  assert.match(js, /测试料请填写原厂型号/);
+  assert.match(js, /form\.is_test_material[\s\S]*?!String\(form\.supplier_model \|\| ''\)\.trim\(\)/);
+});
+
 test('admin material edit page supports prefilling category and product code for manager-led direct creation', () => {
   const js = read('miniprogram/pages/admin/material-edit.js');
 

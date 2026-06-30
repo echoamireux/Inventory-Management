@@ -87,8 +87,9 @@
         bind:change="onInputChange"
       />
       <van-field
-        label="厂家型号"
-        placeholder="原厂型号"
+        label="原厂型号"
+        required="{{ form.is_test_material }}"
+        placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
         value="{{ form.supplier_model }}"
         data-field="supplier_model"
         bind:change="onInputChange"
