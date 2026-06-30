@@ -61,5 +61,6 @@ coverage/
 tmp/
 temp/
 
-# Agent
+# Agent / Local Tooling
 .agent/
+.serena/
