@@ -1373,6 +1373,16 @@ test('submitInventoryCorrectionRequest only accepts inbound logs and stores a pe
 
       if (name === 'inventory_correction_requests') {
         return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [] };
+              }
+            };
+          },
           async add({ data }) {
             insertedRequest = data;
             return { _id: 'corr-1' };

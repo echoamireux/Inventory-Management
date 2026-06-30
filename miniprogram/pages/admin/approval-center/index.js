@@ -45,7 +45,7 @@ Page({
         content: '该页面仅限管理员访问',
         showCancel: false,
         success: () => {
-          wx.switchTab({ url: '/pages/index/index' });
+          wx.reLaunch({ url: '/pages/index/index' });
         }
       });
       return;

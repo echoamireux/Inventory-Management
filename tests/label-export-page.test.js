@@ -47,9 +47,18 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /膜材信息标签/);
   assert.match(pageWxml, /化材标准瓶信息标签/);
   assert.match(pageWxml, /化材小瓶信息标签/);
+  assert.match(pageWxml, /本模板将打印字段/);
+  assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽/);
+  assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、原厂型号/);
+  assert.match(pageWxml, /标签编号、二维码内容、产品代码、原厂型号/);
+  assert.match(pageWxml, /可选补充信息/);
+  assert.match(pageWxml, /正在查询物料/);
+  assert.match(pageWxml, /未找到匹配物料，请确认产品代码\/物料名称\/原厂型号，或先维护物料主数据/);
+  assert.match(pageWxml, /查询物料失败，请稍后重试/);
   assert.match(pageWxml, /二维码内容/);
   assert.match(pageWxml, /生成新标签/);
   assert.match(pageWxml, /作废本批未入库标签/);
+  assert.doesNotMatch(pageWxml, /input-align="right"/);
   assert.match(pageWxml, /selectedIds\.length/);
   assert.match(pageWxml, /bindtap="toggleSelectItem"/);
   assert.match(pageWxml, /bindtap="onExportSelected"/);
@@ -57,6 +66,8 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /请按标签编号对应基础二维码标签粘贴/);
   assert.match(pageWxss, /\.inline-refresh-state[\s\S]*justify-content:\s*center/);
   assert.match(pageWxss, /\.inline-refresh-state[\s\S]*align-items:\s*center/);
+  assert.match(pageWxss, /\.template-fields-preview/);
+  assert.match(pageWxss, /\.material-search-state/);
 });
 
 test('label export cloud function separates list and export actions and only allows active users', () => {

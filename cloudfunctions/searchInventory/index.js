@@ -13,6 +13,8 @@
  */
 const cloud = require('wx-server-sdk');
 const { success, fail, ErrorCode } = require('./response');
+const { assertActiveUserAccess } = require('./auth');
+const { buildContainsRegExp } = require('./search');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -20,6 +22,14 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
 
 // 计算记录的完整度分数
 function calculateCompleteness(item) {
@@ -35,6 +45,7 @@ function calculateCompleteness(item) {
 }
 
 exports.main = async (event, context) => {
+  const { OPENID } = cloud.getWXContext();
   const { keyword, type } = event;
 
   // 参数校验
@@ -43,27 +54,25 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可搜索库存');
+    if (!authResult.ok) {
+      return fail(authResult.msg, ErrorCode.FORBIDDEN);
+    }
+
     if (type === 'suggestion') {
+      const keywordRegExp = buildContainsRegExp(db, keyword);
       // 在 materials 集合中搜索模板
       // 按 create_time 降序，优先获取最新记录
       const res = await db.collection('materials').where(_.or([
         {
-          product_code: db.RegExp({
-            regexp: keyword,
-            options: 'i'
-          })
+          product_code: keywordRegExp
         },
         {
-          name: db.RegExp({
-            regexp: keyword,
-            options: 'i'
-          })
+          name: keywordRegExp
         },
         {
-          supplier: db.RegExp({
-            regexp: keyword,
-            options: 'i'
-          })
+          supplier: keywordRegExp
         }
       ]))
       .orderBy('create_time', 'desc') // 最新的在前

@@ -82,6 +82,12 @@ test('subcategory seeds cover both chemical and film defaults', () => {
   ]);
 });
 
+test('backend: subcategory status normalizer is exported for management cloud functions', () => {
+  assert.equal(typeof backendSubcategories.normalizeStatus, 'function');
+  assert.equal(backendSubcategories.normalizeStatus('disabled'), 'disabled');
+  assert.equal(backendSubcategories.normalizeStatus('anything-else'), 'active');
+});
+
 for (const [label, impl] of [
   ['frontend', frontendSubcategories],
   ['backend', backendSubcategories]

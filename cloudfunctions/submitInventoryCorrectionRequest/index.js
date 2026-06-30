@@ -54,6 +54,17 @@ exports.main = async (event, context) => {
       return { success: false, msg: '关联库存记录不存在' };
     }
 
+    const pendingRes = await db.collection('inventory_correction_requests')
+      .where({
+        source_log_id,
+        status: 'pending'
+      })
+      .limit(1)
+      .get();
+    if (pendingRes.data && pendingRes.data.length > 0) {
+      return { success: false, msg: '该入库记录已有待审批纠错申请，请勿重复提交' };
+    }
+
     // 4. 写入纠错申请
     const correctionRequest = {
       status: 'pending',

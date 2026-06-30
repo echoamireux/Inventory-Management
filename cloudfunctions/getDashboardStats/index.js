@@ -10,6 +10,15 @@ const _ = db.command;
 const $ = db.command.aggregate;
 const ALERT_CONFIG = require('./alert-config');
 const { getCstDayStart } = require('./cst-time');
+const { assertActiveUserAccess } = require('./auth');
+
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
 
 // Industry Standard Logic
 // 1. Total Materials: Distinct Product Count
@@ -17,7 +26,14 @@ const { getCstDayStart } = require('./cst-time');
 // 3. Alerts: Distinct Products with Risk (Expiry or Low Stock)
 
 exports.main = async (event, context) => {
+  const { OPENID } = cloud.getWXContext();
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看首页统计');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     const now = new Date();
 
     // 修复: 使用纯数学方法计算 UTC+8 的今日 00:00:00

@@ -1,0 +1,41 @@
+<view class="zone-page">
+  <view class="zone-header">
+    <view class="zone-toolbar__title">项目编码管理</view>
+    <view class="zone-toolbar__hint">
+      领料时必须选择项目编码。改名后新领料会使用最新名称，历史领料记录保留当时的项目快照。
+    </view>
+    <van-button type="primary" round block bind:click="onCreateProject">新建项目编码</van-button>
+  </view>
+
+  <view class="zone-hint">
+    停用后，该项目编码不会出现在新的领料选择中；已有领料日志仍可按项目编码查询。
+  </view>
+
+  <view wx:if="{{ loading }}" class="zone-loading">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <view wx:else class="zone-list">
+    <block wx:for="{{ projects }}" wx:key="project_code">
+      <view class="zone-card {{ item.status === 'disabled' ? 'zone-card--disabled' : '' }}">
+        <view class="zone-card__main">
+          <view class="project-code">{{ item.project_code }}</view>
+          <view class="zone-card__name">{{ item.project_name }}</view>
+          <view class="zone-card__meta">
+            <van-tag plain type="primary" wx:if="{{ item.is_builtin }}">默认</van-tag>
+            <van-tag plain type="success" wx:else>自定义</van-tag>
+            <van-tag plain color="#6b7280" wx:if="{{ item.status === 'disabled' }}">已停用</van-tag>
+          </view>
+        </view>
+        <view class="zone-card__actions">
+          <van-button size="mini" plain type="primary" bind:click="onRenameProject" data-index="{{ index }}">改名</van-button>
+          <van-button size="mini" plain bind:click="onToggleProject" data-index="{{ index }}">
+            {{ item.status === 'disabled' ? '启用' : '停用' }}
+          </van-button>
+          <van-button size="mini" plain bind:click="onMoveUp" data-index="{{ index }}" disabled="{{ index === 0 }}">上移</van-button>
+          <van-button size="mini" plain bind:click="onMoveDown" data-index="{{ index }}" disabled="{{ index === projects.length - 1 }}">下移</van-button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

@@ -71,6 +71,9 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
   const mod = loadModuleWithMocks('../cloudfunctions/getDashboardStats/index.js', {
     'wx-server-sdk': {
       init() {},
+      getWXContext() {
+        return { OPENID: 'openid-user' };
+      },
       database() {
         return {
           command: {
@@ -99,6 +102,23 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
             }
           },
           collection(name) {
+            if (name === 'users') {
+              return {
+                where() {
+                  return {
+                    limit() {
+                      return this;
+                    },
+                    async get() {
+                      return {
+                        data: [{ role: 'user', status: 'active', name: '操作员A' }]
+                      };
+                    }
+                  };
+                }
+              };
+            }
+
             if (name === 'inventory_log') {
               return {
                 where(query) {

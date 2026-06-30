@@ -12,6 +12,9 @@ const LOG_SEARCH_FIELDS = [
   'operator',
   'operator_name',
   'type',
+  'project_code',
+  'project_name',
+  'withdraw_note',
   'description',
   'note'
 ];

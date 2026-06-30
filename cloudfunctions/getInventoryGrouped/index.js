@@ -34,8 +34,18 @@ const {
   buildSubcategoryMap,
   resolveSubcategoryDisplay
 } = require('./material-subcategories');
+const { assertActiveUserAccess } = require('./auth');
+
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
 
 exports.main = async (event, context) => {
+  const { OPENID } = cloud.getWXContext();
   const { searchVal, category, filter } = event;
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
@@ -43,6 +53,12 @@ exports.main = async (event, context) => {
   const normalizedFilter = String(filter || '').trim().toLowerCase();
 
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看库存');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     const conditions = [{ status: 'in_stock' }];
     if (category) {
       conditions.push({ category: category });

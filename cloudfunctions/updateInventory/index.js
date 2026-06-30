@@ -40,27 +40,42 @@ async function loadWithdrawCandidates({ unique_code, product_code, batch_no }) {
   }
 
   if (product_code && batch_no) {
-    const res = await db.collection('inventory')
-      .where({
-        product_code,
-        batch_number: batch_no,
-        status: 'in_stock'
-      })
-      .get();
-    return sortInventoryAllocationCandidates(res.data || []);
+    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
+      product_code,
+      batch_number: batch_no,
+      status: 'in_stock'
+    }));
   }
 
   if (product_code) {
-    const res = await db.collection('inventory')
-      .where({
-        product_code,
-        status: 'in_stock'
-      })
-      .get();
-    return sortInventoryAllocationCandidates(res.data || []);
+    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
+      product_code,
+      status: 'in_stock'
+    }));
   }
 
   return [];
+}
+
+async function loadInventoryCandidatesByPage(where, pageSize = 100) {
+  let skip = 0;
+  let items = [];
+
+  while (true) {
+    const res = await db.collection('inventory')
+      .where(where)
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+    const batch = res.data || [];
+    items = items.concat(batch);
+    if (batch.length < pageSize) {
+      break;
+    }
+    skip += pageSize;
+  }
+
+  return items;
 }
 
 async function loadPreferredFilmUnit(items = []) {
@@ -116,6 +131,18 @@ async function reloadTransactionCandidates(transaction, candidateIds = []) {
   return sortInventoryAllocationCandidates(items);
 }
 
+function sanitizeText(value) {
+  return String(value || '').trim();
+}
+
+function buildWithdrawDescription(projectCode, projectName, withdrawNote, uniqueCode) {
+  const projectLabel = projectCode
+    ? `${projectCode}${projectName ? ` - ${projectName}` : ''}`
+    : '未填写项目编码';
+  const noteText = withdrawNote ? `；备注：${withdrawNote}` : '';
+  return `领料项目：${projectLabel}${noteText} (系统分配: ${String(uniqueCode || '').slice(-6)})`;
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const {
@@ -125,7 +152,10 @@ exports.main = async (event, context) => {
     withdraw_amount,
     quantity,
     type,
-    note
+    note,
+    project_code,
+    project_name,
+    withdraw_note
   } = event;
 
   if ((quantity !== undefined || type !== undefined) && withdraw_amount === undefined) {
@@ -147,6 +177,13 @@ exports.main = async (event, context) => {
     }
 
     const totalNeed = Number(withdraw_amount);
+    const projectCode = sanitizeText(project_code || note);
+    const projectName = sanitizeText(project_name);
+    const withdrawNote = sanitizeText(withdraw_note);
+    if (!projectCode) {
+      return { success: false, msg: '请选择项目编码' };
+    }
+
     const candidateItems = await loadWithdrawCandidates({
       unique_code,
       product_code,
@@ -243,8 +280,12 @@ exports.main = async (event, context) => {
           operator: (operator && operator.name) || 'System',
           operator_id: OPENID,
           _openid: OPENID,
+          project_code: projectCode,
+          project_name: projectName,
+          withdraw_note: withdrawNote,
+          note: projectCode,
           timestamp: db.serverDate(),
-          description: `${note || '领料'} (系统分配: ${String(item.unique_code || '').slice(-6)})`
+          description: buildWithdrawDescription(projectCode, projectName, withdrawNote, item.unique_code)
         });
       }
 

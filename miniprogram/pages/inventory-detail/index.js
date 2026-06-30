@@ -258,7 +258,13 @@ Page({
   },
 
   async onWithdrawConfirmFn(e) {
-      const { withdraw_amount, note } = e.detail;
+      const {
+          withdraw_amount,
+          project_code,
+          project_name,
+          withdraw_note,
+          note
+      } = e.detail;
       const { item } = this.data;
 
       if (!withdraw_amount || Number(withdraw_amount) <= 0) {
@@ -278,7 +284,10 @@ Page({
               data: {
                   unique_code: item.unique_code,
                   withdraw_amount: withdraw_amount,
-                  note: note,
+                  project_code,
+                  project_name,
+                  withdraw_note,
+                  note: project_code || note,
                   operator_name: operator
               }
           });

@@ -25,6 +25,18 @@
         <van-tab title="化材标准瓶信息标签" name="chemical_std"></van-tab>
         <van-tab title="化材小瓶信息标签" name="chemical_mini"></van-tab>
       </van-tabs>
+      <view class="template-fields-preview">
+        <view class="template-fields-preview__label">本模板将打印字段</view>
+        <view wx:if="{{ templateType === 'film' }}" class="template-fields-preview__text">
+          标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽
+        </view>
+        <view wx:elif="{{ templateType === 'chemical_std' }}" class="template-fields-preview__text">
+          标签编号、二维码内容、产品代码、物料名称、原厂型号
+        </view>
+        <view wx:else class="template-fields-preview__text">
+          标签编号、二维码内容、产品代码、原厂型号
+        </view>
+      </view>
     </view>
   </view>
 
@@ -39,6 +51,16 @@
         bind:clear="onMaterialSearchClear"
         custom-class="search-compact"
       />
+
+      <view wx:if="{{ materialSearchState === 'loading' }}" class="material-search-state">
+        <van-loading size="16px">正在查询物料...</van-loading>
+      </view>
+      <view wx:elif="{{ materialSearchState === 'empty' }}" class="material-search-state">
+        未找到匹配物料，请确认产品代码/物料名称/原厂型号，或先维护物料主数据
+      </view>
+      <view wx:elif="{{ materialSearchState === 'error' }}" class="material-search-state is-error">
+        查询物料失败，请稍后重试
+      </view>
 
       <view wx:if="{{ materialSuggestions.length > 0 }}" class="suggestion-list">
         <view
@@ -69,13 +91,13 @@
         </view>
       </view>
 
+      <view class="form-section-title">打印设置</view>
       <view class="form-grid">
         <view class="form-item">
           <view class="field-label">标签数量</view>
           <van-field
             value="{{ preprintForm.count }}"
             type="number"
-            input-align="right"
             placeholder="请输入数量"
             bind:change="onPreprintCountChange"
           />
@@ -89,6 +111,10 @@
             bind:change="onPreprintFieldChange"
           />
         </view>
+      </view>
+
+      <view class="form-section-title">可选补充信息</view>
+      <view class="form-grid optional-grid">
         <view class="form-item">
           <view class="field-label">供应商</view>
           <van-field
@@ -128,13 +154,6 @@
           <van-loading wx:if="{{ exportingPreprint }}" size="18px" />
           <text wx:else>导出本批标签 Excel</text>
         </view>
-        <view
-          class="action-button danger {{ voidingPreprint || !preprintForm.lastJobId ? 'is-disabled' : '' }}"
-          bindtap="onVoidPreprintLabels"
-        >
-          <van-loading wx:if="{{ voidingPreprint }}" size="18px" />
-          <text wx:else>作废本批未入库标签</text>
-        </view>
       </view>
     </view>
 
@@ -147,6 +166,13 @@
       >
         <text class="code-text">{{ item.unique_code }}</text>
         <text>二维码内容：{{ item.qr_content }} {{ item.status === 'voided' ? '已作废' : '' }}</text>
+      </view>
+      <view
+        class="void-link {{ voidingPreprint ? 'is-disabled' : '' }}"
+        bindtap="onVoidPreprintLabels"
+      >
+        <van-loading wx:if="{{ voidingPreprint }}" size="16px" />
+        <text wx:else>作废本批未入库标签</text>
       </view>
     </view>
   </block>

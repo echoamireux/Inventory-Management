@@ -35,12 +35,6 @@ Page({
     withdrawItem: null,
     withdrawAmount: "",
 
-    // 用途选择相关
-    usageOptions: ["研发实验室", "设备调试", "客户打样", "其他损耗"],
-    showUsagePicker: false,
-    selectedUsage: "", // 当前选中的用途
-    usageDetail: "", // “其他损耗”时的补充说明
-
     // 选择物料弹窗
     showSelectPopup: false,
     selectSearchVal: "",
@@ -231,10 +225,7 @@ Page({
         isExpiring: !!batch.isExpiring
       },
       withdrawAmount: "",
-      selectedUsage: "",
-      usageDetail: "",
       recommendedCode,
-      showUsagePicker: false,
       showWithdrawDialog: true,
       withdrawMode: "batch",
     });
@@ -262,10 +253,7 @@ Page({
         isExpiring: !!item.isExpiring
       },
       withdrawAmount: "",
-      selectedUsage: "",
-      usageDetail: "",
       recommendedCode,
-      showUsagePicker: false,
       showWithdrawDialog: true,
       withdrawMode: "product",
     });
@@ -374,9 +362,6 @@ Page({
       this.setData({
         withdrawItem: { ...mergedItem, currentStockDesc, inputLabel, isArchived },
         withdrawAmount: "",
-        selectedUsage: "", // Reset usage
-        usageDetail: "", // Reset detail
-        showUsagePicker: false,
         showWithdrawDialog: true,
         withdrawMode: "scan",
       });
@@ -391,31 +376,18 @@ Page({
     this.setData({ withdrawAmount: e.detail });
   },
 
-  // 用途选择处理
-  onUsageClick() {
-    this.setData({ showUsagePicker: true });
-  },
-  onUsageCancel() {
-    this.setData({ showUsagePicker: false });
-  },
-  onUsageConfirm(e) {
-    const { value } = e.detail;
-    this.setData({
-      selectedUsage: value,
-      showUsagePicker: false,
-      usageDetail: "", // Reset detail when changing type
-    });
-  },
-  onUsageDetailInput(e) {
-    this.setData({ usageDetail: e.detail });
-  },
-
   onWithdrawClose() {
     this.setData({ showWithdrawDialog: false });
   },
 
   async onWithdrawConfirmFn(e) {
-    const { withdraw_amount, note } = e.detail;
+    const {
+      withdraw_amount,
+      project_code,
+      project_name,
+      withdraw_note,
+      note
+    } = e.detail;
     const { withdrawItem, withdrawMode } = this.data;
 
     this.setData({ showWithdrawDialog: false }); // 先关闭，后续用 Loading
@@ -429,7 +401,10 @@ Page({
 
       const payload = {
         withdraw_amount, // From event
-        note, // From event
+        project_code,
+        project_name,
+        withdraw_note,
+        note: project_code || note,
         operator_name: operator,
       };
 

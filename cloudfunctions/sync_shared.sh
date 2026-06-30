@@ -31,6 +31,11 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportData/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getDashboardStats/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryGrouped/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryBatches/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/searchInventory/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/manageProjectCode/auth.js
 
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."
@@ -67,6 +72,7 @@ cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/materi
 
 echo "   -> Updating product-code.js..."
 cp cloudfunctions/_shared/product-code.js cloudfunctions/manageMaterial/product-code.js
+cp cloudfunctions/_shared/product-code.js cloudfunctions/approveMaterialRequest/product-code.js
 
 echo "   -> Updating search.js..."
 cp cloudfunctions/_shared/search.js cloudfunctions/getInventoryGrouped/search.js
@@ -74,6 +80,7 @@ cp cloudfunctions/_shared/search.js cloudfunctions/manageMaterial/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/searchInventory/search.js
 
 echo "   -> Updating log-search.js..."
 cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js
@@ -84,6 +91,9 @@ cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/updateInventory
 
 echo "   -> Updating material-template.js..."
 cp cloudfunctions/_shared/material-template.js cloudfunctions/exportMaterialTemplate/material-template.js
+
+echo "   -> Updating project-codes.js..."
+cp cloudfunctions/_shared/project-codes.js cloudfunctions/manageProjectCode/project-codes.js
 
 echo "   -> Updating import-batch-results.js..."
 cp cloudfunctions/_shared/import-batch-results.js cloudfunctions/manageMaterial/import-batch-results.js
@@ -114,6 +124,7 @@ cp cloudfunctions/_shared/label-code.js cloudfunctions/batchAddInventory/label-c
 echo "   -> Updating cst-time.js and dashboard-stats.js..."
 cp cloudfunctions/_shared/cst-time.js cloudfunctions/getDashboardStats/cst-time.js
 cp cloudfunctions/_shared/cst-time.js cloudfunctions/getLogs/cst-time.js
+cp cloudfunctions/_shared/cst-time.js cloudfunctions/exportData/cst-time.js
 cp cloudfunctions/_shared/dashboard-stats.js cloudfunctions/getDashboardStats/dashboard-stats.js
 
 # 6. Sync to Frontend (Miniprogram)

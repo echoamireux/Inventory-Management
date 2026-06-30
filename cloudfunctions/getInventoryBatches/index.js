@@ -10,12 +10,22 @@ const {
   pickPreferredAllocationItem,
   buildInventoryAllocationRecommendation
 } = require('./inventory-allocation');
+const { assertActiveUserAccess } = require('./auth');
 
 const ALERT_CONFIG = {
   EXPIRY_DAYS: 30
 };
 
+async function loadOperator(openid) {
+  const res = await db.collection('users')
+    .where({ _openid: openid })
+    .limit(1)
+    .get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
+
 exports.main = async (event) => {
+  const { OPENID } = cloud.getWXContext();
   const productCode = String(event.productCode || event.code || '').trim();
   const materialName = String(event.materialName || event.name || '').trim();
   const category = String(event.category || '').trim();
@@ -23,6 +33,12 @@ exports.main = async (event) => {
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
 
   try {
+    const operator = await loadOperator(OPENID);
+    const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看批次库存');
+    if (!authResult.ok) {
+      return { success: false, msg: authResult.msg };
+    }
+
     const conditions = [{ status: 'in_stock' }];
     if (productCode && productCode !== '无产品代码') {
       conditions.push({ product_code: productCode });

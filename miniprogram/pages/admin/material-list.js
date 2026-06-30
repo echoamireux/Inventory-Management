@@ -24,6 +24,7 @@ Page({
     // 批量管理模式
     isEditMode: false,
     selectedIds: [],
+    selectedCount: 0,
     isAllSelected: false
   },
 
@@ -70,6 +71,7 @@ Page({
        // 切换 Tab 时退出编辑模式
       isEditMode: false,
       selectedIds: [],
+      selectedCount: 0,
       isAllSelected: false
     }, () => {
       this.getList(true);
@@ -196,6 +198,7 @@ Page({
           isEditMode: true,
           list,
           selectedIds: [id],
+          selectedCount: 1,
           isAllSelected: list.length === 1 && this.data.total === 1
       });
   },
@@ -209,6 +212,7 @@ Page({
           isEditMode: isEdit,
           list,
           selectedIds: [],
+          selectedCount: 0,
           isAllSelected: false
       });
   },
@@ -249,6 +253,7 @@ Page({
 
       this.setData({
           selectedIds: ids,
+          selectedCount: ids.length,
           list,
           isAllSelected: ids.length === this.data.list.length && this.data.list.length > 0
       });
@@ -263,14 +268,12 @@ Page({
       this.setData({
           isAllSelected: isAll,
           list,
-          selectedIds: ids
+          selectedIds: ids,
+          selectedCount: ids.length
       });
   },
 
-  // 计算选中数量
-  get selectedCount() {
-      return this.data.selectedIds.length;
-  },
+  noop() {},
 
   // 批量删除 / 归档 - 带理由输入
   onBatchDelete() {

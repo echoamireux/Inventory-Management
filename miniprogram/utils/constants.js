@@ -75,14 +75,6 @@ const DEFAULT_ZONES = {
   film: ['研发仓1', '研发仓2', '研发仓3', '实验线']
 };
 
-// ========== 领料用途选项 ==========
-const USAGE_OPTIONS = [
-  '研发实验室',
-  '设备调试',
-  '客户打样',
-  '其他损耗'
-];
-
 // ========== 状态定义 ==========
 
 // 物料状态
@@ -156,7 +148,6 @@ module.exports = {
   FILM_UNIT_OPTIONS,
   PACKAGE_TYPES,
   DEFAULT_ZONES,
-  USAGE_OPTIONS,
   STATUS,
   ROLE,
   USER_STATUS,

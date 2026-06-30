@@ -72,6 +72,7 @@ Page({
     },
     materialSuggestions: [],
     materialSearching: false,
+    materialSearchState: '',
     creatingPreprint: false,
     exportingPreprint: false,
     voidingPreprint: false,
@@ -147,11 +148,13 @@ Page({
     }
 
     this.resetSelection();
+    this.materialSearchRequestId = (this.materialSearchRequestId || 0) + 1;
     this.setData({
       templateType,
       page: 1,
       isEnd: false,
       materialSuggestions: [],
+      materialSearchState: '',
       'preprintForm.materialSearchVal': '',
       'preprintForm.selectedMaterial': null,
       'preprintForm.supplier_model': '',
@@ -184,22 +187,25 @@ Page({
 
   onMaterialSearchChange(e) {
     const materialSearchVal = resolveSearchValue(e && e.detail);
+    const keyword = String(materialSearchVal || '').trim();
     this.setData({
       'preprintForm.materialSearchVal': materialSearchVal,
       'preprintForm.selectedMaterial': null,
-      materialSuggestions: materialSearchVal ? this.data.materialSuggestions : []
+      materialSuggestions: [],
+      materialSearchState: keyword ? 'loading' : ''
     });
 
     if (this.materialSearchTimer) {
       clearTimeout(this.materialSearchTimer);
     }
-    if (!materialSearchVal) {
-      this.setData({ materialSuggestions: [] });
+    if (!keyword) {
+      this.materialSearchRequestId = (this.materialSearchRequestId || 0) + 1;
+      this.setData({ materialSuggestions: [], materialSearchState: '' });
       return;
     }
 
     this.materialSearchTimer = setTimeout(() => {
-      this.searchMaterialSuggestions(materialSearchVal);
+      this.searchMaterialSuggestions(keyword);
     }, 400);
   },
 
@@ -208,15 +214,19 @@ Page({
       clearTimeout(this.materialSearchTimer);
       this.materialSearchTimer = null;
     }
+    this.materialSearchRequestId = (this.materialSearchRequestId || 0) + 1;
     this.setData({
       'preprintForm.materialSearchVal': '',
       'preprintForm.selectedMaterial': null,
-      materialSuggestions: []
+      materialSuggestions: [],
+      materialSearchState: ''
     });
   },
 
   async searchMaterialSuggestions(searchVal) {
-    this.setData({ materialSearching: true });
+    const requestId = (this.materialSearchRequestId || 0) + 1;
+    this.materialSearchRequestId = requestId;
+    this.setData({ materialSearching: true, materialSearchState: 'loading' });
     try {
       const res = await wx.cloud.callFunction({
         name: 'manageMaterial',
@@ -235,12 +245,26 @@ Page({
       const suggestions = Array.isArray(res.result.list)
         ? res.result.list.map(decorateMaterial)
         : [];
-      this.setData({ materialSuggestions: suggestions });
+      if (requestId !== this.materialSearchRequestId) {
+        return;
+      }
+      this.setData({
+        materialSuggestions: suggestions,
+        materialSearchState: suggestions.length > 0 ? '' : 'empty'
+      });
     } catch (error) {
       console.error(error);
+      if (requestId === this.materialSearchRequestId) {
+        this.setData({
+          materialSuggestions: [],
+          materialSearchState: 'error'
+        });
+      }
       Toast.fail(error.message || '查询物料失败');
     } finally {
-      this.setData({ materialSearching: false });
+      if (requestId === this.materialSearchRequestId) {
+        this.setData({ materialSearching: false });
+      }
     }
   },
 
@@ -252,7 +276,8 @@ Page({
       'preprintForm.materialSearchVal': `${material.display_code} ${material.display_name}`,
       'preprintForm.supplier_model': material.supplier_model || '',
       'preprintForm.supplier': material.supplier || '',
-      materialSuggestions: []
+      materialSuggestions: [],
+      materialSearchState: ''
     });
   },
 
@@ -263,7 +288,7 @@ Page({
     const { preprintForm, templateType } = this.data;
     const selectedMaterial = preprintForm.selectedMaterial;
     if (!selectedMaterial || !selectedMaterial._id) {
-      Toast.fail('请先选择物料');
+      Toast.fail('请先从搜索结果中选择物料');
       return;
     }
     if (selectedMaterial.is_test_material && !String(preprintForm.supplier_model || '').trim()) {

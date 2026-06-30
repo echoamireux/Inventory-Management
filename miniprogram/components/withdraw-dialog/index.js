@@ -1,5 +1,11 @@
 // components/withdraw-dialog/index.js
 const { getInventoryQuantityDisplayState } = require('../../utils/inventory-display');
+const {
+  listProjectCodes,
+  buildProjectCodePickerColumns
+} = require('../../utils/project-code-service');
+
+const PROJECT_CODE_CLOUD_FUNCTION = 'manageProjectCode';
 
 Component({
   properties: {
@@ -41,11 +47,11 @@ Component({
   data: {
     withdrawAmount: '',
 
-    // Usage related
-    usageOptions: ['研发实验室', '设备调试', '客户打样', '其他损耗'],
-    showUsagePicker: false,
-    selectedUsage: '',
-    usageDetail: '',
+    projectOptions: [],
+    showProjectPicker: false,
+    selectedProject: null,
+    withdrawNote: '',
+    projectLoading: false,
 
     displayStock: '0',
     displayStockUnit: '',
@@ -83,9 +89,10 @@ Component({
             inputUnitLabel,
             availableInputStock,
             withdrawAmount: '',
-            selectedUsage: '',
-            usageDetail: ''
+            selectedProject: null,
+            withdrawNote: ''
         });
+        this.loadProjectCodes();
     },
 
     onAmountInput(e) {
@@ -102,23 +109,41 @@ Component({
         this.triggerEvent('close');
     },
 
-    onUsageClick() {
-        this.setData({ showUsagePicker: true });
+    async loadProjectCodes() {
+        if (this.data.projectLoading) return;
+        this.setData({ projectLoading: true });
+        try {
+            const records = await listProjectCodes(false);
+            this.setData({
+                projectOptions: buildProjectCodePickerColumns(records)
+            });
+        } catch (err) {
+            console.error('Load project codes failed', err);
+            wx.showToast({ title: err.message || '项目编码加载失败', icon: 'none' });
+        } finally {
+            this.setData({ projectLoading: false });
+        }
     },
 
-    onUsageCancel() { this.setData({ showUsagePicker: false }); },
-    onUsageConfirm(e) {
+    onProjectClick() {
+        if (!this.data.projectOptions.length) {
+            this.loadProjectCodes();
+        }
+        this.setData({ showProjectPicker: true });
+    },
+
+    onProjectCancel() { this.setData({ showProjectPicker: false }); },
+    onProjectConfirm(e) {
         const { value } = e.detail;
         this.setData({
-            selectedUsage: value,
-            showUsagePicker: false,
-            usageDetail: ''
+            selectedProject: value,
+            showProjectPicker: false
         });
     },
-    onUsageDetailInput(e) { this.setData({ usageDetail: e.detail }); },
+    onWithdrawNoteInput(e) { this.setData({ withdrawNote: e.detail }); },
 
     async onConfirm() {
-        const { withdrawAmount, selectedUsage, usageDetail, availableInputStock } = this.data;
+        const { withdrawAmount, selectedProject, withdrawNote, availableInputStock } = this.data;
 
         if (!withdrawAmount || Number(withdrawAmount) <= 0) {
             wx.showToast({ title: '请输入数量', icon: 'none' });
@@ -133,24 +158,17 @@ Component({
              return;
         }
 
-        if (!selectedUsage) {
-            wx.showToast({ title: '请选择用途', icon: 'error' });
+        if (!selectedProject || !selectedProject.project_code) {
+            wx.showToast({ title: '请选择项目编码', icon: 'none' });
             return;
-        }
-
-        let finalNote = selectedUsage;
-        if (selectedUsage === '其他损耗') {
-            if (!usageDetail) {
-                wx.showToast({ title: '请填写原因', icon: 'none' });
-                return;
-            }
-            finalNote += `: ${usageDetail}`;
         }
 
         // Trigger parent event
         this.triggerEvent('confirm', {
             withdraw_amount: withdrawAmount,
-            note: finalNote,
+            project_code: selectedProject.project_code,
+            project_name: selectedProject.project_name || '',
+            withdraw_note: String(withdrawNote || '').trim()
         });
     }
   }

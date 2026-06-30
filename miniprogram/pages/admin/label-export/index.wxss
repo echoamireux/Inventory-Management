@@ -38,6 +38,27 @@
   color: var(--color-text-primary);
 }
 
+.template-fields-preview {
+  margin: 4px 14px 14px;
+  padding: 10px 12px;
+  background: #F8FAFC;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+}
+
+.template-fields-preview__label {
+  margin-bottom: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.template-fields-preview__text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
 .selection-brief {
   padding: 0 6px;
   font-size: 12px;
@@ -72,6 +93,23 @@
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 10px;
   overflow: hidden;
+}
+
+.material-search-state {
+  margin: 8px 0 10px;
+  padding: 9px 12px;
+  background: #F8FAFC;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.material-search-state.is-error {
+  background: #FFF1F2;
+  border-color: rgba(244, 63, 94, 0.18);
+  color: #BE123C;
 }
 
 .suggestion-row {
@@ -122,6 +160,18 @@
   gap: 8px;
 }
 
+.form-section-title {
+  margin-top: 14px;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.optional-grid {
+  margin-top: 2px;
+}
+
 .form-item {
   min-width: 0;
 }
@@ -169,6 +219,23 @@
 }
 
 .action-button.is-disabled {
+  opacity: 0.55;
+}
+
+.void-link {
+  margin-top: 12px;
+  min-height: 36px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #BE123C;
+}
+
+.void-link.is-disabled {
   opacity: 0.55;
 }
 

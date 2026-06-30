@@ -1,0 +1,8 @@
+@import "../subcategory-manage/index.wxss";
+
+.project-code {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 0;
+}

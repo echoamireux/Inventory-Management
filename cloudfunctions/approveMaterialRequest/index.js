@@ -10,6 +10,7 @@ const {
 } = require('./material-subcategories');
 const { normalizeUnitInput } = require('./material-units');
 const { normalizeTestMaterialFlag } = require('./test-material');
+const { validateStandardProductCode } = require('./product-code');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -149,28 +150,12 @@ exports.main = async (event, context) => {
     }
 
     if (action === 'approve') {
-        // 通过逻辑
-
-        // A. 二次查重 (防止并发写入)
-        const existCount = await db.collection('materials').where({
-            product_code: request.product_code
-        }).count();
-
-        if (existCount.total > 0) {
-            // 虽然申请单还在，但 formally 库里已经有了，可能别人手动加了，或者并发了。
-            // 此时标记为 rejected (Reason: 已存在) 比较合理，或者直接报错？
-            // 为了流程闭环，我们手动置为 invalid/rejected
-            await db.collection('material_requests').doc(request_id).update({
-                data: {
-                    status: 'rejected',
-                    reject_reason: 'System: Code already exists in library',
-                    updated_at: db.serverDate()
-                }
-            });
-            return { success: false, msg: 'Fail: 代码已存在于物料库，自动驳回' };
+        const category = request.category === 'film' ? 'film' : 'chemical';
+        const normalizedCode = validateStandardProductCode(category, request.product_code);
+        if (!normalizedCode.ok) {
+            return { success: false, msg: normalizedCode.msg };
         }
 
-        // B. 写入正式物料库
         const resolvedSubcategory = await resolveRequestSubcategory(request);
         if (!resolvedSubcategory.subcategory_key) {
             return { success: false, msg: '申请单子类别无效，请先修正后再审批' };
@@ -180,48 +165,71 @@ exports.main = async (event, context) => {
             return { success: false, msg: '申请单默认单位无效，请先修正后再审批' };
         }
 
-        const category = request.category === 'film' ? 'film' : 'chemical';
-        const masterFields = buildGovernedMaterialMasterFields({
-            ...request,
-            default_unit: normalizedUnit.unit
-        }, category);
-        const newMaterial = {
-            product_code: request.product_code,
-            subcategory_key: resolvedSubcategory.subcategory_key,
-            sub_category: resolvedSubcategory.sub_category,
-            ...masterFields,
-            // 默认初始字段
-            batch_count: 0,
-            quantity: 0,
-            // 审计字段
-            created_by: request.applicant || request._openid || '', // 申请人作为创建者
-            created_at: db.serverDate(),
-            approved_by: OPENID,
-            approved_at: db.serverDate()
-        };
-
-        const addRes = await db.collection('materials').add({
-            data: newMaterial
-        });
-
-        if (!addRes._id) {
-            throw new Error('Write to materials failed');
-        }
-
-        // C. 更新申请单状态
-        await db.collection('material_requests').doc(request_id).update({
-            data: {
-                status: 'approved',
-                material_id: addRes._id, // 关联正式ID
-                subcategory_key: resolvedSubcategory.subcategory_key,
-                sub_category: resolvedSubcategory.sub_category,
-                operator_id: OPENID,
-                operator_name: operator.name || 'Admin',
-                updated_at: db.serverDate()
+        const txResult = await db.runTransaction(async transaction => {
+            const txRequestRes = await transaction.collection('material_requests').doc(request_id).get();
+            const txRequest = txRequestRes.data;
+            if (!txRequest) {
+                throw new Error('申请单不存在');
             }
+            if (txRequest.status !== 'pending') {
+                throw new Error('该申请已被处理过');
+            }
+
+            const existRes = await transaction.collection('materials')
+              .where({ product_code: normalizedCode.product_code })
+              .limit(1)
+              .get();
+            if (existRes.data && existRes.data.length > 0) {
+                await transaction.collection('material_requests').doc(request_id).update({
+                    data: {
+                        status: 'rejected',
+                        reject_reason: 'System: Code already exists in library',
+                        updated_at: db.serverDate()
+                    }
+                });
+                return { success: false, msg: 'Fail: 代码已存在于物料库，自动驳回' };
+            }
+
+            const masterFields = buildGovernedMaterialMasterFields({
+                ...txRequest,
+                product_code: normalizedCode.product_code,
+                default_unit: normalizedUnit.unit
+            }, category);
+            const addRes = await transaction.collection('materials').add({
+                data: {
+                    product_code: normalizedCode.product_code,
+                    subcategory_key: resolvedSubcategory.subcategory_key,
+                    sub_category: resolvedSubcategory.sub_category,
+                    ...masterFields,
+                    batch_count: 0,
+                    quantity: 0,
+                    created_by: txRequest.applicant || txRequest._openid || '',
+                    created_at: db.serverDate(),
+                    approved_by: OPENID,
+                    approved_at: db.serverDate()
+                }
+            });
+
+            if (!addRes._id) {
+                throw new Error('Write to materials failed');
+            }
+
+            await transaction.collection('material_requests').doc(request_id).update({
+                data: {
+                    status: 'approved',
+                    material_id: addRes._id,
+                    subcategory_key: resolvedSubcategory.subcategory_key,
+                    sub_category: resolvedSubcategory.sub_category,
+                    operator_id: OPENID,
+                    operator_name: operator.name || 'Admin',
+                    updated_at: db.serverDate()
+                }
+            });
+
+            return { success: true, msg: '已通过，物料创建成功' };
         });
 
-        return { success: true, msg: '已通过，物料创建成功' };
+        return txResult;
     }
 
     return { success: false, msg: 'Unknown action' };

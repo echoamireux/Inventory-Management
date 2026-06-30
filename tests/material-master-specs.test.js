@@ -152,6 +152,34 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
   assert.match(file, /transaction\.collection\('inventory'\)\.doc\(/);
 });
 
+test('audit hardening fixes admin page bindings, material add dialog mount, and approval routing', () => {
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+  const materialAddWxml = read('miniprogram/pages/material-add/index.wxml');
+  const approvalCenterJs = read('miniprogram/pages/admin/approval-center/index.js');
+
+  assert.match(materialListJs, /selectedCount:\s*0/);
+  assert.match(materialListJs, /noop\s*\(\)\s*\{\s*\}/);
+  assert.match(materialListJs, /selectedCount:\s*ids\.length/);
+  assert.match(materialListWxml, /删除\/归档 \(\{\{ selectedCount \}\}\)/);
+  assert.match(materialAddWxml, /<van-dialog id="van-dialog" \/>/);
+  assert.match(approvalCenterJs, /wx\.reLaunch\(\{\s*url:\s*['"]\/pages\/index\/index['"]/);
+  assert.doesNotMatch(approvalCenterJs, /wx\.switchTab/);
+});
+
+test('read-only inventory cloud functions require active users on the backend', () => {
+  [
+    'cloudfunctions/getDashboardStats/index.js',
+    'cloudfunctions/getInventoryGrouped/index.js',
+    'cloudfunctions/getInventoryBatches/index.js',
+    'cloudfunctions/searchInventory/index.js'
+  ].forEach((relPath) => {
+    const file = read(relPath);
+    assert.match(file, /assertActiveUserAccess/);
+    assert.match(file, /collection\('users'\)/);
+  });
+});
+
 test('home batch recommendation and batch-mode deduction share one FEFO allocation contract', () => {
   const homeIndex = read('miniprogram/pages/index/index.js');
   const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
@@ -178,6 +206,47 @@ test('home batch recommendation and batch-mode deduction share one FEFO allocati
   assert.match(withdrawDialogJs, /scan' \|\| this\.data\.mode === 'product'|mode === 'product'/);
   assert.match(withdrawDialogWxml, /首个推荐批次|推荐批次/);
   assert.match(withdrawDialogWxml, /效期优先|FEFO/);
+});
+
+test('withdrawal flow requires project codes and writes structured project log fields', () => {
+  const withdrawDialogJs = read('miniprogram/components/withdraw-dialog/index.js');
+  const withdrawDialogWxml = read('miniprogram/components/withdraw-dialog/index.wxml');
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const detailJs = read('miniprogram/pages/inventory-detail/index.js');
+  const updateInventoryJs = read('cloudfunctions/updateInventory/index.js');
+
+  assert.match(withdrawDialogJs, /manageProjectCode/);
+  assert.match(withdrawDialogJs, /projectOptions/);
+  assert.match(withdrawDialogJs, /selectedProject/);
+  assert.match(withdrawDialogJs, /请选择项目编码/);
+  assert.match(withdrawDialogWxml, /title="项目编码"/);
+  assert.match(withdrawDialogWxml, /领料备注/);
+
+  assert.match(homeIndexJs, /project_code/);
+  assert.match(homeIndexJs, /project_name/);
+  assert.match(homeIndexJs, /withdraw_note/);
+  assert.match(detailJs, /project_code/);
+  assert.match(detailJs, /project_name/);
+  assert.match(detailJs, /withdraw_note/);
+
+  assert.match(updateInventoryJs, /project_code/);
+  assert.match(updateInventoryJs, /project_name/);
+  assert.match(updateInventoryJs, /withdraw_note/);
+  assert.match(updateInventoryJs, /description:\s*buildWithdrawDescription/);
+});
+
+test('project code management page is registered and exposed to admins', () => {
+  const appJson = read('miniprogram/app.json');
+  const homeWxml = read('miniprogram/pages/index/index.wxml');
+  const servicePath = path.join(__dirname, '..', 'miniprogram/utils/project-code-service.js');
+  const pageJsPath = path.join(__dirname, '..', 'miniprogram/pages/admin/project-code-manage/index.js');
+  const cloudFnPath = path.join(__dirname, '..', 'cloudfunctions/manageProjectCode/index.js');
+
+  assert.match(appJson, /pages\/admin\/project-code-manage\/index/);
+  assert.match(homeWxml, /项目编码管理/);
+  assert.equal(fs.existsSync(servicePath), true);
+  assert.equal(fs.existsSync(pageJsPath), true);
+  assert.equal(fs.existsSync(cloudFnPath), true);
 });
 
 test('log pages no longer expose delete actions or call destructive log cloud functions', () => {
@@ -235,6 +304,8 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   assert.match(getLogsCf, /batch_number/);
   assert.match(getLogsCf, /description/);
   assert.match(getLogsCf, /note/);
+  assert.match(getLogsCf, /project_code/);
+  assert.match(getLogsCf, /project_name/);
   assert.doesNotMatch(getLogsCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
 
   assert.doesNotMatch(exportDataCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
@@ -242,6 +313,8 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   assert.match(adminLogsJs, /batch_number/);
   assert.match(adminLogsJs, /description/);
   assert.match(adminLogsJs, /note/);
+  assert.match(adminLogsJs, /project_code/);
+  assert.match(adminLogsJs, /project_name/);
 });
 
 test('material import preview only renders warning rows when text exists and forces keyed refresh when warning state changes', () => {

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "项目编码管理",
+  "usingComponents": {
+    "van-button": "@vant/weapp/button/index",
+    "van-loading": "@vant/weapp/loading/index",
+    "van-tag": "@vant/weapp/tag/index"
+  }
+}

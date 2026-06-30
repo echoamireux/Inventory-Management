@@ -228,6 +228,11 @@ Page({
   },
 
   async onExport() {
+    if (this.data.hasLoadedOnce && Number(this.data.total || 0) === 0 && (this.data.list || []).length === 0) {
+      wx.showToast({ title: '暂无库存可导出', icon: 'none' });
+      return;
+    }
+
     this.setData({ loading: true });
     wx.showLoading({ title: '正在导出报表...', mask: true });
 

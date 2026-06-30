@@ -106,24 +106,26 @@
             <!-- Usage -->
             <view class="card-home" style="padding: 0; overflow: hidden; margin-bottom: 0;">
                  <van-cell
-                    title="领料用途"
-                    value="{{ selectedUsage || '请选择' }}"
+                    title="项目编码"
+                    value="{{ selectedProject ? selectedProject.project_code : (projectLoading ? '加载中...' : '请选择') }}"
                     is-link
                     title-class="font-bold text-main"
-                    value-class="{{ selectedUsage ? 'text-brand font-bold' : 'text-sub' }}"
+                    value-class="{{ selectedProject ? 'text-brand font-bold' : 'text-sub' }}"
                     border="{{ false }}"
                     custom-class="!py-4"
-                    bind:click="onUsageClick"
+                    bind:click="onProjectClick"
                  />
-                 <block wx:if="{{ selectedUsage === '其他损耗' }}">
-                     <view style="height:1px; background:#f5f5f5; margin:0 16px;"></view>
-                     <van-field
-                        value="{{ usageDetail }}"
-                        placeholder="请输入具体损耗原因"
-                        border="{{ false }}"
-                        bind:change="onUsageDetailInput"
-                     />
-                 </block>
+                 <view wx:if="{{ selectedProject && selectedProject.project_name }}" class="project-name-preview">
+                    {{ selectedProject.project_name }}
+                 </view>
+                 <view style="height:1px; background:#f5f5f5; margin:0 16px;"></view>
+                 <van-field
+                    label="领料备注"
+                    value="{{ withdrawNote }}"
+                    placeholder="选填：试验批次、异常损耗、临时说明"
+                    border="{{ false }}"
+                    bind:change="onWithdrawNoteInput"
+                 />
             </view>
         </view>
      </scroll-view>
@@ -135,13 +137,13 @@
   </view>
 </van-popup>
 
-<!-- Usage Picker (Nested) -->
-<van-popup show="{{ showUsagePicker }}" position="bottom" round bind:close="onUsageCancel" z-index="2000">
+<!-- Project Picker (Nested) -->
+<van-popup show="{{ showProjectPicker }}" position="bottom" round bind:close="onProjectCancel" z-index="2000">
     <van-picker
-        columns="{{ usageOptions }}"
+        columns="{{ projectOptions }}"
         show-toolbar
-        title="选择用途"
-        bind:cancel="onUsageCancel"
-        bind:confirm="onUsageConfirm"
+        title="选择项目编码"
+        bind:cancel="onProjectCancel"
+        bind:confirm="onProjectConfirm"
     />
 </van-popup>

@@ -77,6 +77,19 @@ test('inventory index page keeps previous list during refresh and only shows emp
   assert.doesNotMatch(js, /setData\(\{\s*loading:\s*true,\s*list:\s*\[\]\s*\}\)/);
 });
 
+test('inventory export shows an empty-state toast before calling exportData', () => {
+  const js = read('miniprogram/pages/inventory/index.js');
+  const emptyToastIndex = js.indexOf("暂无库存可导出");
+  const exportCallIndex = js.indexOf("name: 'exportData'");
+
+  assert.notEqual(emptyToastIndex, -1);
+  assert.notEqual(exportCallIndex, -1);
+  assert.ok(emptyToastIndex < exportCallIndex);
+  assert.match(js, /hasLoadedOnce/);
+  assert.match(js, /Number\(this\.data\.total\s*\|\|\s*0\)\s*===\s*0/);
+  assert.match(js, /\(this\.data\.list\s*\|\|\s*\[\]\)\.length\s*===\s*0/);
+});
+
 test('inventory pages support pull-down refresh for manual recovery', () => {
   const detailJson = read('miniprogram/pages/inventory/detail-list.json');
   const indexJson = read('miniprogram/pages/inventory/index.json');
@@ -148,8 +161,8 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/供应商\/库位"/);
   assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
   assert.match(materialListWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
-  assert.match(logsWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/操作人\/类型\/描述\/备注"/);
-  assert.match(adminLogsWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/操作人\/类型\/描述\/备注"/);
+  assert.match(logsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
+  assert.match(adminLogsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
 });
 
 test('inventory change token propagates from detail page back to list pages', () => {

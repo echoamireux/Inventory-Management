@@ -405,6 +405,7 @@ module.exports = {
   DEPRECATED_SUBCATEGORY_KEYS,
   normalizeParentCategory,
   normalizeSubcategoryName,
+  normalizeStatus,
   normalizeSubcategoryRecord,
   sortSubcategoryRecords,
   isDeprecatedSubcategoryKey,

@@ -262,6 +262,12 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
     serverDate() {
       return { $date: true };
     },
+    async runTransaction(handler) {
+      const transaction = {
+        collection: (name) => db.collection(name)
+      };
+      return handler(transaction);
+    },
     collection(name) {
       if (name === 'material_requests') {
         return {
@@ -398,6 +404,12 @@ test('approveMaterialRequest writes request default unit into the formal materia
     serverDate() {
       return { $date: true };
     },
+    async runTransaction(handler) {
+      const transaction = {
+        collection: (name) => db.collection(name)
+      };
+      return handler(transaction);
+    },
     collection(name) {
       if (name === 'users') {
         return {
@@ -446,8 +458,11 @@ test('approveMaterialRequest writes request default unit into the formal materia
         return {
           where() {
             return {
-              async count() {
-                return { total: 0 };
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [] };
               }
             };
           },
