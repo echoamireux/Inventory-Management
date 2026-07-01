@@ -106,6 +106,66 @@ async function loadExistingInventoryByUniqueCodes(uniqueCodes = []) {
   );
 }
 
+async function loadPreprintLabelsByUniqueCodes(uniqueCodes = []) {
+  const rows = [];
+  for (const codes of chunkArray(uniqueCodes, 50)) {
+    if (!codes.length) {
+      continue;
+    }
+    const res = await db.collection('preprinted_labels').where({
+      unique_code: _.in(codes)
+    }).get();
+    rows.push(...(res.data || []));
+  }
+
+  return new Map(
+    rows
+      .map(item => [String(item.unique_code || '').trim(), item])
+      .filter(([uniqueCode]) => !!uniqueCode)
+  );
+}
+
+async function loadPreprintLabelByUniqueCode(transaction, uniqueCode) {
+  const normalizedUniqueCode = String(uniqueCode || '').trim();
+  if (!normalizedUniqueCode) {
+    return null;
+  }
+
+  const res = await transaction.collection('preprinted_labels').where({
+    unique_code: normalizedUniqueCode
+  }).get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
+
+function assertPreprintLabelUsable(preprintLabel, item, material) {
+  if (!preprintLabel) {
+    return;
+  }
+
+  const uniqueCode = String(item.unique_code || '').trim();
+  const materialId = String((material && material._id) || item.material_id || '').trim();
+  const productCode = String((material && material.product_code) || item.product_code || '').trim();
+  const category = String((material && material.category) || item.category || '').trim();
+
+  if (String(preprintLabel.unique_code || '').trim() !== uniqueCode) {
+    throw new Error('预生成标签编号与当前入库标签不一致');
+  }
+  if (preprintLabel.status !== 'unused') {
+    throw new Error(preprintLabel.status === 'voided'
+      ? '该预生成标签已作废，不能入库'
+      : '该预生成标签已入库，不能重复使用');
+  }
+  if (preprintLabel.material_id && String(preprintLabel.material_id).trim() !== materialId) {
+    throw new Error('预生成标签不属于当前物料');
+  }
+  if (preprintLabel.product_code && String(preprintLabel.product_code).trim() !== productCode) {
+    throw new Error('预生成标签不属于当前物料');
+  }
+  if (preprintLabel.category && String(preprintLabel.category).trim() !== category) {
+    throw new Error('预生成标签类型与当前物料不一致');
+  }
+}
+
 async function loadCurrentInStockInventoryByCodes(productCodes = []) {
   const grouped = new Map();
 
@@ -234,9 +294,16 @@ async function previewRows(rawRows = [], templateMeta = null) {
   }
 
   const lookupKeys = collectInventoryImportLookupKeys(rows);
-  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, currentInventoryByProductCode] = await Promise.all([
+  const [
+    materialsByCode,
+    existingInventoryByUniqueCode,
+    preprintLabelsByUniqueCode,
+    zoneRecords,
+    currentInventoryByProductCode
+  ] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
+    loadPreprintLabelsByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
     loadCurrentInStockInventoryByCodes(lookupKeys.productCodes)
   ]);
@@ -246,6 +313,7 @@ async function previewRows(rawRows = [], templateMeta = null) {
     materialsByCode,
     existingUniqueCodes,
     existingInventoryByUniqueCode,
+    preprintLabelsByUniqueCode,
     duplicateUniqueCodes: buildDuplicateUniqueCodeSet(rows),
     zoneMapsByCategory: buildZoneMapsByCategory(zoneRecords),
     currentInventoryByProductCode
@@ -355,6 +423,8 @@ async function submitRows(items = [], openid, operatorName) {
       }
 
       const payload = buildInventoryImportPayload(item, material);
+      const preprintLabel = await loadPreprintLabelByUniqueCode(transaction, uniqueCode);
+      assertPreprintLabelUsable(preprintLabel, item, material);
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {
         const materialUpdateData = {
@@ -380,6 +450,17 @@ async function submitRows(items = [], openid, operatorName) {
           update_time: db.serverDate()
         })
       });
+
+      if (preprintLabel) {
+        await transaction.collection('preprinted_labels').doc(preprintLabel._id).update({
+          data: {
+            status: 'used',
+            inventory_id: addRes._id,
+            used_time: db.serverDate(),
+            update_time: db.serverDate()
+          }
+        });
+      }
 
       await transaction.collection('inventory_log').add({
         data: Object.assign({}, payload.logData, {

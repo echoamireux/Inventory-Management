@@ -339,6 +339,36 @@ test('inventory import preview resolves governed chemical rows against current m
   assert.equal(preview.quantity_summary, '2 kg');
 });
 
+test('inventory import preview rejects unavailable preprint labels before submit', () => {
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000302', '001', '化材', 'AC240302', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, buildContext({
+    materialsByCode: new Map([
+      ['J-001', {
+        _id: 'mat-j-001',
+        product_code: 'J-001',
+        category: 'chemical',
+        material_name: '丙酮分析纯',
+        sub_category: '溶剂',
+        default_unit: 'kg'
+      }]
+    ]),
+    preprintLabelsByUniqueCode: new Map([
+      ['L000302', {
+        _id: 'preprint-302',
+        unique_code: 'L000302',
+        status: 'voided',
+        material_id: 'mat-j-001',
+        product_code: 'J-001',
+        category: 'chemical'
+      }]
+    ])
+  }));
+
+  assert.match(preview.error, /已作废/);
+});
+
 test('inventory import preview keeps missing-material feedback at row level', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,

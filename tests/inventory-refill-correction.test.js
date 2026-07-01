@@ -903,6 +903,18 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
               };
             }
 
+            if (name === 'preprinted_labels') {
+              return {
+                where() {
+                  return {
+                    async get() {
+                      return { data: [] };
+                    }
+                  };
+                }
+              };
+            }
+
             throw new Error(`unexpected collection: ${name}`);
           }
         };
@@ -1077,6 +1089,18 @@ test('inventory template submit supports mixed create and refill rows in one req
                   };
                 }
 
+                if (name === 'preprinted_labels') {
+                  return {
+                    where() {
+                      return {
+                        async get() {
+                          return { data: [] };
+                        }
+                      };
+                    }
+                  };
+                }
+
                 if (name === 'materials') {
                   return {
                     doc() {
@@ -1158,6 +1182,400 @@ test('inventory template submit supports mixed create and refill rows in one req
   assert.equal(inventoryLogs.length, 2);
   assert.equal(inventoryLogs[0].type, 'refill');
   assert.equal(inventoryLogs[1].type, 'inbound');
+});
+
+test('inventory template submit consumes matching unused preprint labels when creating inventory', async () => {
+  const inventoryAdds = [];
+  const inventoryLogs = [];
+  const preprintUpdates = [];
+
+  const material = {
+    _id: 'mat-tpl-preprint',
+    product_code: 'J-001',
+    category: 'chemical',
+    material_name: '丙酮',
+    sub_category: '溶剂',
+    default_unit: 'kg'
+  };
+  const preprintLabel = {
+    _id: 'preprint-template-1',
+    unique_code: 'L000904',
+    status: 'unused',
+    material_id: 'mat-tpl-preprint',
+    product_code: 'J-001',
+    category: 'chemical'
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/importInventoryTemplate/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-template-preprint' };
+      },
+      database() {
+        return {
+          command: {
+            in(list) {
+              return { $in: list };
+            }
+          },
+          serverDate() {
+            return { $date: true };
+          },
+          collection(name) {
+            if (name === 'users') {
+              return {
+                where() {
+                  return {
+                    limit() {
+                      return {
+                        async get() {
+                          return { data: [{ role: 'user', status: 'active', name: '模板提交员' }] };
+                        }
+                      };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'materials') {
+              return {
+                where() {
+                  return {
+                    async get() {
+                      return { data: [material] };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'inventory') {
+              return {
+                where() {
+                  return {
+                    skip() {
+                      return this;
+                    },
+                    limit() {
+                      return this;
+                    },
+                    field() {
+                      return this;
+                    },
+                    async get() {
+                      return { data: [] };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'warehouse_zones') {
+              return {
+                skip() {
+                  return this;
+                },
+                limit() {
+                  return this;
+                },
+                async get() {
+                  return { data: [] };
+                }
+              };
+            }
+
+            throw new Error(`unexpected collection outside transaction: ${name}`);
+          },
+          runTransaction(fn) {
+            return fn({
+              collection(name) {
+                if (name === 'inventory') {
+                  return {
+                    async add({ data }) {
+                      inventoryAdds.push(data);
+                      return { _id: `inv-created-${inventoryAdds.length}` };
+                    }
+                  };
+                }
+
+                if (name === 'preprinted_labels') {
+                  return {
+                    where(query) {
+                      return {
+                        async get() {
+                          assert.equal(query.unique_code, 'L000904');
+                          return { data: [preprintLabel] };
+                        }
+                      };
+                    },
+                    doc(id) {
+                      return {
+                        async update({ data }) {
+                          preprintUpdates.push({ id, data });
+                          return {};
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'inventory_log') {
+                  return {
+                    async add({ data }) {
+                      inventoryLogs.push(data);
+                      return { _id: `log-${inventoryLogs.length}` };
+                    }
+                  };
+                }
+
+                if (name === 'materials') {
+                  return {
+                    doc() {
+                      return {
+                        async update() {
+                          return {};
+                        }
+                      };
+                    }
+                  };
+                }
+
+                throw new Error(`unexpected transaction collection: ${name}`);
+              }
+            });
+          }
+        };
+      }
+    },
+    './auth': {
+      assertActiveUserAccess() {
+        return { ok: true };
+      }
+    }
+  });
+
+  const result = await mod.main({
+    action: 'submit',
+    data: {
+      items: [{
+        rowIndex: 5,
+        unique_code: 'L000904',
+        product_code: 'J-001',
+        material_id: 'mat-tpl-preprint',
+        material_name: '丙酮',
+        sub_category: '溶剂',
+        category: 'chemical',
+        batch_number: 'AC240904',
+        zone_key: 'builtin:chemical:safe-cabinet-01',
+        location_detail: 'A-02',
+        location: '防爆柜01 | A-02',
+        expiry_date: '2026-12-31',
+        is_long_term_valid: false,
+        net_content: 1,
+        quantity_unit: 'kg',
+        quantity_summary: '1 kg',
+        submit_action: 'create'
+      }]
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(inventoryAdds.length, 1);
+  assert.equal(preprintUpdates.length, 1);
+  assert.equal(preprintUpdates[0].id, 'preprint-template-1');
+  assert.equal(preprintUpdates[0].data.status, 'used');
+  assert.equal(preprintUpdates[0].data.inventory_id, 'inv-created-1');
+  assert.equal(inventoryLogs.length, 1);
+  assert.equal(inventoryLogs[0].unique_code, 'L000904');
+});
+
+test('inventory template submit rejects voided preprint labels even when the row is otherwise valid', async () => {
+  const material = {
+    _id: 'mat-tpl-voided-preprint',
+    product_code: 'J-001',
+    category: 'chemical',
+    material_name: '丙酮',
+    sub_category: '溶剂',
+    default_unit: 'kg'
+  };
+  const preprintLabel = {
+    _id: 'preprint-template-voided',
+    unique_code: 'L000905',
+    status: 'voided',
+    material_id: 'mat-tpl-voided-preprint',
+    product_code: 'J-001',
+    category: 'chemical'
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/importInventoryTemplate/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-template-voided-preprint' };
+      },
+      database() {
+        return {
+          command: {
+            in(list) {
+              return { $in: list };
+            }
+          },
+          serverDate() {
+            return { $date: true };
+          },
+          collection(name) {
+            if (name === 'users') {
+              return {
+                where() {
+                  return {
+                    limit() {
+                      return {
+                        async get() {
+                          return { data: [{ role: 'user', status: 'active', name: '模板提交员' }] };
+                        }
+                      };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'materials') {
+              return {
+                where() {
+                  return {
+                    async get() {
+                      return { data: [material] };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'inventory') {
+              return {
+                where() {
+                  return {
+                    skip() {
+                      return this;
+                    },
+                    limit() {
+                      return this;
+                    },
+                    field() {
+                      return this;
+                    },
+                    async get() {
+                      return { data: [] };
+                    }
+                  };
+                }
+              };
+            }
+
+            if (name === 'warehouse_zones') {
+              return {
+                skip() {
+                  return this;
+                },
+                limit() {
+                  return this;
+                },
+                async get() {
+                  return { data: [] };
+                }
+              };
+            }
+
+            throw new Error(`unexpected collection outside transaction: ${name}`);
+          },
+          runTransaction(fn) {
+            return fn({
+              collection(name) {
+                if (name === 'inventory') {
+                  return {
+                    async add() {
+                      throw new Error('voided preprint should fail before inventory is created');
+                    }
+                  };
+                }
+
+                if (name === 'preprinted_labels') {
+                  return {
+                    where(query) {
+                      return {
+                        async get() {
+                          assert.equal(query.unique_code, 'L000905');
+                          return { data: [preprintLabel] };
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'materials') {
+                  return {
+                    doc() {
+                      return {
+                        async update() {
+                          return {};
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'inventory_log') {
+                  return {
+                    async add() {
+                      throw new Error('voided preprint should fail before log is written');
+                    }
+                  };
+                }
+
+                throw new Error(`unexpected transaction collection: ${name}`);
+              }
+            });
+          }
+        };
+      }
+    },
+    './auth': {
+      assertActiveUserAccess() {
+        return { ok: true };
+      }
+    }
+  });
+
+  const result = await mod.main({
+    action: 'submit',
+    data: {
+      items: [{
+        rowIndex: 5,
+        unique_code: 'L000905',
+        product_code: 'J-001',
+        material_id: 'mat-tpl-voided-preprint',
+        material_name: '丙酮',
+        sub_category: '溶剂',
+        category: 'chemical',
+        batch_number: 'AC240905',
+        zone_key: 'builtin:chemical:safe-cabinet-01',
+        location_detail: 'A-02',
+        location: '防爆柜01 | A-02',
+        expiry_date: '2026-12-31',
+        is_long_term_valid: false,
+        net_content: 1,
+        quantity_unit: 'kg',
+        quantity_summary: '1 kg',
+        submit_action: 'create'
+      }]
+    }
+  });
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /已作废/);
 });
 
 test('inventory template submit rejects invalid refill quantities even if the frontend payload is tampered', async () => {

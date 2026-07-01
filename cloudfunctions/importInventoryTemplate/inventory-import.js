@@ -434,6 +434,31 @@ function buildPotentialDuplicateWarning(row = {}, currentInventoryByProductCode 
   return `当前在库已有 ${matches.length} 条同产品代码、同批号、同数量记录${labelSummary}，请确认不是重复导入`;
 }
 
+function validatePreprintLabelForInventoryImport(preprintLabel, row, material) {
+  if (!preprintLabel) {
+    return '';
+  }
+
+  if (normalizeText(preprintLabel.unique_code) !== normalizeText(row.unique_code)) {
+    return '预生成标签编号与当前入库标签不一致';
+  }
+  if (preprintLabel.status !== 'unused') {
+    return preprintLabel.status === 'voided'
+      ? '该预生成标签已作废，不能入库'
+      : '该预生成标签已入库，不能重复使用';
+  }
+  if (preprintLabel.material_id && normalizeText(preprintLabel.material_id) !== normalizeText(material && material._id)) {
+    return '预生成标签不属于当前物料';
+  }
+  if (preprintLabel.product_code && normalizeText(preprintLabel.product_code) !== normalizeText(row.product_code)) {
+    return '预生成标签不属于当前物料';
+  }
+  if (preprintLabel.category && normalizeText(preprintLabel.category) !== normalizeText(row.category)) {
+    return '预生成标签类型与当前物料不一致';
+  }
+  return '';
+}
+
 function isArchivedMaterial(material = {}) {
   return ['archived', 'deleted'].includes(normalizeText(material.status));
 }
@@ -770,6 +795,17 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.material_name = normalizeText(material.material_name || material.name);
   row.sub_category = normalizeText(material.sub_category);
   row.is_test_material = isTestMaterial(material, row);
+
+  const preprintLabelsByUniqueCode = context.preprintLabelsByUniqueCode || new Map();
+  const preprintValidationMessage = validatePreprintLabelForInventoryImport(
+    preprintLabelsByUniqueCode.get(row.unique_code),
+    row,
+    material
+  );
+  if (preprintValidationMessage) {
+    row.error = preprintValidationMessage;
+    return row;
+  }
 
   const testMaterialValidation = buildTestMaterialStockInValidation(row, material);
   if (!testMaterialValidation.ok) {
