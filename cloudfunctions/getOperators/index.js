@@ -6,6 +6,26 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 
+async function loadAllOperatorLogRows(pageSize = 100) {
+  let skip = 0;
+  let rows = [];
+  let batch = [];
+
+  do {
+    const res = await db.collection('inventory_log')
+      .field({ operator: true })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+
+    batch = res.data || [];
+    rows = rows.concat(batch);
+    skip += pageSize;
+  } while (batch.length === pageSize);
+
+  return rows;
+}
+
 // 云函数入口函数
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
@@ -23,17 +43,11 @@ exports.main = async (event, context) => {
       };
     }
 
-    // 从 inventory_log 表中聚合出所有不重复的操作人
-    const res = await db.collection('inventory_log').aggregate()
-      .group({
-        _id: '$operator'
-      })
-      .limit(1000)
-      .end();
-
-    const operators = res.list
-      .map(item => item._id)
+    const rows = await loadAllOperatorLogRows();
+    const operators = Array.from(new Set(rows
+      .map(item => item.operator)
       .filter(op => op && op.trim()) // 过滤空值
+    ))
       .sort(); // 排序
 
     return {

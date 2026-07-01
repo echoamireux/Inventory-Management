@@ -14,6 +14,7 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+const MAX_PROJECT_USAGE_EXPORT_ROWS = 10000;
 
 async function getOperator(openid) {
   const res = await db.collection('users')
@@ -61,7 +62,7 @@ function buildQuery(event = {}) {
   return conditions.length === 1 ? conditions[0] : _.and(conditions);
 }
 
-async function loadLogs(where) {
+async function loadLogs(where, maxRows = MAX_PROJECT_USAGE_EXPORT_ROWS) {
   const pageSize = 500;
   let skip = 0;
   let rows = [];
@@ -75,6 +76,9 @@ async function loadLogs(where) {
       .get();
     const batch = res.data || [];
     rows = rows.concat(batch);
+    if (rows.length > maxRows) {
+      throw new Error(`项目用料导出超过 ${maxRows} 条，请缩小日期范围或项目编码后再导出`);
+    }
     if (batch.length < pageSize) {
       break;
     }

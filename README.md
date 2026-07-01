@@ -311,6 +311,7 @@ module.exports = {
 
 | 集合 | 索引字段 | 类型 | 用途 |
 | --- | --- | --- | --- |
+| `users` | `users._openid` | 唯一索引，升序 | 防止重复注册，保证一个微信用户只对应一条人员记录 |
 | `inventory` | `inventory.unique_code` | 唯一索引，升序 | 确保标签编号全库唯一，支持扫码查询 |
 | `materials` | `materials.product_code` | 唯一索引，升序 | 确保标准物料代码全库唯一 |
 | `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
@@ -327,7 +328,7 @@ module.exports = {
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `inventory.unique_code` 和 `materials.product_code` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code` 和 `materials.product_code` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：

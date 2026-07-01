@@ -13,6 +13,7 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+const MAX_PROJECT_USAGE_LOGS = 5000;
 
 async function getOperator(openid) {
   const res = await db.collection('users')
@@ -94,7 +95,7 @@ function buildQuery(event = {}) {
   return conditions.length === 1 ? conditions[0] : _.and(conditions);
 }
 
-async function loadLogs(where) {
+async function loadLogs(where, maxRows = MAX_PROJECT_USAGE_LOGS) {
   const pageSize = 200;
   let skip = 0;
   let rows = [];
@@ -108,6 +109,9 @@ async function loadLogs(where) {
       .get();
     const batch = res.data || [];
     rows = rows.concat(batch);
+    if (rows.length > maxRows) {
+      throw new Error(`项目用料记录超过 ${maxRows} 条，请缩小日期范围或关键词后再查询`);
+    }
     if (batch.length < pageSize) {
       break;
     }

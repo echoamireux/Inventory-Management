@@ -1,5 +1,6 @@
 const {
   normalizeSearchKeyword,
+  isEmptySearchKeyword,
   buildContainsRegExp,
   matchesSearchFields
 } = require('./search');

@@ -261,7 +261,6 @@ async function ensureBuiltinZones(db) {
   }
 
   const normalizedRecords = existingRecords.map(normalizeZoneRecord);
-  const shouldSeedMissingBuiltins = normalizedRecords.length === 0;
   const byKey = new Map(normalizedRecords.map(item => [item.zone_key, item]));
   const byName = new Map(normalizedRecords.map(item => [item.name, item]));
 
@@ -295,10 +294,6 @@ async function ensureBuiltinZones(db) {
           updated_at: db.serverDate()
         }
       });
-      continue;
-    }
-
-    if (!shouldSeedMissingBuiltins) {
       continue;
     }
 

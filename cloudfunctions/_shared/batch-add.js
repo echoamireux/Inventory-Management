@@ -242,6 +242,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   }
 
   return {
+    rawItem,
     inventoryData,
     masterSpecBackfill,
     logData: {

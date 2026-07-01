@@ -7,7 +7,6 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
-const $ = db.command.aggregate;
 const ALERT_CONFIG = require('./alert-config');
 const { loadMaterialMapByProductCodes } = require('./material-map');
 const {
@@ -42,6 +41,134 @@ async function loadOperator(openid) {
     .limit(1)
     .get();
   return res.data && res.data[0] ? res.data[0] : null;
+}
+
+async function loadInventoryGroupSourceItems(where, pageSize = 100) {
+  let skip = 0;
+  let rows = [];
+  let batch = [];
+
+  do {
+    const res = await db.collection('inventory')
+      .where(where)
+      .field({
+        material_name: true,
+        category: true,
+        subcategory_key: true,
+        sub_category: true,
+        product_code: true,
+        quantity: true,
+        dynamic_attrs: true,
+        expiry_date: true,
+        location: true,
+        location_text: true,
+        zone_key: true
+      })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+
+    batch = res.data || [];
+    rows = rows.concat(batch);
+    skip += pageSize;
+  } while (batch.length === pageSize);
+
+  return rows;
+}
+
+function pickEarlierExpiry(current, next) {
+  if (!next) {
+    return current || null;
+  }
+
+  const nextTime = new Date(next).getTime();
+  if (Number.isNaN(nextTime)) {
+    return current || null;
+  }
+
+  if (!current) {
+    return next;
+  }
+
+  const currentTime = new Date(current).getTime();
+  if (Number.isNaN(currentTime)) {
+    return next;
+  }
+
+  return nextTime < currentTime ? next : current;
+}
+
+function buildInventoryGroups(sourceItems, zoneMap) {
+  const byProductCode = new Map();
+
+  (sourceItems || []).forEach((item) => {
+    const productCode = item.product_code || '无产品代码';
+    if (!byProductCode.has(productCode)) {
+      byProductCode.set(productCode, {
+        product_code: productCode,
+        material_name: item.material_name,
+        category: item.category,
+        subcategory_key: item.subcategory_key || '',
+        sub_category: item.sub_category,
+        totalCount: 0,
+        minExpiry: null,
+        totalChemicalQty: 0,
+        totalBaseLengthM: 0,
+        firstUnit: item.quantity && item.quantity.unit ? item.quantity.unit : '',
+        locationSet: new Set()
+      });
+    }
+
+    const group = byProductCode.get(productCode);
+    group.totalCount += 1;
+    group.minExpiry = pickEarlierExpiry(group.minExpiry, item.expiry_date);
+    group.totalChemicalQty += Number(item.quantity && item.quantity.val) || 0;
+    group.totalBaseLengthM += Number(item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
+
+    if (!group.material_name && item.material_name) {
+      group.material_name = item.material_name;
+    }
+    if (!group.category && item.category) {
+      group.category = item.category;
+    }
+    if (!group.subcategory_key && item.subcategory_key) {
+      group.subcategory_key = item.subcategory_key;
+    }
+    if (!group.sub_category && item.sub_category) {
+      group.sub_category = item.sub_category;
+    }
+    if (!group.firstUnit && item.quantity && item.quantity.unit) {
+      group.firstUnit = item.quantity.unit;
+    }
+
+    if (item.location_text) {
+      group.locationSet.add(item.location_text);
+    }
+    if (item.location) {
+      group.locationSet.add(item.location);
+    }
+    if (item.zone_key) {
+      const zone = zoneMap.get(item.zone_key);
+      if (zone && zone.name) {
+        group.locationSet.add(zone.name);
+      }
+    }
+  });
+
+  return Array.from(byProductCode.values()).map(item => ({
+    product_code: item.product_code,
+    material_name: item.material_name,
+    category: item.category,
+    subcategory_key: item.subcategory_key || '',
+    sub_category: item.sub_category,
+    totalCount: item.totalCount,
+    minExpiry: item.minExpiry || null,
+    totalChemicalQty: Number(item.totalChemicalQty) || 0,
+    totalBaseLengthM: Number(item.totalBaseLengthM) || 0,
+    firstUnit: item.firstUnit || '',
+    locations: Array.from(item.locationSet),
+    items: []
+  }));
 }
 
 exports.main = async (event, context) => {
@@ -85,56 +212,8 @@ exports.main = async (event, context) => {
     const subcategoryRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
-    const aggregateRes = await db.collection('inventory').aggregate()
-      .match(where)
-      .group({
-        _id: '$product_code',
-        product_code: $.first('$product_code'),
-        material_name: $.first('$material_name'),
-        category: $.first('$category'),
-        subcategory_key: $.first('$subcategory_key'),
-        sub_category: $.first('$sub_category'),
-        totalCount: $.sum(1),
-        minExpiry: $.min('$expiry_date'),
-        totalChemicalQty: $.sum('$quantity.val'),
-        totalBaseLengthM: $.sum('$dynamic_attrs.current_length_m'),
-        firstUnit: $.first('$quantity.unit'),
-        locationsRaw: $.addToSet('$location_text'),
-        legacyLocationsRaw: $.addToSet('$location'),
-        zoneKeysRaw: $.addToSet('$zone_key')
-      })
-      .limit(1000)
-      .end();
-
-    const groups = (aggregateRes.list || []).map((item) => {
-      const productCode = item.product_code || item._id || '无产品代码';
-      const locationSet = new Set();
-      (item.locationsRaw || []).forEach(value => {
-        if (value) locationSet.add(value);
-      });
-      (item.legacyLocationsRaw || []).forEach(value => {
-        if (value) locationSet.add(value);
-      });
-      (item.zoneKeysRaw || []).forEach(value => {
-        const zone = zoneMap.get(value);
-        if (zone && zone.name) locationSet.add(zone.name);
-      });
-
-      return {
-        product_code: productCode,
-        material_name: item.material_name,
-        category: item.category,
-        subcategory_key: item.subcategory_key || '',
-        sub_category: item.sub_category,
-        totalCount: Number(item.totalCount) || 0,
-        minExpiry: item.minExpiry || null,
-        totalChemicalQty: Number(item.totalChemicalQty) || 0,
-        totalBaseLengthM: Number(item.totalBaseLengthM) || 0,
-        firstUnit: item.firstUnit || '',
-        locations: Array.from(locationSet),
-        items: []
-      };
-    });
+    const groupSourceItems = await loadInventoryGroupSourceItems(where);
+    const groups = buildInventoryGroups(groupSourceItems, zoneMap);
 
     const productCodes = groups
       .map(item => item.product_code)

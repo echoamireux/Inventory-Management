@@ -7,10 +7,10 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
-const $ = db.command.aggregate;
 const ALERT_CONFIG = require('./alert-config');
 const { getCstDayStart } = require('./cst-time');
 const { assertActiveUserAccess } = require('./auth');
+const { calculateDashboardStatsFromItems } = require('./dashboard-stats');
 
 async function loadOperator(openid) {
   const res = await db.collection('users')
@@ -18,6 +18,33 @@ async function loadOperator(openid) {
     .limit(1)
     .get();
   return res.data && res.data[0] ? res.data[0] : null;
+}
+
+async function loadInventoryItems(pageSize = 100) {
+  let skip = 0;
+  let rows = [];
+  let batch = [];
+
+  do {
+    const res = await db.collection('inventory')
+      .where({ status: 'in_stock' })
+      .field({
+        product_code: true,
+        category: true,
+        quantity: true,
+        dynamic_attrs: true,
+        expiry_date: true
+      })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+
+    batch = res.data || [];
+    rows = rows.concat(batch);
+    skip += pageSize;
+  } while (batch.length === pageSize);
+
+  return rows;
 }
 
 // Industry Standard Logic
@@ -46,9 +73,6 @@ exports.main = async (event, context) => {
 
     const startOfDayUTC = getCstDayStart(now);
 
-    // Future Date for Expiry (Use Config)
-    const future30d = new Date(now.getTime() + ALERT_CONFIG.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
-
     // 2. Today In/Out Logs (使用修复后的时区计算)
     const inboundCount = await db.collection('inventory_log').where({
         type: _.in(['inbound', 'refill']),
@@ -60,59 +84,15 @@ exports.main = async (event, context) => {
         timestamp: _.gte(startOfDayUTC)
     }).count();
 
-    const groupedInventoryRes = await db.collection('inventory').aggregate()
-      .match({ status: 'in_stock' })
-      .group({
-        _id: '$product_code',
-        category: $.first('$category'),
-        earliestExpiry: $.min('$expiry_date'),
-        earliestDynamicExpiry: $.min('$dynamic_attrs.expiry_date'),
-        totalChemicalQty: $.sum('$quantity.val'),
-        totalFilmLength: $.sum('$dynamic_attrs.current_length_m')
-      })
-      .limit(1000)
-      .end();
-
-    const groupedInventory = groupedInventoryRes.list || [];
-    const futureTime = future30d.getTime();
-    let riskCount = 0;
-
-    groupedInventory.forEach((item) => {
-      let isRisky = false;
-      const expiryCandidate = item.earliestExpiry || item.earliestDynamicExpiry || null;
-
-      if (expiryCandidate) {
-        const expiryTime = new Date(expiryCandidate).getTime();
-        if (!Number.isNaN(expiryTime) && expiryTime <= futureTime) {
-          isRisky = true;
-        }
-      }
-
-        if (!isRisky) {
-        if (item.category === 'chemical') {
-          const qty = Number(item.totalChemicalQty) || 0;
-          if (qty <= ALERT_CONFIG.LOW_STOCK.chemical) {
-            isRisky = true;
-          }
-        } else if (item.category === 'film') {
-          const len = Number(item.totalFilmLength) || 0;
-          if (len <= ALERT_CONFIG.LOW_STOCK.film) {
-            isRisky = true;
-          }
-        }
-      }
-
-      if (isRisky) {
-        riskCount += 1;
-      }
-    });
+    const inventoryItems = await loadInventoryItems();
+    const stats = calculateDashboardStatsFromItems(inventoryItems, ALERT_CONFIG);
 
     return {
-        totalMaterials: groupedInventory.length,
+        totalMaterials: stats.totalMaterials,
         todayIn: inboundCount.total,
         todayOut: outboundCount.total,
-        lowStock: riskCount,
-        riskCount,
+        lowStock: stats.lowStock,
+        riskCount: stats.riskCount,
         success: true
     };
 

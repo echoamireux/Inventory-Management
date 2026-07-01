@@ -369,7 +369,7 @@ test('ensureBuiltinZones removes duplicated builtin names left by legacy initial
   assert.equal(sameNameRecords[0].zone_key, 'builtin:chemical:safe-cabinet-01');
 });
 
-test('ensureBuiltinZones does not recreate one deleted builtin while other zones still exist', async () => {
+test('ensureBuiltinZones recreates missing builtin zones while preserving disabled builtins', async () => {
   const db = createMockDb([
     {
       _id: 'builtin_chemical_safe-cabinet-01',
@@ -379,11 +379,25 @@ test('ensureBuiltinZones does not recreate one deleted builtin while other zones
       is_builtin: true,
       status: 'active',
       sort_order: 10
+    },
+    {
+      _id: 'builtin_chemical_safe-cabinet-02',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      name: '防爆柜02',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'disabled',
+      sort_order: 20
     }
   ]);
 
   await ensureBuiltinZones(db);
-  const storedKeys = db.state.records.map(item => item.zone_key);
+  const storedBuiltins = sortZoneRecords(db.state.records).filter(item => item.is_builtin);
+  const disabledSafeCabinet = storedBuiltins.find(item => item.zone_key === 'builtin:chemical:safe-cabinet-02');
 
-  assert.deepEqual(storedKeys, ['builtin:chemical:safe-cabinet-01']);
+  assert.deepEqual(
+    storedBuiltins.map(item => item.zone_key),
+    BUILTIN_ZONE_SEEDS.map(item => item.zone_key)
+  );
+  assert.equal(disabledSafeCabinet.status, 'disabled');
 });

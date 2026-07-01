@@ -160,6 +160,16 @@ test('project usage export workbook declares detail and summary sheets', () => {
   assert.match(exportIndex, /uploadFile/);
 });
 
+test('project usage report cloud functions cap loaded logs and ask users to narrow filters', () => {
+  const reportIndex = read('cloudfunctions/getProjectUsageReport/index.js');
+  const exportIndex = read('cloudfunctions/exportProjectUsageReport/index.js');
+
+  assert.match(reportIndex, /MAX_PROJECT_USAGE_LOGS/);
+  assert.match(exportIndex, /MAX_PROJECT_USAGE_EXPORT_ROWS/);
+  assert.match(reportIndex, /缩小日期范围或关键词/);
+  assert.match(exportIndex, /缩小日期范围或项目编码/);
+});
+
 test('material name guidance is shown in master-data forms and manual document source is updated', () => {
   const adminMaterialEditWxml = read('miniprogram/pages/admin/material-edit.wxml');
   const materialAddWxml = read('miniprogram/pages/material-add/index.wxml');

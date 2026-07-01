@@ -20,8 +20,9 @@ function getCstRange(filter = 'today', now = new Date()) {
   const dayOfWeek = cstNow.getUTCDay();
 
   if (filter === 'week') {
-    const sundayDate = new Date(Date.UTC(year, month, date - dayOfWeek));
-    return { start: new Date(sundayDate.getTime() - OFFSET_MS) };
+    const daysSinceMonday = (dayOfWeek + 6) % 7;
+    const mondayDate = new Date(Date.UTC(year, month, date - daysSinceMonday));
+    return { start: new Date(mondayDate.getTime() - OFFSET_MS) };
   }
 
   if (filter === 'month') {

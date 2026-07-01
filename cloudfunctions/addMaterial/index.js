@@ -428,8 +428,6 @@ exports.main = async (event, context) => {
       };
     });
 
-    return result;
-
   } catch (err) {
     console.error('Transaction failed', err);
     return {

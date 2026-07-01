@@ -11,9 +11,9 @@ test('cst day start is stable regardless of UTC offset of input date', () => {
   assert.equal(getCstDayStart(now).toISOString(), '2026-03-20T16:00:00.000Z');
 });
 
-test('cst week and month range start align to UTC+8 calendar', () => {
+test('cst week range starts on Monday and month range aligns to UTC+8 calendar', () => {
   const now = new Date('2026-03-21T05:30:00.000Z');
 
-  assert.equal(getCstRange('week', now).start.toISOString(), '2026-03-14T16:00:00.000Z');
+  assert.equal(getCstRange('week', now).start.toISOString(), '2026-03-15T16:00:00.000Z');
   assert.equal(getCstRange('month', now).start.toISOString(), '2026-02-28T16:00:00.000Z');
 });

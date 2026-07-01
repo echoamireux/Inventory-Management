@@ -368,13 +368,14 @@ test('addMaterial performs duplicate label lookup inside the write transaction',
   assert.match(transactionBody[1], /transaction\.collection\('inventory'\)[\s\S]*where\(\{\s*unique_code:\s*normalizedUniqueCode\s*\}\)/);
 });
 
-test('grouped inventory query uses aggregate grouping before pagination and keeps risk filters wired', () => {
+test('grouped inventory query pages source records before grouping and keeps risk filters wired', () => {
   const file = read('cloudfunctions/getInventoryGrouped/index.js');
 
-  assert.match(file, /aggregate\(\)/);
-  assert.match(file, /\.group\(/);
+  assert.match(file, /loadInventoryGroupSourceItems/);
+  assert.match(file, /buildInventoryGroups/);
   assert.match(file, /normalizedFilter === 'risk'/);
   assert.match(file, /normalizedFilter === 'expiry'/);
   assert.match(file, /normalizedFilter === 'low_stock'/);
-  assert.doesNotMatch(file, /inventoryItems\s*=\s*inventoryItems\.concat/);
+  assert.match(file, /buildInventoryAllocationRecommendation/);
+  assert.doesNotMatch(file, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
 });

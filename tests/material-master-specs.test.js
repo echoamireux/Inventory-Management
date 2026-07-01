@@ -602,6 +602,7 @@ test('README documents production database indexes and manual cloud console step
   const readme = read('README.md');
 
   assert.match(readme, /生产索引配置建议/);
+  assert.match(readme, /users\._openid[\s\S]*唯一索引/);
   assert.match(readme, /inventory\.unique_code[\s\S]*唯一索引/);
   assert.match(readme, /materials\.product_code[\s\S]*唯一索引/);
   assert.match(readme, /inventory\.product_code \+ status/);
@@ -611,6 +612,7 @@ test('README documents production database indexes and manual cloud console step
   assert.match(readme, /inventory_log\.unique_code \+ timestamp desc/);
   assert.match(readme, /微信开发者工具[\s\S]*云开发[\s\S]*数据库[\s\S]*索引[\s\S]*新建索引/);
   assert.match(readme, /唯一索引创建前[\s\S]*重复/);
+  assert.match(readme, /users\._openid[\s\S]*防止重复注册/);
 });
 
 test('README and root package expose xlsx template import and shared sync workflow', () => {
@@ -646,22 +648,24 @@ test('log pages no longer expose delete actions or call destructive log cloud fu
   assert.match(batchRemoveLogJs, /日志删除已停用|不可删除/);
 });
 
-test('dashboard stats uses aggregate-first logic instead of scanning the whole inventory table in memory', () => {
+test('dashboard stats pages inventory records instead of using a fixed aggregate group cap', () => {
   const file = read('cloudfunctions/getDashboardStats/index.js');
 
-  assert.match(file, /aggregate\(/);
-  assert.match(file, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
+  assert.match(file, /loadInventoryItems/);
+  assert.match(file, /calculateDashboardStatsFromItems/);
   assert.doesNotMatch(file, /while\s*\(true\)/);
-  assert.doesNotMatch(file, /calculateDashboardStatsFromItems/);
+  assert.doesNotMatch(file, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
 });
 
-test('aggregate-backed inventory queries declare explicit limits to avoid cloud default truncation', () => {
+test('inventory grouped and operators queries do not keep a silent aggregate 1000 cap', () => {
   const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
   const operatorsCf = read('cloudfunctions/getOperators/index.js');
   const labelExportCf = read('cloudfunctions/exportLabelData/index.js');
 
-  assert.match(groupedCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
-  assert.match(operatorsCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
+  assert.match(groupedCf, /loadInventoryGroupSourceItems/);
+  assert.match(operatorsCf, /loadAllOperatorLogRows/);
+  assert.doesNotMatch(groupedCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
+  assert.doesNotMatch(operatorsCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
   assert.match(labelExportCf, /\.lookup\([\s\S]*?\)\s*\.limit\(selectedIds\.length\)\s*\.end\(\)/);
 });
 
