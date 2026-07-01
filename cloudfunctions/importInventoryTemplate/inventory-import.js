@@ -459,6 +459,39 @@ function validatePreprintLabelForInventoryImport(preprintLabel, row, material) {
   return '';
 }
 
+function resolvePreprintFilmSpecs(preprintLabel = {}) {
+  const specs = preprintLabel.specs || {};
+  return {
+    thickness_um: normalizePositiveNumber(specs.thickness_um),
+    width_mm: normalizePositiveNumber(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
+function alignFilmSpecsWithPreprint(row, preprintLabel, rowLabel = '') {
+  const preprintSpecs = resolvePreprintFilmSpecs(preprintLabel);
+  if (!preprintSpecs.thickness_um && !preprintSpecs.width_mm) {
+    return row;
+  }
+
+  if (preprintSpecs.thickness_um) {
+    const inboundThickness = normalizePositiveNumber(row.thickness_um);
+    if (inboundThickness && inboundThickness !== preprintSpecs.thickness_um) {
+      throw new Error(`${rowLabel}与预生成标签规格不一致`);
+    }
+    row.thickness_um = preprintSpecs.thickness_um;
+  }
+
+  if (preprintSpecs.width_mm) {
+    const inboundWidth = normalizePositiveNumber(row.batch_width_mm || row.width_mm || row.standard_width_mm);
+    if (inboundWidth && inboundWidth !== preprintSpecs.width_mm) {
+      throw new Error(`${rowLabel}与预生成标签规格不一致`);
+    }
+    row.batch_width_mm = preprintSpecs.width_mm;
+  }
+
+  return row;
+}
+
 function isArchivedMaterial(material = {}) {
   return ['archived', 'deleted'].includes(normalizeText(material.status));
 }
@@ -871,6 +904,13 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.batch_width_mm = normalizePositiveNumber(values[9]);
   row.length_m = normalizePositiveNumber(values[10]);
 
+  try {
+    alignFilmSpecsWithPreprint(row, preprintLabelsByUniqueCode.get(row.unique_code));
+  } catch (error) {
+    row.error = error.message || '与预生成标签规格不一致';
+    return row;
+  }
+
   if (row.batch_width_mm == null) {
     row.error = '膜材必须填写本批次实际幅宽(mm)';
     return row;
@@ -954,7 +994,7 @@ function decorateInventoryImportPreviewRows(rows = []) {
   });
 }
 
-function buildInventoryImportPayload(item = {}, material = {}) {
+function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const rowLabel = `第${Number(item.rowIndex) || 0}行`;
   const category = item.category === 'film' ? 'film' : 'chemical';
   const productCode = normalizeText(material.product_code || item.product_code);
@@ -1042,13 +1082,14 @@ function buildInventoryImportPayload(item = {}, material = {}) {
   let logUnit = inventoryData.quantity.unit || '份';
 
   if (category === 'film') {
-    const resolvedWidthMm = normalizePositiveNumber(item.batch_width_mm);
+    const filmItem = alignFilmSpecsWithPreprint({ ...item }, options.preprintLabel, rowLabel);
+    const resolvedWidthMm = normalizePositiveNumber(filmItem.batch_width_mm);
     const thicknessGovernance = resolveFilmThicknessGovernance({
       materialThicknessUm: extractMaterialThickness(material),
-      inboundThicknessUm: normalizePositiveNumber(item.thickness_um)
+      inboundThicknessUm: normalizePositiveNumber(filmItem.thickness_um)
     });
     const resolvedThicknessUm = thicknessGovernance.resolvedThicknessUm;
-    const baseLengthM = normalizePositiveNumber(item.length_m);
+    const baseLengthM = normalizePositiveNumber(filmItem.length_m);
     const currentMasterWidth = extractMaterialWidth(material);
 
     if (!resolvedWidthMm) {
@@ -1063,7 +1104,7 @@ function buildInventoryImportPayload(item = {}, material = {}) {
 
     const filmState = buildFilmInventoryState(
       baseLengthM,
-      item.quantity_unit,
+      filmItem.quantity_unit,
       resolvedWidthMm,
       baseLengthM
     );

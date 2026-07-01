@@ -5,6 +5,7 @@ const {
   sanitizeDownloadFileName,
   buildUserDataFilePath,
   persistDownloadedFile,
+  getOpenDocumentPath,
   resolveOpenDocumentPath
 } = require('../miniprogram/utils/download-file');
 
@@ -81,4 +82,27 @@ test('download helper falls back to temp file path when local rename/save is not
   });
 
   assert.equal(openPath, '/tmp/random-name.xlsx');
+});
+
+test('download helper can require readable file names instead of opening random temp paths', async () => {
+  const fileSystemManager = {
+    unlink({ fail }) {
+      fail(new Error('not found'));
+    },
+    copyFile({ fail }) {
+      fail(new Error('copy not supported'));
+    }
+  };
+
+  await assert.rejects(
+    () => getOpenDocumentPath({
+      tempFilePath: '/tmp/random-name.xlsx',
+      fileName: '标签打印_膜材信息标签_L000001_20260702_004959.xlsx',
+      fileSystemManager,
+      userDataPath: '/user/data',
+      fallbackFileName: '信息标签.xlsx',
+      allowTempFallback: false
+    }),
+    /本地重命名失败/
+  );
 });

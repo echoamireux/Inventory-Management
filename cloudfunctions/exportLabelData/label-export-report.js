@@ -240,17 +240,6 @@ function buildColumnWidths(templateType = 'film') {
   return [16, 16, 16, 28, 16, 20, 12, 12, 18, 16];
 }
 
-function getExcelColumnName(columnNumber) {
-  let value = Number(columnNumber) || 1;
-  let result = '';
-  while (value > 0) {
-    const remainder = (value - 1) % 26;
-    result = String.fromCharCode(65 + remainder) + result;
-    value = Math.floor((value - 1) / 26);
-  }
-  return result || 'A';
-}
-
 function buildWorkbookHeaders(templateType, rows = []) {
   const baseHeaders = LABEL_EXPORT_HEADERS[normalizeTemplateType(templateType)] || [];
   const headers = baseHeaders.slice();
@@ -282,18 +271,7 @@ async function buildLabelExportWorkbook({
     width: columnWidths[index] || 18
   }));
 
-  const lastColumnLetter = getExcelColumnName(headers.length);
-  sheet.mergeCells(`A1:${lastColumnLetter}1`);
-  sheet.getCell('A1').value = templateLabel;
-  sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: '1E3A8A' } };
-  sheet.getCell('A1').alignment = { horizontal: 'left', vertical: 'middle' };
-
-  sheet.mergeCells(`A2:${lastColumnLetter}2`);
-  sheet.getCell('A2').value = `导出时间：${formatExportDateTime(exportedAt)}`;
-  sheet.getCell('A2').font = { size: 10, color: { argb: '64748B' } };
-  sheet.getCell('A2').alignment = { horizontal: 'left', vertical: 'middle' };
-
-  const headerRow = sheet.getRow(4);
+  const headerRow = sheet.getRow(1);
   headers.forEach((header, index) => {
     const cell = headerRow.getCell(index + 1);
     cell.value = header;
@@ -305,7 +283,7 @@ async function buildLabelExportWorkbook({
   headerRow.height = 22;
 
   (rows || []).forEach((row, index) => {
-    const excelRow = sheet.getRow(index + 5);
+    const excelRow = sheet.getRow(index + 2);
     headers.forEach((header, colIndex) => {
       const cell = excelRow.getCell(colIndex + 1);
       cell.value = row[header] !== undefined ? row[header] : '--';
@@ -318,47 +296,10 @@ async function buildLabelExportWorkbook({
   });
 
   sheet.autoFilter = {
-    from: { row: 4, column: 1 },
-    to: { row: 4, column: headers.length }
-  };
-  sheet.views = [{ state: 'frozen', ySplit: 4 }];
-
-  const bartenderSheet = workbook.addWorksheet('BarTender数据');
-  bartenderSheet.columns = headers.map((header, index) => ({
-    header,
-    key: header,
-    width: columnWidths[index] || 18
-  }));
-
-  const bartenderHeaderRow = bartenderSheet.getRow(1);
-  headers.forEach((header, index) => {
-    const cell = bartenderHeaderRow.getCell(index + 1);
-    cell.value = header;
-    cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
-    cell.fill = buildHeaderFill();
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    cell.border = buildThinBorder();
-  });
-  bartenderHeaderRow.height = 22;
-
-  (rows || []).forEach((row, index) => {
-    const excelRow = bartenderSheet.getRow(index + 2);
-    headers.forEach((header, colIndex) => {
-      const cell = excelRow.getCell(colIndex + 1);
-      cell.value = row[header] !== undefined ? row[header] : '--';
-      cell.border = buildThinBorder();
-      cell.alignment = { vertical: 'middle', wrapText: true };
-      if (header === '标签编号' || header === '产品代码') {
-        cell.font = { bold: true, color: { argb: '1E3A8A' } };
-      }
-    });
-  });
-
-  bartenderSheet.autoFilter = {
     from: { row: 1, column: 1 },
     to: { row: 1, column: headers.length }
   };
-  bartenderSheet.views = [{ state: 'frozen', ySplit: 1 }];
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   return workbook;
 }

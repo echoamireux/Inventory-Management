@@ -786,3 +786,54 @@ test('inventory import payload follows manual stock-in semantics for film truth 
   assert.equal(payload.logData.quantity_change, 100);
   assert.equal(payload.logData.unit, 'm');
 });
+
+test('inventory import payload aligns film specs with preprinted label snapshots', () => {
+  const material = {
+    _id: 'mat-m-999',
+    product_code: 'M-999',
+    category: 'film',
+    material_name: '测试料-膜材',
+    sub_category: '测试膜',
+    default_unit: 'm²',
+    specs: {}
+  };
+  const baseRow = {
+    rowIndex: 11,
+    unique_code: 'L000901',
+    product_code: 'M-999',
+    material_name: '测试料-膜材',
+    category: 'film',
+    sub_category: '测试膜',
+    batch_number: 'TEST-F01',
+    zone_key: 'builtin:film:research-warehouse-01',
+    location: '研发仓1 | F02',
+    location_detail: 'F02',
+    is_long_term_valid: true,
+    quantity_unit: 'm²',
+    length_m: 100,
+    supplier_model: 'TEST-FILM-01',
+    is_test_material: true
+  };
+  const preprintLabel = {
+    unique_code: 'L000901',
+    category: 'film',
+    product_code: 'M-999',
+    specs: {
+      thickness_um: 50,
+      width_mm: 520
+    }
+  };
+
+  const payload = buildInventoryImportPayload(baseRow, material, { preprintLabel });
+  assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 50);
+  assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 520);
+
+  assert.throws(
+    () => buildInventoryImportPayload({
+      ...baseRow,
+      thickness_um: 50,
+      batch_width_mm: 530
+    }, material, { preprintLabel }),
+    /与预生成标签规格不一致/
+  );
+});

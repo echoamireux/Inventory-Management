@@ -137,6 +137,19 @@ async function loadPreprintLabelByUniqueCode(transaction, uniqueCode) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function normalizePositiveSpec(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+
+function resolvePreprintFilmSpecs(preprintLabel = {}) {
+  const specs = preprintLabel.specs || {};
+  return {
+    thickness_um: normalizePositiveSpec(specs.thickness_um),
+    width_mm: normalizePositiveSpec(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
 function assertPreprintLabelUsable(preprintLabel, item, material) {
   if (!preprintLabel) {
     return;
@@ -163,6 +176,18 @@ function assertPreprintLabelUsable(preprintLabel, item, material) {
   }
   if (preprintLabel.category && String(preprintLabel.category).trim() !== category) {
     throw new Error('预生成标签类型与当前物料不一致');
+  }
+
+  if (category === 'film') {
+    const preprintSpecs = resolvePreprintFilmSpecs(preprintLabel);
+    const inboundThickness = normalizePositiveSpec(item.thickness_um);
+    const inboundWidth = normalizePositiveSpec(item.batch_width_mm || item.width_mm || item.standard_width_mm);
+    if (preprintSpecs.thickness_um && inboundThickness && inboundThickness !== preprintSpecs.thickness_um) {
+      throw new Error('与预生成标签规格不一致');
+    }
+    if (preprintSpecs.width_mm && inboundWidth && inboundWidth !== preprintSpecs.width_mm) {
+      throw new Error('与预生成标签规格不一致');
+    }
   }
 }
 
@@ -422,9 +447,9 @@ async function submitRows(items = [], openid, operatorName) {
         throw new Error(`标签编号 ${uniqueCode} 已存在，请刷新预览后重试`);
       }
 
-      const payload = buildInventoryImportPayload(item, material);
       const preprintLabel = await loadPreprintLabelByUniqueCode(transaction, uniqueCode);
       assertPreprintLabelUsable(preprintLabel, item, material);
+      const payload = buildInventoryImportPayload(item, material, { preprintLabel });
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {
         const materialUpdateData = {

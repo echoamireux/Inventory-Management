@@ -3,7 +3,7 @@ const {
   normalizeLabelExportResult
 } = require('../../../utils/label-export');
 const {
-  resolveOpenDocumentPath
+  getOpenDocumentPath
 } = require('../../../utils/download-file');
 
 const TEMPLATE_CATEGORY_MAP = {
@@ -41,13 +41,34 @@ function buildRequestId() {
   return `label_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizePositiveSpec(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '';
+  }
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? String(normalized) : '';
+}
+
+function resolveMaterialFilmSpecs(item = {}) {
+  const specs = item.specs || {};
+  return {
+    thickness_um: normalizePositiveSpec(specs.thickness_um),
+    width_mm: normalizePositiveSpec(
+      specs.standard_width_mm !== undefined ? specs.standard_width_mm : specs.width_mm
+    )
+  };
+}
+
 function decorateMaterial(item = {}) {
+  const filmSpecs = resolveMaterialFilmSpecs(item);
   return {
     ...item,
     display_name: item.material_name || item.name || '--',
     display_code: item.product_code || '--',
     display_model: item.supplier_model || '',
-    is_test_material: !!item.is_test_material
+    is_test_material: !!item.is_test_material,
+    film_thickness_um: filmSpecs.thickness_um,
+    film_width_mm: filmSpecs.width_mm
   };
 }
 
@@ -58,6 +79,8 @@ function buildPreprintFormSnapshot(preprintForm = {}, templateType = 'film') {
     materialId: material._id || '',
     count: String(preprintForm.count || '').trim(),
     supplier_model: String(preprintForm.supplier_model || '').trim(),
+    thickness_um: String(preprintForm.thickness_um || '').trim(),
+    width_mm: String(preprintForm.width_mm || '').trim(),
     supplier: String(preprintForm.supplier || '').trim(),
     sample_note: String(preprintForm.sample_note || '').trim()
   });
@@ -81,6 +104,10 @@ Page({
       selectedMaterial: null,
       count: 1,
       supplier_model: '',
+      thickness_um: '',
+      width_mm: '',
+      filmThicknessLocked: false,
+      filmWidthLocked: false,
       supplier: '',
       sample_note: '',
       requestId: buildRequestId(),
@@ -181,6 +208,10 @@ Page({
       'preprintForm.materialSearchVal': '',
       'preprintForm.selectedMaterial': null,
       'preprintForm.supplier_model': '',
+      'preprintForm.thickness_um': '',
+      'preprintForm.width_mm': '',
+      'preprintForm.filmThicknessLocked': false,
+      'preprintForm.filmWidthLocked': false,
       'preprintForm.supplier': '',
       'preprintForm.sample_note': '',
       'preprintForm.requestId': buildRequestId(),
@@ -216,6 +247,10 @@ Page({
     this.setData({
       'preprintForm.materialSearchVal': materialSearchVal,
       'preprintForm.selectedMaterial': null,
+      'preprintForm.thickness_um': '',
+      'preprintForm.width_mm': '',
+      'preprintForm.filmThicknessLocked': false,
+      'preprintForm.filmWidthLocked': false,
       materialSuggestions: [],
       materialSearchState: keyword ? 'loading' : ''
     });
@@ -243,6 +278,10 @@ Page({
     this.setData({
       'preprintForm.materialSearchVal': '',
       'preprintForm.selectedMaterial': null,
+      'preprintForm.thickness_um': '',
+      'preprintForm.width_mm': '',
+      'preprintForm.filmThicknessLocked': false,
+      'preprintForm.filmWidthLocked': false,
       materialSuggestions: [],
       materialSearchState: ''
     });
@@ -296,10 +335,16 @@ Page({
   onSelectMaterial(e) {
     const item = e.currentTarget.dataset.item;
     const material = decorateMaterial(item || {});
+    const isFilmTemplate = this.data.templateType === 'film';
+    const isFormalFilm = isFilmTemplate && !material.is_test_material;
     this.setData({
       'preprintForm.selectedMaterial': material,
       'preprintForm.materialSearchVal': `${material.display_code} ${material.display_name}`,
       'preprintForm.supplier_model': material.supplier_model || '',
+      'preprintForm.thickness_um': isFilmTemplate ? (material.film_thickness_um || '') : '',
+      'preprintForm.width_mm': isFilmTemplate ? (material.film_width_mm || '') : '',
+      'preprintForm.filmThicknessLocked': !!(isFormalFilm && material.film_thickness_um),
+      'preprintForm.filmWidthLocked': !!(isFormalFilm && material.film_width_mm),
       'preprintForm.supplier': material.supplier || '',
       materialSuggestions: [],
       materialSearchState: ''
@@ -318,6 +363,8 @@ Page({
       count: countOverride || preprintForm.count,
       form: {
         supplier_model: preprintForm.supplier_model,
+        thickness_um: preprintForm.thickness_um,
+        width_mm: preprintForm.width_mm,
         supplier: preprintForm.supplier,
         sample_note: preprintForm.sample_note
       }
@@ -402,6 +449,16 @@ Page({
     if (selectedMaterial.is_test_material && !String(preprintForm.supplier_model || '').trim()) {
       Toast.fail('测试料必须填写原厂型号');
       return;
+    }
+    if (templateType === 'film') {
+      if (!normalizePositiveSpec(preprintForm.thickness_um)) {
+        Toast.fail(selectedMaterial.is_test_material ? '测试料膜材必须填写厚度' : '请先维护膜材主数据厚度');
+        return;
+      }
+      if (!normalizePositiveSpec(preprintForm.width_mm)) {
+        Toast.fail('请填写本批次实际幅宽');
+        return;
+      }
     }
     if (!normalizePreprintCount(preprintForm.count)) {
       Toast.fail('请输入需要生成的标签数量');
@@ -805,12 +862,13 @@ Page({
       throw new Error('文件下载失败');
     }
 
-    const localFilePath = await resolveOpenDocumentPath({
+    const localFilePath = await getOpenDocumentPath({
       tempFilePath: downRes.tempFilePath,
       fileName: result.fileName || '信息标签.xlsx',
       fileSystemManager: wx.getFileSystemManager(),
       userDataPath: wx.env.USER_DATA_PATH,
-      fallbackFileName: '信息标签.xlsx'
+      fallbackFileName: '信息标签.xlsx',
+      allowTempFallback: false
     });
 
     Toast.clear();

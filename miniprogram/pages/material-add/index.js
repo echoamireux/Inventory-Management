@@ -61,6 +61,36 @@ function resolveInputValue(detail) {
   return detail;
 }
 
+function normalizePositiveSpec(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+
+function resolvePreprintFilmSpecs(record = {}) {
+  const specs = record.specs || {};
+  return {
+    thickness_um: normalizePositiveSpec(specs.thickness_um),
+    width_mm: normalizePositiveSpec(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
+function validatePreprintFilmSpecConsistency(form = {}) {
+  const preprintSpecs = resolvePreprintFilmSpecs(form.preprint_label || {});
+  if (!preprintSpecs.thickness_um && !preprintSpecs.width_mm) {
+    return '';
+  }
+
+  const thicknessUm = normalizePositiveSpec(form.thickness_um);
+  const widthMm = normalizePositiveSpec(form.width_mm);
+  if (preprintSpecs.thickness_um && thicknessUm && thicknessUm !== preprintSpecs.thickness_um) {
+    return '与预生成标签规格不一致';
+  }
+  if (preprintSpecs.width_mm && widthMm && widthMm !== preprintSpecs.width_mm) {
+    return '与预生成标签规格不一致';
+  }
+  return '';
+}
+
 Page({
   data: {
     activeTab: 'chemical',
@@ -907,6 +937,11 @@ Page({
           'form.supplier': record.supplier || material.supplier || '',
           'form.supplier_model': record.supplier_model || material.supplier_model || '',
           'form.sample_note': record.sample_note || '',
+          'form.preprint_label': record,
+          ...((nextTab === 'film') ? {
+            'form.thickness_um': resolvePreprintFilmSpecs(record).thickness_um || '',
+            'form.width_mm': resolvePreprintFilmSpecs(record).width_mm || ''
+          } : {}),
           labelCodeError: '',
           labelCodeNotice: '已识别预生成标签，物料信息已自动带出'
       });
@@ -1104,6 +1139,13 @@ Page({
     const categoryValidationMessage = getCategorySpecificValidationMessage(activeTab, form);
     if (categoryValidationMessage) {
       return Toast.fail(categoryValidationMessage);
+    }
+
+    const preprintSpecMessage = activeTab === 'film'
+      ? validatePreprintFilmSpecConsistency(form)
+      : '';
+    if (preprintSpecMessage) {
+      return Toast.fail(preprintSpecMessage);
     }
 
     if (activeTab === 'chemical') {

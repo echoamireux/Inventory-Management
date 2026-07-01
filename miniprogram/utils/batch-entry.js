@@ -114,19 +114,27 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
     submit_action: String(defaults.submitAction || 'create').trim() || 'create',
     refill_inventory_id: String(defaults.refillInventoryId || '').trim(),
     pending_notice: String(defaults.pendingNotice || '').trim(),
-    thickness_um: material && material.specs && material.specs.thickness_um !== undefined
-      ? Number(material.specs.thickness_um)
-      : undefined,
-    batch_width_mm: defaults.currentBatchWidthMm !== undefined && defaults.currentBatchWidthMm !== null && String(defaults.currentBatchWidthMm).trim() !== ''
-      ? Number(defaults.currentBatchWidthMm)
+    thickness_um: defaults.thickness_um !== undefined && defaults.thickness_um !== null && String(defaults.thickness_um).trim() !== ''
+      ? Number(defaults.thickness_um)
       : (
-        material && material.specs
-          ? Number(
-            material.specs.standard_width_mm !== undefined
-              ? material.specs.standard_width_mm
-              : material.specs.width_mm
-          ) || undefined
+        material && material.specs && material.specs.thickness_um !== undefined
+          ? Number(material.specs.thickness_um)
           : undefined
+      ),
+    batch_width_mm: defaults.batch_width_mm !== undefined && defaults.batch_width_mm !== null && String(defaults.batch_width_mm).trim() !== ''
+      ? Number(defaults.batch_width_mm)
+      : (
+        defaults.currentBatchWidthMm !== undefined && defaults.currentBatchWidthMm !== null && String(defaults.currentBatchWidthMm).trim() !== ''
+          ? Number(defaults.currentBatchWidthMm)
+          : (
+            material && material.specs
+              ? Number(
+                material.specs.standard_width_mm !== undefined
+                  ? material.specs.standard_width_mm
+                  : material.specs.width_mm
+              ) || undefined
+              : undefined
+          )
       )
   };
 }

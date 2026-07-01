@@ -58,22 +58,34 @@ async function persistDownloadedFile({
   return targetPath;
 }
 
-async function resolveOpenDocumentPath(options = {}) {
+async function getOpenDocumentPath(options = {}) {
   const tempFilePath = String(options.tempFilePath || '').trim();
   if (!tempFilePath) {
     throw new Error('文件下载失败');
   }
+  const allowTempFallback = options.allowTempFallback !== false;
 
   try {
     return await persistDownloadedFile(options);
-  } catch (_error) {
+  } catch (error) {
+    if (!allowTempFallback) {
+      throw new Error('本地重命名失败，请重试下载打开');
+    }
     return tempFilePath;
   }
+}
+
+async function resolveOpenDocumentPath(options = {}) {
+  return getOpenDocumentPath({
+    ...options,
+    allowTempFallback: true
+  });
 }
 
 module.exports = {
   sanitizeDownloadFileName,
   buildUserDataFilePath,
   persistDownloadedFile,
+  getOpenDocumentPath,
   resolveOpenDocumentPath
 };

@@ -34,6 +34,8 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /templateType:/);
   assert.match(pageJs, /selectedIds:/);
   assert.match(pageJs, /requestId:/);
+  assert.match(pageJs, /thickness_um:/);
+  assert.match(pageJs, /width_mm:/);
   assert.match(pageJs, /onTemplateChange/);
   assert.match(pageJs, /toggleSelectItem/);
   assert.match(pageJs, /onExportSelected/);
@@ -60,12 +62,18 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /生成并导出标签 Excel/);
   assert.match(pageWxml, /重新导出本批 Excel/);
   assert.match(pageWxml, /本次生成数量/);
+  assert.match(pageWxml, /厚度\(μm\)/);
+  assert.match(pageWxml, /本批次实际幅宽\(mm\)/);
+  assert.match(pageWxml, /preprintForm\.selectedMaterial\.is_test_material[\s\S]*field-required/);
+  assert.match(pageWxml, /readonly="\{\{ !preprintForm\.selectedMaterial\.is_test_material && preprintForm\.filmThicknessLocked \}\}"/);
+  assert.match(pageWxml, /readonly="\{\{ !preprintForm\.selectedMaterial\.is_test_material && preprintForm\.filmWidthLocked \}\}"/);
   assert.match(pageWxml, /最近打印批次/);
   assert.match(pageWxml, /恢复查看/);
   assert.match(pageWxml, /作废未入库标签/);
   assert.match(pageJs, /ensurePreprintChangeIntent/);
   assert.match(pageJs, /createAndExportPreprintJob/);
   assert.match(pageJs, /createPreprintJobBeforeExport/);
+  assert.match(pageJs, /allowTempFallback:\s*false/);
   assert.match(pageJs, /loadRecentPreprintJobs/);
   assert.match(pageJs, /voidAndRecreate/);
   assert.match(pageJs, /keepAndCreate/);
@@ -75,6 +83,8 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /action:\s*'createPreprintJob'/);
   assert.match(pageJs, /await this\.exportPreprintJobById/);
   assert.match(pageWxml, /<view class="field-label">[\s\S]*原厂型号[\s\S]*<text[^>]*preprintForm\.selectedMaterial\.is_test_material[^>]*class="field-required"[^>]*>\*<\/text>/);
+  assert.match(pageWxml, /<view class="field-label">[\s\S]*厚度\(μm\)[\s\S]*<text[^>]*templateType === 'film'[^>]*class="field-required"[^>]*>\*<\/text>/);
+  assert.match(pageWxml, /<view class="field-label">[\s\S]*本批次实际幅宽\(mm\)[\s\S]*<text[^>]*templateType === 'film'[^>]*class="field-required"[^>]*>\*<\/text>/);
   assert.doesNotMatch(pageWxml, /input-align="right"/);
   assert.match(pageWxml, /selectedIds\.length/);
   assert.match(pageWxml, /bindtap="toggleSelectItem"/);

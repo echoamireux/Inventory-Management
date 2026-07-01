@@ -38,6 +38,19 @@ function resolvePickerDateValue(detail) {
   return detail;
 }
 
+function normalizePositiveSpec(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+
+function resolvePreprintFilmSpecs(record = {}) {
+  const specs = record.specs || {};
+  return {
+    thickness_um: normalizePositiveSpec(specs.thickness_um),
+    width_mm: normalizePositiveSpec(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
 Page({
   data: {
     activeTab: 'chemical',
@@ -243,14 +256,38 @@ Page({
           };
       }
 
+      const overrides = {
+          preprintLabelId: record._id,
+          supplier: record.supplier || selectedMaterial.supplier || '',
+          supplier_model: record.supplier_model || selectedMaterial.supplier_model || '',
+          sample_note: record.sample_note || ''
+      };
+
+      if (selectedMaterial.category === 'film') {
+          const preprintSpecs = resolvePreprintFilmSpecs(record);
+          const currentWidth = normalizePositiveSpec(this.data.currentBatchWidthMm);
+          const currentThickness = this.data.selectedMaterialSummary && this.data.selectedMaterialSummary.thicknessLocked
+              ? normalizePositiveSpec(this.data.selectedMaterialSummary.thicknessUm)
+              : normalizePositiveSpec(this.data.initialFilmSpecForm.thickness_um);
+
+          if (preprintSpecs.width_mm && currentWidth && currentWidth !== preprintSpecs.width_mm) {
+              return { ok: false, msg: '与预生成标签规格不一致' };
+          }
+          if (preprintSpecs.thickness_um && currentThickness && currentThickness !== preprintSpecs.thickness_um) {
+              return { ok: false, msg: '与预生成标签规格不一致' };
+          }
+
+          if (preprintSpecs.width_mm) {
+              overrides.batch_width_mm = preprintSpecs.width_mm;
+          }
+          if (preprintSpecs.thickness_um) {
+              overrides.thickness_um = preprintSpecs.thickness_um;
+          }
+      }
+
       return {
           ok: true,
-          overrides: {
-              preprintLabelId: record._id,
-              supplier: record.supplier || selectedMaterial.supplier || '',
-              supplier_model: record.supplier_model || selectedMaterial.supplier_model || '',
-              sample_note: record.sample_note || ''
-          }
+          overrides
       };
   },
 
@@ -532,11 +569,6 @@ Page({
           return;
       }
 
-      if (this.data.selectedMaterial.category === 'film' && (!this.data.filmBatchSpecsConfirmed || !(Number(this.data.currentBatchWidthMm) > 0))) {
-          this.showBusinessError('请先确认本批次规格后再连续扫码', '规格确认');
-          return;
-      }
-
       wx.scanCode({
           onlyFromCamera: true,
           scanType: ['qrCode', 'barCode'],
@@ -629,6 +661,32 @@ Page({
               return;
           }
 
+          if (this.data.selectedMaterial.category === 'film') {
+              const hasFilmWidth = Number(preprintValidation.overrides.batch_width_mm || this.data.currentBatchWidthMm) > 0;
+              const selectedThickness = this.data.selectedMaterialSummary && this.data.selectedMaterialSummary.thicknessLocked
+                  ? this.data.selectedMaterialSummary.thicknessUm
+                  : this.data.initialFilmSpecForm.thickness_um;
+              const hasFilmThickness = Number(preprintValidation.overrides.thickness_um || selectedThickness) > 0;
+              if (!hasFilmWidth || !hasFilmThickness) {
+                  Toast.clear();
+                  this.showBusinessError('请先确认本批次规格后再连续扫码', '规格确认');
+                  return;
+              }
+
+              const nextState = {
+                  showInitialFilmSpecForm: false,
+                  filmBatchSpecsConfirmed: true
+              };
+              if (preprintValidation.overrides.batch_width_mm) {
+                  nextState.currentBatchWidthMm = String(preprintValidation.overrides.batch_width_mm);
+                  nextState['initialFilmSpecForm.batch_width_mm'] = String(preprintValidation.overrides.batch_width_mm);
+              }
+              if (preprintValidation.overrides.thickness_um) {
+                  nextState['initialFilmSpecForm.thickness_um'] = String(preprintValidation.overrides.thickness_um);
+              }
+              this.updateBatchViewState(nextState);
+          }
+
           this.addItemToList(this.data.selectedMaterial, uniqueCode, preprintValidation.overrides);
           Toast.clear();
           Toast.success('已添加标签');
@@ -647,7 +705,9 @@ Page({
           defaultLocationZoneName: this.data.defaultLocationZone,
           defaultLocationZone: this.data.defaultLocationZone,
           defaultLocationDetail: this.data.defaultLocationDetail,
-          currentBatchWidthMm: this.data.currentBatchWidthMm,
+          currentBatchWidthMm: overrides.batch_width_mm || this.data.currentBatchWidthMm,
+          thickness_um: overrides.thickness_um,
+          batch_width_mm: overrides.batch_width_mm,
           preprintLabelId: overrides.preprintLabelId,
           supplier: overrides.supplier,
           supplier_model: overrides.supplier_model,

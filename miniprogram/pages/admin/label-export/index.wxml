@@ -114,6 +114,34 @@
             bind:change="onPreprintFieldChange"
           />
         </view>
+        <view wx:if="{{ templateType === 'film' && preprintForm.selectedMaterial }}" class="form-item">
+          <view class="field-label">
+            厚度(μm)
+            <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+          </view>
+          <van-field
+            value="{{ preprintForm.thickness_um }}"
+            placeholder="{{ preprintForm.filmThicknessLocked ? '由物料主数据带出' : '请输入厚度' }}"
+            type="digit"
+            readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmThicknessLocked }}"
+            data-field="thickness_um"
+            bind:change="onPreprintFieldChange"
+          />
+        </view>
+        <view wx:if="{{ templateType === 'film' && preprintForm.selectedMaterial }}" class="form-item">
+          <view class="field-label">
+            本批次实际幅宽(mm)
+            <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+          </view>
+          <van-field
+            value="{{ preprintForm.width_mm }}"
+            placeholder="{{ preprintForm.filmWidthLocked ? '由物料主数据带出' : '请输入本批次实际幅宽' }}"
+            type="digit"
+            readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmWidthLocked }}"
+            data-field="width_mm"
+            bind:change="onPreprintFieldChange"
+          />
+        </view>
       </view>
 
       <view class="form-section-title">可选补充信息</view>

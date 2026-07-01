@@ -43,6 +43,39 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function resolvePreprintFilmSpecs(preprintLabel = {}) {
+  const specs = preprintLabel.specs || {};
+  return {
+    thickness_um: normalizePositiveNumber(specs.thickness_um),
+    width_mm: normalizePositiveNumber(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
+function alignFilmSpecsWithPreprint(specs = {}, preprintLabel = {}) {
+  const preprintSpecs = resolvePreprintFilmSpecs(preprintLabel);
+  const nextSpecs = { ...specs };
+
+  if (preprintSpecs.thickness_um) {
+    const inboundThickness = normalizePositiveNumber(nextSpecs.thickness_um);
+    if (inboundThickness && inboundThickness !== preprintSpecs.thickness_um) {
+      throw new Error('与预生成标签规格不一致');
+    }
+    nextSpecs.thickness_um = preprintSpecs.thickness_um;
+  }
+
+  if (preprintSpecs.width_mm) {
+    const inboundWidth = normalizePositiveNumber(
+      nextSpecs.standard_width_mm !== undefined ? nextSpecs.standard_width_mm : nextSpecs.width_mm
+    );
+    if (inboundWidth && inboundWidth !== preprintSpecs.width_mm) {
+      throw new Error('与预生成标签规格不一致');
+    }
+    nextSpecs.standard_width_mm = preprintSpecs.width_mm;
+  }
+
+  return nextSpecs;
+}
+
 function normalizeExplicitExpiryDate(value) {
   if (!value) {
     return {
@@ -311,12 +344,13 @@ exports.main = async (event, context) => {
         }
       } else if (category === 'film') {
          invData.batch_number = inventory.batch_number; // 膜材也有批号
+         const filmSpecs = alignFilmSpecsWithPreprint(specs, preprintLabel);
          const resolvedWidthMm = normalizePositiveNumber(
-           specs.standard_width_mm !== undefined
-             ? specs.standard_width_mm
+           filmSpecs.standard_width_mm !== undefined
+             ? filmSpecs.standard_width_mm
              : (
-               specs.width_mm !== undefined
-                 ? specs.width_mm
+               filmSpecs.width_mm !== undefined
+                 ? filmSpecs.width_mm
                  : (
                    materialSpecs.standard_width_mm !== undefined
                      ? materialSpecs.standard_width_mm
@@ -325,9 +359,9 @@ exports.main = async (event, context) => {
              )
          );
          const inboundThicknessUm = normalizePositiveNumber(
-           specs.thickness_um !== undefined
-             ? specs.thickness_um
-             : (specs && specs.thickness_um)
+           filmSpecs.thickness_um !== undefined
+             ? filmSpecs.thickness_um
+             : (filmSpecs && filmSpecs.thickness_um)
          );
          const thicknessGovernance = resolveFilmThicknessGovernance({
            materialThicknessUm: materialSpecs.thickness_um,

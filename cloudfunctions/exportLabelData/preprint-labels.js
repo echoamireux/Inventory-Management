@@ -22,6 +22,48 @@ function normalizeCount(value) {
   return count;
 }
 
+function normalizePositiveNumber(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return null;
+  }
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : null;
+}
+
+function resolveMaterialFilmSpecs(material = {}) {
+  const specs = material.specs || {};
+  return {
+    thickness_um: normalizePositiveNumber(specs.thickness_um),
+    width_mm: normalizePositiveNumber(
+      specs.standard_width_mm !== undefined ? specs.standard_width_mm : specs.width_mm
+    )
+  };
+}
+
+function resolveFilmPreprintSpecs(material = {}, form = {}) {
+  const materialSpecs = resolveMaterialFilmSpecs(material);
+  const formSpecs = {
+    thickness_um: normalizePositiveNumber(form.thickness_um),
+    width_mm: normalizePositiveNumber(form.width_mm)
+  };
+  const isTestMaterial = !!material.is_test_material;
+  const thicknessUm = isTestMaterial
+    ? (formSpecs.thickness_um || materialSpecs.thickness_um)
+    : (materialSpecs.thickness_um || formSpecs.thickness_um);
+  const widthMm = isTestMaterial
+    ? (formSpecs.width_mm || materialSpecs.width_mm)
+    : (materialSpecs.width_mm || formSpecs.width_mm);
+
+  if (!thicknessUm || !widthMm) {
+    throw new Error('膜材预生成标签必须填写厚度和幅宽');
+  }
+
+  return {
+    thickness_um: thicknessUm,
+    width_mm: widthMm
+  };
+}
+
 function parseLabelCodeNumber(code) {
   const match = normalizeText(code).match(/^L(\d{6})$/i);
   return match ? Number(match[1]) : 0;
@@ -87,6 +129,9 @@ function assertPreprintPayload({
   if (material.is_test_material && !supplierModel) {
     throw new Error('测试料预生成标签必须填写原厂型号');
   }
+  const filmSpecs = expectedCategory === 'film'
+    ? resolveFilmPreprintSpecs(material, form)
+    : null;
 
   return {
     templateType: normalizedType,
@@ -94,7 +139,8 @@ function assertPreprintPayload({
     category: expectedCategory,
     productCode,
     materialName,
-    supplierModel
+    supplierModel,
+    filmSpecs
   };
 }
 
@@ -117,6 +163,8 @@ function buildPreprintRequestSignature({
     category: payload.category,
     count: payload.count,
     supplier_model: payload.supplierModel,
+    thickness_um: payload.filmSpecs ? payload.filmSpecs.thickness_um : null,
+    width_mm: payload.filmSpecs ? payload.filmSpecs.width_mm : null,
     supplier: normalizeText(form.supplier),
     sample_note: normalizeText(form.sample_note)
   });
@@ -166,6 +214,7 @@ function buildPreprintLabelRecords({
       supplier_model: supplierModel,
       sample_note: sampleNote,
       is_test_material: !!material.is_test_material,
+      specs: payload.filmSpecs ? { ...payload.filmSpecs } : {},
       status: 'unused',
       operator_id: operatorOpenid,
       operator_name: operatorName,

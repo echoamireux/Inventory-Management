@@ -203,7 +203,7 @@ test('preprint label code generator skips inventory and historical preprint code
   );
 });
 
-test('preprint label records snapshot material fields and require model for test materials', () => {
+test('preprint label records snapshot material fields, film specs, and require model for test materials', () => {
   assert.throws(() => {
     assertPreprintPayload({
       templateType: 'chemical_std',
@@ -245,6 +245,50 @@ test('preprint label records snapshot material fields and require model for test
   assert.equal(records[0].status, 'unused');
   assert.equal(records[0].supplier_model, 'TEST-CHEM-01');
   assert.equal(records[0].sample_note, '透明液体');
+
+  assert.throws(() => {
+    assertPreprintPayload({
+      templateType: 'film',
+      count: 1,
+      material: {
+        _id: 'mat-film-test',
+        product_code: 'M-999',
+        material_name: '测试料-膜材',
+        category: 'film',
+        is_test_material: true
+      },
+      form: {
+        supplier_model: 'TEST-FILM-01',
+        thickness_um: '50'
+      }
+    });
+  }, /膜材预生成标签必须填写厚度和幅宽/);
+
+  const filmRecords = buildPreprintLabelRecords({
+    templateType: 'film',
+    labelCodes: ['L000011'],
+    material: {
+      _id: 'mat-film-test',
+      product_code: 'M-999',
+      material_name: '测试料-膜材',
+      category: 'film',
+      sub_category: '测试膜',
+      is_test_material: true
+    },
+    form: {
+      supplier_model: 'TEST-FILM-01',
+      thickness_um: '50',
+      width_mm: '520'
+    },
+    operatorOpenid: 'openid-1',
+    operatorName: '张三',
+    now: new Date('2026-06-25T02:00:00.000Z')
+  });
+
+  assert.deepEqual(filmRecords[0].specs, {
+    thickness_um: 50,
+    width_mm: 520
+  });
 });
 
 test('preprint request signature only treats identical generation parameters as reusable', () => {
@@ -296,6 +340,34 @@ test('preprint request signature only treats identical generation parameters as 
       sample_note: '透明液体'
     }
   }));
+
+  const filmMaterial = {
+    _id: 'mat-film-test',
+    product_code: 'M-999',
+    material_name: '测试料-膜材',
+    category: 'film',
+    is_test_material: true
+  };
+  const filmBase = buildPreprintRequestSignature({
+    templateType: 'film',
+    count: 3,
+    material: filmMaterial,
+    form: {
+      supplier_model: 'TEST-FILM-01',
+      thickness_um: '50',
+      width_mm: '520'
+    }
+  });
+  assert.notEqual(filmBase, buildPreprintRequestSignature({
+    templateType: 'film',
+    count: 3,
+    material: filmMaterial,
+    form: {
+      supplier_model: 'TEST-FILM-01',
+      thickness_um: '50',
+      width_mm: '530'
+    }
+  }));
 });
 
 test('preprint export rows include qr content and template-specific source model', () => {
@@ -334,7 +406,7 @@ test('label export preserves the user-selected record order when generating prin
   );
 });
 
-test('label export workbook keeps readable template sheet and adds BarTender data sheet', async () => {
+test('label export workbook uses one BarTender-ready template sheet', async () => {
   const workbook = await buildLabelExportWorkbook({
     templateType: 'film',
     exportedAt: new Date('2026-03-24T07:22:52.000Z'),
@@ -352,10 +424,9 @@ test('label export workbook keeps readable template sheet and adds BarTender dat
 
   const sheet = workbook.getWorksheet('膜材信息标签');
   assert.ok(sheet);
-  assert.ok(workbook.getWorksheet('BarTender数据'));
-  assert.equal(sheet.getCell('A1').value, '膜材信息标签');
-  assert.match(String(sheet.getCell('A2').value || ''), /导出时间：2026-03-24 15:22:52/);
-  assert.deepEqual(sheet.getRow(4).values.slice(1), [
+  assert.equal(workbook.worksheets.length, 1);
+  assert.equal(workbook.getWorksheet('BarTender数据'), undefined);
+  assert.deepEqual(sheet.getRow(1).values.slice(1), [
     '标签编号',
     '二维码内容',
     '产品代码',
@@ -365,25 +436,9 @@ test('label export workbook keeps readable template sheet and adds BarTender dat
     '厚度',
     '幅宽'
   ]);
-  assert.equal(sheet.getCell('I4').value, null);
-  assert.equal(sheet.getCell('A5').value, 'L000201');
+  assert.equal(sheet.getCell('I1').value, null);
+  assert.equal(sheet.getCell('A2').value, 'L000201');
+  assert.equal(sheet.getCell('B2').value, '--');
   assert.equal(sheet.views[0].state, 'frozen');
-  assert.equal(sheet.views[0].ySplit, 4);
-
-  const bartenderSheet = workbook.getWorksheet('BarTender数据');
-  assert.deepEqual(bartenderSheet.getRow(1).values.slice(1), [
-    '标签编号',
-    '二维码内容',
-    '产品代码',
-    '物料名称',
-    '子类别',
-    '原厂型号',
-    '厚度',
-    '幅宽'
-  ]);
-  assert.equal(bartenderSheet.getCell('I1').value, null);
-  assert.equal(bartenderSheet.getCell('A2').value, 'L000201');
-  assert.equal(bartenderSheet.getCell('B2').value, '--');
-  assert.equal(bartenderSheet.views[0].state, 'frozen');
-  assert.equal(bartenderSheet.views[0].ySplit, 1);
+  assert.equal(sheet.views[0].ySplit, 1);
 });
