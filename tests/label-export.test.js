@@ -94,6 +94,10 @@ test('label export file names include the selected template label and CST timest
     buildLabelExportFileName('chemical_std', exportedAt),
     '化材标准瓶信息标签_20260324_1522.xlsx'
   );
+  assert.equal(
+    buildLabelExportFileName('film', exportedAt, { startLabelCode: 'L000033' }),
+    '标签打印_膜材信息标签_L000033_20260324_152252.xlsx'
+  );
 });
 
 test('film label export row keeps only the governed print fields and resolves latest film specs', () => {
@@ -330,7 +334,7 @@ test('label export preserves the user-selected record order when generating prin
   );
 });
 
-test('label export workbook uses one business-readable sheet per selected template', async () => {
+test('label export workbook keeps readable template sheet and adds BarTender data sheet', async () => {
   const workbook = await buildLabelExportWorkbook({
     templateType: 'film',
     exportedAt: new Date('2026-03-24T07:22:52.000Z'),
@@ -350,6 +354,7 @@ test('label export workbook uses one business-readable sheet per selected templa
 
   const sheet = workbook.getWorksheet('膜材信息标签');
   assert.ok(sheet);
+  assert.ok(workbook.getWorksheet('BarTender数据'));
   assert.equal(sheet.getCell('A1').value, '膜材信息标签');
   assert.match(String(sheet.getCell('A2').value || ''), /导出时间：2026-03-24 15:22:52/);
   assert.deepEqual(sheet.getRow(4).values.slice(1), [
@@ -367,4 +372,22 @@ test('label export workbook uses one business-readable sheet per selected templa
   assert.equal(sheet.getCell('A5').value, 'L000201');
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 4);
+
+  const bartenderSheet = workbook.getWorksheet('BarTender数据');
+  assert.deepEqual(bartenderSheet.getRow(1).values.slice(1), [
+    '标签编号',
+    '二维码内容',
+    '产品代码',
+    '物料名称',
+    '子类别',
+    '原厂型号',
+    '厚度',
+    '幅宽',
+    '批次',
+    '过期日期'
+  ]);
+  assert.equal(bartenderSheet.getCell('A2').value, 'L000201');
+  assert.equal(bartenderSheet.getCell('B2').value, '--');
+  assert.equal(bartenderSheet.views[0].state, 'frozen');
+  assert.equal(bartenderSheet.views[0].ySplit, 1);
 });

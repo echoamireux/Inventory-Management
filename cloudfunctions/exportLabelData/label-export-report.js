@@ -92,11 +92,19 @@ function resolveTemplateCategory(templateType = 'film') {
   return normalized === 'film' ? 'film' : 'chemical';
 }
 
-function buildLabelExportFileName(templateType = 'film', exportedAt = new Date()) {
+function buildLabelExportFileName(templateType = 'film', exportedAt = new Date(), options = {}) {
   const parts = getCstParts(exportedAt);
   const templateLabel = resolveTemplateLabel(templateType);
+  const startLabelCode = String(options.startLabelCode || '').trim();
   if (!parts) {
+    if (startLabelCode) {
+      return `标签打印_${templateLabel}_${startLabelCode}.xlsx`;
+    }
     return `${templateLabel}.xlsx`;
+  }
+
+  if (startLabelCode) {
+    return `标签打印_${templateLabel}_${startLabelCode}_${parts.year}${parts.month}${parts.day}_${parts.hour}${parts.minute}${parts.second}.xlsx`;
   }
 
   return `${templateLabel}_${parts.year}${parts.month}${parts.day}_${parts.hour}${parts.minute}.xlsx`;
@@ -337,6 +345,43 @@ async function buildLabelExportWorkbook({
     to: { row: 4, column: headers.length }
   };
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
+
+  const bartenderSheet = workbook.addWorksheet('BarTender数据');
+  bartenderSheet.columns = headers.map((header, index) => ({
+    header,
+    key: header,
+    width: columnWidths[index] || 18
+  }));
+
+  const bartenderHeaderRow = bartenderSheet.getRow(1);
+  headers.forEach((header, index) => {
+    const cell = bartenderHeaderRow.getCell(index + 1);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+    cell.fill = buildHeaderFill();
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = buildThinBorder();
+  });
+  bartenderHeaderRow.height = 22;
+
+  (rows || []).forEach((row, index) => {
+    const excelRow = bartenderSheet.getRow(index + 2);
+    headers.forEach((header, colIndex) => {
+      const cell = excelRow.getCell(colIndex + 1);
+      cell.value = row[header] !== undefined ? row[header] : '--';
+      cell.border = buildThinBorder();
+      cell.alignment = { vertical: 'middle', wrapText: true };
+      if (header === '标签编号' || header === '产品代码') {
+        cell.font = { bold: true, color: { argb: '1E3A8A' } };
+      }
+    });
+  });
+
+  bartenderSheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: headers.length }
+  };
+  bartenderSheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   return workbook;
 }

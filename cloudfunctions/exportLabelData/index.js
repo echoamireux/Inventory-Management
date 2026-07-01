@@ -261,7 +261,9 @@ async function exportPreprintRecords(templateType, records = []) {
     rows
   });
   const buffer = await workbook.xlsx.writeBuffer();
-  const fileName = buildLabelExportFileName(templateType, exportedAt);
+  const fileName = buildLabelExportFileName(templateType, exportedAt, {
+    startLabelCode: rows[0] && rows[0]['标签编号']
+  });
   const uploadRes = await cloud.uploadFile({
     cloudPath: `label-exports/preprint_${Date.now()}_${fileName}`,
     fileContent: Buffer.from(buffer)
@@ -725,7 +727,9 @@ async function exportLabelWorkbook(data = {}) {
     rows
   });
   const buffer = await workbook.xlsx.writeBuffer();
-  const fileName = buildLabelExportFileName(templateType, exportedAt);
+  const fileName = buildLabelExportFileName(templateType, exportedAt, {
+    startLabelCode: rows[0] && rows[0]['标签编号']
+  });
   const uploadRes = await cloud.uploadFile({
     cloudPath: `label-exports/${Date.now()}_${fileName}`,
     fileContent: Buffer.from(buffer)
