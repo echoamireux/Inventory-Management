@@ -3,9 +3,9 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "van-button": "@vant/weapp/button/index",
-    "van-cell": "@vant/weapp/cell/index",
     "van-empty": "@vant/weapp/empty/index",
     "van-field": "@vant/weapp/field/index",
+    "van-icon": "@vant/weapp/icon/index",
     "van-loading": "@vant/weapp/loading/index",
     "van-popup": "@vant/weapp/popup/index",
     "van-search": "@vant/weapp/search/index",

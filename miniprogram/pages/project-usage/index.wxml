@@ -14,9 +14,9 @@
       bind:clear="onSearchClear"
     />
 
-    <view class="project-selector" bindtap="onShowProjectPicker">
+    <view class="project-selector" hover-class="project-selector--active" bindtap="onShowProjectPicker">
+      <view class="project-selector__label">项目编码</view>
       <view class="project-selector__body">
-        <view class="project-selector__label">项目编码</view>
         <view class="project-selector__code">{{ selectedProjectCode === 'all' ? '全部项目编码' : selectedProjectCode }}</view>
         <view class="project-selector__name">{{ selectedProjectCode === 'all' ? '查看全部项目领料记录' : (selectedProjectName || '未填写项目名称') }}</view>
       </view>

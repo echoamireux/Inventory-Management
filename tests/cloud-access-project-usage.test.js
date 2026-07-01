@@ -53,13 +53,23 @@ test('project usage report page is registered and reachable from the home page',
 test('project usage filter uses structured project selector and non-overflowing actions', () => {
   const pageWxml = read('miniprogram/pages/project-usage/index.wxml');
   const pageWxss = read('miniprogram/pages/project-usage/index.wxss');
+  const projectSelectorBlock = pageWxss.match(/\.project-selector\s*\{[\s\S]*?\n\}/)?.[0] || '';
+
+  const pageJson = JSON.parse(read('miniprogram/pages/project-usage/index.json'));
 
   assert.match(pageWxml, /class="project-selector"/);
   assert.match(pageWxml, /class="project-selector__label"[\s\S]*项目编码/);
+  assert.match(pageWxml, /class="project-selector__body"/);
   assert.match(pageWxml, /class="project-selector__code"/);
   assert.match(pageWxml, /class="project-selector__name"/);
   assert.match(pageWxml, /查看全部项目领料记录/);
   assert.doesNotMatch(pageWxml, /<van-cell[\s\S]*title="项目编码"[\s\S]*selectedProjectCode \+ \(selectedProjectName/);
+  assert.doesNotMatch(projectSelectorBlock, /border:\s*1px solid/);
+  assert.doesNotMatch(projectSelectorBlock, /border-radius:\s*14rpx/);
+  assert.match(projectSelectorBlock, /border-bottom:\s*1px solid #eef2f7/);
+  assert.match(pageWxss, /\.project-selector__label\s*\{[\s\S]*?width:\s*132rpx/);
+  assert.ok(pageJson.usingComponents['van-icon']);
+  assert.equal(pageJson.usingComponents['van-cell'], undefined);
 
   assert.match(pageWxml, /class="filter-actions-primary"[\s\S]*清空筛选[\s\S]*应用日期/);
   assert.match(pageWxml, /class="filter-actions-export"[\s\S]*导出 Excel/);
