@@ -88,6 +88,12 @@
   color: var(--color-text-primary);
 }
 
+.field-required {
+  margin-left: 4px;
+  color: #ee0a24;
+  font-weight: 700;
+}
+
 .suggestion-list {
   margin: 8px 0 10px;
   border: 1px solid rgba(226, 232, 240, 0.9);

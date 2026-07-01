@@ -58,6 +58,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /二维码内容/);
   assert.match(pageWxml, /生成新标签/);
   assert.match(pageWxml, /作废本批未入库标签/);
+  assert.match(pageWxml, /<view class="field-label">[\s\S]*原厂型号[\s\S]*<text[^>]*preprintForm\.selectedMaterial\.is_test_material[^>]*class="field-required"[^>]*>\*<\/text>/);
   assert.doesNotMatch(pageWxml, /input-align="right"/);
   assert.match(pageWxml, /selectedIds\.length/);
   assert.match(pageWxml, /bindtap="toggleSelectItem"/);
@@ -68,6 +69,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxss, /\.inline-refresh-state[\s\S]*align-items:\s*center/);
   assert.match(pageWxss, /\.template-fields-preview/);
   assert.match(pageWxss, /\.material-search-state/);
+  assert.match(pageWxss, /\.field-required[\s\S]*color:\s*#ee0a24/);
 });
 
 test('label export cloud function separates list and export actions and only allows active users', () => {
