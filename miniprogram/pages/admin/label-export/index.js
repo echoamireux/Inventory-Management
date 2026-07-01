@@ -51,6 +51,18 @@ function decorateMaterial(item = {}) {
   };
 }
 
+function buildPreprintFormSnapshot(preprintForm = {}, templateType = 'film') {
+  const material = preprintForm.selectedMaterial || {};
+  return JSON.stringify({
+    templateType,
+    materialId: material._id || '',
+    count: String(preprintForm.count || '').trim(),
+    supplier_model: String(preprintForm.supplier_model || '').trim(),
+    supplier: String(preprintForm.supplier || '').trim(),
+    sample_note: String(preprintForm.sample_note || '').trim()
+  });
+}
+
 Page({
   options: {
     styleIsolation: 'shared'
@@ -67,9 +79,12 @@ Page({
       supplier: '',
       sample_note: '',
       requestId: buildRequestId(),
+      lastSnapshot: '',
       lastJobId: '',
       lastRecords: []
     },
+    recentPreprintJobs: [],
+    loadingRecentPreprints: false,
     materialSuggestions: [],
     materialSearching: false,
     materialSearchState: '',
@@ -104,7 +119,10 @@ Page({
       return;
     }
 
-    await this.getList(true);
+    await Promise.all([
+      this.getList(true),
+      this.loadRecentPreprintJobs()
+    ]);
   },
 
   onPullDownRefresh() {
@@ -161,10 +179,12 @@ Page({
       'preprintForm.supplier': '',
       'preprintForm.sample_note': '',
       'preprintForm.requestId': buildRequestId(),
+      'preprintForm.lastSnapshot': '',
       'preprintForm.lastJobId': '',
       'preprintForm.lastRecords': []
     });
     this.getList(true);
+    this.loadRecentPreprintJobs();
   },
 
   onPreprintFieldChange(e) {
@@ -281,6 +301,84 @@ Page({
     });
   },
 
+  buildCurrentPreprintPayload(requestId, preprintMode) {
+    const { preprintForm, templateType } = this.data;
+    const selectedMaterial = preprintForm.selectedMaterial;
+    return {
+      requestId,
+      preprintMode,
+      previousJobId: preprintForm.lastJobId,
+      templateType,
+      materialId: selectedMaterial._id,
+      count: preprintForm.count,
+      form: {
+        supplier_model: preprintForm.supplier_model,
+        supplier: preprintForm.supplier,
+        sample_note: preprintForm.sample_note
+      }
+    };
+  },
+
+  async ensurePreprintChangeIntent() {
+    const { preprintForm, templateType } = this.data;
+    if (!preprintForm.lastJobId) {
+      return {
+        ok: true,
+        requestId: preprintForm.requestId,
+        preprintMode: 'normal'
+      };
+    }
+
+    const currentSnapshot = buildPreprintFormSnapshot(preprintForm, templateType);
+    if (currentSnapshot === preprintForm.lastSnapshot) {
+      return {
+        ok: true,
+        requestId: preprintForm.requestId,
+        preprintMode: 'normal'
+      };
+    }
+
+    return new Promise(resolve => {
+      wx.showModal({
+        title: '确认生成方式',
+        content: '检测到本批表单已变化。标签数量表示本次生成数量，不是目标总数：填错请作废原批重做；需要追加请保留原批，并填写本次新增数量。',
+        confirmText: '选择方式',
+        cancelText: '先不生成',
+        success: (modalRes) => {
+          if (!modalRes.confirm) {
+            resolve({ ok: false });
+            return;
+          }
+          wx.showActionSheet({
+            itemList: ['作废原批并重新导出', '保留原批，另生成一批'],
+            success: (res) => {
+              if (res.tapIndex === 0) {
+                resolve({
+                  ok: true,
+                  requestId: buildRequestId(),
+                  preprintMode: 'voidAndRecreate',
+                  previousJobId: preprintForm.lastJobId
+                });
+                return;
+              }
+              resolve({
+                ok: true,
+                requestId: buildRequestId(),
+                preprintMode: 'keepAndCreate'
+              });
+            },
+            fail: () => {
+              resolve({ ok: false });
+            }
+          });
+        },
+        fail: () => {
+          resolve({ ok: false });
+        }
+      });
+    });
+  },
+
   async onCreatePreprintJob() {
     if (this.data.creatingPreprint) {
       return;
@@ -296,37 +394,48 @@ Page({
       return;
     }
 
+    const intent = await this.ensurePreprintChangeIntent();
+    if (!intent.ok) {
+      return;
+    }
+    await this.createAndExportPreprintJob(intent);
+  },
+
+  async createAndExportPreprintJob(intent = {}) {
+    const { preprintForm, templateType } = this.data;
     this.setData({ creatingPreprint: true });
-    Toast.loading({ message: '正在生成新标签...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '正在生成并导出...', forbidClick: true, duration: 0 });
     try {
-      const res = await wx.cloud.callFunction({
+      const result = normalizeLabelExportResult(await wx.cloud.callFunction({
         name: 'exportLabelData',
         data: {
-          action: 'createPreprintJob',
-          data: {
-            requestId: preprintForm.requestId,
-            templateType,
-            materialId: selectedMaterial._id,
-            count: preprintForm.count,
-            form: {
-              supplier_model: preprintForm.supplier_model,
-              supplier: preprintForm.supplier,
-              sample_note: preprintForm.sample_note
-            }
-          }
+          action: 'createAndExportPreprintJob',
+          data: this.buildCurrentPreprintPayload(intent.requestId, intent.preprintMode)
         }
-      });
-      if (!(res.result && res.result.success)) {
-        throw new Error((res.result && res.result.msg) || '生成失败');
-      }
-      Toast.success(res.result.reused ? '已复用本批标签' : '生成成功');
+      }));
+      await this.downloadAndOpenWorkbook(result);
+      const records = (result.raw && result.raw.records) || [];
       this.setData({
-        'preprintForm.lastJobId': res.result.job_id || '',
-        'preprintForm.lastRecords': res.result.records || []
+        'preprintForm.requestId': intent.requestId,
+        'preprintForm.lastSnapshot': buildPreprintFormSnapshot(preprintForm, templateType),
+        'preprintForm.lastJobId': (result.raw && result.raw.job_id) || '',
+        'preprintForm.lastRecords': records
       });
+      await this.loadRecentPreprintJobs();
+      Toast.success((result.raw && result.raw.reused) ? '已加载原批次，未重复发号' : '已生成并打开 Excel');
     } catch (error) {
       console.error(error);
-      Toast.fail(error.message || '生成失败');
+      if (error.result && error.result.code === 'PREPRINT_EXPORT_FAILED') {
+        const records = error.result.records || [];
+        this.setData({
+          'preprintForm.requestId': intent.requestId,
+          'preprintForm.lastSnapshot': buildPreprintFormSnapshot(preprintForm, templateType),
+          'preprintForm.lastJobId': error.result.job_id || '',
+          'preprintForm.lastRecords': records
+        });
+        await this.loadRecentPreprintJobs();
+      }
+      Toast.fail(error.message || '生成并导出失败');
     } finally {
       this.setData({ creatingPreprint: false });
     }
@@ -338,7 +447,7 @@ Page({
     }
     const { preprintForm, templateType } = this.data;
     if (!preprintForm.lastJobId) {
-      Toast.fail('请先生成新标签');
+      Toast.fail('请先生成并导出标签');
       return;
     }
 
@@ -379,6 +488,117 @@ Page({
       return;
     }
 
+    const ok = await this.voidPreprintIds(ids);
+    if (ok) {
+      const nextRecords = records.map(item => ids.includes(item._id)
+        ? { ...item, status: 'voided' }
+        : item);
+      this.setData({
+        'preprintForm.requestId': buildRequestId(),
+        'preprintForm.lastSnapshot': '',
+        'preprintForm.lastJobId': '',
+        'preprintForm.lastRecords': nextRecords
+      });
+    }
+  },
+
+  async loadRecentPreprintJobs() {
+    this.setData({ loadingRecentPreprints: true });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'listRecentPreprintJobs',
+          data: {
+            templateType: this.data.templateType,
+            pageSize: 5
+          }
+        }
+      });
+      if (!(res.result && res.result.success)) {
+        throw new Error((res.result && res.result.msg) || '加载最近批次失败');
+      }
+      this.setData({
+        recentPreprintJobs: res.result.list || []
+      });
+    } catch (error) {
+      console.error('加载最近预生成批次失败', error);
+    } finally {
+      this.setData({ loadingRecentPreprints: false });
+    }
+  },
+
+  onRestorePreprintJob(e) {
+    const job = e.currentTarget.dataset.item || {};
+    const records = job.records || [];
+    this.setData({
+      'preprintForm.requestId': job.request_id || buildRequestId(),
+      'preprintForm.lastSnapshot': '',
+      'preprintForm.lastJobId': job.job_id || '',
+      'preprintForm.lastRecords': records
+    });
+    Toast.success('已恢复查看本批标签');
+  },
+
+  async onExportRecentPreprintJob(e) {
+    const job = e.currentTarget.dataset.item || {};
+    if (!job.job_id) {
+      Toast.fail('缺少预生成批次');
+      return;
+    }
+    this.setData({ exportingPreprint: true });
+    Toast.loading({ message: '正在生成文件...', forbidClick: true, duration: 0 });
+    try {
+      const result = normalizeLabelExportResult(await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'exportPreprintJob',
+          data: {
+            templateType: job.template_type || this.data.templateType,
+            jobId: job.job_id
+          }
+        }
+      }));
+      await this.downloadAndOpenWorkbook(result);
+      Toast.success('文件已打开');
+    } catch (error) {
+      console.error('重新导出预生成标签失败', error);
+      Toast.fail(error.message || '导出失败');
+    } finally {
+      this.setData({ exportingPreprint: false });
+    }
+  },
+
+  async onVoidRecentPreprintJob(e) {
+    const job = e.currentTarget.dataset.item || {};
+    const ids = (job.records || [])
+      .filter(item => item.status === 'unused')
+      .map(item => item._id)
+      .filter(Boolean);
+    if (!ids.length) {
+      Toast.fail('本批没有可作废的未入库标签');
+      return;
+    }
+    const ok = await this.voidPreprintIds(ids);
+    if (ok && job.job_id === this.data.preprintForm.lastJobId) {
+      const nextRecords = (this.data.preprintForm.lastRecords || []).map(item => ids.includes(item._id)
+        ? { ...item, status: 'voided' }
+        : item);
+      this.setData({
+        'preprintForm.requestId': buildRequestId(),
+        'preprintForm.lastSnapshot': '',
+        'preprintForm.lastJobId': '',
+        'preprintForm.lastRecords': nextRecords
+      });
+    }
+  },
+
+  async voidPreprintIds(ids = []) {
+    if (!ids.length) {
+      Toast.fail('本批没有可作废的未入库标签');
+      return false;
+    }
+
     this.setData({ voidingPreprint: true });
     Toast.loading({ message: '正在作废标签...', forbidClick: true, duration: 0 });
     try {
@@ -395,15 +615,12 @@ Page({
         throw new Error((res.result && res.result.msg) || '作废失败');
       }
       Toast.success('已作废');
-      const nextRecords = records.map(item => ids.includes(item._id)
-        ? { ...item, status: 'voided' }
-        : item);
-      this.setData({
-        'preprintForm.lastRecords': nextRecords
-      });
+      await this.loadRecentPreprintJobs();
+      return true;
     } catch (error) {
       console.error('作废预生成标签失败', error);
       Toast.fail(error.message || '作废失败');
+      return false;
     } finally {
       this.setData({ voidingPreprint: false });
     }

@@ -98,6 +98,30 @@ function assertPreprintPayload({
   };
 }
 
+function buildPreprintRequestSignature({
+  templateType = 'film',
+  count = 1,
+  material = {},
+  form = {}
+} = {}) {
+  const payload = assertPreprintPayload({
+    templateType,
+    count,
+    material,
+    form
+  });
+  return JSON.stringify({
+    template_type: payload.templateType,
+    material_id: normalizeText(material._id),
+    product_code: payload.productCode,
+    category: payload.category,
+    count: payload.count,
+    supplier_model: payload.supplierModel,
+    supplier: normalizeText(form.supplier),
+    sample_note: normalizeText(form.sample_note)
+  });
+}
+
 function buildJobId(now = new Date()) {
   const random = Math.random().toString(36).slice(2, 8);
   return `preprint_${now.getTime()}_${random}`;
@@ -170,6 +194,7 @@ module.exports = {
   buildNextLabelCodes,
   buildPreprintLabelRecords,
   buildPreprintLabelExportRow,
+  buildPreprintRequestSignature,
   assertPreprintPayload,
   formatLabelCode,
   parseLabelCodeNumber

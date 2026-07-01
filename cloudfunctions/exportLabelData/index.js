@@ -13,6 +13,7 @@ const {
   buildNextLabelCodes,
   buildPreprintLabelRecords,
   buildPreprintLabelExportRow,
+  buildPreprintRequestSignature,
   assertPreprintPayload,
   parseLabelCodeNumber
 } = require('./preprint-labels');
@@ -146,11 +147,140 @@ async function getPreprintRecordsByRequest(requestId, operatorOpenid) {
   return res.data || [];
 }
 
+async function getPreprintRecordsByJob(jobId, operatorOpenid, templateType = '') {
+  const normalizedJobId = normalizeText(jobId);
+  if (!normalizedJobId) {
+    return [];
+  }
+
+  const where = {
+    job_id: normalizedJobId,
+    operator_id: operatorOpenid
+  };
+  if (templateType) {
+    where.template_type = normalizeTemplateType(templateType);
+  }
+
+  const res = await db.collection('preprinted_labels')
+    .where(where)
+    .orderBy('job_index', 'asc')
+    .limit(200)
+    .get();
+  return res.data || [];
+}
+
+async function preparePreprintJobVoid(previousJobId, operatorOpenid) {
+  const jobId = normalizeText(previousJobId);
+  if (!jobId) {
+    throw new Error('缺少需要作废的原批次');
+  }
+
+  const records = await getPreprintRecordsByJob(jobId, operatorOpenid);
+  if (!records.length) {
+    throw new Error('未找到需要作废的原批次');
+  }
+
+  const usedRecords = records.filter(record => record.status === 'used');
+  if (usedRecords.length > 0) {
+    throw new Error('原批次已有标签入库，不能整体作废重做');
+  }
+
+  const unusedIds = records
+    .filter(record => record.status === 'unused')
+    .map(record => record._id)
+    .filter(Boolean);
+  if (!unusedIds.length) {
+    throw new Error('原批次没有可作废的未入库标签');
+  }
+
+  return unusedIds;
+}
+
+function buildPreprintJobSummary(records = []) {
+  if (!records.length) {
+    return null;
+  }
+  const sorted = records.slice().sort((left, right) => Number(left.job_index || 0) - Number(right.job_index || 0));
+  const first = sorted[0] || {};
+  const statusCounts = sorted.reduce((acc, record) => {
+    const status = normalizeText(record.status) || 'unused';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  const codes = sorted.map(record => normalizeText(record.unique_code)).filter(Boolean);
+  const startCode = codes[0] || '';
+  const endCode = codes[codes.length - 1] || startCode;
+
+  return {
+    job_id: first.job_id,
+    template_type: first.template_type,
+    material_id: first.material_id,
+    product_code: first.product_code,
+    material_name: first.material_name,
+    supplier_model: first.supplier_model,
+    supplier: first.supplier,
+    sample_note: first.sample_note,
+    request_id: first.request_id,
+    request_signature: first.request_signature,
+    create_time: first.create_time || null,
+    count: sorted.length,
+    unused_count: statusCounts.unused || 0,
+    used_count: statusCounts.used || 0,
+    voided_count: statusCounts.voided || 0,
+    start_code: startCode,
+    end_code: endCode,
+    records: sorted
+  };
+}
+
+async function exportPreprintRecords(templateType, records = []) {
+  const rows = records.map(buildPreprintLabelExportRow);
+  const exportedAt = new Date();
+  const workbook = await buildLabelExportWorkbook({
+    templateType,
+    exportedAt,
+    rows
+  });
+  const buffer = await workbook.xlsx.writeBuffer();
+  const fileName = buildLabelExportFileName(templateType, exportedAt);
+  const uploadRes = await cloud.uploadFile({
+    cloudPath: `label-exports/preprint_${Date.now()}_${fileName}`,
+    fileContent: Buffer.from(buffer)
+  });
+
+  return {
+    fileID: uploadRes.fileID,
+    fileName
+  };
+}
+
 async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') {
   const requestId = normalizeText(data.requestId || data.request_id);
+  if (!requestId) {
+    throw new Error('缺少本次生成请求编号，请刷新后重试');
+  }
+  const templateType = normalizeTemplateType(data.templateType);
+  const count = Number(data.count) || 0;
+  const material = await loadMaterialForPreprint(data);
+  const form = data.form || data;
+  const preprintMode = normalizeText(data.preprintMode || data.preprint_mode || 'normal') || 'normal';
+  const requestSignature = buildPreprintRequestSignature({
+    templateType,
+    count,
+    material,
+    form
+  });
   const existingRequestRecords = await getPreprintRecordsByRequest(requestId, operatorOpenid);
   if (existingRequestRecords.length > 0) {
     const firstRecord = existingRequestRecords[0];
+    const existingSignature = normalizeText(firstRecord.request_signature);
+    if (existingSignature && existingSignature !== requestSignature) {
+      return {
+        success: false,
+        code: 'PREPRINT_REQUEST_CHANGED',
+        msg: '本次表单内容已变化，请确认是作废重做还是另生成一批'
+      };
+    }
     return {
       success: true,
       job_id: firstRecord.job_id,
@@ -162,18 +292,26 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
     };
   }
 
-  const templateType = normalizeTemplateType(data.templateType);
-  const count = Number(data.count) || 0;
-  const material = await loadMaterialForPreprint(data);
-  const form = data.form || data;
-  assertPreprintPayload({
-    templateType,
-    count,
-    material,
-    form
-  });
+  const voidBeforeCreateIds = preprintMode === 'voidAndRecreate'
+    ? await preparePreprintJobVoid(data.previousJobId || data.previous_job_id, operatorOpenid)
+    : [];
 
   return db.runTransaction(async transaction => {
+    for (let i = 0; i < voidBeforeCreateIds.length; i += 1) {
+      const existingVoidRecord = await transaction.collection('preprinted_labels').doc(voidBeforeCreateIds[i]).get();
+      if (!existingVoidRecord.data || existingVoidRecord.data.operator_id !== operatorOpenid || existingVoidRecord.data.status !== 'unused') {
+        throw new Error('原批次标签状态已变化，请刷新后重试');
+      }
+      await transaction.collection('preprinted_labels').doc(voidBeforeCreateIds[i]).update({
+        data: {
+          status: 'voided',
+          voided_by: operatorOpenid,
+          voided_time: db.serverDate(),
+          update_time: db.serverDate()
+        }
+      });
+    }
+
     const labelCodes = await allocatePreprintLabelCodes(transaction, count);
     const now = new Date();
     const records = buildPreprintLabelRecords({
@@ -185,7 +323,9 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
       operatorName: operator.name || operator.nickname || '',
       now
     }).map(record => Object.assign({}, record, {
-      request_id: requestId
+      request_id: requestId,
+      request_signature: requestSignature,
+      exported: false
     }));
 
     const resultRecords = [];
@@ -206,13 +346,60 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
       success: true,
       job_id: resultRecords[0] && resultRecords[0].job_id,
       records: resultRecords,
+      request_signature: requestSignature,
       count: resultRecords.length,
       msg: '生成成功'
     };
   });
 }
 
-async function exportPreprintJob(data = {}) {
+async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpenid = '') {
+  const createResult = await createPreprintJob(data, operator, operatorOpenid);
+  if (!createResult.success) {
+    return createResult;
+  }
+
+  const templateType = normalizeTemplateType(data.templateType);
+  let exportResult;
+  try {
+    exportResult = await exportPreprintRecords(templateType, createResult.records || []);
+    const ids = (createResult.records || []).map(record => record._id).filter(Boolean);
+    if (ids.length) {
+      await Promise.all(ids.map(id => db.collection('preprinted_labels').doc(id).update({
+        data: {
+          exported: true,
+          exported_time: db.serverDate(),
+          update_time: db.serverDate()
+        }
+      })));
+    }
+  } catch (error) {
+    return {
+      success: false,
+      code: 'PREPRINT_EXPORT_FAILED',
+      job_id: createResult.job_id,
+      records: createResult.records,
+      request_signature: createResult.request_signature,
+      reused: !!createResult.reused,
+      count: createResult.count,
+      msg: error.message || '标签已生成，但 Excel 导出失败，请在最近打印批次中重新导出'
+    };
+  }
+
+  return {
+    success: true,
+    job_id: createResult.job_id,
+    records: createResult.records,
+    request_signature: createResult.request_signature,
+    reused: !!createResult.reused,
+    fileID: exportResult.fileID,
+    fileName: exportResult.fileName,
+    count: createResult.count,
+    msg: createResult.reused ? '已复用本批并重新导出' : '生成并导出成功'
+  };
+}
+
+async function exportPreprintJob(data = {}, operatorOpenid = '') {
   const jobId = normalizeText(data.jobId || data.job_id);
   const templateType = normalizeTemplateType(data.templateType);
   if (!jobId) {
@@ -222,15 +409,7 @@ async function exportPreprintJob(data = {}) {
     };
   }
 
-  const result = await db.collection('preprinted_labels')
-    .where({
-      job_id: jobId,
-      template_type: templateType
-    })
-    .orderBy('job_index', 'asc')
-    .limit(200)
-    .get();
-  const records = result.data || [];
+  const records = await getPreprintRecordsByJob(jobId, operatorOpenid, templateType);
   if (!records.length) {
     return {
       success: false,
@@ -238,33 +417,21 @@ async function exportPreprintJob(data = {}) {
     };
   }
 
-  const rows = records.map(buildPreprintLabelExportRow);
-  const exportedAt = new Date();
-  const workbook = await buildLabelExportWorkbook({
-    templateType,
-    exportedAt,
-    rows
-  });
-  const buffer = await workbook.xlsx.writeBuffer();
-  const fileName = buildLabelExportFileName(templateType, exportedAt);
-  const uploadRes = await cloud.uploadFile({
-    cloudPath: `label-exports/preprint_${Date.now()}_${fileName}`,
-    fileContent: Buffer.from(buffer)
-  });
+  const exportResult = await exportPreprintRecords(templateType, records);
 
   return {
     success: true,
-    fileID: uploadRes.fileID,
-    fileName,
+    fileID: exportResult.fileID,
+    fileName: exportResult.fileName,
     msg: '生成成功'
   };
 }
 
-async function listPreprintJobs(data = {}) {
+async function listPreprintJobs(data = {}, operatorOpenid = '') {
   const page = Math.max(1, Number(data.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(data.pageSize) || 20));
   const searchRegex = buildContainsRegExp(db, data.searchVal);
-  const conditions = [];
+  const conditions = operatorOpenid ? [{ operator_id: operatorOpenid }] : [];
 
   if (data.templateType) {
     conditions.push({ template_type: normalizeTemplateType(data.templateType) });
@@ -296,6 +463,67 @@ async function listPreprintJobs(data = {}) {
   };
 }
 
+async function listRecentPreprintJobs(data = {}, operatorOpenid = '') {
+  const pageSize = Math.max(1, Math.min(20, Number(data.pageSize) || 5));
+  const templateType = data.templateType ? normalizeTemplateType(data.templateType) : '';
+  const jobIds = [];
+  const seen = new Set();
+  const maxPages = 10;
+
+  for (let page = 1; page <= maxPages && jobIds.length < pageSize; page += 1) {
+    const where = {
+      operator_id: operatorOpenid
+    };
+    if (templateType) {
+      where.template_type = templateType;
+    }
+    const res = await db.collection('preprinted_labels')
+      .where(where)
+      .orderBy('create_time', 'desc')
+      .skip((page - 1) * 100)
+      .limit(100)
+      .get();
+    const rows = res.data || [];
+    if (!rows.length) {
+      break;
+    }
+    rows.forEach((record) => {
+      if (record.status === 'voided') {
+        return;
+      }
+      const jobId = normalizeText(record.job_id);
+      if (jobId && !seen.has(jobId) && jobIds.length < pageSize) {
+        seen.add(jobId);
+        jobIds.push(jobId);
+      }
+    });
+  }
+
+  const summaries = await Promise.all(jobIds.map(async jobId => {
+    const records = await getPreprintRecordsByJob(jobId, operatorOpenid, templateType);
+    const summary = buildPreprintJobSummary(records);
+    if (!summary || summary.unused_count + summary.used_count <= 0) {
+      return null;
+    }
+    return summary;
+  }));
+
+  const list = summaries
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftTime = left.create_time ? new Date(left.create_time).getTime() : 0;
+      const rightTime = right.create_time ? new Date(right.create_time).getTime() : 0;
+      return rightTime - leftTime;
+    })
+    .slice(0, pageSize);
+
+  return {
+    success: true,
+    list,
+    total: list.length
+  };
+}
+
 async function voidPreprintLabels(data = {}, operatorOpenid = '') {
   const ids = Array.isArray(data.ids)
     ? data.ids.map(id => normalizeText(id)).filter(Boolean)
@@ -310,6 +538,7 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '') {
   const result = await db.collection('preprinted_labels')
     .where({
       _id: _.in(ids),
+      operator_id: operatorOpenid,
       status: 'unused'
     })
     .get();
@@ -507,12 +736,20 @@ exports.main = async (event, context) => {
       return createPreprintJob(event.data || {}, operator || {}, OPENID);
     }
 
+    if (action === 'createAndExportPreprintJob') {
+      return createAndExportPreprintJob(event.data || {}, operator || {}, OPENID);
+    }
+
     if (action === 'listPreprintJobs') {
-      return listPreprintJobs(event.data || {});
+      return listPreprintJobs(event.data || {}, OPENID);
+    }
+
+    if (action === 'listRecentPreprintJobs') {
+      return listRecentPreprintJobs(event.data || {}, OPENID);
     }
 
     if (action === 'exportPreprintJob') {
-      return exportPreprintJob(event.data || {});
+      return exportPreprintJob(event.data || {}, OPENID);
     }
 
     if (action === 'voidPreprintLabels') {

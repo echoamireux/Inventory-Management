@@ -94,7 +94,7 @@
       <view class="form-section-title">打印设置</view>
       <view class="form-grid">
         <view class="form-item">
-          <view class="field-label">标签数量</view>
+          <view class="field-label">本次生成数量</view>
           <van-field
             value="{{ preprintForm.count }}"
             type="number"
@@ -139,7 +139,7 @@
       </view>
 
       <view class="print-hint">
-        Excel 会包含标签编号和二维码内容，二维码内容默认等于标签编号；库位、数量和过期日期在扫码入库时填写。
+        点击后会生成标签编号并立即导出 Excel。二维码内容默认等于标签编号；库位、数量和过期日期在扫码入库时填写。
       </view>
 
       <view class="preprint-actions">
@@ -148,14 +148,7 @@
           bindtap="onCreatePreprintJob"
         >
           <van-loading wx:if="{{ creatingPreprint }}" color="#FFFFFF" size="18px" />
-          <text wx:else>生成新标签</text>
-        </view>
-        <view
-          class="action-button secondary {{ exportingPreprint || !preprintForm.lastJobId ? 'is-disabled' : '' }}"
-          bindtap="onExportPreprintJob"
-        >
-          <van-loading wx:if="{{ exportingPreprint }}" size="18px" />
-          <text wx:else>导出本批标签 Excel</text>
+          <text wx:else>生成并导出标签 Excel</text>
         </view>
       </view>
     </view>
@@ -171,12 +164,55 @@
         <text>二维码内容：{{ item.qr_content }} {{ item.status === 'voided' ? '已作废' : '' }}</text>
       </view>
       <view
+        class="action-button secondary {{ exportingPreprint || !preprintForm.lastJobId ? 'is-disabled' : '' }}"
+        bindtap="onExportPreprintJob"
+      >
+        <van-loading wx:if="{{ exportingPreprint }}" size="18px" />
+        <text wx:else>重新导出本批 Excel</text>
+      </view>
+      <view
         class="void-link {{ voidingPreprint ? 'is-disabled' : '' }}"
         bindtap="onVoidPreprintLabels"
       >
         <van-loading wx:if="{{ voidingPreprint }}" size="16px" />
-        <text wx:else>作废本批未入库标签</text>
+        <text wx:else>作废未入库标签</text>
       </view>
+    </view>
+
+    <view class="recent-preprint-panel">
+      <view class="section-title">最近打印批次</view>
+      <view wx:if="{{ loadingRecentPreprints }}" class="material-search-state">
+        <van-loading size="16px">正在加载最近批次...</van-loading>
+      </view>
+      <view wx:elif="{{ recentPreprintJobs.length === 0 }}" class="material-search-state">
+        暂无最近批次。生成并导出后，可在这里重新导出或恢复查看。
+      </view>
+      <block wx:else>
+        <view
+          wx:for="{{ recentPreprintJobs }}"
+          wx:key="job_id"
+          class="recent-preprint-card"
+        >
+          <view class="recent-preprint-card__head">
+            <view>
+              <view class="recent-preprint-card__code">{{ item.product_code }}</view>
+              <view class="recent-preprint-card__name">{{ item.material_name }}</view>
+            </view>
+            <view class="recent-preprint-card__count">{{ item.count }} 个</view>
+          </view>
+          <view class="recent-preprint-card__meta">
+            <text>{{ item.template_type === 'film' ? '膜材标签' : (item.template_type === 'chemical_std' ? '化材标准瓶' : '化材小瓶') }}</text>
+            <text wx:if="{{ item.supplier_model }}">原厂型号 {{ item.supplier_model }}</text>
+            <text>{{ item.start_code }}{{ item.end_code && item.end_code !== item.start_code ? (' - ' + item.end_code) : '' }}</text>
+            <text>未入库 {{ item.unused_count }} / 已入库 {{ item.used_count }}</text>
+          </view>
+          <view class="recent-preprint-actions">
+            <view class="recent-preprint-action" bindtap="onRestorePreprintJob" data-item="{{ item }}">恢复查看</view>
+            <view class="recent-preprint-action" bindtap="onExportRecentPreprintJob" data-item="{{ item }}">重新导出 Excel</view>
+            <view class="recent-preprint-action is-danger" bindtap="onVoidRecentPreprintJob" data-item="{{ item }}">作废未入库标签</view>
+          </view>
+        </view>
+      </block>
     </view>
   </block>
 

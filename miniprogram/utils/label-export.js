@@ -4,7 +4,9 @@ function normalizeLabelExportResult(res) {
   const result = res && res.result ? res.result : {};
 
   if (!result.success) {
-    throw new Error(result.msg || '信息标签导出失败');
+    const error = new Error(result.msg || '信息标签导出失败');
+    error.result = result;
+    throw error;
   }
 
   if (!result.fileID || typeof result.fileID !== 'string') {
@@ -14,7 +16,8 @@ function normalizeLabelExportResult(res) {
   return {
     success: true,
     fileID: result.fileID,
-    fileName: String(result.fileName || '').trim()
+    fileName: String(result.fileName || '').trim(),
+    raw: result
   };
 }
 

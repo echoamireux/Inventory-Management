@@ -12,7 +12,8 @@ const {
   buildNextLabelCodes,
   buildPreprintLabelRecords,
   buildPreprintLabelExportRow,
-  assertPreprintPayload
+  assertPreprintPayload,
+  buildPreprintRequestSignature
 } = require('../cloudfunctions/exportLabelData/preprint-labels');
 const {
   LEGACY_LABEL_EXPORT_HINT,
@@ -31,7 +32,12 @@ test('label export result accepts successful responses with a file id', () => {
     {
       success: true,
       fileID: 'cloud://label-export.xlsx',
-      fileName: '膜材信息标签_20260324_1530.xlsx'
+      fileName: '膜材信息标签_20260324_1530.xlsx',
+      raw: {
+        success: true,
+        fileID: 'cloud://label-export.xlsx',
+        fileName: '膜材信息标签_20260324_1530.xlsx'
+      }
     }
   );
 });
@@ -45,6 +51,27 @@ test('label export result surfaces a deploy hint when the cloud function is outd
       }
     }),
     new RegExp(LEGACY_LABEL_EXPORT_HINT)
+  );
+});
+
+test('label export result exposes failed cloud payload for recoverable preprint errors', () => {
+  assert.throws(
+    () => normalizeLabelExportResult({
+      result: {
+        success: false,
+        code: 'PREPRINT_EXPORT_FAILED',
+        job_id: 'preprint-job-1',
+        records: [{ unique_code: 'L000001' }],
+        msg: '标签已生成，但 Excel 导出失败'
+      }
+    }),
+    (error) => {
+      assert.equal(error.message, '标签已生成，但 Excel 导出失败');
+      assert.equal(error.result.code, 'PREPRINT_EXPORT_FAILED');
+      assert.equal(error.result.job_id, 'preprint-job-1');
+      assert.equal(error.result.records[0].unique_code, 'L000001');
+      return true;
+    }
   );
 });
 
@@ -214,6 +241,57 @@ test('preprint label records snapshot material fields and require model for test
   assert.equal(records[0].status, 'unused');
   assert.equal(records[0].supplier_model, 'TEST-CHEM-01');
   assert.equal(records[0].sample_note, '透明液体');
+});
+
+test('preprint request signature only treats identical generation parameters as reusable', () => {
+  const material = {
+    _id: 'mat-test',
+    product_code: 'J-999',
+    material_name: '测试料-化材',
+    category: 'chemical',
+    is_test_material: true
+  };
+  const base = buildPreprintRequestSignature({
+    templateType: 'chemical_std',
+    count: 3,
+    material,
+    form: {
+      supplier_model: 'TEST-CHEM-01',
+      supplier: '供应商A',
+      sample_note: '透明液体'
+    }
+  });
+
+  assert.equal(base, buildPreprintRequestSignature({
+    templateType: 'chemical_std',
+    count: '3',
+    material,
+    form: {
+      supplier_model: 'TEST-CHEM-01',
+      supplier: '供应商A',
+      sample_note: '透明液体'
+    }
+  }));
+  assert.notEqual(base, buildPreprintRequestSignature({
+    templateType: 'chemical_std',
+    count: 6,
+    material,
+    form: {
+      supplier_model: 'TEST-CHEM-01',
+      supplier: '供应商A',
+      sample_note: '透明液体'
+    }
+  }));
+  assert.notEqual(base, buildPreprintRequestSignature({
+    templateType: 'chemical_std',
+    count: 3,
+    material,
+    form: {
+      supplier_model: 'TEST-CHEM-02',
+      supplier: '供应商A',
+      sample_note: '透明液体'
+    }
+  }));
 });
 
 test('preprint export rows include qr content and template-specific source model', () => {
