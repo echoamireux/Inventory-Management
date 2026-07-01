@@ -247,6 +247,38 @@ test('home quick-withdraw popup exposes product and batch modes under one action
   assert.match(homeIndexWxml, /mode="\{\{ withdrawMode \}\}"/);
 });
 
+test('home shortcuts are grouped by usage frequency and permission level', () => {
+  const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+  const expectedOrder = [
+    '常用操作',
+    '库存查询',
+    '新增物料',
+    '标签打印',
+    '项目用料查询',
+    '物料查询',
+    '管理维护',
+    '审批中心',
+    '物料管理',
+    '项目编码管理',
+    '人员与权限',
+    '日志追溯',
+    '操作日志',
+    '审计日志'
+  ];
+
+  let lastIndex = -1;
+  expectedOrder.forEach((label) => {
+    const nextIndex = homeIndexWxml.indexOf(label);
+    assert.notEqual(nextIndex, -1, `${label} should exist on the home page`);
+    assert.ok(nextIndex > lastIndex, `${label} should appear after the previous shortcut group item`);
+    lastIndex = nextIndex;
+  });
+
+  assert.match(homeIndexWxml, /wx:if="\{\{ isAdmin \|\| isSuperAdmin \}\}"/);
+  assert.match(homeIndexWxml, /title="人员与权限"[\s\S]*wx:if="\{\{ isSuperAdmin \}\}"/);
+  assert.match(homeIndexWxml, /title="审计日志"[\s\S]*wx:if="\{\{ isAdmin \}\}"/);
+});
+
 test('grouped inventory cards expose a compact match reason hint during searches', () => {
   const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
   const itemComponentJs = read('miniprogram/components/material-list-item/index.js');
