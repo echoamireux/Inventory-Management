@@ -172,17 +172,29 @@ async function getPreprintRecordsByJob(jobId, operatorOpenid, templateType = '')
 async function preparePreprintJobVoid(previousJobId, operatorOpenid) {
   const jobId = normalizeText(previousJobId);
   if (!jobId) {
-    throw new Error('缺少需要作废的原批次');
+    return {
+      ok: false,
+      code: 'PREPRINT_ORIGINAL_ALREADY_CHANGED',
+      msg: '原批次状态已变化，请刷新最近批次后重试'
+    };
   }
 
   const records = await getPreprintRecordsByJob(jobId, operatorOpenid);
   if (!records.length) {
-    throw new Error('未找到需要作废的原批次');
+    return {
+      ok: false,
+      code: 'PREPRINT_ORIGINAL_ALREADY_CHANGED',
+      msg: '原批次状态已变化，请刷新最近批次后重试'
+    };
   }
 
   const usedRecords = records.filter(record => record.status === 'used');
   if (usedRecords.length > 0) {
-    throw new Error('原批次已有标签入库，不能整体作废重做');
+    return {
+      ok: false,
+      code: 'PREPRINT_ORIGINAL_ALREADY_CHANGED',
+      msg: '原批次已有标签入库，不能整体作废重做'
+    };
   }
 
   const unusedIds = records
@@ -190,10 +202,17 @@ async function preparePreprintJobVoid(previousJobId, operatorOpenid) {
     .map(record => record._id)
     .filter(Boolean);
   if (!unusedIds.length) {
-    throw new Error('原批次没有可作废的未入库标签');
+    return {
+      ok: false,
+      code: 'PREPRINT_ORIGINAL_ALREADY_CHANGED',
+      msg: '原批次状态已变化，请刷新最近批次后重试'
+    };
   }
 
-  return unusedIds;
+  return {
+    ok: true,
+    ids: unusedIds
+  };
 }
 
 function buildPreprintJobSummary(records = []) {
@@ -292,15 +311,25 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
     };
   }
 
-  const voidBeforeCreateIds = preprintMode === 'voidAndRecreate'
+  const voidPlan = preprintMode === 'voidAndRecreate'
     ? await preparePreprintJobVoid(data.previousJobId || data.previous_job_id, operatorOpenid)
-    : [];
+    : { ok: true, ids: [] };
+  if (!voidPlan.ok) {
+    return {
+      success: false,
+      code: voidPlan.code,
+      msg: voidPlan.msg
+    };
+  }
+  const voidBeforeCreateIds = voidPlan.ids || [];
 
   return db.runTransaction(async transaction => {
     for (let i = 0; i < voidBeforeCreateIds.length; i += 1) {
       const existingVoidRecord = await transaction.collection('preprinted_labels').doc(voidBeforeCreateIds[i]).get();
       if (!existingVoidRecord.data || existingVoidRecord.data.operator_id !== operatorOpenid || existingVoidRecord.data.status !== 'unused') {
-        throw new Error('原批次标签状态已变化，请刷新后重试');
+        const error = new Error('原批次状态已变化，请刷新最近批次后重试');
+        error.code = 'PREPRINT_ORIGINAL_ALREADY_CHANGED';
+        throw error;
       }
       await transaction.collection('preprinted_labels').doc(voidBeforeCreateIds[i]).update({
         data: {
@@ -768,6 +797,7 @@ exports.main = async (event, context) => {
     console.error('导出信息标签失败', error);
     return {
       success: false,
+      code: error.code,
       msg: error.message || '导出失败'
     };
   }

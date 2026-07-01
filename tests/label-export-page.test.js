@@ -64,10 +64,15 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /作废未入库标签/);
   assert.match(pageJs, /ensurePreprintChangeIntent/);
   assert.match(pageJs, /createAndExportPreprintJob/);
+  assert.match(pageJs, /createPreprintJobBeforeExport/);
   assert.match(pageJs, /loadRecentPreprintJobs/);
   assert.match(pageJs, /voidAndRecreate/);
   assert.match(pageJs, /keepAndCreate/);
-  assert.match(pageJs, /action:\s*'createAndExportPreprintJob'/);
+  assert.match(pageJs, /作废原批.*重新生成/);
+  assert.match(pageJs, /保留原批.*再新增/);
+  assert.match(pageJs, /总数改为/);
+  assert.match(pageJs, /action:\s*'createPreprintJob'/);
+  assert.match(pageJs, /await this\.exportPreprintJobById/);
   assert.match(pageWxml, /<view class="field-label">[\s\S]*原厂型号[\s\S]*<text[^>]*preprintForm\.selectedMaterial\.is_test_material[^>]*class="field-required"[^>]*>\*<\/text>/);
   assert.doesNotMatch(pageWxml, /input-align="right"/);
   assert.match(pageWxml, /selectedIds\.length/);
@@ -93,6 +98,8 @@ test('label export cloud function separates list and export actions and only all
   assert.match(file, /buildPreprintRequestSignature/);
   assert.match(file, /request_signature/);
   assert.match(file, /preprintMode/);
+  assert.match(file, /PREPRINT_ORIGINAL_ALREADY_CHANGED/);
+  assert.match(file, /原批次状态已变化/);
   assert.match(file, /exportPreprintJob/);
   assert.match(file, /listRecentPreprintJobs/);
   assert.match(file, /voidPreprintLabels/);
