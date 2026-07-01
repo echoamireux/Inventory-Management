@@ -51,6 +51,19 @@ function assertSuperAdminAccess(operator, message = '越权操作：仅超级管
   return { ok: true };
 }
 
+function assertSuperAdminMutationAccess(operator, message = '越权操作：仅超级管理员可执行') {
+  const activeResult = assertActiveUserAccess(operator, message);
+  if (!activeResult.ok) {
+    return activeResult;
+  }
+
+  if (!operator || !isSuperAdminRole(operator.role)) {
+    return { ok: false, msg: message };
+  }
+
+  return { ok: true };
+}
+
 module.exports = {
   ADMIN_ROLES,
   MANAGEABLE_ROLES,
@@ -61,5 +74,6 @@ module.exports = {
   assertActiveUserAccess,
   assertAdminAccess,
   assertAdminMutationAccess,
-  assertSuperAdminAccess
+  assertSuperAdminAccess,
+  assertSuperAdminMutationAccess
 };

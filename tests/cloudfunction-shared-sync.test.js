@@ -64,6 +64,30 @@ function resolveLocalRequire(fromFile, spec) {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
+function listCloudFunctionDirs() {
+  return fs.readdirSync(path.join(repoRoot, 'cloudfunctions'), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name !== '_shared' && entry.name !== 'node_modules')
+    .map(entry => entry.name)
+    .sort();
+}
+
+function extractAuthImportNames(source) {
+  const names = [];
+  const authImportPattern = /const\s*\{([\w\s,]+?)\}\s*=\s*require\(\s*['"]\.\/auth['"]\s*\)/g;
+  let match;
+
+  while ((match = authImportPattern.exec(source))) {
+    const importedNames = match[1]
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .map((item) => item.split(':')[0].trim());
+    names.push(...importedNames);
+  }
+
+  return names;
+}
+
 test('deployable cloudfunction files do not require helpers through ../_shared paths', () => {
   const functionFiles = walkFunctionFiles(path.join(repoRoot, 'cloudfunctions'));
   const offenders = functionFiles.filter((filePath) => {
@@ -93,6 +117,50 @@ test('cloudfunction local require targets exist in deployable packages', () => {
           expected: path.relative(repoRoot, path.resolve(path.dirname(filePath), `${spec}.js`))
         });
       }
+    }
+  }
+
+  assert.deepEqual(missing, []);
+});
+
+test('cloudfunction auth imports are provided by each deployable auth helper', () => {
+  const missing = [];
+
+  for (const functionName of listCloudFunctionDirs()) {
+    const functionDir = path.join(repoRoot, 'cloudfunctions', functionName);
+    const indexPath = path.join(functionDir, 'index.js');
+    const authPath = path.join(functionDir, 'auth.js');
+
+    if (!fs.existsSync(indexPath) || !fs.existsSync(authPath)) {
+      continue;
+    }
+
+    const importedAuthNames = extractAuthImportNames(fs.readFileSync(indexPath, 'utf8'));
+    if (importedAuthNames.length === 0) {
+      continue;
+    }
+
+    delete require.cache[require.resolve(authPath)];
+    const localAuth = require(authPath);
+    for (const name of importedAuthNames) {
+      if (typeof localAuth[name] === 'undefined') {
+        missing.push(`${functionName}/auth.js:${name}`);
+      }
+    }
+  }
+
+  assert.deepEqual(missing, []);
+});
+
+test('shared auth sync script covers every deployable local auth helper', () => {
+  const syncScript = read('cloudfunctions/sync_shared.sh');
+  const missing = [];
+
+  for (const functionName of listCloudFunctionDirs()) {
+    const relAuthPath = `cloudfunctions/${functionName}/auth.js`;
+    if (fs.existsSync(path.join(repoRoot, relAuthPath))
+      && !syncScript.includes(`cp cloudfunctions/_shared/auth.js ${relAuthPath}`)) {
+      missing.push(relAuthPath);
     }
   }
 

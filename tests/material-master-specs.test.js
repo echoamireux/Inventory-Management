@@ -685,6 +685,7 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   const manageMaterialCf = read('cloudfunctions/manageMaterial/index.js');
   const getLogsCf = read('cloudfunctions/getLogs/index.js');
   const exportDataCf = read('cloudfunctions/exportData/index.js');
+  const logsJs = read('miniprogram/pages/logs/index.js');
   const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
 
   assert.match(backendSearch, /escapeRegExp/);
@@ -714,6 +715,8 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   assert.match(adminLogsJs, /note/);
   assert.match(adminLogsJs, /project_code/);
   assert.match(adminLogsJs, /project_name/);
+  assert.match(logsJs, /title:\s*err\.message\s*\|\|\s*'加载失败'/);
+  assert.match(adminLogsJs, /title:\s*err\.message\s*\|\|\s*'加载失败'/);
 });
 
 test('material import preview only renders warning rows when text exists and forces keyed refresh when warning state changes', () => {

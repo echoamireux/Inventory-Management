@@ -246,7 +246,7 @@ Page({
         return;
       }
       console.error(err);
-      wx.showToast({ title: '加载失败', icon: 'none' });
+      wx.showToast({ title: err.message || '加载失败', icon: 'none' });
     } finally {
       if (this.data.requestId === currentRequestId) {
         this.setData({ loading: false });

@@ -21,26 +21,36 @@ cp cloudfunctions/_shared/response.js cloudfunctions/searchInventory/response.js
 # 3. Sync Auth Helper
 echo "   -> Updating auth.js..."
 cp cloudfunctions/_shared/auth.js cloudfunctions/adminUpdateUserStatus/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/addMaterial/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/addMaterialRequest/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/approveMaterialRequest/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/approveInventoryCorrectionRequest/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/removeInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/removeLog/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/batchRemoveLog/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/batchAddInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/addWarehouseZone/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/editInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/manageMaterial/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/exportInventoryTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportData/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getDashboardStats/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryGrouped/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryBatches/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getLogs/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getOperators/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/searchInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProjectCode/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getProjectUsageReport/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportProjectUsageReport/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryRecord/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getApprovalCenterData/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/importInventoryTemplate/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/submitInventoryCorrectionRequest/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/updateInventory/auth.js
 
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."
