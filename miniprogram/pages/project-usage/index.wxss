@@ -5,18 +5,10 @@
 }
 
 .project-usage-header {
-  padding: 32rpx 28rpx 18rpx;
-}
-
-.project-usage-title {
-  color: var(--color-text-primary, #111827);
-  font-size: 38rpx;
-  font-weight: 700;
-  line-height: 1.25;
+  padding: 22rpx 28rpx 14rpx;
 }
 
 .project-usage-subtitle {
-  margin-top: 12rpx;
   color: var(--color-text-secondary, #64748b);
   font-size: 24rpx;
   line-height: 1.6;

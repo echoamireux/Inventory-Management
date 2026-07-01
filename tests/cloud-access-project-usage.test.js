@@ -58,6 +58,8 @@ test('project usage filter uses structured project selector and non-overflowing 
   const pageJson = JSON.parse(read('miniprogram/pages/project-usage/index.json'));
 
   assert.match(pageWxml, /class="project-selector"/);
+  assert.doesNotMatch(pageWxml, /class="project-usage-title"/);
+  assert.match(pageWxml, /class="project-usage-subtitle"[\s\S]*按项目、物料、人员和时间查看领料记录/);
   assert.match(pageWxml, /class="project-selector__label"[\s\S]*项目编码/);
   assert.match(pageWxml, /class="project-selector__body"/);
   assert.match(pageWxml, /class="project-selector__code"/);

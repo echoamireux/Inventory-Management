@@ -1,7 +1,6 @@
 <view class="project-usage-page">
   <view class="project-usage-header">
-    <view class="project-usage-title">项目用料查询</view>
-    <view class="project-usage-subtitle">按项目编码查看领用了哪些料，也可以按物料反查领用项目、人员和时间。</view>
+    <view class="project-usage-subtitle">按项目、物料、人员和时间查看领料记录。</view>
   </view>
 
   <view class="project-usage-filter">

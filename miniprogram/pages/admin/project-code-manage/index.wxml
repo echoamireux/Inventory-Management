@@ -1,8 +1,7 @@
 <view class="zone-page">
   <view class="zone-header">
-    <view class="zone-toolbar__title">项目编码管理</view>
     <view class="zone-toolbar__hint">
-      领料时必须选择项目编码。改名后新领料会使用最新名称，历史领料记录保留当时的项目快照。
+      领料时使用启用状态的项目编码。改名后新领料会使用最新名称，历史领料记录保留当时的项目快照。
     </view>
     <view wx:if="{{ !loading && !loadError }}" class="project-count">共 {{ projects.length }} 个项目编码</view>
     <van-button type="primary" round block bind:click="onCreateProject">新建项目编码</van-button>

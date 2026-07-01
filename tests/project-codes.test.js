@@ -334,6 +334,8 @@ test('project code management page uses structured forms and clear loading state
   assert.match(pageWxml, /OR2026RD99-新增项目名称/);
   assert.match(pageWxml, /重新加载/);
   assert.match(pageWxml, /暂无项目编码/);
+  assert.doesNotMatch(pageWxml, /zone-toolbar__title/);
+  assert.match(pageWxml, /领料时使用启用状态的项目编码/);
   assert.match(pageWxml, /共 \{\{ projects\.length \}\} 个项目编码/);
 
   assert.match(pageJson, /"van-field"/);
