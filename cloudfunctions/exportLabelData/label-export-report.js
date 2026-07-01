@@ -14,7 +14,7 @@ const LABEL_EXPORT_TEMPLATE_TYPES = {
 };
 
 const LABEL_EXPORT_HEADERS = {
-  film: ['标签编号', '二维码内容', '产品代码', '物料名称', '子类别', '原厂型号', '厚度', '幅宽', '批次', '过期日期'],
+  film: ['标签编号', '二维码内容', '产品代码', '物料名称', '子类别', '原厂型号', '厚度', '幅宽'],
   chemical_std: ['标签编号', '二维码内容', '产品代码', '物料名称', '原厂型号'],
   chemical_mini: ['标签编号', '二维码内容', '产品代码', '原厂型号']
 };
@@ -59,15 +59,6 @@ function formatExportDateTime(value) {
   }
 
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
-}
-
-function formatExportDate(value) {
-  const parts = getCstParts(value);
-  if (!parts) {
-    return '--';
-  }
-
-  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function normalizePositiveNumber(value) {
@@ -152,17 +143,6 @@ function resolveFilmSpecParts(item = {}, material = {}) {
   };
 }
 
-function resolveExportExpiryLabel(item = {}) {
-  const explicitExpiry = item.expiry_date || (item.dynamic_attrs && item.dynamic_attrs.expiry_date);
-  if (explicitExpiry) {
-    return formatExportDate(explicitExpiry);
-  }
-  if (item.is_long_term_valid) {
-    return '长期有效';
-  }
-  return '未设置过期日';
-}
-
 function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
   const normalizedType = normalizeTemplateType(templateType);
   const material = context.material || {};
@@ -203,7 +183,6 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
 
   const filmSpecParts = resolveFilmSpecParts(item, material);
   const subCategory = String(item.sub_category || material.sub_category || '').trim() || '--';
-  const batchNumber = String(item.batch_number || '').trim() || '--';
 
   const row = {
     标签编号: uniqueCode,
@@ -213,9 +192,7 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
     子类别: subCategory,
     原厂型号: supplierModel,
     厚度: filmSpecParts.thicknessLabel,
-    幅宽: filmSpecParts.widthLabel,
-    批次: batchNumber,
-    过期日期: resolveExportExpiryLabel(item)
+    幅宽: filmSpecParts.widthLabel
   };
   if (isTestMaterial && sampleNote) {
     row.样品说明 = sampleNote;

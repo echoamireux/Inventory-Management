@@ -100,7 +100,7 @@ test('label export file names include the selected template label and CST timest
   );
 });
 
-test('film label export row keeps only the governed print fields and resolves latest film specs', () => {
+test('film label export row keeps only static preprint fields and resolves latest film specs', () => {
   const row = buildLabelExportRow('film', {
     unique_code: 'L000201',
     product_code: 'M-001',
@@ -128,10 +128,10 @@ test('film label export row keeps only the governed print fields and resolves la
     子类别: '基材-PET',
     原厂型号: '',
     厚度: '50 μm',
-    幅宽: '520 mm',
-    批次: 'PET2601',
-    过期日期: '2026-07-01'
+    幅宽: '520 mm'
   });
+  assert.ok(!Object.prototype.hasOwnProperty.call(row, '批次'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(row, '过期日期'));
 });
 
 test('chemical label export rows stay minimal for standard and mini bottle templates', () => {
@@ -345,9 +345,7 @@ test('label export workbook keeps readable template sheet and adds BarTender dat
         物料名称: 'PET离型基膜50u',
         子类别: '基材-PET',
         厚度: '50 μm',
-        幅宽: '520 mm',
-        批次: 'PET2601',
-        过期日期: '2026-07-01'
+        幅宽: '520 mm'
       }
     ]
   });
@@ -365,10 +363,9 @@ test('label export workbook keeps readable template sheet and adds BarTender dat
     '子类别',
     '原厂型号',
     '厚度',
-    '幅宽',
-    '批次',
-    '过期日期'
+    '幅宽'
   ]);
+  assert.equal(sheet.getCell('I4').value, null);
   assert.equal(sheet.getCell('A5').value, 'L000201');
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 4);
@@ -382,10 +379,9 @@ test('label export workbook keeps readable template sheet and adds BarTender dat
     '子类别',
     '原厂型号',
     '厚度',
-    '幅宽',
-    '批次',
-    '过期日期'
+    '幅宽'
   ]);
+  assert.equal(bartenderSheet.getCell('I1').value, null);
   assert.equal(bartenderSheet.getCell('A2').value, 'L000201');
   assert.equal(bartenderSheet.getCell('B2').value, '--');
   assert.equal(bartenderSheet.views[0].state, 'frozen');
