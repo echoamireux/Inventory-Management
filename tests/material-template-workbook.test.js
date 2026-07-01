@@ -31,7 +31,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
   const workbook = await buildTemplateWorkbook({
     headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号', '是否测试料'],
     previewStyledRowCount: 50,
-    inlineHints: ['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '测试料必填', '选填'],
+    inlineHints: ['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '两类选填', '选填'],
     validationRanges: {
       productCode: 'A3:A3000',
       category: 'C3:C3000',
@@ -80,7 +80,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
 test('data sheet adds inline hint row, freezes the first two rows, and exposes input prompts', async () => {
   const workbook = await buildTemplateWorkbook({
     headers: ['产品代码', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号', '是否测试料'],
-    inlineHints: ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '测试料必填', '选填'],
+    inlineHints: ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填'],
     previewStyledRowCount: 50,
     validationRanges: {
       productCode: 'A3:A3000',
@@ -114,7 +114,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
 
   const sheet = workbook.getWorksheet('物料导入表');
 
-  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '测试料必填', '选填']);
+  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']);
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 2);
   assert.equal(sheet.getRow(2).height, 22);

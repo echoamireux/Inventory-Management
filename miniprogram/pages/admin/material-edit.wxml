@@ -91,12 +91,14 @@
       />
       <van-field
         label="原厂型号"
-        required="{{ form.is_test_material }}"
-        placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
+        placeholder="请输入 (选填)"
         value="{{ form.supplier_model }}"
         data-field="supplier_model"
         bind:change="onInputChange"
       />
+      <view wx:if="{{ form.is_test_material }}" class="field-guide">
+        测试料真实原厂型号请在入库或标签预打印时填写；这里可留空，用于 J-999/M-999 这类统一测试代码。
+      </view>
     </van-cell-group>
   </view>
 

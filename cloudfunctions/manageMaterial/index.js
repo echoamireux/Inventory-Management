@@ -183,19 +183,12 @@ function buildGovernedMaterialMasterFields(source = {}, category, options = {}) 
   return fields;
 }
 
-function validateTestMaterialSupplierModel(source = {}) {
+function validateTestMaterialFlag(source = {}) {
   const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
   if (!testMaterialFlag.ok) {
     return {
       ok: false,
       msg: testMaterialFlag.msg
-    };
-  }
-
-  if (testMaterialFlag.value && !sanitizeText(source.supplier_model)) {
-    return {
-      ok: false,
-      msg: '测试料请填写原厂型号'
     };
   }
 
@@ -470,7 +463,7 @@ async function createMaterial(data, openid) {
   if (!resolvedSubcategory.ok) {
     return { success: false, msg: resolvedSubcategory.msg };
   }
-  const testMaterialValidation = validateTestMaterialSupplierModel(data);
+  const testMaterialValidation = validateTestMaterialFlag(data);
   if (!testMaterialValidation.ok) {
     return { success: false, msg: testMaterialValidation.msg };
   }
@@ -578,7 +571,7 @@ async function updateMaterial(data, openid) {
     subcategory_key: resolvedSubcategory.subcategory_key,
     sub_category: resolvedSubcategory.sub_category
   };
-  const testMaterialValidation = validateTestMaterialSupplierModel(nextMaterialData);
+  const testMaterialValidation = validateTestMaterialFlag(nextMaterialData);
   if (!testMaterialValidation.ok) {
     return { success: false, msg: testMaterialValidation.msg };
   }

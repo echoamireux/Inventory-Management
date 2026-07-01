@@ -44,16 +44,17 @@ test('admin material edit page exposes governed master spec fields for chemical 
   assert.match(js, /packageTypeOptions/);
 });
 
-test('admin material edit page marks supplier model required when creating or editing test materials', () => {
+test('admin material edit page keeps supplier model optional for test material master records', () => {
   const wxml = read('miniprogram/pages/admin/material-edit.wxml');
   const js = read('miniprogram/pages/admin/material-edit.js');
 
   assert.doesNotMatch(wxml, /label="厂家型号"/);
   assert.match(wxml, /label="原厂型号"/);
-  assert.match(wxml, /label="原厂型号"[\s\S]*?required="\{\{ form\.is_test_material \}\}"/);
-  assert.match(wxml, /placeholder="\{\{ form\.is_test_material \? '测试料必填' : '请输入 \(选填\)' \}\}"/);
-  assert.match(js, /测试料请填写原厂型号/);
-  assert.match(js, /form\.is_test_material[\s\S]*?!String\(form\.supplier_model \|\| ''\)\.trim\(\)/);
+  assert.doesNotMatch(wxml, /label="原厂型号"[\s\S]*?required="\{\{ form\.is_test_material \}\}"/);
+  assert.match(wxml, /label="原厂型号"[\s\S]*?placeholder="请输入 \(选填\)"/);
+  assert.match(wxml, /测试料真实原厂型号请在入库或标签预打印时填写/);
+  assert.doesNotMatch(js, /测试料请填写原厂型号/);
+  assert.doesNotMatch(js, /form\.is_test_material[\s\S]*?!String\(form\.supplier_model \|\| ''\)\.trim\(\)/);
 });
 
 test('admin material edit page supports prefilling category and product code for manager-led direct creation', () => {

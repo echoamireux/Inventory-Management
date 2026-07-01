@@ -82,9 +82,9 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /decorateImportPreviewRows/);
   assert.match(pageJs, /manageMaterial/);
   assert.match(pageJs, /batchCreate/);
-  assert.match(pageJs, /'测试料必填'/);
-  assert.match(pageJs, /原厂型号：正式料选填，测试料必填/);
-  assert.match(pageJs, /是否测试料：填“是”或“否”，空白按“否”处理/);
+  assert.doesNotMatch(pageJs, /'测试料必填'/);
+  assert.match(pageJs, /原厂型号：选填；测试料真实原厂型号请在库存入库或标签预打印时填写/);
+  assert.match(pageJs, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
   assert.doesNotMatch(pageJs, /供应商、原厂型号：选填/);
   assert.doesNotMatch(pageJs, /请使用 CSV 格式文件/);
   assert.doesNotMatch(pageJs, /Toast\.fail\('文件解析失败'\)/);

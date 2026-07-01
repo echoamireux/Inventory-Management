@@ -154,7 +154,7 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
   });
 }
 
-test('manageMaterial create rejects test materials without supplier model', async () => {
+test('manageMaterial create allows test material master records without supplier model', async () => {
   const addedMaterials = [];
   const manageMaterial = createManageMaterialModule({
     onAdd(data) {
@@ -177,12 +177,13 @@ test('manageMaterial create rejects test materials without supplier model', asyn
     }
   });
 
-  assert.equal(result.success, false);
-  assert.equal(result.msg, '测试料请填写原厂型号');
-  assert.equal(addedMaterials.length, 0);
+  assert.equal(result.success, true);
+  assert.equal(addedMaterials.length, 1);
+  assert.equal(addedMaterials[0].is_test_material, true);
+  assert.equal(addedMaterials[0].supplier_model, '');
 });
 
-test('manageMaterial update rejects switching a material to test material without supplier model', async () => {
+test('manageMaterial update allows switching a material to test material without supplier model', async () => {
   const updatedMaterials = [];
   const manageMaterial = createManageMaterialModule({
     onUpdate(data) {
@@ -206,7 +207,8 @@ test('manageMaterial update rejects switching a material to test material withou
     }
   });
 
-  assert.equal(result.success, false);
-  assert.equal(result.msg, '测试料请填写原厂型号');
-  assert.equal(updatedMaterials.length, 0);
+  assert.equal(result.success, true);
+  assert.equal(updatedMaterials.length, 1);
+  assert.equal(updatedMaterials[0].is_test_material, true);
+  assert.equal(updatedMaterials[0].supplier_model, '');
 });

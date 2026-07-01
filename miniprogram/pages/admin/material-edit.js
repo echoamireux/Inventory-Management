@@ -538,11 +538,6 @@ Page({
       Toast.fail(normalizedUnit.msg);
       return;
     }
-    if (form.is_test_material && !String(form.supplier_model || '').trim()) {
-      Toast.fail('测试料请填写原厂型号');
-      return;
-    }
-
     this.setData({ submitting: true });
     Toast.loading({ message: '保存中...', forbidClick: true });
 
