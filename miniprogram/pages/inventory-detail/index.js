@@ -20,13 +20,18 @@ Page({
     isExpiring: false,
     canMoveInventory: false,
     canAdjustFilmWidth: false,
+    canAdjustStocktake: false,
     showWithdrawDialog: false,
     withdrawAmount: '',
     withdrawNote: '',
     showWidthAdjustPopup: false,
     adjustWidthValue: '',
     adjustWidthReason: '',
-    adjustingWidth: false
+    adjustingWidth: false,
+    showStocktakeAdjustPopup: false,
+    stocktakeQuantityValue: '',
+    stocktakeAdjustReason: '',
+    adjustingStocktake: false
   },
 
   onLoad(options) {
@@ -36,7 +41,10 @@ Page({
       this.setData({ canMoveInventory: true });
     }
     if (user && ['admin', 'super_admin'].includes(user.role)) {
-      this.setData({ canAdjustFilmWidth: true });
+      this.setData({
+        canAdjustFilmWidth: true,
+        canAdjustStocktake: true
+      });
     }
 
     if (options.id) {
@@ -420,6 +428,92 @@ Page({
           Toast.fail(err.message || '修正失败');
       } finally {
           this.setData({ adjustingWidth: false });
+      }
+  },
+
+  onShowStocktakeAdjustPopup() {
+      const { item, canAdjustStocktake } = this.data;
+      if (!canAdjustStocktake || !item) {
+          return;
+      }
+
+      const currentQuantity = item.category === 'film'
+        ? (item.dynamic_attrs && item.dynamic_attrs.current_length_m !== undefined ? item.dynamic_attrs.current_length_m : '')
+        : item._qtyVal;
+
+      this.setData({
+          showStocktakeAdjustPopup: true,
+          stocktakeQuantityValue: currentQuantity !== '' && currentQuantity !== null ? String(currentQuantity) : '',
+          stocktakeAdjustReason: ''
+      });
+  },
+
+  onCloseStocktakeAdjustPopup() {
+      this.setData({
+          showStocktakeAdjustPopup: false,
+          stocktakeQuantityValue: '',
+          stocktakeAdjustReason: '',
+          adjustingStocktake: false
+      });
+  },
+
+  onStocktakeQuantityInput(e) {
+      this.setData({ stocktakeQuantityValue: e.detail });
+  },
+
+  onStocktakeReasonInput(e) {
+      this.setData({ stocktakeAdjustReason: e.detail });
+  },
+
+  async onStocktakeAdjustConfirm() {
+      const { stocktakeQuantityValue, stocktakeAdjustReason, adjustingStocktake, item } = this.data;
+      if (adjustingStocktake) {
+          return;
+      }
+
+      const nextQuantity = Number(stocktakeQuantityValue);
+      if (!Number.isFinite(nextQuantity) || nextQuantity <= 0) {
+          Toast.fail(item && item.category === 'film' ? '请输入有效的剩余长度' : '请输入有效的当前数量');
+          return;
+      }
+
+      this.setData({ adjustingStocktake: true });
+      Toast.loading({ message: '保存中...', forbidClick: true });
+
+      try {
+          const app = getApp();
+          const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
+          const res = await wx.cloud.callFunction({
+              name: 'editInventory',
+              data: {
+                  inventory_id: this.data.id,
+                  operator_name: operator,
+                  updates: {
+                      stocktake_quantity: nextQuantity,
+                      adjust_reason: String(stocktakeAdjustReason || '').trim()
+                  }
+              }
+          });
+
+          if (res.result && res.result.success) {
+              getApp().globalData.inventoryChangedAt = Date.now();
+              Toast.success('盘点调整已保存');
+              this.setData({
+                  showStocktakeAdjustPopup: false,
+                  stocktakeQuantityValue: '',
+                  stocktakeAdjustReason: ''
+              });
+              setTimeout(() => {
+                  this.fetchDetail(this.data.id);
+              }, 500);
+          } else {
+              throw new Error((res.result && res.result.msg) || '盘点调整失败');
+          }
+      } catch (err) {
+          console.error(err);
+          Toast.fail(err.message || '盘点调整失败');
+      } finally {
+          this.setData({ adjustingStocktake: false });
       }
   },
 

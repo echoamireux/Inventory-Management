@@ -335,6 +335,17 @@ test('home retrieval popup and inventory batch page share the same batch aggrega
   assert.match(batchCf, /pageSize\s*=/);
 });
 
+test('home scan opens inventory detail for existing labels instead of direct withdrawal popup', () => {
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const handleScanMatch = homeIndexJs.match(/async handleScanResult\(code\) \{[\s\S]*?\n  \},\n\n  onAmountInput/);
+
+  assert.ok(handleScanMatch);
+  assert.match(handleScanMatch[0], /\/pages\/inventory-detail\/index\?id=\$\{encodeURIComponent\(item\._id\)\}/);
+  assert.match(handleScanMatch[0], /标签已在库/);
+  assert.doesNotMatch(handleScanMatch[0], /showWithdrawDialog:\s*true/);
+  assert.doesNotMatch(handleScanMatch[0], /withdrawMode:\s*["']scan["']/);
+});
+
 test('batch and label layers keep expiry messaging split between grouped and tag-level semantics', () => {
   const batchItemWxml = read('miniprogram/components/batch-list-item/index.wxml');
   const batchItemJs = read('miniprogram/components/batch-list-item/index.js');

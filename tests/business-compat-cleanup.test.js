@@ -255,6 +255,277 @@ test('editInventory requires admin access for film width correction and logs the
   assert.match(loggedPayload.description, /实测纠偏/);
 });
 
+test('editInventory stocktake adjustment updates chemical current quantity and writes an audit log', async () => {
+  let updatedPayload = null;
+  let loggedPayload = null;
+
+  const transaction = {
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              async get() {
+                return {
+                  data: [{ role: 'admin', status: 'active', name: '库存管理员' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          doc() {
+            return {
+              async get() {
+                return {
+                  data: {
+                    _id: 'inv-chemical-1',
+                    material_id: 'mat-chemical-1',
+                    material_name: 'UV减粘胶',
+                    category: 'chemical',
+                    product_code: 'J-008',
+                    unique_code: 'L000108',
+                    quantity: { val: 10, unit: 'kg' },
+                    dynamic_attrs: { weight_kg: 10 }
+                  }
+                };
+              },
+              async update({ data }) {
+                updatedPayload = data;
+                return {};
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory_log') {
+        return {
+          async add({ data }) {
+            loggedPayload = data;
+            return { _id: 'log-stocktake-1' };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    }
+  };
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    runTransaction(fn) {
+      return fn(transaction);
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/editInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './auth': {
+      assertActiveUserAccess() {
+        return { ok: true };
+      },
+      assertAdminMutationAccess() {
+        return { ok: true };
+      }
+    },
+    './warehouse-zones': {
+      ensureBuiltinZones: async () => [],
+      sortZoneRecords(records) {
+        return records;
+      },
+      filterZoneRecordsByCategory(records) {
+        return records;
+      },
+      buildZoneMap() {
+        return new Map();
+      },
+      buildInventoryLocationPayload() {
+        return {};
+      },
+      resolveInventoryLocationText() {
+        return '防爆柜01';
+      }
+    }
+  });
+
+  const result = await mod.main({
+    inventory_id: 'inv-chemical-1',
+    operator_name: '库存管理员',
+    updates: {
+      stocktake_quantity: 7.5,
+      adjust_reason: '盘点称重'
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(updatedPayload['quantity.val'], 7.5);
+  assert.equal(updatedPayload['dynamic_attrs.weight_kg'], 7.5);
+  assert.equal(loggedPayload.type, 'adjust');
+  assert.equal(loggedPayload.action, '盘点调整');
+  assert.equal(loggedPayload.quantity_change, -2.5);
+  assert.match(loggedPayload.description, /10 kg/);
+  assert.match(loggedPayload.description, /7.5 kg/);
+  assert.match(loggedPayload.description, /盘点称重/);
+});
+
+test('editInventory stocktake adjustment updates film current length without changing initial length', async () => {
+  let updatedPayload = null;
+  let loggedPayload = null;
+
+  const transaction = {
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              async get() {
+                return {
+                  data: [{ role: 'admin', status: 'active', name: '库存管理员' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          doc() {
+            return {
+              async get() {
+                return {
+                  data: {
+                    _id: 'inv-film-2',
+                    material_id: 'mat-film-2',
+                    material_name: 'PET离型膜',
+                    category: 'film',
+                    product_code: 'M-008',
+                    unique_code: 'L000208',
+                    quantity: { val: 120, unit: 'm²' },
+                    dynamic_attrs: {
+                      current_length_m: 100,
+                      initial_length_m: 200,
+                      width_mm: 1200
+                    }
+                  }
+                };
+              },
+              async update({ data }) {
+                updatedPayload = data;
+                return {};
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory_log') {
+        return {
+          async add({ data }) {
+            loggedPayload = data;
+            return { _id: 'log-stocktake-2' };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    }
+  };
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    runTransaction(fn) {
+      return fn(transaction);
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/editInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './auth': {
+      assertActiveUserAccess() {
+        return { ok: true };
+      },
+      assertAdminMutationAccess() {
+        return { ok: true };
+      }
+    },
+    './warehouse-zones': {
+      ensureBuiltinZones: async () => [],
+      sortZoneRecords(records) {
+        return records;
+      },
+      filterZoneRecordsByCategory(records) {
+        return records;
+      },
+      buildZoneMap() {
+        return new Map();
+      },
+      buildInventoryLocationPayload() {
+        return {};
+      },
+      resolveInventoryLocationText() {
+        return '研发仓1';
+      }
+    }
+  });
+
+  const result = await mod.main({
+    inventory_id: 'inv-film-2',
+    operator_name: '库存管理员',
+    updates: {
+      stocktake_quantity: 80,
+      adjust_reason: '实测剩余长度'
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(updatedPayload['dynamic_attrs.current_length_m'], 80);
+  assert.equal(updatedPayload['quantity.val'], 96);
+  assert.equal(Object.prototype.hasOwnProperty.call(updatedPayload, 'dynamic_attrs.initial_length_m'), false);
+  assert.equal(loggedPayload.type, 'adjust');
+  assert.equal(loggedPayload.action, '盘点调整');
+  assert.equal(loggedPayload.quantity_change, -20);
+  assert.match(loggedPayload.description, /100 m/);
+  assert.match(loggedPayload.description, /80 m/);
+  assert.match(loggedPayload.description, /实测剩余长度/);
+});
+
+test('inventory detail page exposes admin-only stocktake adjustment controls', () => {
+  const detailJs = require('node:fs').readFileSync(path.join(__dirname, '..', 'miniprogram/pages/inventory-detail/index.js'), 'utf8');
+  const detailWxml = require('node:fs').readFileSync(path.join(__dirname, '..', 'miniprogram/pages/inventory-detail/index.wxml'), 'utf8');
+
+  assert.match(detailJs, /canAdjustStocktake/);
+  assert.match(detailJs, /onShowStocktakeAdjustPopup/);
+  assert.match(detailJs, /onStocktakeAdjustConfirm/);
+  assert.match(detailWxml, /盘点调整/);
+  assert.match(detailWxml, /wx:if="\{\{ canAdjustStocktake \}\}"/);
+  assert.match(detailWxml, /stocktakeQuantityValue/);
+});
+
 test('addMaterialRequest no longer writes suggested_sub_category', async () => {
   let insertedRequest = null;
 

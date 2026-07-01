@@ -150,6 +150,9 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
                     group() {
                       return this;
                     },
+                    limit() {
+                      return this;
+                    },
                     async end() {
                       return { list: [] };
                     }

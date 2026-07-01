@@ -28,6 +28,7 @@ exports.main = async (event, context) => {
       .group({
         _id: '$operator'
       })
+      .limit(1000)
       .end();
 
     const operators = res.list

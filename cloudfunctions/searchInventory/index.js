@@ -34,11 +34,11 @@ async function loadOperator(openid) {
 // 计算记录的完整度分数
 function calculateCompleteness(item) {
   let score = 0;
-  if (item.name) score += 1;
+  if (item.material_name || item.name) score += 1;
   if (item.supplier) score += 2; // 供应商权重更高
   if (item.sub_category) score += 1;
   if (item.supplier_model) score += 1;
-  if (item.unit) score += 1;
+  if (item.default_unit || item.unit) score += 1;
   if (item.package_type) score += 1;
   if (item.specs && Object.keys(item.specs).length > 0) score += 1;
   return score;
@@ -69,7 +69,7 @@ exports.main = async (event, context) => {
           product_code: keywordRegExp
         },
         {
-          name: keywordRegExp
+          material_name: keywordRegExp
         },
         {
           supplier: keywordRegExp

@@ -613,6 +613,17 @@ test('README documents production database indexes and manual cloud console step
   assert.match(readme, /唯一索引创建前[\s\S]*重复/);
 });
 
+test('README and root package expose xlsx template import and shared sync workflow', () => {
+  const readme = read('README.md');
+  const packageJson = JSON.parse(read('package.json'));
+
+  assert.equal(packageJson.scripts['sync:shared'], 'bash cloudfunctions/sync_shared.sh');
+  assert.match(readme, /npm run sync:shared/);
+  assert.match(readme, /系统动态生成最新 `\.xlsx` 模板/);
+  assert.match(readme, /保持为 `\.xlsx`/);
+  assert.doesNotMatch(readme, /另存为 `\.csv`/);
+});
+
 test('log pages no longer expose delete actions or call destructive log cloud functions', () => {
   const logsJs = read('miniprogram/pages/logs/index.js');
   const logsWxml = read('miniprogram/pages/logs/index.wxml');
@@ -639,8 +650,27 @@ test('dashboard stats uses aggregate-first logic instead of scanning the whole i
   const file = read('cloudfunctions/getDashboardStats/index.js');
 
   assert.match(file, /aggregate\(/);
+  assert.match(file, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
   assert.doesNotMatch(file, /while\s*\(true\)/);
   assert.doesNotMatch(file, /calculateDashboardStatsFromItems/);
+});
+
+test('aggregate-backed inventory queries declare explicit limits to avoid cloud default truncation', () => {
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+  const operatorsCf = read('cloudfunctions/getOperators/index.js');
+  const labelExportCf = read('cloudfunctions/exportLabelData/index.js');
+
+  assert.match(groupedCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
+  assert.match(operatorsCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
+  assert.match(labelExportCf, /\.lookup\([\s\S]*?\)\s*\.limit\(selectedIds\.length\)\s*\.end\(\)/);
+});
+
+test('searchInventory suggestions use material_name as the primary material name field', () => {
+  const searchInventoryCf = read('cloudfunctions/searchInventory/index.js');
+
+  assert.match(searchInventoryCf, /item\.material_name\s*\|\|\s*item\.name/);
+  assert.match(searchInventoryCf, /\{\s*material_name:\s*keywordRegExp\s*\}/);
+  assert.doesNotMatch(searchInventoryCf, /\{\s*name:\s*keywordRegExp\s*\}/);
 });
 
 test('search-backed inventory, master-data, and log queries share escaped keyword matching with broadened field coverage', () => {

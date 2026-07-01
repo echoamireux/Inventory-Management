@@ -44,6 +44,53 @@ function getFilmDisplayQuantityFromBaseLength(baseLengthM, displayUnit, widthMm,
   return roundNumber(safeBaseLength, 2);
 }
 
+function resolveCurrentBaseQuantity(item = {}) {
+  if (item.category === 'film') {
+    if (item.dynamic_attrs && item.dynamic_attrs.current_length_m !== undefined) {
+      return Number(item.dynamic_attrs.current_length_m) || 0;
+    }
+    return Number(item.length_m || (item.quantity && item.quantity.val)) || 0;
+  }
+
+  if (item.dynamic_attrs && item.dynamic_attrs.weight_kg !== undefined) {
+    return Number(item.dynamic_attrs.weight_kg) || 0;
+  }
+  return Number(item.quantity && item.quantity.val) || 0;
+}
+
+function buildStocktakeUpdatePayload(item = {}, nextBaseQuantity) {
+  const roundedNextBase = roundNumber(nextBaseQuantity, 3);
+  if (item.category === 'film') {
+    const dynamicAttrs = item.dynamic_attrs || {};
+    const widthMm = Number(dynamicAttrs.width_mm) || 0;
+    const initialLengthM = Number(dynamicAttrs.initial_length_m) || roundedNextBase;
+    const quantityUnit = item.quantity && item.quantity.unit ? item.quantity.unit : 'm';
+    return {
+      updateData: {
+        'dynamic_attrs.current_length_m': roundedNextBase,
+        'quantity.val': getFilmDisplayQuantityFromBaseLength(
+          roundedNextBase,
+          quantityUnit,
+          widthMm,
+          initialLengthM
+        ),
+        update_time: db.serverDate()
+      },
+      logUnit: 'm'
+    };
+  }
+
+  const quantityUnit = item.quantity && item.quantity.unit ? item.quantity.unit : 'kg';
+  return {
+    updateData: {
+      'quantity.val': roundedNextBase,
+      'dynamic_attrs.weight_kg': roundedNextBase,
+      update_time: db.serverDate()
+    },
+    logUnit: quantityUnit
+  };
+}
+
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
@@ -65,10 +112,12 @@ exports.main = async (event, context) => {
         const updateKeys = Object.keys(updates || {});
         const locationUpdateKeys = new Set(['zone_key', 'location_detail']);
         const widthUpdateKeys = new Set(['width_mm', 'adjust_reason']);
+        const stocktakeUpdateKeys = new Set(['stocktake_quantity', 'adjust_reason']);
         const isLocationUpdate = updateKeys.length > 0 && updateKeys.every(key => locationUpdateKeys.has(key));
         const isWidthUpdate = updateKeys.includes('width_mm') && updateKeys.every(key => widthUpdateKeys.has(key));
+        const isStocktakeUpdate = updateKeys.includes('stocktake_quantity') && updateKeys.every(key => stocktakeUpdateKeys.has(key));
 
-        if (!isLocationUpdate && !isWidthUpdate) {
+        if (!isLocationUpdate && !isWidthUpdate && !isStocktakeUpdate) {
           throw new Error(`Unsupported update fields: ${updateKeys.join(', ')}`);
         }
 
@@ -77,8 +126,13 @@ exports.main = async (event, context) => {
           if (!authResult.ok) {
             throw new Error(authResult.msg);
           }
-        } else {
+        } else if (isWidthUpdate) {
           const authResult = assertAdminMutationAccess(operator, '仅管理员可修正膜材幅宽');
+          if (!authResult.ok) {
+            throw new Error(authResult.msg);
+          }
+        } else {
+          const authResult = assertAdminMutationAccess(operator, '仅管理员可盘点调整');
           if (!authResult.ok) {
             throw new Error(authResult.msg);
           }
@@ -142,6 +196,45 @@ exports.main = async (event, context) => {
               action: '修正幅宽',
               spec_change_unit: quantityUnit,
               description: `幅宽由 [${oldWidthMm || '--'} mm] 修正为 [${nextWidthMm} mm]${reasonText}`,
+              operator: event.operator_name || 'System',
+              operator_id: OPENID,
+              _openid: OPENID,
+              timestamp: db.serverDate()
+            }
+          });
+
+          return { success: true };
+        }
+
+        if (isStocktakeUpdate) {
+          const nextBaseQuantity = Number(updates.stocktake_quantity);
+          if (!Number.isFinite(nextBaseQuantity) || nextBaseQuantity <= 0) {
+            throw new Error(item.category === 'film' ? '请输入有效的剩余长度' : '请输入有效的当前数量');
+          }
+
+          const oldBaseQuantity = resolveCurrentBaseQuantity(item);
+          const delta = roundNumber(nextBaseQuantity - oldBaseQuantity, 3);
+          const stocktakePayload = buildStocktakeUpdatePayload(item, nextBaseQuantity);
+          const adjustReason = String(updates.adjust_reason || '').trim();
+          const reasonText = adjustReason ? `；原因：${adjustReason}` : '';
+
+          await transaction.collection('inventory').doc(inventory_id).update({
+            data: stocktakePayload.updateData
+          });
+
+          await transaction.collection('inventory_log').add({
+            data: {
+              material_id: item.material_id,
+              inventory_id,
+              material_name: item.material_name,
+              category: item.category,
+              product_code: item.product_code,
+              unique_code: item.unique_code,
+              type: 'adjust',
+              quantity_change: delta,
+              action: '盘点调整',
+              spec_change_unit: stocktakePayload.logUnit,
+              description: `盘点调整：当前数量由 [${roundNumber(oldBaseQuantity, 3)} ${stocktakePayload.logUnit}] 调整为 [${roundNumber(nextBaseQuantity, 3)} ${stocktakePayload.logUnit}]，差额 ${delta} ${stocktakePayload.logUnit}${reasonText}`,
               operator: event.operator_name || 'System',
               operator_id: OPENID,
               _openid: OPENID,

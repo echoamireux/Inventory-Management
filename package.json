@@ -8,6 +8,7 @@
   },
   "devDependencies": {},
   "scripts": {
+    "sync:shared": "bash cloudfunctions/sync_shared.sh",
     "test": "node --test tests/*.test.js"
   },
   "author": "",

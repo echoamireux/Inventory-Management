@@ -74,6 +74,10 @@
           <van-cell title="CAS号" value="{{ item.cas_number }}" wx:if="{{ item.cas_number }}" />
           <van-cell title="涂层信息" value="{{ item.dynamic_attrs.coating_info }}" wx:if="{{ item.dynamic_attrs.coating_info }}" />
           <van-cell title="备注" value="{{ item.remarks }}" wx:if="{{ item.remarks }}" />
+          <view wx:if="{{ canAdjustStocktake }}" class="width-adjust-entry">
+            <button class="width-adjust-btn" bindtap="onShowStocktakeAdjustPopup">盘点调整</button>
+            <text class="width-adjust-tip">仅管理员可操作，用于实盘数量与系统数量不一致时修正当前库存</text>
+          </view>
       </van-cell-group>
   </view>
 
@@ -143,6 +147,54 @@
         bind:click="onAdjustFilmWidthConfirm"
       >
         确认修正
+      </van-button>
+    </view>
+  </van-popup>
+
+  <van-popup
+    show="{{ showStocktakeAdjustPopup }}"
+    position="bottom"
+    round
+    custom-style="height: 56%;"
+    bind:close="onCloseStocktakeAdjustPopup"
+  >
+    <view class="popup-content">
+      <view class="popup-header">
+        <view class="popup-title">盘点调整</view>
+        <view class="popup-subtitle">仅管理员可操作。化材填写当前实盘数量，膜材填写当前剩余长度，不修改原始入库长度。</view>
+      </view>
+
+      <van-field
+        custom-class="popup-field"
+        type="digit"
+        label="{{ item.category === 'film' ? '剩余长度' : '当前数量' }}"
+        value="{{ stocktakeQuantityValue }}"
+        placeholder="{{ item.category === 'film' ? '请输入当前剩余长度' : '请输入当前实盘数量' }}"
+        bind:change="onStocktakeQuantityInput"
+      >
+        <view slot="right-icon" class="text-secondary">{{ item.category === 'film' ? 'm' : item._qtyUnit }}</view>
+      </van-field>
+
+      <van-field
+        custom-class="popup-field"
+        type="textarea"
+        autosize
+        label="调整原因"
+        value="{{ stocktakeAdjustReason }}"
+        placeholder="选填，建议填写盘点原因或异常说明"
+        bind:change="onStocktakeReasonInput"
+      />
+
+      <van-button
+        custom-class="popup-confirm-btn"
+        type="primary"
+        block
+        round
+        loading="{{ adjustingStocktake }}"
+        disabled="{{ adjustingStocktake }}"
+        bind:click="onStocktakeAdjustConfirm"
+      >
+        确认调整
       </van-button>
     </view>
   </van-popup>

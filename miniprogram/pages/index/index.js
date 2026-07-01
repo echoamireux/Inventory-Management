@@ -328,26 +328,13 @@ Page({
       }
 
       const item = list[0];
+      if (!item || !item._id) {
+        throw new Error('标签记录缺少库存ID');
+      }
 
-      // 2. 查询主数据，统一库存显示真值
-      const materialRecord = res.result.material || null;
-      const mergedItem = mergeInventoryMaterialData(item, materialRecord || {});
-      const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord || {});
-      const isArchived = !!(materialRecord && materialRecord.status === 'archived');
-
-      // 3. 准备弹窗数据
-      const currentStockDesc = mergedItem.category === 'film'
-        ? `${quantityState.displayQuantity} ${quantityState.displayUnit} (基础长度 ${quantityState.baseLengthM} 米)`
-        : `${quantityState.displayQuantity} ${quantityState.displayUnit}`;
-      const inputLabel = mergedItem.category === 'film'
-        ? '领用长度 (米)'
-        : `领用重量 (${quantityState.displayUnit})`;
-
-      this.setData({
-        withdrawItem: { ...mergedItem, currentStockDesc, inputLabel, isArchived },
-        withdrawAmount: "",
-        showWithdrawDialog: true,
-        withdrawMode: "scan",
+      Toast.success('标签已在库，正在打开详情');
+      wx.navigateTo({
+        url: `/pages/inventory-detail/index?id=${encodeURIComponent(item._id)}`
       });
     } catch (err) {
       Toast.clear();

@@ -103,6 +103,7 @@ exports.main = async (event, context) => {
         legacyLocationsRaw: $.addToSet('$location'),
         zoneKeysRaw: $.addToSet('$zone_key')
       })
+      .limit(1000)
       .end();
 
     const groups = (aggregateRes.list || []).map((item) => {

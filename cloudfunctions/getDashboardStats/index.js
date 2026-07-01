@@ -70,6 +70,7 @@ exports.main = async (event, context) => {
         totalChemicalQty: $.sum('$quantity.val'),
         totalFilmLength: $.sum('$dynamic_attrs.current_length_m')
       })
+      .limit(1000)
       .end();
 
     const groupedInventory = groupedInventoryRes.list || [];

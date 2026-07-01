@@ -446,6 +446,7 @@ async function exportLabelWorkbook(data = {}) {
       foreignField: '_id',
       as: 'material_info'
     })
+    .limit(selectedIds.length)
     .end();
 
   const records = sortLabelExportRecordsBySelection(result.list || [], selectedIds);

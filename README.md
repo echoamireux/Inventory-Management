@@ -74,7 +74,7 @@
 系统当前的正式导入模板来源，是管理员在系统内动态导出的最新 `.xlsx` 模板：
 
 - 模板由 `exportMaterialTemplate` 云函数按当前子类别、单位和说明动态生成
-- 管理员填写后需另存为 `.csv` 再回到系统上传导入
+- 管理员填写后保持为 `.xlsx` 再回到系统上传导入
 - 系统导出的模板是唯一正式模板来源
 
 仓库不再维护本地静态“智能版模板”文件，也不再依赖本地 Python 脚本生成模板。
@@ -263,10 +263,7 @@ npm install
 本项目使用 `cloudfunctions/_shared` 维护共享逻辑。首次拉取代码或更新共享模块后，建议同步一次：
 
 ```bash
-cd cloudfunctions
-chmod +x sync_shared.sh
-./sync_shared.sh
-cd ..
+npm run sync:shared
 ```
 
 该脚本会把共享模块同步到依赖这些共享文件的云函数目录，避免前后版本不一致。
@@ -347,7 +344,7 @@ module.exports = {
 2. 点击“导出最新模板”
 3. 系统动态生成最新 `.xlsx` 模板并打开
 4. 按模板填写
-5. 另存为 `.csv`
+5. 保持为 `.xlsx`
 6. 回到系统上传导入
 
 注意：
