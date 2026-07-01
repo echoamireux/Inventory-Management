@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const Module = require('node:module');
 
 const repoRoot = path.join(__dirname, '..');
 
@@ -11,6 +12,25 @@ function read(relPath) {
 
 function exists(relPath) {
   return fs.existsSync(path.join(repoRoot, relPath));
+}
+
+function loadModuleWithMocks(modulePath, mocks) {
+  const resolvedModulePath = require.resolve(modulePath);
+  delete require.cache[resolvedModulePath];
+
+  const originalLoad = Module._load;
+  Module._load = function patchedLoader(request, parent, isMain) {
+    if (Object.prototype.hasOwnProperty.call(mocks, request)) {
+      return mocks[request];
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    return require(resolvedModulePath);
+  } finally {
+    Module._load = originalLoad;
+  }
 }
 
 const FRONTEND_CORE_FILES = [
@@ -188,6 +208,104 @@ test('project usage export workbook declares detail and summary sheets', () => {
   assert.match(exportIndex, /project_name/);
   assert.match(exportIndex, /withdraw_note/);
   assert.match(exportIndex, /uploadFile/);
+});
+
+test('project usage export workbook uses professional report styling', () => {
+  const {
+    PROJECT_USAGE_DETAIL_HEADERS,
+    PROJECT_USAGE_SUMMARY_HEADERS,
+    buildProjectUsageExportFileName,
+    buildWorkbook
+  } = loadModuleWithMocks('../cloudfunctions/exportProjectUsageReport/index.js', {
+    exceljs: require('../cloudfunctions/exportMaterialTemplate/node_modules/exceljs'),
+    'wx-server-sdk': {
+      DYNAMIC_CURRENT_ENV: 'mock-env',
+      init() {},
+      database() {
+        return {
+          command: {
+            and(conditions) {
+              return { $and: conditions };
+            },
+            gte(value) {
+              return { $gte: value };
+            },
+            lte(value) {
+              return { $lte: value };
+            }
+          }
+        };
+      },
+      getWXContext() {
+        return { OPENID: 'tester' };
+      }
+    }
+  });
+
+  const exportedAt = new Date('2026-07-01T07:30:00.000Z');
+  const workbook = buildWorkbook({
+    detailList: [
+      {
+        project_code: 'OR2026RD02001',
+        project_name: 'OR2026RD02-复合双面胶带88D5',
+        timestamp: new Date('2026-07-01T06:15:00.000Z'),
+        operator_name: '张三',
+        product_code: 'J-001',
+        material_name: 'UV减粘胶',
+        unique_code: 'L000001',
+        batch_number: 'B202607',
+        quantity: 1.5,
+        unit: 'kg',
+        withdraw_note: '试验批次 A'
+      }
+    ],
+    summaryList: [
+      {
+        product_code: 'J-001',
+        material_name: 'UV减粘胶',
+        unit: 'kg',
+        total_quantity: 1.5,
+        record_count: 1,
+        project_count: 1,
+        projects: 'OR2026RD02001'
+      }
+    ],
+    exportedAt,
+    filters: {
+      projectCode: 'OR2026RD02001',
+      startDate: '2026-07-01',
+      endDate: '2026-07-31'
+    }
+  });
+
+  assert.equal(buildProjectUsageExportFileName(exportedAt), '项目用料报表_20260701_1530.xlsx');
+
+  const detailSheet = workbook.getWorksheet('项目用料明细');
+  const summarySheet = workbook.getWorksheet('物料汇总');
+
+  assert.ok(detailSheet);
+  assert.ok(summarySheet);
+  assert.equal(detailSheet.getCell('A1').value, '项目用料明细');
+  assert.match(String(detailSheet.getCell('A2').value || ''), /导出时间：2026-07-01 15:30/);
+  assert.match(String(detailSheet.getCell('A3').value || ''), /筛选条件：项目编码=OR2026RD02001；开始日期=2026-07-01；结束日期=2026-07-31/);
+  assert.deepEqual(detailSheet.getRow(5).values.slice(1), PROJECT_USAGE_DETAIL_HEADERS);
+  assert.equal(detailSheet.autoFilter.from.row, 5);
+  assert.equal(detailSheet.views[0].state, 'frozen');
+  assert.equal(detailSheet.views[0].ySplit, 5);
+  assert.equal(detailSheet.getCell('A6').value, 'OR2026RD02001');
+  assert.equal(detailSheet.getCell('I6').value, 1.5);
+  assert.equal(detailSheet.getCell('I6').numFmt, '0.###');
+  assert.equal(detailSheet.getCell('A5').font.bold, true);
+  assert.equal(detailSheet.getCell('A5').fill.fgColor.argb, '334155');
+  assert.equal(detailSheet.getCell('A6').border.top.style, 'thin');
+
+  assert.equal(summarySheet.getCell('A1').value, '物料汇总');
+  assert.match(String(summarySheet.getCell('A3').value || ''), /按产品代码、物料名称和单位汇总/);
+  assert.deepEqual(summarySheet.getRow(5).values.slice(1), PROJECT_USAGE_SUMMARY_HEADERS);
+  assert.equal(summarySheet.autoFilter.from.row, 5);
+  assert.equal(summarySheet.views[0].ySplit, 5);
+  assert.equal(summarySheet.getCell('D6').value, 1.5);
+  assert.equal(summarySheet.getCell('D6').numFmt, '0.###');
 });
 
 test('project usage report cloud functions cap loaded logs and ask users to narrow filters', () => {
