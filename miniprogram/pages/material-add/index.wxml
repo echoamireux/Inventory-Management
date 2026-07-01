@@ -203,17 +203,17 @@
           bind:change="onInput"
         />
 
-        <view wx:if="{{ form.is_test_material }}" class="duplicate-hint info">
-          测试料入库必须填写原厂型号和生产批号；供应商、样品说明可按现场已知信息补充
-        </view>
-
         <van-field
           value="{{ form.sample_note }}"
-          label="样品说明/备注"
           placeholder="{{ form.is_test_material ? '选填：颜色、用途、项目等补充信息' : '请输入 (选填)' }}"
           data-field="sample_note"
           bind:change="onInput"
-        />
+        >
+          <view slot="label" class="sample-note-label">
+            <text class="sample-note-label__line">样品说明</text>
+            <text class="sample-note-label__line">备注</text>
+          </view>
+        </van-field>
 
         <!-- 6. 批号 -->
         <van-field
