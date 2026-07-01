@@ -14,34 +14,48 @@
       bind:clear="onSearchClear"
     />
 
-    <van-cell
-      title="项目编码"
-      value="{{ selectedProjectCode === 'all' ? '全部项目编码' : selectedProjectCode + (selectedProjectName ? ' - ' + selectedProjectName : '') }}"
-      is-link
-      bind:click="onShowProjectPicker"
-    />
+    <view class="project-selector" bindtap="onShowProjectPicker">
+      <view class="project-selector__body">
+        <view class="project-selector__label">项目编码</view>
+        <view class="project-selector__code">{{ selectedProjectCode === 'all' ? '全部项目编码' : selectedProjectCode }}</view>
+        <view class="project-selector__name">{{ selectedProjectCode === 'all' ? '查看全部项目领料记录' : (selectedProjectName || '未填写项目名称') }}</view>
+      </view>
+      <van-icon name="arrow" custom-class="project-selector__arrow" />
+    </view>
 
     <view class="date-filter-row">
-      <van-field
-        label="开始日期"
-        value="{{ startDate }}"
-        placeholder="YYYY-MM-DD"
-        input-align="left"
-        bind:change="onStartDateChange"
-      />
-      <van-field
-        label="结束日期"
-        value="{{ endDate }}"
-        placeholder="YYYY-MM-DD"
-        input-align="left"
-        bind:change="onEndDateChange"
-      />
+      <view class="date-filter-field">
+        <view class="date-filter-label">开始日期</view>
+        <van-field
+          value="{{ startDate }}"
+          placeholder="YYYY-MM-DD"
+          border="false"
+          input-align="left"
+          custom-class="date-filter-input"
+          bind:change="onStartDateChange"
+        />
+      </view>
+      <view class="date-filter-field">
+        <view class="date-filter-label">结束日期</view>
+        <van-field
+          value="{{ endDate }}"
+          placeholder="YYYY-MM-DD"
+          border="false"
+          input-align="left"
+          custom-class="date-filter-input"
+          bind:change="onEndDateChange"
+        />
+      </view>
     </view>
 
     <view class="filter-actions">
-      <van-button size="small" plain round bind:click="onClearFilters">清空筛选</van-button>
-      <van-button size="small" type="primary" round bind:click="onApplyDateFilter">应用日期</van-button>
-      <van-button size="small" type="info" round loading="{{ exporting }}" bind:click="onExportReport">导出 Excel</van-button>
+      <view class="filter-actions-primary">
+        <van-button size="small" plain round block bind:click="onClearFilters">清空筛选</van-button>
+        <van-button size="small" type="primary" round block bind:click="onApplyDateFilter">应用日期</van-button>
+      </view>
+      <view class="filter-actions-export">
+        <van-button size="small" type="info" plain round block loading="{{ exporting }}" bind:click="onExportReport">导出 Excel</van-button>
+      </view>
     </view>
   </view>
 

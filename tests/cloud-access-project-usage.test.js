@@ -50,6 +50,24 @@ test('project usage report page is registered and reachable from the home page',
   assert.match(homeWxml, /url="\/pages\/project-usage\/index"/);
 });
 
+test('project usage filter uses structured project selector and non-overflowing actions', () => {
+  const pageWxml = read('miniprogram/pages/project-usage/index.wxml');
+  const pageWxss = read('miniprogram/pages/project-usage/index.wxss');
+
+  assert.match(pageWxml, /class="project-selector"/);
+  assert.match(pageWxml, /class="project-selector__label"[\s\S]*项目编码/);
+  assert.match(pageWxml, /class="project-selector__code"/);
+  assert.match(pageWxml, /class="project-selector__name"/);
+  assert.match(pageWxml, /查看全部项目领料记录/);
+  assert.doesNotMatch(pageWxml, /<van-cell[\s\S]*title="项目编码"[\s\S]*selectedProjectCode \+ \(selectedProjectName/);
+
+  assert.match(pageWxml, /class="filter-actions-primary"[\s\S]*清空筛选[\s\S]*应用日期/);
+  assert.match(pageWxml, /class="filter-actions-export"[\s\S]*导出 Excel/);
+  assert.doesNotMatch(pageWxss, /grid-template-columns:\s*1fr 1fr 1\.2fr/);
+  assert.match(pageWxss, /\.filter-actions-primary[\s\S]*grid-template-columns:\s*1fr 1fr/);
+  assert.match(pageWxss, /\.filter-actions-export[\s\S]*width:\s*100%/);
+});
+
 test('project usage cloud functions and deployable dependencies exist', () => {
   assert.equal(exists('cloudfunctions/getProjectUsageReport/index.js'), true);
   assert.equal(exists('cloudfunctions/getProjectUsageReport/project-usage-report.js'), true);
