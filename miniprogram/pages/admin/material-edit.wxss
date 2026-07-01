@@ -57,6 +57,14 @@
   background: transparent;
 }
 
+.field-unit {
+  min-width: 28px;
+  padding-left: 8px;
+  color: #9CA3AF;
+  font-size: 14px;
+  text-align: right;
+}
+
 /* 重复检查提示 */
 .duplicate-hint {
   display: flex;

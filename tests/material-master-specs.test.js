@@ -32,12 +32,17 @@ test('admin material edit page exposes governed master spec fields for chemical 
   const js = read('miniprogram/pages/admin/material-edit.js');
 
   assert.match(wxml, /title="包装形式"/);
-  assert.match(wxml, /label="厚度\(μm\)"/);
-  assert.match(wxml, /label="厚度\(μm\)"[\s\S]*?label-width="[^"]+"/);
-  assert.match(wxml, /label="默认幅宽\(mm\)"/);
-  assert.match(wxml, /label="默认幅宽\(mm\)"[\s\S]*?placeholder="请输入默认幅宽"/);
-  assert.match(wxml, /label="默认幅宽\(mm\)"[\s\S]*?label-width="[^"]+"/);
+  assert.match(wxml, /label="厚度"/);
+  assert.match(wxml, /label="厚度"[\s\S]*?placeholder="请输入厚度"/);
+  assert.match(wxml, /label="厚度"[\s\S]*?<view slot="right-icon" class="field-unit">μm<\/view>/);
+  assert.match(wxml, /label="默认幅宽"/);
+  assert.match(wxml, /label="默认幅宽"[\s\S]*?placeholder="请输入默认幅宽"/);
+  assert.match(wxml, /label="默认幅宽"[\s\S]*?<view slot="right-icon" class="field-unit">mm<\/view>/);
+  assert.doesNotMatch(wxml, /label="厚度\(μm\)"/);
+  assert.doesNotMatch(wxml, /label="默认幅宽\(mm\)"/);
+  assert.doesNotMatch(wxml, /label-width="126px"/);
   assert.match(wxml, /title="默认单位"/);
+  assert.match(read('miniprogram/pages/admin/material-edit.wxss'), /\.field-unit[\s\S]*color:\s*#9CA3AF/);
   assert.doesNotMatch(wxml, /保质期/);
   assert.doesNotMatch(js, /shelf_life_days/);
   assert.match(js, /showPackageTypePicker/);

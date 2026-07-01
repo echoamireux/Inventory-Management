@@ -117,23 +117,25 @@
 
       <block wx:if="{{ form.category === 'film' }}">
         <van-field
-          label="厚度(μm)"
-          label-width="126px"
+          label="厚度"
           placeholder="请输入厚度"
           type="digit"
           value="{{ form.thickness_um }}"
           data-field="thickness_um"
           bind:change="onInputChange"
-        />
+        >
+          <view slot="right-icon" class="field-unit">μm</view>
+        </van-field>
         <van-field
-          label="默认幅宽(mm)"
-          label-width="126px"
+          label="默认幅宽"
           placeholder="请输入默认幅宽"
           type="digit"
           value="{{ form.width_mm }}"
           data-field="width_mm"
           bind:change="onInputChange"
-        />
+        >
+          <view slot="right-icon" class="field-unit">mm</view>
+        </van-field>
       </block>
 
       <van-cell
