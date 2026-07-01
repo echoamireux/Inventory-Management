@@ -1,5 +1,5 @@
 <!--pages/admin/material-edit.wxml-->
-<view class="container pb-40">
+<view class="container material-edit-page">
   <view class="form-section">
     <view class="section-title">基础信息</view>
 

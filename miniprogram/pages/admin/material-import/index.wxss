@@ -3,8 +3,10 @@
 
 .container {
   padding: 16px;
+  padding-bottom: 128px;
   background: var(--color-bg-page);
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
 /* 说明卡片 */

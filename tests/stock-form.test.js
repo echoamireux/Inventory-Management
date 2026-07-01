@@ -204,3 +204,69 @@ test('active business pages use the updated validation and management wording', 
   assert.doesNotMatch(zoneManageWxml, /本轮不做回写/);
   assert.match(zoneManageWxml, /历史库存记录仍保留原库区信息/);
 });
+
+test('fixed bottom form pages reserve scroll space above action bars', () => {
+  const adminMaterialEditWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/admin/material-edit.wxml'),
+    'utf8'
+  );
+  const adminMaterialEditWxss = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/admin/material-edit.wxss'),
+    'utf8'
+  );
+  const adminMaterialImportWxss = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/admin/material-import/index.wxss'),
+    'utf8'
+  );
+
+  assert.match(adminMaterialEditWxml, /class="container material-edit-page"/);
+  assert.doesNotMatch(adminMaterialEditWxml, /class="container pb-40"/);
+  assert.match(adminMaterialEditWxss, /\.material-edit-page\s*\{[\s\S]*padding-bottom:\s*calc\(128px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(adminMaterialEditWxss, /\.submit-btn-container\s*\{[\s\S]*z-index:\s*100/);
+  assert.match(adminMaterialImportWxss, /\.container\s*\{[\s\S]*padding-bottom:\s*128px/);
+});
+
+test('numeric padding-bottom utility classes used by pages are defined', () => {
+  const appWxss = fs.readFileSync(path.join(__dirname, '../miniprogram/app.wxss'), 'utf8');
+  const pagesRoot = path.join(__dirname, '../miniprogram/pages');
+  const wxmlFiles = [];
+
+  function collectWxmlFiles(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        collectWxmlFiles(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.wxml')) {
+        wxmlFiles.push(fullPath);
+      }
+    }
+  }
+
+  collectWxmlFiles(pagesRoot);
+
+  const missing = [];
+  for (const filePath of wxmlFiles) {
+    const wxml = fs.readFileSync(filePath, 'utf8');
+    const localWxssPath = filePath.replace(/\.wxml$/, '.wxss');
+    const localWxss = fs.existsSync(localWxssPath) ? fs.readFileSync(localWxssPath, 'utf8') : '';
+    const classMatches = wxml.match(/class="[^"]*"/g) || [];
+    for (const classMatch of classMatches) {
+      const classNames = classMatch
+        .replace(/^class="/, '')
+        .replace(/"$/, '')
+        .split(/\s+/)
+        .filter(Boolean);
+      for (const className of classNames) {
+        if (!/^pb-\d+$/.test(className)) {
+          continue;
+        }
+        const classPattern = new RegExp(`\\.${className}\\s*\\{`);
+        if (!classPattern.test(appWxss) && !classPattern.test(localWxss)) {
+          missing.push(`${path.relative(path.join(__dirname, '..'), filePath)}:${className}`);
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(missing, []);
+});
