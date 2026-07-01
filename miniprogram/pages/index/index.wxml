@@ -75,7 +75,7 @@
       <view class="text-md font-bold mb-10 text-dark">常用操作</view>
       <van-cell-group inset custom-class="shadow-sm">
         <van-cell title="库存查询" icon="search" is-link url="/pages/inventory/index" />
-        <van-cell title="新增物料" icon="add-o" is-link url="/pages/material-add/index" />
+        <van-cell title="物料入库" icon="add-o" is-link url="/pages/material-add/index" />
         <van-cell title="标签打印" icon="description" is-link url="/pages/admin/label-export/index" />
         <van-cell title="项目用料查询" icon="chart-trending-o" is-link url="/pages/project-usage/index" />
         <van-cell title="物料查询" icon="bookmark-o" is-link url="/pages/material-directory/index" />

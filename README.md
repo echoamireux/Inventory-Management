@@ -185,7 +185,7 @@
 - `batchAddInventory`
   批量入库
 - `addMaterial`
-  单条新增物料与库存
+  单条物料入库
 - `manageMaterial`
   主数据列表、编辑、归档、恢复等
 - `addMaterialRequest` / `approveMaterialRequest`

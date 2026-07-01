@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "新增物料",
+  "navigationBarTitleText": "物料入库",
   "usingComponents": {
     "van-action-sheet": "@vant/weapp/action-sheet/index",
     "van-datetime-picker": "@vant/weapp/datetime-picker/index",

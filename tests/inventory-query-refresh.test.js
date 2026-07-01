@@ -278,7 +278,7 @@ test('home shortcuts are grouped by usage frequency and permission level', () =>
   const expectedOrder = [
     '常用操作',
     '库存查询',
-    '新增物料',
+    '物料入库',
     '标签打印',
     '项目用料查询',
     '物料查询',
