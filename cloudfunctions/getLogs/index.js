@@ -2,7 +2,7 @@
 const cloud = require('wx-server-sdk');
 const { getCstRange } = require('./cst-time');
 const { buildLogSearchWhere } = require('./log-search');
-const { assertActiveUserAccess } = require('./auth');
+const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 
 const LOG_SEARCH_FIELD_NAMES = [
   'material_name',
@@ -34,6 +34,7 @@ exports.main = async (event, context) => {
     dateFilter,
     typeFilter,
     operatorFilter,
+    adminOnly = false,
     page = 1,
     limit = 50
   } = event;
@@ -45,7 +46,9 @@ exports.main = async (event, context) => {
         .limit(1)
         .get();
       const operator = userRes.data && userRes.data[0] ? userRes.data[0] : null;
-      const authResult = assertActiveUserAccess(operator, '仅已激活用户可查看操作日志');
+      const authResult = adminOnly
+        ? assertAdminMutationAccess(operator, '仅已激活管理员可查看审计日志')
+        : assertActiveUserAccess(operator, '仅已激活用户可查看操作日志');
       if (!authResult.ok) {
         return {
           success: false,

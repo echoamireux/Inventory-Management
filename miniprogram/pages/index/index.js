@@ -1,7 +1,6 @@
 // pages/index/index.js
 import Dialog from "@vant/weapp/dialog/dialog";
 import Toast from "@vant/weapp/toast/toast";
-const db = require("../../utils/db");
 const {
   mergeInventoryMaterialData,
   getInventoryQuantityDisplayState
@@ -299,9 +298,20 @@ Page({
 
     try {
       // 1. 查询库存
-      const list = await db.inventory.getList({ unique_code: normalizedLabelCode }, 1, 1);
+      const res = await wx.cloud.callFunction({
+        name: 'getInventoryRecord',
+        data: {
+          action: 'getByUniqueCode',
+          unique_code: normalizedLabelCode
+        }
+      });
       Toast.clear();
 
+      if (!res.result || !res.result.success) {
+        throw new Error((res.result && res.result.msg) || '查询失败');
+      }
+
+      const list = res.result.list || [];
       if (!list || list.length === 0) {
         // 分支 A: 标签不存在 -> 提示入库
         Dialog.confirm({
@@ -320,31 +330,7 @@ Page({
       const item = list[0];
 
       // 2. 查询主数据，统一库存显示真值
-      let materialRecord = null;
-      if (item.product_code) {
-        try {
-          const matRes = await wx.cloud.database().collection('materials')
-            .where({ product_code: item.product_code })
-            .field({
-              _id: true,
-              product_code: true,
-              status: true,
-              default_unit: true,
-              package_type: true,
-              specs: true,
-              subcategory_key: true,
-              sub_category: true,
-              material_name: true
-            })
-            .limit(1)
-            .get();
-          if (matRes.data && matRes.data.length > 0) {
-            materialRecord = matRes.data[0];
-          }
-        } catch (e) {
-          console.warn('Material lookup failed', e);
-        }
-      }
+      const materialRecord = res.result.material || null;
       const mergedItem = mergeInventoryMaterialData(item, materialRecord || {});
       const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord || {});
       const isArchived = !!(materialRecord && materialRecord.status === 'archived');

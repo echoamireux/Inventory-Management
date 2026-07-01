@@ -51,6 +51,9 @@
         data-field="material_name"
         bind:change="onInputChange"
       />
+      <view class="field-guide">
+        物料名称用于现场识别。正式料写稳定标准名称，如 PET离型膜 50um；测试料可写测试料-化材或测试料-膜材。批号、库位、数量、项目编号不要写入物料名称。
+      </view>
       <van-cell
         title="子类别"
         is-link

@@ -1,6 +1,5 @@
 import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
-const db = wx.cloud.database();
 const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
 const { listZoneRecords } = require('../../utils/zone-service');
 const { listSubcategoryRecords } = require('../../utils/subcategory-service');
@@ -52,10 +51,17 @@ Page({
   async fetchDetail(id) {
     this.setData({ loading: true });
     try {
-        const res = await db.collection('inventory').doc(id).get();
-        if (res.data) {
-            let item = res.data;
-            const materialRecord = await this.loadMaterialRecord(item);
+        const res = await wx.cloud.callFunction({
+          name: 'getInventoryRecord',
+          data: {
+            action: 'detail',
+            id
+          }
+        });
+        const result = res.result || {};
+        if (result.success && result.data) {
+            let item = result.data;
+            const materialRecord = result.material || await this.loadMaterialRecord(item);
             if (materialRecord) {
                 item = mergeInventoryMaterialData(item, materialRecord);
                 item.isArchived = materialRecord.status === 'archived';
@@ -90,29 +96,23 @@ Page({
   },
 
   async loadMaterialRecord(item = {}) {
-      if (item.material_id) {
-          try {
-              const matRes = await db.collection('materials').doc(item.material_id).get();
-              if (matRes.data) {
-                  return matRes.data;
-              }
-          } catch (err) {
-              console.warn('Material info not found by material_id', err);
-          }
+      if (!item.product_code) {
+          return null;
       }
 
-      if (item.product_code) {
-          try {
-              const matQuery = await db.collection('materials')
-                  .where({ product_code: item.product_code })
-                  .limit(1)
-                  .get();
-              if (matQuery.data && matQuery.data.length > 0) {
-                  return matQuery.data[0];
+      try {
+          const res = await wx.cloud.callFunction({
+              name: 'manageMaterial',
+              data: {
+                  action: 'get',
+                  data: {
+                      product_code: item.product_code
+                  }
               }
-          } catch (err) {
-              console.warn('Material lookup by code failed', err);
-          }
+          });
+          return res.result && res.result.success ? res.result.data : null;
+      } catch (err) {
+          console.warn('Material lookup by code failed', err);
       }
 
       return null;

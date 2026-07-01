@@ -1,0 +1,142 @@
+.project-usage-page {
+  min-height: 100vh;
+  background: var(--color-bg-page, #f7f8fa);
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.project-usage-header {
+  padding: 32rpx 28rpx 18rpx;
+}
+
+.project-usage-title {
+  color: var(--color-text-primary, #111827);
+  font-size: 38rpx;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.project-usage-subtitle {
+  margin-top: 12rpx;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.project-usage-filter {
+  margin: 0 24rpx 20rpx;
+  padding: 16rpx 0 22rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.date-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.filter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 16rpx;
+  padding: 20rpx 28rpx 0;
+}
+
+.project-usage-summary-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 0 24rpx 18rpx;
+  padding: 16rpx 24rpx;
+  border-radius: 14rpx;
+  background: #eef2ff;
+  color: #1d4ed8;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.project-usage-list {
+  padding: 20rpx 24rpx 40rpx;
+}
+
+.usage-card {
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+  box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, 0.06);
+}
+
+.usage-card--summary {
+  border-left: 6rpx solid #10b981;
+}
+
+.usage-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.usage-card__title {
+  min-width: 0;
+  flex: 1;
+  color: #111827;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.usage-card__code {
+  margin-top: 8rpx;
+  color: #2563eb;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.usage-card__meta {
+  margin-top: 8rpx;
+  color: #334155;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.usage-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16rpx;
+  margin-top: 20rpx;
+  padding-top: 18rpx;
+  border-top: 1px solid #eef2f7;
+}
+
+.usage-card__label {
+  color: #94a3b8;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.usage-card__value {
+  margin-top: 6rpx;
+  color: #111827;
+  font-size: 24rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.usage-card__note {
+  margin-top: 16rpx;
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.project-usage-loading,
+.project-usage-more,
+.project-usage-end {
+  padding: 28rpx 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 24rpx;
+}

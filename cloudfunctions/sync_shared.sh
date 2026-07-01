@@ -37,6 +37,10 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryGrouped/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryBatches/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/searchInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProjectCode/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getProjectUsageReport/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/exportProjectUsageReport/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryRecord/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/getApprovalCenterData/auth.js
 
 # 4. Sync Film Quantity Helper
 echo "   -> Updating film-quantity.js..."
@@ -67,6 +71,7 @@ cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/addMaterialRe
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/getInventoryGrouped/material-subcategories.js
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/exportData/material-subcategories.js
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/exportMaterialTemplate/material-subcategories.js
+cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/getApprovalCenterData/material-subcategories.js
 
 echo "   -> Updating material-units.js..."
 cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/material-units.js
@@ -82,6 +87,7 @@ cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/searchInventory/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/getProjectUsageReport/search.js
 
 echo "   -> Updating log-search.js..."
 cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js
@@ -126,6 +132,8 @@ echo "   -> Updating cst-time.js and dashboard-stats.js..."
 cp cloudfunctions/_shared/cst-time.js cloudfunctions/getDashboardStats/cst-time.js
 cp cloudfunctions/_shared/cst-time.js cloudfunctions/getLogs/cst-time.js
 cp cloudfunctions/_shared/cst-time.js cloudfunctions/exportData/cst-time.js
+cp cloudfunctions/_shared/cst-time.js cloudfunctions/getProjectUsageReport/cst-time.js
+cp cloudfunctions/_shared/cst-time.js cloudfunctions/exportProjectUsageReport/cst-time.js
 cp cloudfunctions/_shared/dashboard-stats.js cloudfunctions/getDashboardStats/dashboard-stats.js
 
 # 6. Sync to Frontend (Miniprogram)

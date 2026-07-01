@@ -146,6 +146,9 @@
           bind:change="onInput"
           label-class="field-label-bold"
         />
+        <view class="field-guide">
+          物料名称用于现场识别；批号、库位、数量、项目编号不要写入物料名称。
+        </view>
 
         <!-- 联想建议列表 -->
         <view class="suggestion-box" wx:if="{{ suggestions.length > 0 }}">

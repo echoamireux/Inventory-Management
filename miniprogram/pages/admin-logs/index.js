@@ -1,11 +1,4 @@
 // pages/admin-logs/index.js
-const { getCstRange } = require('../../utils/cst');
-const {
-  buildLogSearchWhere,
-  filterLogRecords,
-  sortLogRecordsDescending
-} = require('../../utils/log-search');
-
 const ADMIN_LOG_SEARCH_FIELDS = [
   'material_name',
   'product_code',
@@ -159,8 +152,6 @@ Page({
     });
 
     try {
-      const dbInstance = wx.cloud.database();
-      const _ = dbInstance.command;
       const nextPage = reset ? 1 : this.data.page;
       const {
         searchVal,
@@ -170,16 +161,23 @@ Page({
         pageSize
       } = this.data;
 
-      const matchedRecords = await this.loadLogsByDirectDb({
-        dbInstance,
-        _,
-        searchVal,
-        dateFilter,
-        typeFilter,
-        operatorFilter
+      const res = await wx.cloud.callFunction({
+        name: 'getLogs',
+        data: {
+          adminOnly: true,
+          searchVal,
+          dateFilter,
+          typeFilter,
+          operatorFilter,
+          page: nextPage,
+          limit: pageSize
+        }
       });
-      const total = matchedRecords.length;
-      const pageList = matchedRecords.slice((nextPage - 1) * pageSize, nextPage * pageSize);
+      if (!res.result || !res.result.success) {
+        throw new Error((res.result && res.result.msg) || '加载审计日志失败');
+      }
+      const total = Number(res.result.total) || 0;
+      const pageList = res.result.list || [];
 
       if (this.data.requestId !== currentRequestId) {
         return;
@@ -255,52 +253,6 @@ Page({
       }
       wx.stopPullDownRefresh();
     }
-  },
-
-  async loadLogsByDirectDb(params = {}) {
-    const {
-      dbInstance,
-      _,
-      searchVal,
-      dateFilter,
-      typeFilter,
-      operatorFilter
-    } = params;
-    const collection = dbInstance.collection('inventory_log');
-    const where = buildLogSearchWhere({
-      db: dbInstance,
-      _,
-      searchVal,
-      dateFilter,
-      typeFilter,
-      operatorFilter,
-      getCstRange
-    });
-
-    const batchSize = 100;
-    let skip = 0;
-    let allRecords = [];
-
-    while (true) {
-      const res = await collection.where(where)
-        .skip(skip)
-        .limit(batchSize)
-        .get();
-      const batch = res.data || [];
-      allRecords = allRecords.concat(batch);
-      if (batch.length < batchSize) {
-        break;
-      }
-      skip += batchSize;
-    }
-
-    return sortLogRecordsDescending(filterLogRecords(allRecords, {
-      searchVal,
-      dateFilter,
-      typeFilter,
-      operatorFilter,
-      getCstRange
-    }));
   },
 
   // 发起库存纠错申请

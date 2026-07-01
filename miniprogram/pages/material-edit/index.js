@@ -83,8 +83,18 @@ Page({
   async fetchDetail(id) {
     wx.showLoading({ title: '加载中...' });
     try {
-      const res = await wx.cloud.database().collection('inventory').doc(id).get();
-      const item = res.data;
+      const res = await wx.cloud.callFunction({
+        name: 'getInventoryRecord',
+        data: {
+          action: 'detail',
+          id
+        }
+      });
+      const result = res.result || {};
+      if (!result.success || !result.data) {
+        throw new Error(result.msg || '库存记录不存在');
+      }
+      const item = result.data;
       const category = item.category || 'chemical';
 
       await this.loadZones(category, item, {

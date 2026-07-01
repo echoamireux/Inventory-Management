@@ -1,5 +1,4 @@
 // pages/admin/user-list.js
-const db = require('../../utils/db');
 import Dialog from '@vant/weapp/dialog/dialog';
 
 Page({
@@ -27,12 +26,18 @@ Page({
   async getList() {
     wx.showLoading({ title: '加载中...' });
     try {
-      const res = await wx.cloud.database().collection('users')
-        .where({ status: 'pending' })
-        .orderBy('create_time', 'desc')
-        .get();
+      const res = await wx.cloud.callFunction({
+        name: 'adminUpdateUserStatus',
+        data: {
+          action: 'listPendingUsers'
+        }
+      });
+      const result = res.result || {};
+      if (!result.success) {
+        throw new Error(result.msg || '加载失败');
+      }
 
-      const list = res.data.map(item => {
+      const list = (result.list || []).map(item => {
         let timeStr = '';
         if (item.create_time) {
           const date = new Date(item.create_time);

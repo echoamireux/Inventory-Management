@@ -116,6 +116,16 @@ async function assertManageMaterialAdminMutation(openid, message = '仅管理员
   return { ok: true, operator };
 }
 
+async function assertManageMaterialActiveAccess(openid, message = '仅已激活用户可查看物料主数据') {
+  const operator = await getOperator(openid);
+  const authResult = assertActiveUserAccess(operator, message);
+  if (!authResult.ok) {
+    return authResult;
+  }
+
+  return { ok: true, operator };
+}
+
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
   const removeIrrelevant = !!options.removeIrrelevant;
   const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
@@ -288,8 +298,20 @@ exports.main = async (event, context) => {
   try {
     switch (action) {
       case 'list':
+        {
+          const authResult = await assertManageMaterialActiveAccess(OPENID);
+          if (!authResult.ok) {
+            return { success: false, msg: authResult.msg };
+          }
+        }
         return await listMaterials(data);
       case 'get':
+        {
+          const authResult = await assertManageMaterialActiveAccess(OPENID);
+          if (!authResult.ok) {
+            return { success: false, msg: authResult.msg };
+          }
+        }
         return await getMaterial(data);
       case 'create':
         return await createMaterial(data, OPENID);
@@ -306,8 +328,20 @@ exports.main = async (event, context) => {
       case 'restore':
         return await restoreMaterial(data, OPENID);
       case 'checkStatus':
+        {
+          const authResult = await assertManageMaterialActiveAccess(OPENID);
+          if (!authResult.ok) {
+            return { success: false, msg: authResult.msg };
+          }
+        }
         return await checkMaterialStatus(data);
       case 'checkHistory':
+        {
+          const authResult = await assertManageMaterialActiveAccess(OPENID);
+          if (!authResult.ok) {
+            return { success: false, msg: authResult.msg };
+          }
+        }
         return await checkMaterialHistory(data);
       default:
         return { success: false, msg: '未知操作' };

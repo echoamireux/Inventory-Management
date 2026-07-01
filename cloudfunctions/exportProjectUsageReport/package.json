@@ -1,0 +1,10 @@
+{
+  "name": "exportProjectUsageReport",
+  "version": "1.0.0",
+  "description": "Export project usage report workbook",
+  "main": "index.js",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "wx-server-sdk": "latest"
+  }
+}

@@ -16,6 +16,7 @@
     "pages/admin/zone-manage/index",
     "pages/admin/subcategory-manage/index",
     "pages/admin/project-code-manage/index",
+    "pages/project-usage/index",
     "pages/admin/material-import/index",
     "pages/admin/label-export/index",
     "pages/inventory/detail-list",

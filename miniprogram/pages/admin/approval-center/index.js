@@ -1,11 +1,5 @@
 // pages/admin/approval-center/index.js
-const db = wx.cloud.database();
 import Dialog from '@vant/weapp/dialog/dialog';
-const { listSubcategoryRecords } = require('../../../utils/subcategory-service');
-const {
-  buildSubcategoryMap,
-  resolveSubcategoryDisplay
-} = require('../../../utils/material-subcategory');
 
 Page({
   data: {
@@ -73,25 +67,15 @@ Page({
   async fetchMaterials() {
     this.setData({ materialLoading: true });
     try {
-        const [chemicalSubcategories, filmSubcategories, res] = await Promise.all([
-            listSubcategoryRecords('chemical', true).catch(() => []),
-            listSubcategoryRecords('film', true).catch(() => []),
-            db.collection('material_requests')
-                .where({ status: 'pending' })
-                .orderBy('created_at', 'desc')
-                .get()
-        ]);
-        const subcategoryMap = buildSubcategoryMap([
-            ...chemicalSubcategories,
-            ...filmSubcategories
-        ]);
-
-        const list = res.data.map(item => ({
-            ...item,
-            _subcategoryDisplay: resolveSubcategoryDisplay(item, subcategoryMap) || item.sub_category || '-',
-            _timeStr: this.formatTime(item.created_at)
-        }));
-        this.setData({ materialList: list });
+        const res = await wx.cloud.callFunction({
+            name: 'getApprovalCenterData',
+            data: { action: 'materials' }
+        });
+        const result = res.result || {};
+        if (!result.success) {
+            throw new Error(result.msg || '加载物料申请失败');
+        }
+        this.setData({ materialList: result.materialList || [] });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载物料申请失败', icon: 'none' });
@@ -103,25 +87,15 @@ Page({
   async fetchUsers() {
     this.setData({ userLoading: true });
     try {
-        const res = await db.collection('users')
-            .where({ status: 'pending' })
-            .orderBy('create_time', 'desc') // or created_at depending on schema, user-list.js used create_time
-            .get();
-
-        const uniqueUsers = [];
-        const seenOpenids = new Set();
-
-        res.data.forEach(item => {
-            if (!seenOpenids.has(item._openid)) {
-                seenOpenids.add(item._openid);
-                uniqueUsers.push({
-                    ...item,
-                    _timeStr: this.formatTime(item.create_time || item.created_at)
-                });
-            }
+        const res = await wx.cloud.callFunction({
+            name: 'getApprovalCenterData',
+            data: { action: 'users' }
         });
-
-        this.setData({ userList: uniqueUsers });
+        const result = res.result || {};
+        if (!result.success) {
+            throw new Error(result.msg || '加载人员申请失败');
+        }
+        this.setData({ userList: result.userList || [] });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载人员申请失败', icon: 'none' });
@@ -133,15 +107,15 @@ Page({
   async fetchCorrections() {
     this.setData({ correctionLoading: true });
     try {
-        const res = await db.collection('inventory_correction_requests')
-            .where({ status: 'pending' })
-            .orderBy('created_at', 'desc')
-            .get();
-        const list = (res.data || []).map(item => ({
-            ...item,
-            _timeStr: this.formatTime(item.created_at)
-        }));
-        this.setData({ correctionList: list });
+        const res = await wx.cloud.callFunction({
+            name: 'getApprovalCenterData',
+            data: { action: 'corrections' }
+        });
+        const result = res.result || {};
+        if (!result.success) {
+            throw new Error(result.msg || '加载纠错申请失败');
+        }
+        this.setData({ correctionList: result.correctionList || [] });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载纠错申请失败', icon: 'none' });

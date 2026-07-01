@@ -46,7 +46,6 @@ const {
   getCategorySpecificValidationMessage
 } = require('../../utils/stock-form');
 const { normalizeFilmUnit } = require('../../utils/film');
-const db = wx.cloud.database();
 
 function resolvePickerDateValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -579,11 +578,18 @@ Page({
     this.setData({ labelCodeChecking: true });
 
     try {
-      const res = await db.collection('inventory').where({
-        unique_code: normalizedLabelCode
-      }).get();
+      const res = await wx.cloud.callFunction({
+        name: 'getInventoryRecord',
+        data: {
+          action: 'checkLabel',
+          unique_code: normalizedLabelCode
+        }
+      });
+      if (!res.result || !res.result.success) {
+        throw new Error((res.result && res.result.msg) || '标签校验失败');
+      }
 
-      const existingItems = res.data || [];
+      const existingItems = res.result.list || [];
       if (existingItems.length > 0) {
         const existingItem = existingItems[0];
         const isChemicalCandidate = (

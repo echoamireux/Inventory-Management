@@ -170,6 +170,16 @@
   color: var(--color-danger, #ee0a24);
 }
 
+.field-guide {
+  margin: 0 32rpx 16rpx 184rpx;
+  padding: 12rpx 18rpx;
+  border-radius: 12rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
 .material-add-panel {
   animation: panelFadeIn 0.2s ease-out;
   transform-origin: top center;

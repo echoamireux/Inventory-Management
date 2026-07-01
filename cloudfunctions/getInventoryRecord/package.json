@@ -1,0 +1,9 @@
+{
+  "name": "getInventoryRecord",
+  "version": "1.0.0",
+  "description": "Read inventory records through cloud function access control",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -142,13 +142,25 @@ test('importInventoryTemplate keeps a deployable local film helper and sync scri
   const importFilmQuantityPath = path.join(repoRoot, 'cloudfunctions/importInventoryTemplate/film-quantity.js');
   const exportDataCstTimePath = path.join(repoRoot, 'cloudfunctions/exportData/cst-time.js');
   const addMaterialRequestAuthPath = path.join(repoRoot, 'cloudfunctions/addMaterialRequest/auth.js');
+  const projectUsageAuthPath = path.join(repoRoot, 'cloudfunctions/getProjectUsageReport/auth.js');
+  const exportProjectUsageAuthPath = path.join(repoRoot, 'cloudfunctions/exportProjectUsageReport/auth.js');
+  const inventoryRecordAuthPath = path.join(repoRoot, 'cloudfunctions/getInventoryRecord/auth.js');
+  const approvalCenterAuthPath = path.join(repoRoot, 'cloudfunctions/getApprovalCenterData/auth.js');
 
   assert.match(importInventoryQuantity, /require\(['"]\.\/film-quantity['"]\)/);
   assert.equal(fs.existsSync(importFilmQuantityPath), true);
   assert.equal(fs.existsSync(exportDataCstTimePath), true);
   assert.equal(fs.existsSync(addMaterialRequestAuthPath), true);
+  assert.equal(fs.existsSync(projectUsageAuthPath), true);
+  assert.equal(fs.existsSync(exportProjectUsageAuthPath), true);
+  assert.equal(fs.existsSync(inventoryRecordAuthPath), true);
+  assert.equal(fs.existsSync(approvalCenterAuthPath), true);
 
   assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/addMaterialRequest\/auth\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/getProjectUsageReport\/auth\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/exportProjectUsageReport\/auth\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/getInventoryRecord\/auth\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/getApprovalCenterData\/auth\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/approveInventoryCorrectionRequest\/film-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/importInventoryTemplate\/film-quantity\.js/);
 
@@ -158,4 +170,8 @@ test('importInventoryTemplate keeps a deployable local film helper and sync scri
   assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/importInventoryTemplate\/inventory-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/export-report\.js cloudfunctions\/exportData\/export-report\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/exportData\/cst-time\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/getProjectUsageReport\/cst-time\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/exportProjectUsageReport\/cst-time\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/search\.js cloudfunctions\/getProjectUsageReport\/search\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/material-subcategories\.js cloudfunctions\/getApprovalCenterData\/material-subcategories\.js/);
 });

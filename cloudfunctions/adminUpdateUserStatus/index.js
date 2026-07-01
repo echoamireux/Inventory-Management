@@ -11,6 +11,56 @@ cloud.init({
 
 const db = cloud.database();
 
+function formatUserTime(value) {
+  if (!value) {
+    return '';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+async function listPendingUsers() {
+  const res = await db.collection('users')
+    .where({ status: 'pending' })
+    .orderBy('create_time', 'desc')
+    .limit(100)
+    .get();
+
+  return (res.data || []).map(item => ({
+    ...item,
+    _timeStr: formatUserTime(item.create_time || item.created_at)
+  }));
+}
+
+async function listActiveUsers() {
+  const pageSize = 100;
+  let skip = 0;
+  let rows = [];
+
+  while (true) {
+    const res = await db.collection('users')
+      .where({ status: 'active' })
+      .orderBy('create_time', 'desc')
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+    const batch = res.data || [];
+    rows = rows.concat(batch);
+    if (batch.length < pageSize) {
+      break;
+    }
+    skip += pageSize;
+  }
+
+  return rows.map(item => ({
+    ...item,
+    _timeStr: formatUserTime(item.create_time || item.created_at)
+  }));
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { action, userId, status, role } = event;
@@ -27,6 +77,28 @@ exports.main = async (event, context) => {
   const operator = operatorRes.data[0];
 
   try {
+    if (action === 'listPendingUsers') {
+       const authResult = assertAdminMutationAccess(operator, '仅已激活管理员可查看待审批用户');
+       if (!authResult.ok) {
+         return { success: false, msg: authResult.msg };
+       }
+       return {
+         success: true,
+         list: await listPendingUsers()
+       };
+    }
+
+    if (action === 'listActiveUsers') {
+       const authResult = assertSuperAdminMutationAccess(operator, '仅已激活超级管理员可查看人员权限列表');
+       if (!authResult.ok) {
+         return { success: false, msg: authResult.msg };
+       }
+       return {
+         success: true,
+         list: await listActiveUsers()
+       };
+    }
+
     if (action === 'updateRole') {
        const authResult = assertSuperAdminMutationAccess(operator, '越权操作：仅超级管理员可修改权限');
        if (!authResult.ok) {

@@ -1,0 +1,9 @@
+{
+  "name": "getProjectUsageReport",
+  "version": "1.0.0",
+  "description": "Query project usage report from outbound inventory logs",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

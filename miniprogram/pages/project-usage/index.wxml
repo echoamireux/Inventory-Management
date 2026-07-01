@@ -1,0 +1,136 @@
+<view class="project-usage-page">
+  <view class="project-usage-header">
+    <view class="project-usage-title">项目用料查询</view>
+    <view class="project-usage-subtitle">按项目编码查看领用了哪些料，也可以按物料反查领用项目、人员和时间。</view>
+  </view>
+
+  <view class="project-usage-filter">
+    <van-search
+      value="{{ keyword }}"
+      placeholder="项目编码/物料名称/产品代码/标签编号/批号/领料人"
+      shape="round"
+      bind:search="onSearch"
+      bind:change="onSearchChange"
+      bind:clear="onSearchClear"
+    />
+
+    <van-cell
+      title="项目编码"
+      value="{{ selectedProjectCode === 'all' ? '全部项目编码' : selectedProjectCode + (selectedProjectName ? ' - ' + selectedProjectName : '') }}"
+      is-link
+      bind:click="onShowProjectPicker"
+    />
+
+    <view class="date-filter-row">
+      <van-field
+        label="开始日期"
+        value="{{ startDate }}"
+        placeholder="YYYY-MM-DD"
+        input-align="left"
+        bind:change="onStartDateChange"
+      />
+      <van-field
+        label="结束日期"
+        value="{{ endDate }}"
+        placeholder="YYYY-MM-DD"
+        input-align="left"
+        bind:change="onEndDateChange"
+      />
+    </view>
+
+    <view class="filter-actions">
+      <van-button size="small" plain round bind:click="onClearFilters">清空筛选</van-button>
+      <van-button size="small" type="primary" round bind:click="onApplyDateFilter">应用日期</van-button>
+      <van-button size="small" type="info" round loading="{{ exporting }}" bind:click="onExportReport">导出 Excel</van-button>
+    </view>
+  </view>
+
+  <view class="project-usage-summary-bar">
+    <text>共 {{ total }} 条领料记录</text>
+    <text>{{ summaryList.length }} 个物料汇总项</text>
+  </view>
+
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#2C68FF">
+    <van-tab title="明细" name="detail">
+      <view class="project-usage-list">
+        <view wx:if="{{ loading && detailList.length === 0 }}" class="project-usage-loading">
+          <van-loading vertical>加载中...</van-loading>
+        </view>
+
+        <block wx:for="{{ detailList }}" wx:key="_id">
+          <view class="usage-card">
+            <view class="usage-card__head">
+              <view class="usage-card__title">{{ item.material_name || '未命名物料' }}</view>
+              <van-tag type="primary" plain>{{ item._quantityText }}</van-tag>
+            </view>
+            <view class="usage-card__code">{{ item.product_code || '-' }} · {{ item.unique_code || '无标签编号' }}</view>
+            <view class="usage-card__meta">{{ item._projectText }}</view>
+            <view class="usage-card__grid">
+              <view>
+                <view class="usage-card__label">领料时间</view>
+                <view class="usage-card__value">{{ item._timeStr }}</view>
+              </view>
+              <view>
+                <view class="usage-card__label">领料人</view>
+                <view class="usage-card__value">{{ item.operator_name || '-' }}</view>
+              </view>
+              <view>
+                <view class="usage-card__label">生产批号</view>
+                <view class="usage-card__value">{{ item.batch_number || '-' }}</view>
+              </view>
+            </view>
+            <view wx:if="{{ item._noteText }}" class="usage-card__note">备注：{{ item._noteText }}</view>
+          </view>
+        </block>
+
+        <van-empty wx:if="{{ !loading && detailList.length === 0 }}" description="暂无项目用料记录" />
+        <view wx:if="{{ loading && detailList.length > 0 }}" class="project-usage-more">
+          <van-loading size="20px">加载中...</van-loading>
+        </view>
+        <view wx:if="{{ isEnd && detailList.length > 0 }}" class="project-usage-end">已无更多</view>
+      </view>
+    </van-tab>
+
+    <van-tab title="按物料汇总" name="summary">
+      <view class="project-usage-list">
+        <view wx:if="{{ loading && summaryList.length === 0 }}" class="project-usage-loading">
+          <van-loading vertical>加载中...</van-loading>
+        </view>
+
+        <block wx:for="{{ summaryList }}" wx:key="product_code">
+          <view class="usage-card usage-card--summary">
+            <view class="usage-card__head">
+              <view class="usage-card__title">{{ item.material_name || '未命名物料' }}</view>
+              <van-tag type="success" plain>{{ item._quantityText }}</van-tag>
+            </view>
+            <view class="usage-card__code">{{ item.product_code || '-' }}</view>
+            <view class="usage-card__grid">
+              <view>
+                <view class="usage-card__label">领用记录数</view>
+                <view class="usage-card__value">{{ item.record_count }}</view>
+              </view>
+              <view>
+                <view class="usage-card__label">涉及项目数</view>
+                <view class="usage-card__value">{{ item.project_count }}</view>
+              </view>
+            </view>
+            <view class="usage-card__note">涉及项目：{{ item._projectText }}</view>
+          </view>
+        </block>
+
+        <van-empty wx:if="{{ !loading && summaryList.length === 0 }}" description="暂无汇总数据" />
+      </view>
+    </van-tab>
+  </van-tabs>
+
+  <van-popup show="{{ showProjectPicker }}" position="bottom" round bind:close="onProjectPickerCancel">
+    <van-picker
+      columns="{{ projectOptions }}"
+      show-toolbar
+      bind:confirm="onProjectPickerConfirm"
+      bind:cancel="onProjectPickerCancel"
+    />
+  </van-popup>
+
+  <van-toast id="van-toast" />
+</view>

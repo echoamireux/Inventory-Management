@@ -30,7 +30,6 @@ const {
   sanitizeProductCodeNumberInput,
   normalizeProductCodeInput
 } = require('../../utils/product-code');
-const db = wx.cloud.database();
 
 function resolvePickerDateValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -575,11 +574,18 @@ Page({
 
       Toast.loading({ message: '校验标签中...', forbidClick: true });
       try {
-          const existsRes = await db.collection('inventory').where({
-              unique_code: uniqueCode
-          }).get();
+          const existsRes = await wx.cloud.callFunction({
+              name: 'getInventoryRecord',
+              data: {
+                  action: 'checkLabel',
+                  unique_code: uniqueCode
+              }
+          });
+          if (!existsRes.result || !existsRes.result.success) {
+              throw new Error((existsRes.result && existsRes.result.msg) || '标签校验失败');
+          }
 
-          const existingItems = existsRes.data || [];
+          const existingItems = existsRes.result.list || [];
           if (existingItems.length > 0) {
               const existingItem = existingItems[0];
               const selectedProductCode = String(this.data.selectedMaterial.product_code || '').trim();

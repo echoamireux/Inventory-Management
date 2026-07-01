@@ -1,6 +1,3 @@
-const db = wx.cloud.database();
-const _ = db.command;
-
 const { resolveInventoryLocation, buildZoneMap } = require('./location-zone');
 const { listZoneRecords } = require('./zone-service');
 const {
@@ -30,29 +27,11 @@ function buildBatchLabelWhere({ batchNumber = '', productCode = '', materialName
 }
 
 async function loadMaterialMapByProductCodes(productCodes = []) {
-  const codes = [...new Set((productCodes || []).filter(Boolean))];
-  if (codes.length === 0) {
+  const records = Array.isArray(productCodes) ? productCodes : [];
+  if (records.length === 0) {
     return new Map();
   }
-
-  const materialRes = await db.collection('materials')
-    .where({ product_code: _.in(codes) })
-    .field({
-      _id: true,
-      product_code: true,
-      material_name: true,
-      status: true,
-      default_unit: true,
-      package_type: true,
-      supplier: true,
-      supplier_model: true,
-      specs: true,
-      subcategory_key: true,
-      sub_category: true
-    })
-    .get();
-
-  return buildMaterialMap(materialRes.data || []);
+  return buildMaterialMap(records);
 }
 
 async function loadBatchLabelPage({
@@ -73,43 +52,24 @@ async function loadBatchLabelPage({
 
   const nextPage = Math.max(1, Number(page) || 1);
   const nextPageSize = Math.max(1, Math.min(200, Number(pageSize) || 20));
-  const where = buildBatchLabelWhere({
-    batchNumber: normalizedBatchNumber,
-    productCode: String(productCode || '').trim(),
-    materialName: String(materialName || '').trim(),
-    category: String(category || '').trim()
+  const res = await wx.cloud.callFunction({
+    name: 'getInventoryRecord',
+    data: {
+      action: 'batchLabels',
+      batchNumber: normalizedBatchNumber,
+      productCode: String(productCode || '').trim(),
+      materialName: String(materialName || '').trim(),
+      category: String(category || '').trim(),
+      page: nextPage,
+      pageSize: nextPageSize
+    }
   });
+  const result = res.result || {};
+  if (!result.success) {
+    throw new Error(result.msg || '加载标签列表失败');
+  }
 
-  const totalRes = await db.collection('inventory')
-    .where(where)
-    .count();
-
-  const res = await db.collection('inventory')
-    .where(where)
-    .field({
-      _id: true,
-      unique_code: true,
-      product_code: true,
-      material_name: true,
-      category: true,
-      subcategory_key: true,
-      sub_category: true,
-      quantity: true,
-      dynamic_attrs: true,
-      expiry_date: true,
-      is_long_term_valid: true,
-      location: true,
-      location_text: true,
-      location_detail: true,
-      zone_key: true
-    })
-    .orderBy('expiry_date', 'asc')
-    .orderBy('create_time', 'asc')
-    .skip((nextPage - 1) * nextPageSize)
-    .limit(nextPageSize)
-    .get();
-
-  const rawList = res.data || [];
+  const rawList = result.list || [];
   const effectiveCategory = String(category || rawList[0]?.category || 'chemical').trim() || 'chemical';
 
   let zoneMap = new Map();
@@ -120,18 +80,24 @@ async function loadBatchLabelPage({
     console.warn('加载库区映射失败', zoneError);
   }
 
-  const materialMap = await loadMaterialMapByProductCodes(
-    rawList.map(item => item.product_code).filter(Boolean)
-  );
+  const materialMap = await loadMaterialMapByProductCodes(result.materials || []);
 
   const list = rawList.map((item) => {
     const materialRecord = materialMap.get(item.product_code) || {};
     const mergedItem = mergeInventoryMaterialData(item, materialRecord);
     const quantityState = getInventoryQuantityDisplayState(mergedItem, materialRecord);
-    const expiryState = getInventoryExpiryAlertState(mergedItem);
+    const expirySource = mergedItem.expiry_date;
+    const isLongTermValid = mergedItem.is_long_term_valid;
+    const expiryState = getInventoryExpiryAlertState({
+      ...mergedItem,
+      expiry_date: expirySource,
+      is_long_term_valid: isLongTermValid
+    });
 
     return {
       ...mergedItem,
+      expiry_date: expirySource,
+      is_long_term_valid: isLongTermValid,
       isExpiring: expiryState.isExpiring,
       expiryBadgeText: expiryState.expiryBadgeText,
       rowTone: expiryState.rowTone,
@@ -142,7 +108,7 @@ async function loadBatchLabelPage({
 
   return {
     list,
-    total: Number(totalRes.total) || list.length
+    total: Number(result.total) || list.length
   };
 }
 

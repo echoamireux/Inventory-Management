@@ -32,23 +32,17 @@ Page({
   async getList() {
     wx.showLoading({ title: '加载中...' });
     try {
-      const db = wx.cloud.database();
-      const pageSize = 100;
-      let skip = 0;
-      let rawList = [];
-
-      while (true) {
-        const res = await db.collection('users')
-          .where({ status: 'active' })
-          .orderBy('create_time', 'desc')
-          .skip(skip)
-          .limit(pageSize)
-          .get();
-
-        rawList = rawList.concat(res.data || []);
-        if (!res.data || res.data.length < pageSize) break;
-        skip += pageSize;
+      const res = await wx.cloud.callFunction({
+        name: 'adminUpdateUserStatus',
+        data: {
+          action: 'listActiveUsers'
+        }
+      });
+      const result = res.result || {};
+      if (!result.success) {
+        throw new Error(result.msg || '加载失败');
       }
+      const rawList = result.list || [];
 
       const list = rawList.map(item => {
         let timeStr = '';
