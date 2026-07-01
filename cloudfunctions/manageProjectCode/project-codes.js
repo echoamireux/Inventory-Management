@@ -143,18 +143,21 @@ async function ensureBuiltinProjectCodes(db) {
     const existing = byCode.get(seed.project_code);
     if (existing && existing._id) {
       const needsRefresh =
-        existing.project_name !== seed.project_name ||
         existing.is_builtin !== true ||
-        existing.sort_order !== seed.sort_order;
+        !existing.project_name ||
+        existing.sort_order <= 0;
       if (needsRefresh) {
-        await collection.doc(existing._id).update({
-          data: {
-            project_name: seed.project_name,
-            is_builtin: true,
-            sort_order: seed.sort_order,
-            updated_at: db.serverDate()
-          }
-        });
+        const data = {
+          is_builtin: true,
+          updated_at: db.serverDate()
+        };
+        if (!existing.project_name) {
+          data.project_name = seed.project_name;
+        }
+        if (existing.sort_order <= 0) {
+          data.sort_order = seed.sort_order;
+        }
+        await collection.doc(existing._id).update({ data });
       }
       continue;
     }

@@ -243,12 +243,12 @@ test('backend: deprecated "其他" can no longer be resolved as a valid new sele
   );
 });
 
-test('backend: ensureBuiltinSubcategories refreshes builtin names and default order from seeds', async () => {
+test('backend: ensureBuiltinSubcategories preserves admin renamed and reordered builtins', async () => {
   const db = createMockDb([
     {
       _id: 'subcat-adhesive',
       subcategory_key: 'builtin:chemical:adhesive',
-      name: '胶水 (Adhesive)',
+      name: '胶水',
       parent_category: 'chemical',
       is_builtin: true,
       status: 'active',
@@ -257,7 +257,7 @@ test('backend: ensureBuiltinSubcategories refreshes builtin names and default or
     {
       _id: 'subcat-film-pppe',
       subcategory_key: 'builtin:film:pp-pe',
-      name: '基材-PP/PE',
+      name: 'BOPP基材',
       parent_category: 'film',
       is_builtin: true,
       status: 'active',
@@ -268,11 +268,11 @@ test('backend: ensureBuiltinSubcategories refreshes builtin names and default or
   const synced = await backendSubcategories.ensureBuiltinSubcategories(db);
   const syncedMap = new Map(synced.map(item => [item.subcategory_key, item]));
 
-  assert.equal(syncedMap.get('builtin:chemical:adhesive').name, '主胶');
-  assert.equal(syncedMap.get('builtin:chemical:adhesive').sort_order, 10);
+  assert.equal(syncedMap.get('builtin:chemical:adhesive').name, '胶水');
+  assert.equal(syncedMap.get('builtin:chemical:adhesive').sort_order, 60);
   assert.equal(syncedMap.get('builtin:chemical:hardener').sort_order, 60);
-  assert.equal(syncedMap.get('builtin:film:pp-pe').name, '基材-BOPP');
-  assert.equal(syncedMap.get('builtin:film:pp-pe').sort_order, 120);
+  assert.equal(syncedMap.get('builtin:film:pp-pe').name, 'BOPP基材');
+  assert.equal(syncedMap.get('builtin:film:pp-pe').sort_order, 130);
   assert.equal(syncedMap.get('builtin:film:pe').name, '基材-PE');
   assert.equal(syncedMap.get('builtin:film:po').name, '基材-PO');
   assert.equal(syncedMap.get('builtin:film:hard-coat').name, '硬化膜');

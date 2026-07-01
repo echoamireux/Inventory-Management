@@ -222,21 +222,24 @@ async function ensureBuiltinSubcategories(db) {
     const existingByKey = byKey.get(seed.subcategory_key);
     if (existingByKey) {
       const needsMetadataRefresh =
-        existingByKey.name !== seed.name ||
         existingByKey.parent_category !== seed.parent_category ||
         existingByKey.is_builtin !== true ||
-        existingByKey.sort_order !== seed.sort_order;
+        !existingByKey.name ||
+        existingByKey.sort_order <= 0;
 
       if (needsMetadataRefresh) {
-        await collection.doc(existingByKey._id).update({
-          data: {
-            name: seed.name,
-            parent_category: seed.parent_category,
-            is_builtin: true,
-            sort_order: seed.sort_order,
-            updated_at: db.serverDate()
-          }
-        });
+        const data = {
+          parent_category: seed.parent_category,
+          is_builtin: true,
+          updated_at: db.serverDate()
+        };
+        if (!existingByKey.name) {
+          data.name = seed.name;
+        }
+        if (existingByKey.sort_order <= 0) {
+          data.sort_order = seed.sort_order;
+        }
+        await collection.doc(existingByKey._id).update({ data });
       }
       continue;
     }

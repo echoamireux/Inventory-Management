@@ -297,6 +297,37 @@ test('ensureBuiltinZones preserves reordered builtin sort order already stored i
   );
 });
 
+test('ensureBuiltinZones preserves admin renamed builtin zone names', async () => {
+  const db = createMockDb([
+    {
+      _id: 'zone-safe-01',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      name: '一号防爆柜',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 20
+    },
+    {
+      _id: 'zone-safe-02',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      name: '二号防爆柜',
+      scope: 'chemical',
+      is_builtin: true,
+      status: 'active',
+      sort_order: 10
+    }
+  ]);
+
+  const synced = await ensureBuiltinZones(db);
+  const syncedMap = new Map(synced.map(item => [item.zone_key, item]));
+
+  assert.equal(syncedMap.get('builtin:chemical:safe-cabinet-01').name, '一号防爆柜');
+  assert.equal(syncedMap.get('builtin:chemical:safe-cabinet-01').sort_order, 20);
+  assert.equal(syncedMap.get('builtin:chemical:safe-cabinet-02').name, '二号防爆柜');
+  assert.equal(syncedMap.get('builtin:chemical:safe-cabinet-02').sort_order, 10);
+});
+
 test('ensureBuiltinZones initializes clean default zone set when collection is empty', async () => {
   const db = createMockDb([]);
 

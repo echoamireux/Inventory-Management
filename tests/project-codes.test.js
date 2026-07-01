@@ -150,6 +150,38 @@ test('project code helpers normalize, sort, and build picker labels', () => {
   );
 });
 
+test('ensureBuiltinProjectCodes preserves admin renamed and reordered builtin projects', async () => {
+  const { db } = createProjectDb({
+    projects: [
+      {
+        _id: 'p1',
+        project_code: 'OR2026RD02001',
+        project_name: '自定义项目一',
+        status: 'active',
+        is_builtin: true,
+        sort_order: 20
+      },
+      {
+        _id: 'p2',
+        project_code: 'OR2026RD02002',
+        project_name: '自定义项目二',
+        status: 'active',
+        is_builtin: true,
+        sort_order: 10
+      }
+    ]
+  });
+
+  const synced = await projectCodes.ensureBuiltinProjectCodes(db);
+  const syncedMap = new Map(synced.map(item => [item.project_code, item]));
+
+  assert.equal(syncedMap.get('OR2026RD02001').project_name, '自定义项目一');
+  assert.equal(syncedMap.get('OR2026RD02001').sort_order, 20);
+  assert.equal(syncedMap.get('OR2026RD02002').project_name, '自定义项目二');
+  assert.equal(syncedMap.get('OR2026RD02002').sort_order, 10);
+  assert.equal(syncedMap.get('OR2026RD05005').project_name, 'OR2026RD05-低爬升硅胶保护膜 19502BL-E3');
+});
+
 test('manageProjectCode allows active users to list and rejects inactive users before seeding', async () => {
   let createCollectionCalled = false;
   const { db } = createProjectDb({
