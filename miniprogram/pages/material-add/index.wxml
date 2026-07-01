@@ -205,15 +205,11 @@
 
         <van-field
           value="{{ form.sample_note }}"
-          placeholder="{{ form.is_test_material ? '选填：颜色、用途、项目等补充信息' : '请输入 (选填)' }}"
+          label="备注"
+          placeholder="请输入 (选填)"
           data-field="sample_note"
           bind:change="onInput"
-        >
-          <view slot="label" class="sample-note-label">
-            <text class="sample-note-label__line">样品说明</text>
-            <text class="sample-note-label__line">备注</text>
-          </view>
-        </van-field>
+        />
 
         <!-- 6. 批号 -->
         <van-field

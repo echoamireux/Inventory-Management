@@ -180,21 +180,6 @@
   line-height: 1.6;
 }
 
-.sample-note-label {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 44rpx;
-  font-size: 28rpx;
-  line-height: 1.35;
-  color: var(--color-text-primary);
-}
-
-.sample-note-label__line {
-  display: block;
-  white-space: nowrap;
-}
-
 .material-add-panel {
   animation: panelFadeIn 0.2s ease-out;
   transform-origin: top center;

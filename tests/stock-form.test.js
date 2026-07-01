@@ -205,7 +205,7 @@ test('active business pages use the updated validation and management wording', 
   assert.match(zoneManageWxml, /历史库存记录仍保留原库区信息/);
 });
 
-test('manual stock-in keeps test-material hints lightweight and sample note label polished', () => {
+test('manual stock-in keeps test-material hints lightweight and remark label standard', () => {
   const materialAddWxml = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
     'utf8'
@@ -218,11 +218,11 @@ test('manual stock-in keeps test-material hints lightweight and sample note labe
   assert.doesNotMatch(materialAddWxml, /测试料入库必须填写原厂型号和生产批号/);
   assert.match(materialAddWxml, /required="\{\{ form\.is_test_material \}\}"/);
   assert.match(materialAddWxml, /placeholder="\{\{ form\.is_test_material \? '测试料必填' : '请输入 \(选填\)' \}\}"/);
-  assert.match(materialAddWxml, /class="sample-note-label"/);
-  assert.match(materialAddWxml, /样品说明[\s\S]*备注/);
+  assert.match(materialAddWxml, /label="备注"/);
+  assert.doesNotMatch(materialAddWxml, /样品说明/);
+  assert.doesNotMatch(materialAddWxml, /sample-note-label/);
   assert.doesNotMatch(materialAddWxml, /label="样品说明\/备注"/);
-  assert.match(materialAddWxss, /\.sample-note-label\s*\{/);
-  assert.match(materialAddWxss, /\.sample-note-label__line\s*\{/);
+  assert.doesNotMatch(materialAddWxss, /\.sample-note-label/);
 });
 
 test('fixed bottom form pages reserve scroll space above action bars', () => {
