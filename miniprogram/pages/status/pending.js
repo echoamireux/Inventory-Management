@@ -1,6 +1,6 @@
 Page({
   data: {
-    status: 'pending', // pending | rejected
+    status: 'pending', // pending | rejected | disabled
     reason: ''
   },
 

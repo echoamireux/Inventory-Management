@@ -165,6 +165,32 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(adminLogsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
 });
 
+test('grouped inventory search keeps full product totals while using search only for matching', () => {
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+
+  assert.match(groupedCf, /const baseConditions = \[\{ status: 'in_stock' \}\]/);
+  assert.match(groupedCf, /const searchConditions = baseConditions\.slice\(\)/);
+  assert.match(groupedCf, /const matchedSourceItems = await loadInventoryGroupSourceItems\(where\)/);
+  assert.match(groupedCf, /const matchedProductCodes = new Set/);
+  assert.match(groupedCf, /const groupSourceItems = regex \? await loadInventoryGroupSourceItems\(baseWhere\) : matchedSourceItems/);
+  assert.match(groupedCf, /matchedProductCodes\.has\(item\.product_code\)/);
+  assert.match(groupedCf, /loadInventoryItemsByProductCodes\(baseWhere, pageCodes\)/);
+  assert.doesNotMatch(groupedCf, /loadInventoryItemsByProductCodes\(where, pageCodes\)/);
+  assert.doesNotMatch(groupedCf, /OFFSET_MS|currentRescaled|getTime\(\)\s*\+\s*8\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+});
+
+test('app user status check surfaces retry and routes disabled users away from business pages', () => {
+  const appJs = read('miniprogram/app.js');
+  const pendingWxml = read('miniprogram/pages/status/pending.wxml');
+  const pendingJs = read('miniprogram/pages/status/pending.js');
+
+  assert.match(appJs, /USER_STATUS\.DISABLED[\s\S]*wx\.reLaunch\(\{\s*url:\s*['"`]\/pages\/status\/pending\?status=disabled/);
+  assert.match(appJs, /wx\.showModal\(\{[\s\S]*身份校验失败[\s\S]*confirmText:\s*['"]重试['"][\s\S]*this\.checkUserStatus\(\)/);
+  assert.match(pendingWxml, /账号已禁用/);
+  assert.match(pendingWxml, /请联系管理员处理/);
+  assert.match(pendingJs, /pending \| rejected \| disabled/);
+});
+
 test('inventory change token propagates from detail page back to list pages', () => {
   const appJs = read('miniprogram/app.js');
   const detailJs = read('miniprogram/pages/inventory-detail/index.js');

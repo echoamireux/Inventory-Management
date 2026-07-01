@@ -186,14 +186,15 @@ exports.main = async (event, context) => {
       return { success: false, msg: authResult.msg };
     }
 
-    const conditions = [{ status: 'in_stock' }];
+    const baseConditions = [{ status: 'in_stock' }];
     if (category) {
-      conditions.push({ category: category });
+      baseConditions.push({ category: category });
     }
 
     const regex = buildContainsRegExp(db, searchVal);
+    const searchConditions = baseConditions.slice();
     if (regex) {
-      conditions.push(_.or([
+      searchConditions.push(_.or([
         { material_name: regex },
         { product_code: regex },
         { batch_number: regex },
@@ -205,15 +206,21 @@ exports.main = async (event, context) => {
         { location_text: regex }
       ]));
     }
-    const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
+    const baseWhere = baseConditions.length === 1 ? baseConditions[0] : _.and(baseConditions);
+    const where = searchConditions.length === 1 ? searchConditions[0] : _.and(searchConditions);
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
     const zoneMap = buildZoneMap(zoneRecords);
     const subcategoryRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
-    const groupSourceItems = await loadInventoryGroupSourceItems(where);
-    const groups = buildInventoryGroups(groupSourceItems, zoneMap);
+    const matchedSourceItems = await loadInventoryGroupSourceItems(where);
+    const matchedProductCodes = new Set(
+      matchedSourceItems.map(item => item.product_code || '无产品代码')
+    );
+    const groupSourceItems = regex ? await loadInventoryGroupSourceItems(baseWhere) : matchedSourceItems;
+    const groups = buildInventoryGroups(groupSourceItems, zoneMap)
+      .filter(item => !regex || matchedProductCodes.has(item.product_code));
 
     const productCodes = groups
       .map(item => item.product_code)
@@ -307,7 +314,7 @@ exports.main = async (event, context) => {
     const pageCodes = list
       .map(item => item.product_code)
       .filter(code => code && code !== '无产品代码');
-    const pageItemsMap = await loadInventoryItemsByProductCodes(where, pageCodes);
+    const pageItemsMap = await loadInventoryItemsByProductCodes(baseWhere, pageCodes);
     list.forEach((item) => {
       const items = pageItemsMap.get(item.product_code) || [];
       const material = materialMap.get(item.product_code) || {};
@@ -337,28 +344,14 @@ exports.main = async (event, context) => {
 };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
 
 function checkExpiring(dateStr, category) {
     if (!dateStr) return false;
 
-    // 1. Current Time (Shifted to CST View)
-    // We add 8 hours to UTC time so that "08:00 UTC" becomes "16:00 CST" (numeric value shift)
-    // But importantly, "00:00 UTC" becomes "08:00 CST".
-    // Wait, we want to align with "Target Date String".
-    // "2023-12-31" parses to "2023-12-31 00:00:00 UTC".
-    // In our "Shifted View", this represents "2023-12-31 00:00:00 Beijing".
-    // So we need to shift NOW by 8 hours to match this "View".
-
-    const now = new Date();
-    const currentRescaled = now.getTime() + OFFSET_MS;
-
     const target = new Date(dateStr);
     if (isNaN(target.getTime())) return false;
 
-    // 2. Calc Diff in "Shifted/Visual" Timeline
-    // Target (Visual 00:00) - Now (Visual CST Time)
-    const diff = target.getTime() - currentRescaled;
+    const diff = target.getTime() - Date.now();
 
     const days = Math.ceil(diff / ONE_DAY_MS);
     return days <= ALERT_CONFIG.EXPIRY_DAYS;

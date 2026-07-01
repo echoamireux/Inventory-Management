@@ -66,10 +66,9 @@ App({
            }
         } else if (user.status === USER_STATUS.DISABLED) {
            // C: 已禁用
-           wx.showModal({
-             title: '账号已禁用',
-             content: '请联系管理员',
-           });
+           if (this.getActivePageName() !== 'pages/status/pending') {
+              wx.reLaunch({ url: '/pages/status/pending?status=disabled' });
+           }
         } else if (user.status === USER_STATUS.REJECTED) {
            // D: 已拒绝
            if (this.getActivePageName() !== 'pages/status/pending') {
@@ -89,7 +88,17 @@ App({
 
     } catch (err) {
       console.error('身份校验对失败:', err);
-      // 网络错误等可以提供重试按钮，这里简单处理
+      wx.showModal({
+        title: '身份校验失败',
+        content: '请检查网络连接或确认云函数已部署后重试。',
+        confirmText: '重试',
+        cancelText: '稍后',
+        success: (res) => {
+          if (res.confirm) {
+            this.checkUserStatus();
+          }
+        }
+      });
     } finally {
       wx.hideLoading();
     }
