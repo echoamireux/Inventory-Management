@@ -9,14 +9,17 @@ const OFFSET_MS = 8 * 60 * 60 * 1000;
 
 const LABEL_EXPORT_TEMPLATE_TYPES = {
   film: '膜材信息标签',
-  chemical_std: '化材标准瓶信息标签',
-  chemical_mini: '化材小瓶信息标签'
+  chemical: '化材标签'
 };
 
 const LABEL_EXPORT_HEADERS = {
   film: ['标签编号', '二维码内容', '产品代码', '物料名称', '子类别', '原厂型号', '厚度', '幅宽'],
-  chemical_std: ['标签编号', '二维码内容', '产品代码', '物料名称', '原厂型号'],
-  chemical_mini: ['标签编号', '二维码内容', '产品代码', '原厂型号']
+  chemical: ['标签编号', '二维码内容', '产品代码', '原厂型号']
+};
+
+const LEGACY_TEMPLATE_TYPE_MAP = {
+  chemical_std: 'chemical',
+  chemical_mini: 'chemical'
 };
 
 function pad(value) {
@@ -68,10 +71,11 @@ function normalizePositiveNumber(value) {
 
 function normalizeTemplateType(templateType = 'film') {
   const normalized = String(templateType || '').trim().toLowerCase();
-  if (!Object.prototype.hasOwnProperty.call(LABEL_EXPORT_TEMPLATE_TYPES, normalized)) {
+  const mapped = LEGACY_TEMPLATE_TYPE_MAP[normalized] || normalized;
+  if (!Object.prototype.hasOwnProperty.call(LABEL_EXPORT_TEMPLATE_TYPES, mapped)) {
     throw new Error('无效的信息标签模板类型');
   }
-  return normalized;
+  return mapped;
 }
 
 function resolveTemplateLabel(templateType = 'film') {
@@ -151,40 +155,20 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
   const productCode = String(item.product_code || material.product_code || '').trim() || '--';
   const materialName = String(item.material_name || material.material_name || material.name || '').trim() || '--';
   const supplierModel = String(item.supplier_model || material.supplier_model || '').trim();
-  const sampleNote = String(item.sample_note || '').trim();
-  const isTestMaterial = !!(item.is_test_material || material.is_test_material);
 
-  if (normalizedType === 'chemical_mini') {
-    const row = {
+  if (normalizedType === 'chemical') {
+    return {
       标签编号: uniqueCode,
       二维码内容: qrContent,
       产品代码: productCode,
       原厂型号: supplierModel
     };
-    if (isTestMaterial && sampleNote) {
-      row.样品说明 = sampleNote;
-    }
-    return row;
-  }
-
-  if (normalizedType === 'chemical_std') {
-    const row = {
-      标签编号: uniqueCode,
-      二维码内容: qrContent,
-      产品代码: productCode,
-      物料名称: materialName,
-      原厂型号: supplierModel
-    };
-    if (isTestMaterial && sampleNote) {
-      row.样品说明 = sampleNote;
-    }
-    return row;
   }
 
   const filmSpecParts = resolveFilmSpecParts(item, material);
   const subCategory = String(item.sub_category || material.sub_category || '').trim() || '--';
 
-  const row = {
+  return {
     标签编号: uniqueCode,
     二维码内容: qrContent,
     产品代码: productCode,
@@ -194,10 +178,6 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
     厚度: filmSpecParts.thicknessLabel,
     幅宽: filmSpecParts.widthLabel
   };
-  if (isTestMaterial && sampleNote) {
-    row.样品说明 = sampleNote;
-  }
-  return row;
 }
 
 function sortLabelExportRecordsBySelection(records = [], selectedIds = []) {
@@ -231,26 +211,14 @@ function buildThinBorder() {
 
 function buildColumnWidths(templateType = 'film') {
   const normalizedType = normalizeTemplateType(templateType);
-  if (normalizedType === 'chemical_mini') {
+  if (normalizedType === 'chemical') {
     return [16, 16, 16, 20];
   }
-  if (normalizedType === 'chemical_std') {
-    return [16, 16, 16, 28, 20];
-  }
-  return [16, 16, 16, 28, 16, 20, 12, 12, 18, 16];
+  return [16, 16, 16, 28, 16, 20, 12, 12];
 }
 
-function buildWorkbookHeaders(templateType, rows = []) {
-  const baseHeaders = LABEL_EXPORT_HEADERS[normalizeTemplateType(templateType)] || [];
-  const headers = baseHeaders.slice();
-  (Array.isArray(rows) ? rows : []).forEach((row) => {
-    Object.keys(row || {}).forEach((key) => {
-      if (!headers.includes(key)) {
-        headers.push(key);
-      }
-    });
-  });
-  return headers;
+function buildWorkbookHeaders(templateType) {
+  return (LABEL_EXPORT_HEADERS[normalizeTemplateType(templateType)] || []).slice();
 }
 
 async function buildLabelExportWorkbook({

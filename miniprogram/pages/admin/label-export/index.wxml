@@ -22,16 +22,12 @@
         border="{{ false }}"
       >
         <van-tab title="膜材信息标签" name="film"></van-tab>
-        <van-tab title="化材标准瓶信息标签" name="chemical_std"></van-tab>
-        <van-tab title="化材小瓶信息标签" name="chemical_mini"></van-tab>
+        <van-tab title="化材标签" name="chemical"></van-tab>
       </van-tabs>
       <view class="template-fields-preview">
         <view class="template-fields-preview__label">本模板将打印字段</view>
         <view wx:if="{{ templateType === 'film' }}" class="template-fields-preview__text">
           标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽
-        </view>
-        <view wx:elif="{{ templateType === 'chemical_std' }}" class="template-fields-preview__text">
-          标签编号、二维码内容、产品代码、物料名称、原厂型号
         </view>
         <view wx:else class="template-fields-preview__text">
           标签编号、二维码内容、产品代码、原厂型号
@@ -145,6 +141,9 @@
       </view>
 
       <view class="form-section-title">可选补充信息</view>
+      <view class="optional-info-hint">
+        供应商和备注会保存到系统快照，用于扫码入库自动带出和追溯，不打印在标签上。
+      </view>
       <view class="form-grid optional-grid">
         <view class="form-item">
           <view class="field-label">供应商</view>
@@ -156,10 +155,10 @@
           />
         </view>
         <view class="form-item">
-          <view class="field-label">样品说明</view>
+          <view class="field-label">备注</view>
           <van-field
             value="{{ preprintForm.sample_note }}"
-            placeholder="选填，测试料可写送样说明"
+            placeholder="选填，用于入库追溯"
             data-field="sample_note"
             bind:change="onPreprintFieldChange"
           />
@@ -229,7 +228,7 @@
             <view class="recent-preprint-card__count">{{ item.count }} 个</view>
           </view>
           <view class="recent-preprint-card__meta">
-            <text>{{ item.template_type === 'film' ? '膜材标签' : (item.template_type === 'chemical_std' ? '化材标准瓶' : '化材小瓶') }}</text>
+            <text>{{ item.template_type === 'film' ? '膜材标签' : '化材标签' }}</text>
             <text wx:if="{{ item.supplier_model }}">原厂型号 {{ item.supplier_model }}</text>
             <text>{{ item.start_code }}{{ item.end_code && item.end_code !== item.start_code ? (' - ' + item.end_code) : '' }}</text>
             <text>未入库 {{ item.unused_count }} / 已入库 {{ item.used_count }}</text>

@@ -44,6 +44,18 @@ test('single stock-in page applies preprinted label snapshots when opened with a
   assert.match(pageJs, /未识别预生成标签，请手动填写物料信息/);
 });
 
+test('single stock-in page applies preprinted label snapshots after manual label entry', () => {
+  const pageJs = read('miniprogram/pages/material-add/index.js');
+  const blurMatch = pageJs.match(/async onLabelCodeBlur\(\) \{[\s\S]*?\n  \},\n\n  async checkDuplicateLabelCode/);
+
+  assert.ok(blurMatch, 'onLabelCodeBlur block should be present');
+  assert.match(blurMatch[0], /await this\.checkDuplicateLabelCode\(normalizedLabelCode/);
+  assert.match(blurMatch[0], /await this\.loadPreprintLabel\(normalizedLabelCode\)/);
+  assert.match(blurMatch[0], /await this\.applyPreprintLabel\(preprintLabel\)/);
+  assert.match(blurMatch[0], /未识别预生成标签，请手动填写物料信息/);
+  assert.match(blurMatch[0], /预生成标签不可用/);
+});
+
 test('batch stock-in page validates scanned preprinted labels against the selected material', () => {
   const pageJs = read('miniprogram/pages/material-add/batch-entry.js');
   const utilJs = read('miniprogram/utils/batch-entry.js');

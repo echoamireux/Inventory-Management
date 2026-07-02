@@ -598,7 +598,27 @@ Page({
       return;
     }
 
-    await this.checkDuplicateLabelCode(normalizedLabelCode);
+    const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode);
+    if (duplicateResult.duplicated || duplicateResult.existingItem) {
+      return;
+    }
+
+    try {
+      const preprintLabel = await this.loadPreprintLabel(normalizedLabelCode);
+      if (preprintLabel) {
+        await this.applyPreprintLabel(preprintLabel);
+        return;
+      }
+      this.setData({
+        labelCodeNotice: '未识别预生成标签，请手动填写物料信息'
+      });
+    } catch (error) {
+      await Dialog.alert({
+        title: '预生成标签不可用',
+        message: error.message || '该标签不能用于入库',
+        messageAlign: 'left'
+      });
+    }
   },
 
   async checkDuplicateLabelCode(uniqueCode, options = {}) {

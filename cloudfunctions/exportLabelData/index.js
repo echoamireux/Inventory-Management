@@ -24,6 +24,7 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
+const CHEMICAL_TEMPLATE_TYPES = ['chemical', 'chemical_std', 'chemical_mini'];
 
 async function getOperator(openid) {
   const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
@@ -158,7 +159,10 @@ async function getPreprintRecordsByJob(jobId, operatorOpenid, templateType = '')
     operator_id: operatorOpenid
   };
   if (templateType) {
-    where.template_type = normalizeTemplateType(templateType);
+    const normalizedTemplateType = normalizeTemplateType(templateType);
+    where.template_type = normalizedTemplateType === 'chemical'
+      ? _.in(CHEMICAL_TEMPLATE_TYPES)
+      : normalizedTemplateType;
   }
 
   const res = await db.collection('preprinted_labels')
@@ -465,7 +469,12 @@ async function listPreprintJobs(data = {}, operatorOpenid = '') {
   const conditions = operatorOpenid ? [{ operator_id: operatorOpenid }] : [];
 
   if (data.templateType) {
-    conditions.push({ template_type: normalizeTemplateType(data.templateType) });
+    const normalizedTemplateType = normalizeTemplateType(data.templateType);
+    conditions.push({
+      template_type: normalizedTemplateType === 'chemical'
+        ? _.in(CHEMICAL_TEMPLATE_TYPES)
+        : normalizedTemplateType
+    });
   }
   if (searchRegex) {
     conditions.push(_.or([
@@ -506,7 +515,9 @@ async function listRecentPreprintJobs(data = {}, operatorOpenid = '') {
       operator_id: operatorOpenid
     };
     if (templateType) {
-      where.template_type = templateType;
+      where.template_type = templateType === 'chemical'
+        ? _.in(CHEMICAL_TEMPLATE_TYPES)
+        : templateType;
     }
     const res = await db.collection('preprinted_labels')
       .where(where)

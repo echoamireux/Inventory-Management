@@ -78,8 +78,7 @@ test('label export result exposes failed cloud payload for recoverable preprint 
 test('label export keeps template types explicit and business-readable', () => {
   assert.deepEqual(LABEL_EXPORT_TEMPLATE_TYPES, {
     film: '膜材信息标签',
-    chemical_std: '化材标准瓶信息标签',
-    chemical_mini: '化材小瓶信息标签'
+    chemical: '化材标签'
   });
 });
 
@@ -91,8 +90,12 @@ test('label export file names include the selected template label and CST timest
     '膜材信息标签_20260324_1522.xlsx'
   );
   assert.equal(
+    buildLabelExportFileName('chemical', exportedAt),
+    '化材标签_20260324_1522.xlsx'
+  );
+  assert.equal(
     buildLabelExportFileName('chemical_std', exportedAt),
-    '化材标准瓶信息标签_20260324_1522.xlsx'
+    '化材标签_20260324_1522.xlsx'
   );
   assert.equal(
     buildLabelExportFileName('film', exportedAt, { startLabelCode: 'L000033' }),
@@ -134,62 +137,126 @@ test('film label export row keeps only static preprint fields and resolves lates
   assert.ok(!Object.prototype.hasOwnProperty.call(row, '过期日期'));
 });
 
-test('chemical label export rows stay minimal for standard and mini bottle templates', () => {
-  const standardRow = buildLabelExportRow('chemical_std', {
+test('chemical label export row stays minimal and normalizes legacy bottle templates', () => {
+  const chemicalRow = buildLabelExportRow('chemical', {
     unique_code: 'L000101',
     product_code: 'J-001',
-    material_name: '丙酮分析纯'
+    material_name: '丙酮分析纯',
+    supplier: '供应商A',
+    sample_note: '内部打样备注'
   }, {});
-  const miniRow = buildLabelExportRow('chemical_mini', {
+  const legacyStandardRow = buildLabelExportRow('chemical_std', {
     unique_code: 'L000105',
     product_code: 'J-003',
-    material_name: '固化剂B'
+    material_name: '固化剂B',
+    supplier_model: 'CHEM-X'
+  }, {});
+  const legacyMiniRow = buildLabelExportRow('chemical_mini', {
+    unique_code: 'L000106',
+    product_code: 'J-004',
+    material_name: '助剂C',
+    supplier_model: 'CHEM-Y'
   }, {});
 
-  assert.deepEqual(standardRow, {
+  assert.deepEqual(chemicalRow, {
     标签编号: 'L000101',
     二维码内容: 'L000101',
     产品代码: 'J-001',
-    物料名称: '丙酮分析纯',
     原厂型号: ''
   });
-  assert.deepEqual(miniRow, {
+  assert.deepEqual(legacyStandardRow, {
     标签编号: 'L000105',
     二维码内容: 'L000105',
     产品代码: 'J-003',
-    原厂型号: ''
+    原厂型号: 'CHEM-X'
+  });
+  assert.deepEqual(legacyMiniRow, {
+    标签编号: 'L000106',
+    二维码内容: 'L000106',
+    产品代码: 'J-004',
+    原厂型号: 'CHEM-Y'
   });
 });
 
-test('label export includes source model and sample note for test materials', () => {
+test('label export keeps supplier and notes out of printable label rows', () => {
   const filmRow = buildLabelExportRow('film', {
     unique_code: 'L000901',
     product_code: 'M-999',
     material_name: '测试料-膜材',
     sub_category: '保护膜',
-    batch_number: 'TEST-F01',
     is_test_material: true,
     supplier_model: 'TEST-FILM-01',
+    supplier: '供应商A',
     sample_note: '客户A送样，雾面白膜',
     dynamic_attrs: {
       width_mm: 520,
       thickness_um: 50
-    },
-    is_long_term_valid: true
+    }
   }, {});
-  const chemicalRow = buildLabelExportRow('chemical_std', {
+  const chemicalRow = buildLabelExportRow('chemical', {
     unique_code: 'L000902',
     product_code: 'J-999',
     material_name: '测试料-化材',
     is_test_material: true,
     supplier_model: 'TEST-CHEM-01',
+    supplier: '供应商B',
     sample_note: '透明液体，客户B打样'
   }, {});
 
   assert.equal(filmRow.原厂型号, 'TEST-FILM-01');
   assert.equal(chemicalRow.原厂型号, 'TEST-CHEM-01');
-  assert.equal(filmRow.样品说明, '客户A送样，雾面白膜');
-  assert.equal(chemicalRow.样品说明, '透明液体，客户B打样');
+  assert.ok(!Object.prototype.hasOwnProperty.call(filmRow, '供应商'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(filmRow, '样品说明'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '物料名称'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '供应商'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '样品说明'));
+});
+
+test('preprint export rows keep chemical labels to approved printable fields', () => {
+  const row = buildPreprintLabelExportRow({
+    template_type: 'chemical_mini',
+    unique_code: 'L000020',
+    qr_content: 'L000020',
+    product_code: 'J-999',
+    material_name: '测试料-化材',
+    supplier_model: 'TEST-CHEM-02',
+    sample_note: '小瓶评估样',
+    is_test_material: true
+  });
+
+  assert.deepEqual(row, {
+    标签编号: 'L000020',
+    二维码内容: 'L000020',
+    产品代码: 'J-999',
+    原厂型号: 'TEST-CHEM-02'
+  });
+});
+
+test('chemical label workbook exposes a single BarTender-ready sheet with approved fields', async () => {
+  const workbook = await buildLabelExportWorkbook({
+    templateType: 'chemical',
+    exportedAt: new Date('2026-03-24T07:22:52.000Z'),
+    rows: [
+      {
+        标签编号: 'L000301',
+        二维码内容: 'L000301',
+        产品代码: 'J-999',
+        原厂型号: 'TEST-CHEM-01',
+        样品说明: '不应进入模板'
+      }
+    ]
+  });
+
+  const sheet = workbook.getWorksheet('化材标签');
+  assert.ok(sheet);
+  assert.equal(workbook.worksheets.length, 1);
+  assert.deepEqual(sheet.getRow(1).values.slice(1), [
+    '标签编号',
+    '二维码内容',
+    '产品代码',
+    '原厂型号'
+  ]);
+  assert.equal(sheet.getCell('E1').value, null);
 });
 
 test('preprint label code generator skips inventory and historical preprint codes', () => {
@@ -368,27 +435,6 @@ test('preprint request signature only treats identical generation parameters as 
       width_mm: '530'
     }
   }));
-});
-
-test('preprint export rows include qr content and template-specific source model', () => {
-  const row = buildPreprintLabelExportRow({
-    template_type: 'chemical_mini',
-    unique_code: 'L000020',
-    qr_content: 'L000020',
-    product_code: 'J-999',
-    material_name: '测试料-化材',
-    supplier_model: 'TEST-CHEM-02',
-    sample_note: '小瓶评估样',
-    is_test_material: true
-  });
-
-  assert.deepEqual(row, {
-    标签编号: 'L000020',
-    二维码内容: 'L000020',
-    产品代码: 'J-999',
-    原厂型号: 'TEST-CHEM-02',
-    样品说明: '小瓶评估样'
-  });
 });
 
 test('label export preserves the user-selected record order when generating print data', () => {

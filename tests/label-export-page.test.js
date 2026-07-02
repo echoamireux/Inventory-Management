@@ -47,11 +47,13 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /预生成打印标签/);
   assert.match(pageWxml, /补打已入库标签/);
   assert.match(pageWxml, /膜材信息标签/);
-  assert.match(pageWxml, /化材标准瓶信息标签/);
-  assert.match(pageWxml, /化材小瓶信息标签/);
+  assert.match(pageWxml, /化材标签/);
+  assert.doesNotMatch(pageWxml, /化材标准瓶信息标签/);
+  assert.doesNotMatch(pageWxml, /化材小瓶信息标签/);
+  assert.doesNotMatch(pageWxml, /name="chemical_std"/);
+  assert.doesNotMatch(pageWxml, /name="chemical_mini"/);
   assert.match(pageWxml, /本模板将打印字段/);
   assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽/);
-  assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、原厂型号/);
   assert.match(pageWxml, /标签编号、二维码内容、产品代码、原厂型号/);
   assert.match(pageWxml, /生产批号\/批次、库位、数量和过期日期在扫码入库或批量入库时填写/);
   assert.match(pageWxml, /可选补充信息/);

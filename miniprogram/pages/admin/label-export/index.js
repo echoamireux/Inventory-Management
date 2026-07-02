@@ -8,8 +8,7 @@ const {
 
 const TEMPLATE_CATEGORY_MAP = {
   film: 'film',
-  chemical_std: 'chemical',
-  chemical_mini: 'chemical'
+  chemical: 'chemical'
 };
 
 function resolveSearchValue(detail) {

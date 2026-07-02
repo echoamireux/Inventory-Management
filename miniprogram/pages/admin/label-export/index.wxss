@@ -179,6 +179,13 @@
   margin-top: 2px;
 }
 
+.optional-info-hint {
+  margin: 4px 2px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 .form-item {
   min-width: 0;
 }
