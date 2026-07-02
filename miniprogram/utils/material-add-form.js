@@ -56,7 +56,7 @@ function syncFormWithMaterialMaster(form, activeTab, item, prefix) {
   const itemSpecs = item && item.specs ? item.specs : {};
 
   nextForm.product_code = stripProductCodePrefix(item && item.product_code, prefix) || form.product_code || '';
-  nextForm.name = item && item.name ? item.name : '';
+  nextForm.name = item && (item.material_name || item.name) ? (item.material_name || item.name) : '';
   nextForm.supplier = item && item.supplier ? item.supplier : '';
   nextForm.supplier_model = item && item.supplier_model ? item.supplier_model : '';
   nextForm.is_test_material = !!(item && item.is_test_material);

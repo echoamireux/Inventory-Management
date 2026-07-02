@@ -6,7 +6,8 @@ const path = require('node:path');
 const {
   buildContinueEntryForm,
   buildProductCodeResetForm,
-  buildEmptyRequestForm
+  buildEmptyRequestForm,
+  syncFormWithMaterialMaster
 } = require('../miniprogram/utils/material-add-form');
 const {
   resolveFilmThicknessGovernance
@@ -60,6 +61,27 @@ test('save-and-continue re-syncs film thickness from material master instead of 
   assert.equal(nextForm.is_long_term_valid, false);
   assert.equal(nextForm.length_m, '');
   assert.equal(nextForm.zone_key, 'builtin:film:research-warehouse-01');
+});
+
+test('material master sync maps standard material_name into the stock-in form name', () => {
+  const nextForm = syncFormWithMaterialMaster({
+    product_code: '',
+    name: '',
+    unit: ''
+  }, 'chemical', {
+    product_code: 'J-999',
+    material_name: '测试料',
+    supplier: '三和涂料',
+    supplier_model: 'SA-810',
+    sub_category: '测试料',
+    unit: 'kg'
+  }, 'J-');
+
+  assert.equal(nextForm.product_code, '999');
+  assert.equal(nextForm.name, '测试料');
+  assert.equal(nextForm.supplier, '三和涂料');
+  assert.equal(nextForm.supplier_model, 'SA-810');
+  assert.equal(nextForm.sub_category, '测试料');
 });
 
 test('film thickness governance rejects inbound thickness that conflicts with locked master data', () => {
