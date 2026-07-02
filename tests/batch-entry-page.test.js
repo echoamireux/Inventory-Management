@@ -95,7 +95,7 @@ test('batch entry detects duplicate scanned label codes before submit', () => {
 });
 
 test('batch entry empty-state copy changes with whether a material template is selected', () => {
-  assert.equal(buildBatchEmptyState(false), '请先选择产品代码');
+  assert.equal(buildBatchEmptyState(false), '可扫描预生成标签，或先选择产品代码');
   assert.equal(buildBatchEmptyState(true), '暂无条目，请开始连续扫描标签');
 });
 
@@ -258,7 +258,7 @@ test('batch submit payload preserves preprint label metadata for generated label
   assert.equal(items[0].sample_note, '小样');
 });
 
-test('batch entry page requires a selected material template before scanning labels', () => {
+test('batch entry page allows preprinted labels to select the material before scanning labels', () => {
   const pageJs = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),
     'utf8'
@@ -268,11 +268,13 @@ test('batch entry page requires a selected material template before scanning lab
     'utf8'
   );
 
-  assert.match(pageJs, /请先选择产品代码/);
+  assert.match(pageJs, /非预生成标签请先选择产品代码/);
+  assert.match(pageJs, /applyPreprintMaterialSelection/);
   assert.doesNotMatch(pageJs, /generateUniqueCode/);
   assert.match(pageJs, /Dialog\.alert/);
   assert.match(pageWxml, /当前物料/);
   assert.match(pageWxml, /标签编号/);
+  assert.doesNotMatch(pageWxml, /disabled="\{\{ !selectedMaterial/);
   assert.match(pageWxml, /规格确认/);
   assert.match(pageWxml, /主数据厚度\(μm\)/);
   assert.match(pageWxml, /主数据默认幅宽/);

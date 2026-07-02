@@ -313,10 +313,44 @@ Page({
 
       const list = res.result.list || [];
       if (!list || list.length === 0) {
-        // 分支 A: 标签不存在 -> 提示入库
+        let preprintLabel = null;
+        try {
+          const preprintRes = await wx.cloud.callFunction({
+            name: 'exportLabelData',
+            data: {
+              action: 'getPreprintLabel',
+              data: {
+                unique_code: normalizedLabelCode
+              }
+            }
+          });
+
+          if (!preprintRes.result || !preprintRes.result.success) {
+            throw new Error((preprintRes.result && preprintRes.result.msg) || '预生成标签校验失败');
+          }
+
+          preprintLabel = preprintRes.result.data || null;
+        } catch (error) {
+          await Dialog.alert({
+            title: '预生成标签不可用',
+            message: error.message || '该标签不能用于入库',
+            messageAlign: 'left'
+          });
+          return;
+        }
+
+        if (preprintLabel) {
+          Toast.success('已识别预生成标签');
+          wx.navigateTo({
+            url: `/pages/material-add/index?id=${normalizedLabelCode}&from=preprint`
+          });
+          return;
+        }
+
+        // 分支 A: 标签不存在且不是预生成标签 -> 应急手动入库
         Dialog.confirm({
           title: "标签未录入",
-          message: `标签 ${normalizedLabelCode} 尚未绑定物料，是否立即入库？`,
+          message: `标签 ${normalizedLabelCode} 未识别预生成标签，请手动填写物料信息。是否进入手动入库？`,
           confirmButtonText: "去入库",
           confirmButtonColor: "#2C68FF"
         }).then(() => {

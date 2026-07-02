@@ -144,6 +144,8 @@ Page({
 
   onLoad(options) {
       const app = getApp();
+      let routeLabelCode = '';
+      let routeLabelFromPreprint = false;
 
       if (options) {
           if (options.id) {
@@ -154,6 +156,8 @@ Page({
                   labelCodeError: '',
                   labelCodeNotice: ''
               });
+              routeLabelCode = normalizedLabelCode;
+              routeLabelFromPreprint = options.from === 'preprint';
           }
           if (options.product_code) {
               this.setData({ 'form.product_code': options.product_code });
@@ -178,6 +182,12 @@ Page({
       // Load Zones from DB
       this.loadZones();
       this._pageInitialized = true;
+
+      if (routeLabelCode) {
+          this.initializeScannedLabelCode(routeLabelCode, {
+              fromPreprint: routeLabelFromPreprint
+          });
+      }
   },
 
   onShow() {
@@ -884,6 +894,36 @@ Page({
       return list.find((item) => item.product_code === productCode) || null;
   },
 
+  async fetchMaterialForPreprint(record, productCode) {
+      const queryData = record && record.material_id
+          ? { id: record.material_id }
+          : { product_code: productCode };
+      const res = await wx.cloud.callFunction({
+          name: 'manageMaterial',
+          data: {
+              action: 'get',
+              data: queryData
+          }
+      });
+
+      if (!(res.result && res.result.success && res.result.data)) {
+          throw new Error((res.result && res.result.msg) || `预生成标签对应物料 ${productCode} 不存在`);
+      }
+
+      const material = res.result.data;
+      if (record.material_id && material._id && record.material_id !== material._id) {
+          throw new Error('预生成标签不属于当前物料');
+      }
+      if (material.product_code && material.product_code !== productCode) {
+          throw new Error('预生成标签不属于当前物料');
+      }
+      if (record.category && material.category && record.category !== material.category) {
+          throw new Error('预生成标签类型与当前物料不一致');
+      }
+
+      return material;
+  },
+
   async loadPreprintLabel(uniqueCode) {
       const res = await wx.cloud.callFunction({
           name: 'exportLabelData',
@@ -900,6 +940,42 @@ Page({
       }
 
       return res.result.data || null;
+  },
+
+  async initializeScannedLabelCode(normalizedLabelCode, options = {}) {
+      if (!isValidLabelCode(normalizedLabelCode)) {
+          this.setData({
+              labelCodeError: '标签编号格式不正确，应为 L + 6位数字',
+              labelCodeNotice: ''
+          });
+          return;
+      }
+
+      const duplicateResult = await this.checkDuplicateLabelCode(normalizedLabelCode, { showDialog: false });
+      if (duplicateResult.duplicated) {
+          return;
+      }
+
+      try {
+          const preprintLabel = await this.loadPreprintLabel(normalizedLabelCode);
+          if (preprintLabel) {
+              await this.applyPreprintLabel(preprintLabel);
+              return;
+          }
+      } catch (error) {
+          await Dialog.alert({
+              title: '预生成标签不可用',
+              message: error.message || '该标签不能用于入库',
+              messageAlign: 'left'
+          });
+          return;
+      }
+
+      this.setData({
+          labelCodeNotice: options.fromPreprint
+              ? '未识别预生成标签，请手动填写物料信息'
+              : '未识别预生成标签，请手动填写物料信息'
+      });
   },
 
   async applyPreprintLabel(record) {
@@ -923,10 +999,7 @@ Page({
           await this.loadZones();
       }
 
-      const material = await this.fetchMaterialSuggestionByCode(normalizedCode.product_code);
-      if (!material) {
-          throw new Error(`预生成标签对应物料 ${normalizedCode.product_code} 不存在`);
-      }
+      const material = await this.fetchMaterialForPreprint(record, normalizedCode.product_code);
 
       this.applyMaterialSuggestion(material, { showToast: false });
       this.setData({

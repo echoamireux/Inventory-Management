@@ -76,6 +76,22 @@ function alignFilmSpecsWithPreprint(specs = {}, preprintLabel = {}) {
   return nextSpecs;
 }
 
+function normalizeText(value) {
+  return String(value === undefined || value === null ? '' : value).trim();
+}
+
+function assertPreprintSourceConsistency(preprintLabel, source = {}) {
+  if (!preprintLabel) {
+    return;
+  }
+
+  const preprintSupplierModel = normalizeText(preprintLabel.supplier_model);
+  const inboundSupplierModel = normalizeText(source.supplier_model);
+  if (preprintSupplierModel && inboundSupplierModel && preprintSupplierModel !== inboundSupplierModel) {
+    throw new Error('预生成标签原厂型号与当前入库信息不一致');
+  }
+}
+
 function normalizeExplicitExpiryDate(value) {
   if (!value) {
     return {
@@ -209,17 +225,7 @@ exports.main = async (event, context) => {
       const defaultUnit = String(materialRecord.default_unit || inventory.quantity_unit || '').trim();
       const productCode = materialRecord.product_code || base.product_code || '';
       const materialName = materialRecord.material_name || base.name;
-      const supplier = resolveInventorySourceText({ material: materialRecord, item: base, field: 'supplier' });
-      const supplierModel = resolveInventorySourceText({ material: materialRecord, item: base, field: 'supplier_model' });
-      const sampleNote = String((inventory && inventory.sample_note) || (base && base.sample_note) || '').trim();
       const isTest = isTestMaterial(materialRecord, base);
-      const testMaterialValidation = buildTestMaterialStockInValidation({
-        ...base,
-        batch_number: inventory.batch_number
-      }, materialRecord);
-      if (!testMaterialValidation.ok) {
-        throw new Error(testMaterialValidation.msg);
-      }
 
       if (existingInventory) {
         const canRefill = isChemicalRefillEligible(existingInventory, {
@@ -301,6 +307,26 @@ exports.main = async (event, context) => {
         if (preprintLabel.category && preprintLabel.category !== category) {
           throw new Error('预生成标签类型与当前物料不一致');
         }
+      }
+
+      assertPreprintSourceConsistency(preprintLabel, base);
+      const sourceBase = preprintLabel
+        ? {
+          ...base,
+          supplier: preprintLabel.supplier || base.supplier,
+          supplier_model: preprintLabel.supplier_model || base.supplier_model,
+          sample_note: preprintLabel.sample_note || base.sample_note
+        }
+        : base;
+      const supplier = resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier' });
+      const supplierModel = resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier_model' });
+      const sampleNote = String((inventory && inventory.sample_note) || (sourceBase && sourceBase.sample_note) || '').trim();
+      const testMaterialValidation = buildTestMaterialStockInValidation({
+        ...sourceBase,
+        batch_number: inventory.batch_number
+      }, materialRecord);
+      if (!testMaterialValidation.ok) {
+        throw new Error(testMaterialValidation.msg);
       }
 
       // 4. 写入 Inventory 集合

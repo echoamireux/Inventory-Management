@@ -131,6 +131,7 @@
           bind:input="onInput"
           bind:blur="onProductCodeBlur"
           bind:confirm="onProductCodeConfirm"
+          readonly="{{ form.preprint_label_id }}"
           class="product-code-field {{ activeTab }}"
           label-class="field-label-bold"
         />
@@ -190,6 +191,7 @@
           label="原厂型号"
           placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
           required="{{ form.is_test_material }}"
+          readonly="{{ form.preprint_label_id }}"
           data-field="supplier_model"
           bind:change="onInput"
         />
@@ -199,6 +201,7 @@
           value="{{ form.supplier }}"
           label="供应商"
           placeholder="{{ form.is_test_material ? '已知来源时建议填写' : '请输入 (选填)' }}"
+          readonly="{{ form.preprint_label_id }}"
           data-field="supplier"
           bind:change="onInput"
         />
@@ -207,6 +210,7 @@
           value="{{ form.sample_note }}"
           label="备注"
           placeholder="请输入 (选填)"
+          readonly="{{ form.preprint_label_id }}"
           data-field="sample_note"
           bind:change="onInput"
         />
@@ -292,7 +296,7 @@
               type="number"
               placeholder="{{ form.thickness_locked ? '由物料主数据锁定' : '请输入' }}"
               required
-              readonly="{{ form.thickness_locked }}"
+              readonly="{{ form.thickness_locked || form.preprint_label_id }}"
               data-field="thickness_um"
               bind:change="onInput"
               label-class="field-label-bold"
@@ -306,6 +310,7 @@
               type="number"
               placeholder="请输入"
               required
+              readonly="{{ form.preprint_label_id }}"
               data-field="width_mm"
               bind:change="onInput"
               label-class="field-label-bold"

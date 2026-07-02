@@ -30,6 +30,47 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function normalizeText(value) {
+  return String(value === undefined || value === null ? '' : value).trim();
+}
+
+function normalizePositiveSpec(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+
+function resolvePreprintFilmSpecs(preprintLabel = {}) {
+  const specs = preprintLabel.specs || {};
+  return {
+    thickness_um: normalizePositiveSpec(specs.thickness_um),
+    width_mm: normalizePositiveSpec(specs.width_mm !== undefined ? specs.width_mm : specs.standard_width_mm)
+  };
+}
+
+function assertPreprintSourceConsistency(preprintLabel, inventoryData = {}, rowLabel = '') {
+  if (!preprintLabel) {
+    return;
+  }
+
+  const prefix = rowLabel || '';
+  const preprintSupplierModel = normalizeText(preprintLabel.supplier_model);
+  const inboundSupplierModel = normalizeText(inventoryData.supplier_model);
+  if (preprintSupplierModel && inboundSupplierModel && preprintSupplierModel !== inboundSupplierModel) {
+    throw new Error(`${prefix}预生成标签原厂型号与当前入库信息不一致`);
+  }
+
+  if (inventoryData.category === 'film') {
+    const preprintSpecs = resolvePreprintFilmSpecs(preprintLabel);
+    const inboundAttrs = inventoryData.dynamic_attrs || {};
+    const inboundThickness = normalizePositiveSpec(inboundAttrs.thickness_um);
+    const inboundWidth = normalizePositiveSpec(inboundAttrs.width_mm);
+    if ((preprintSpecs.thickness_um && inboundThickness && preprintSpecs.thickness_um !== inboundThickness)
+        || (preprintSpecs.width_mm && inboundWidth && preprintSpecs.width_mm !== inboundWidth)) {
+      throw new Error(`${prefix}与预生成标签规格不一致`);
+    }
+  }
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { items } = event;
@@ -182,6 +223,7 @@ exports.main = async (event, context) => {
           if (preprintLabel.category && preprintLabel.category !== inventoryData.category) {
             throw new Error(`第${i + 1}条预生成标签类型与当前物料不一致`);
           }
+          assertPreprintSourceConsistency(preprintLabel, inventoryData, `第${i + 1}条`);
         }
 
         const addRes = await transaction.collection('inventory').add({

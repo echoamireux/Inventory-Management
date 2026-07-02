@@ -97,6 +97,7 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
     supplier: String(defaults.supplier || material.supplier || '').trim(),
     supplier_model: String(defaults.supplier_model || material.supplier_model || '').trim(),
     sample_note: String(defaults.sample_note || '').trim(),
+    is_test_material: !!(material && material.is_test_material),
     batch_number: defaults.defaultBatchNo || '',
     expiry_date: isLongTermValid ? '' : (defaults.defaultExpiry || ''),
     expiry_date_str: isLongTermValid ? '长期有效' : (defaults.defaultExpiry || ''),
@@ -151,7 +152,7 @@ function findDuplicateBatchUniqueCode(list = [], uniqueCode = '') {
 function buildBatchEmptyState(hasSelectedMaterial) {
   return hasSelectedMaterial
     ? '暂无条目，请开始连续扫描标签'
-    : '请先选择产品代码';
+    : '可扫描预生成标签，或先选择产品代码';
 }
 
 function toISOStringOrNull(value) {

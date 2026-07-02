@@ -52,7 +52,7 @@
             查询
           </van-button>
         </view>
-        <view class="code-picker-hint">请先选择产品代码，再连续扫描真实标签</view>
+        <view class="code-picker-hint">可扫描预生成标签自动带出物料；非预生成标签需先选择产品代码</view>
       </view>
 
       <view class="suggestion-box" wx:if="{{ materialSuggestions.length > 0 }}">
@@ -131,11 +131,11 @@
 
   <!-- 2. Top Action: Scan -->
   <view class="scan-section bg-white p-4 mb-3 text-center">
-    <van-button icon="scan" type="primary" round block bind:click="onScan" disabled="{{ !selectedMaterial || (activeTab === 'film' && !filmBatchSpecsConfirmed) }}">
-      {{ !selectedMaterial ? '请先选择产品代码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '请先确认本批次规格' : '继续扫码添加标签') }}
+    <van-button icon="scan" type="primary" round block bind:click="onScan" disabled="{{ selectedMaterial && activeTab === 'film' && !filmBatchSpecsConfirmed }}">
+      {{ !selectedMaterial ? '扫描预生成标签' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '请先确认本批次规格' : '继续扫码添加标签') }}
     </van-button>
     <view class="text-xs text-secondary mt-2">
-      {{ !selectedMaterial ? '选定当前物料后，再连续扫描每个实物的标签二维码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '先确认本批次实际幅宽，再连续扫描真实标签' : '支持连续扫描真实标签，扫码后自动加入列表') }}
+      {{ !selectedMaterial ? '可先扫描预生成标签自动带出物料；非预生成标签需先选择产品代码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '先确认本批次实际幅宽，再连续扫描真实标签' : '支持连续扫描真实标签，扫码后自动加入列表') }}
     </view>
   </view>
 

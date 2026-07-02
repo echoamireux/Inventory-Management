@@ -198,6 +198,37 @@ Page({
       return this.decorateMaterialSuggestion(res.result.data);
   },
 
+  async fetchMaterialForPreprint(record) {
+      const productCode = String((record && record.product_code) || '').trim();
+      const queryData = record && record.material_id
+          ? { id: record.material_id }
+          : { product_code: productCode };
+      const res = await wx.cloud.callFunction({
+          name: 'manageMaterial',
+          data: {
+              action: 'get',
+              data: queryData
+          }
+      });
+
+      if (!(res.result && res.result.success && res.result.data)) {
+          throw new Error((res.result && res.result.msg) || `未找到产品代码 ${productCode}`);
+      }
+
+      const material = this.decorateMaterialSuggestion(res.result.data);
+      if (record.material_id && material._id && record.material_id !== material._id) {
+          throw new Error('预生成标签不属于当前物料');
+      }
+      if (record.product_code && material.product_code && record.product_code !== material.product_code) {
+          throw new Error('预生成标签不属于当前物料');
+      }
+      if (record.category && material.category && record.category !== material.category) {
+          throw new Error('预生成标签类型与当前物料不一致');
+      }
+
+      return material;
+  },
+
   async searchMaterialSuggestions(productCode) {
       const res = await wx.cloud.callFunction({
           name: 'manageMaterial',
@@ -244,6 +275,9 @@ Page({
       }
 
       const selectedMaterial = this.data.selectedMaterial;
+      if (!selectedMaterial) {
+          return { ok: false, msg: '非预生成标签请先选择产品代码' };
+      }
       const selectedProductCode = String((selectedMaterial && selectedMaterial.product_code) || '').trim();
       if (
           (record.material_id && record.material_id !== selectedMaterial._id)
@@ -289,6 +323,85 @@ Page({
           ok: true,
           overrides
       };
+  },
+
+  validateBatchIdentityConsistency(record, overrides = {}) {
+      if (!record || this.data.list.length === 0) {
+          return { ok: true };
+      }
+
+      const firstItem = this.data.list[0] || {};
+      const selectedMaterial = this.data.selectedMaterial || {};
+      const isTestBatch = !!(selectedMaterial.is_test_material || firstItem.is_test_material || record.is_test_material);
+      if (isTestBatch) {
+          const firstSupplierModel = String(firstItem.supplier_model || '').trim();
+          const nextSupplierModel = String(overrides.supplier_model || record.supplier_model || '').trim();
+          if (firstSupplierModel && nextSupplierModel && firstSupplierModel !== nextSupplierModel) {
+              return { ok: false, msg: '不同测试料原厂型号请另开一批' };
+          }
+      }
+
+      if (selectedMaterial.category === 'film') {
+          const firstThickness = normalizePositiveSpec(firstItem.thickness_um);
+          const nextThickness = normalizePositiveSpec(overrides.thickness_um);
+          const firstWidth = normalizePositiveSpec(firstItem.batch_width_mm);
+          const nextWidth = normalizePositiveSpec(overrides.batch_width_mm);
+          if ((firstThickness && nextThickness && firstThickness !== nextThickness)
+              || (firstWidth && nextWidth && firstWidth !== nextWidth)) {
+              return { ok: false, msg: '不同膜材规格请另开一批' };
+          }
+      }
+
+      return { ok: true };
+  },
+
+  async applyPreprintMaterialSelection(record) {
+      if (!record || !record.product_code) {
+          throw new Error('非预生成标签请先选择产品代码');
+      }
+
+      const categoryCheck = assertBatchEntryMaterialCategory(this.data.activeTab, {
+          category: record.category || this.data.activeTab
+      });
+      if (!categoryCheck.ok) {
+          throw new Error('预生成标签类型与当前批量页不一致');
+      }
+
+      const material = await this.fetchMaterialForPreprint(record);
+      const selectedMaterialSummary = buildSelectedMaterialSummary(material);
+      const isFilm = material.category === 'film';
+      const preprintSpecs = resolvePreprintFilmSpecs(record);
+      const defaultBatchWidthMm = isFilm
+          ? String(preprintSpecs.width_mm || selectedMaterialSummary.standardWidthMm || '')
+          : '';
+      const resolvedThicknessUm = isFilm
+          ? String(selectedMaterialSummary.thicknessLocked
+              ? (selectedMaterialSummary.thicknessUm || '')
+              : (preprintSpecs.thickness_um || ''))
+          : '';
+      const hasFilmSnapshot = !isFilm || (!!defaultBatchWidthMm && !!resolvedThicknessUm);
+
+      this.updateBatchViewState({
+          selectedMaterial: material,
+          selectedMaterialSummary,
+          showInitialFilmSpecForm: isFilm && !hasFilmSnapshot,
+          initialFilmSpecForm: {
+              thickness_um: resolvedThicknessUm,
+              batch_width_mm: defaultBatchWidthMm
+          },
+          currentBatchWidthMm: defaultBatchWidthMm,
+          filmBatchSpecsConfirmed: !isFilm || hasFilmSnapshot,
+          usesCustomBatchWidth: !!(
+              isFilm
+              && selectedMaterialSummary.standardWidthMm
+              && defaultBatchWidthMm
+              && String(selectedMaterialSummary.standardWidthMm) !== String(defaultBatchWidthMm)
+          ),
+          materialCodeInput: String(material.product_code || '').replace(this.getPrefix(), ''),
+          materialSuggestions: []
+      });
+
+      return material;
   },
 
   onMaterialCodeInput(e) {
@@ -564,11 +677,6 @@ Page({
 
   // === Scanning Logic ===
   async onScan() {
-      if (!this.data.selectedMaterial) {
-          this.showBusinessError('请先选择产品代码', '扫码前检查');
-          return;
-      }
-
       wx.scanCode({
           onlyFromCamera: true,
           scanType: ['qrCode', 'barCode'],
@@ -586,11 +694,6 @@ Page({
   async handleScanResult(code) {
       const uniqueCode = normalizeLabelCodeInput(code);
       if (!uniqueCode) {
-          return;
-      }
-
-      if (!this.data.selectedMaterial) {
-          this.showBusinessError('请先选择产品代码', '扫码前检查');
           return;
       }
 
@@ -620,9 +723,11 @@ Page({
           const existingItems = existsRes.result.list || [];
           if (existingItems.length > 0) {
               const existingItem = existingItems[0];
-              const selectedProductCode = String(this.data.selectedMaterial.product_code || '').trim();
+              const selectedProductCode = String((this.data.selectedMaterial && this.data.selectedMaterial.product_code) || '').trim();
               const selectedBatchNumber = String(this.data.defaultBatchNo || '').trim();
               const canRefill = (
+                  !!this.data.selectedMaterial
+                  &&
                   this.data.activeTab === 'chemical'
                   && existingItem.category === 'chemical'
                   && (existingItem.status || 'in_stock') === 'in_stock'
@@ -654,10 +759,27 @@ Page({
           }
 
           const preprintLabel = await this.loadPreprintLabel(uniqueCode);
+          if (!this.data.selectedMaterial) {
+              if (!preprintLabel) {
+                  Toast.clear();
+                  this.showBusinessError('非预生成标签请先选择产品代码', '扫码前检查');
+                  return;
+              }
+
+              await this.applyPreprintMaterialSelection(preprintLabel);
+          }
+
           const preprintValidation = this.validatePreprintLabelForSelectedMaterial(preprintLabel);
           if (!preprintValidation.ok) {
               Toast.clear();
               this.showBusinessError(preprintValidation.msg, '预生成标签不匹配');
+              return;
+          }
+
+          const identityValidation = this.validateBatchIdentityConsistency(preprintLabel, preprintValidation.overrides);
+          if (!identityValidation.ok) {
+              Toast.clear();
+              this.showBusinessError(identityValidation.msg, '预生成标签不匹配');
               return;
           }
 
@@ -692,7 +814,7 @@ Page({
           Toast.success('已添加标签');
       } catch (err) {
           console.error(err);
-          this.showBusinessError('标签校验失败，请稍后重试', '校验失败');
+          this.showBusinessError(err.message || '标签校验失败，请稍后重试', '校验失败');
       }
   },
 

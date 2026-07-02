@@ -128,7 +128,7 @@ test('single stock-in page handles film thickness as governed input and fixes sq
 
   assert.match(pageJs, /normalizeFilmUnit/);
   assert.match(pageJs, /thickness_locked/);
-  assert.match(pageWxml, /readonly="\{\{ form\.thickness_locked \}\}"/);
+  assert.match(pageWxml, /readonly="\{\{ form\.thickness_locked \|\| form\.preprint_label_id \}\}"/);
   assert.match(pageWxml, /厚度以主数据为准/);
   assert.match(pageWxml, /label="幅宽\(mm\)"/);
   assert.match(pageWxml, /label="默认单位"/);
