@@ -137,7 +137,7 @@ test('film label export row keeps only static preprint fields and resolves lates
   assert.ok(!Object.prototype.hasOwnProperty.call(row, '过期日期'));
 });
 
-test('chemical label export row stays minimal and normalizes legacy bottle templates', () => {
+test('chemical label export row includes material name and normalizes legacy bottle templates', () => {
   const chemicalRow = buildLabelExportRow('chemical', {
     unique_code: 'L000101',
     product_code: 'J-001',
@@ -162,18 +162,21 @@ test('chemical label export row stays minimal and normalizes legacy bottle templ
     标签编号: 'L000101',
     二维码内容: 'L000101',
     产品代码: 'J-001',
+    物料名称: '丙酮分析纯',
     原厂型号: ''
   });
   assert.deepEqual(legacyStandardRow, {
     标签编号: 'L000105',
     二维码内容: 'L000105',
     产品代码: 'J-003',
+    物料名称: '固化剂B',
     原厂型号: 'CHEM-X'
   });
   assert.deepEqual(legacyMiniRow, {
     标签编号: 'L000106',
     二维码内容: 'L000106',
     产品代码: 'J-004',
+    物料名称: '助剂C',
     原厂型号: 'CHEM-Y'
   });
 });
@@ -205,14 +208,14 @@ test('label export keeps supplier and notes out of printable label rows', () => 
 
   assert.equal(filmRow.原厂型号, 'TEST-FILM-01');
   assert.equal(chemicalRow.原厂型号, 'TEST-CHEM-01');
+  assert.equal(chemicalRow.物料名称, '测试料-化材');
   assert.ok(!Object.prototype.hasOwnProperty.call(filmRow, '供应商'));
   assert.ok(!Object.prototype.hasOwnProperty.call(filmRow, '样品说明'));
-  assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '物料名称'));
   assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '供应商'));
   assert.ok(!Object.prototype.hasOwnProperty.call(chemicalRow, '样品说明'));
 });
 
-test('preprint export rows keep chemical labels to approved printable fields', () => {
+test('preprint export rows keep chemical labels to approved printable fields including material name', () => {
   const row = buildPreprintLabelExportRow({
     template_type: 'chemical_mini',
     unique_code: 'L000020',
@@ -228,6 +231,7 @@ test('preprint export rows keep chemical labels to approved printable fields', (
     标签编号: 'L000020',
     二维码内容: 'L000020',
     产品代码: 'J-999',
+    物料名称: '测试料-化材',
     原厂型号: 'TEST-CHEM-02'
   });
 });
@@ -241,6 +245,7 @@ test('chemical label workbook exposes a single BarTender-ready sheet with approv
         标签编号: 'L000301',
         二维码内容: 'L000301',
         产品代码: 'J-999',
+        物料名称: '测试料-化材',
         原厂型号: 'TEST-CHEM-01',
         样品说明: '不应进入模板'
       }
@@ -254,9 +259,10 @@ test('chemical label workbook exposes a single BarTender-ready sheet with approv
     '标签编号',
     '二维码内容',
     '产品代码',
+    '物料名称',
     '原厂型号'
   ]);
-  assert.equal(sheet.getCell('E1').value, null);
+  assert.equal(sheet.getCell('F1').value, null);
 });
 
 test('preprint label code generator skips inventory and historical preprint codes', () => {

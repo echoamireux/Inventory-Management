@@ -14,7 +14,7 @@ const LABEL_EXPORT_TEMPLATE_TYPES = {
 
 const LABEL_EXPORT_HEADERS = {
   film: ['标签编号', '二维码内容', '产品代码', '物料名称', '子类别', '原厂型号', '厚度', '幅宽'],
-  chemical: ['标签编号', '二维码内容', '产品代码', '原厂型号']
+  chemical: ['标签编号', '二维码内容', '产品代码', '物料名称', '原厂型号']
 };
 
 const LEGACY_TEMPLATE_TYPE_MAP = {
@@ -161,6 +161,7 @@ function buildLabelExportRow(templateType = 'film', item = {}, context = {}) {
       标签编号: uniqueCode,
       二维码内容: qrContent,
       产品代码: productCode,
+      物料名称: materialName,
       原厂型号: supplierModel
     };
   }
@@ -212,7 +213,7 @@ function buildThinBorder() {
 function buildColumnWidths(templateType = 'film') {
   const normalizedType = normalizeTemplateType(templateType);
   if (normalizedType === 'chemical') {
-    return [16, 16, 16, 20];
+    return [16, 16, 16, 28, 20];
   }
   return [16, 16, 16, 28, 16, 20, 12, 12];
 }

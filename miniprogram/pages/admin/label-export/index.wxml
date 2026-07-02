@@ -30,7 +30,7 @@
           标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽
         </view>
         <view wx:else class="template-fields-preview__text">
-          标签编号、二维码内容、产品代码、原厂型号
+          标签编号、二维码内容、产品代码、物料名称、原厂型号
         </view>
       </view>
     </view>
