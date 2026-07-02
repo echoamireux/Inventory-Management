@@ -50,12 +50,31 @@ async function persistDownloadedFile({
     // Ignore missing-file errors so export can overwrite previous local copies safely.
   }
 
-  await callFsMethod(fileSystemManager, 'copyFile', {
-    srcPath: tempFilePath,
-    destPath: targetPath
-  });
-
-  return targetPath;
+  try {
+    await callFsMethod(fileSystemManager, 'copyFile', {
+      srcPath: tempFilePath,
+      destPath: targetPath
+    });
+    return targetPath;
+  } catch (copyError) {
+    try {
+      const saveResult = await callFsMethod(fileSystemManager, 'saveFile', {
+        tempFilePath,
+        filePath: targetPath
+      });
+      return (saveResult && saveResult.savedFilePath) || targetPath;
+    } catch (saveError) {
+      try {
+        await callFsMethod(fileSystemManager, 'rename', {
+          oldPath: tempFilePath,
+          newPath: targetPath
+        });
+        return targetPath;
+      } catch (_renameError) {
+        throw saveError || copyError;
+      }
+    }
+  }
 }
 
 async function getOpenDocumentPath(options = {}) {

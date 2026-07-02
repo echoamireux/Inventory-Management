@@ -64,6 +64,38 @@ test('download helper overwrites old local files and resolves the readable desti
   ]);
 });
 
+test('download helper tries saveFile with the readable destination when copyFile is unavailable', async () => {
+  const calls = [];
+  const fileSystemManager = {
+    unlink({ filePath, fail }) {
+      calls.push(['unlink', filePath]);
+      fail(new Error('not found'));
+    },
+    copyFile({ srcPath, destPath, fail }) {
+      calls.push(['copyFile', srcPath, destPath]);
+      fail(new Error('copy not supported'));
+    },
+    saveFile({ tempFilePath, filePath, success }) {
+      calls.push(['saveFile', tempFilePath, filePath]);
+      success({ savedFilePath: filePath });
+    }
+  };
+
+  const savedPath = await persistDownloadedFile({
+    tempFilePath: '/tmp/random-name',
+    fileName: '标签打印_膜材信息标签_L000001_20260702_004959.xlsx',
+    fileSystemManager,
+    userDataPath: '/user/data'
+  });
+
+  assert.equal(savedPath, '/user/data/标签打印_膜材信息标签_L000001_20260702_004959.xlsx');
+  assert.deepEqual(calls, [
+    ['unlink', '/user/data/标签打印_膜材信息标签_L000001_20260702_004959.xlsx'],
+    ['copyFile', '/tmp/random-name', '/user/data/标签打印_膜材信息标签_L000001_20260702_004959.xlsx'],
+    ['saveFile', '/tmp/random-name', '/user/data/标签打印_膜材信息标签_L000001_20260702_004959.xlsx']
+  ]);
+});
+
 test('download helper falls back to temp file path when local rename/save is not supported', async () => {
   const fileSystemManager = {
     unlink({ fail }) {

@@ -3,7 +3,7 @@ const {
   normalizeLabelExportResult
 } = require('../../../utils/label-export');
 const {
-  getOpenDocumentPath
+  resolveOpenDocumentPath
 } = require('../../../utils/download-file');
 
 const TEMPLATE_CATEGORY_MAP = {
@@ -862,13 +862,12 @@ Page({
       throw new Error('文件下载失败');
     }
 
-    const localFilePath = await getOpenDocumentPath({
+    const localFilePath = await resolveOpenDocumentPath({
       tempFilePath: downRes.tempFilePath,
       fileName: result.fileName || '信息标签.xlsx',
       fileSystemManager: wx.getFileSystemManager(),
       userDataPath: wx.env.USER_DATA_PATH,
-      fallbackFileName: '信息标签.xlsx',
-      allowTempFallback: false
+      fallbackFileName: '信息标签.xlsx'
     });
 
     Toast.clear();

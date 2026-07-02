@@ -73,7 +73,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /ensurePreprintChangeIntent/);
   assert.match(pageJs, /createAndExportPreprintJob/);
   assert.match(pageJs, /createPreprintJobBeforeExport/);
-  assert.match(pageJs, /allowTempFallback:\s*false/);
+  assert.doesNotMatch(pageJs, /allowTempFallback:\s*false/);
   assert.match(pageJs, /loadRecentPreprintJobs/);
   assert.match(pageJs, /voidAndRecreate/);
   assert.match(pageJs, /keepAndCreate/);
