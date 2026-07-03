@@ -201,3 +201,89 @@
 .text-secondary {
   color: #6B7280;
 }
+
+.manual-stockin-mask {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40rpx;
+  background: rgba(17, 24, 39, 0.58);
+  box-sizing: border-box;
+}
+
+.manual-stockin-dialog {
+  width: 100%;
+  max-width: 640rpx;
+  overflow: hidden;
+  border-radius: 24rpx;
+  background: #ffffff;
+  box-shadow: 0 28rpx 72rpx rgba(15, 23, 42, 0.22);
+}
+
+.manual-stockin-title {
+  padding: 46rpx 44rpx 16rpx;
+  color: #111827;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.manual-stockin-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 0 44rpx 40rpx;
+  color: #4B5563;
+  font-size: 29rpx;
+  line-height: 1.65;
+  text-align: center;
+}
+
+.manual-stockin-actions {
+  display: flex;
+  border-top: 1rpx solid #E5E7EB;
+}
+
+.manual-stockin-button {
+  flex: 1;
+  height: 104rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  color: #111827;
+  font-size: 31rpx;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manual-stockin-button::after {
+  border: none;
+}
+
+.manual-stockin-button + .manual-stockin-button {
+  border-left: 1rpx solid #E5E7EB;
+}
+
+.manual-stockin-button--primary {
+  color: #2C68FF;
+}
+
+.manual-stockin-button--hover {
+  background: #F9FAFB;
+}
+
+.manual-stockin-button--primary-hover {
+  background: #F5F8FF;
+}

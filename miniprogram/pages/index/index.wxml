@@ -235,5 +235,19 @@
     bind:close="onWithdrawClose"
     bind:confirm="onWithdrawConfirmFn"
   />
+
+  <view wx:if="{{ showManualStockInDialog }}" class="manual-stockin-mask" catchtouchmove="noop">
+    <view class="manual-stockin-dialog" catchtap="noop">
+      <view class="manual-stockin-title">标签未录入</view>
+      <view class="manual-stockin-message">
+        <text>标签 {{ manualStockInLabelCode }} 未识别为系统预生成标签。</text>
+        <text>可进入手动入库并补充物料信息。</text>
+      </view>
+      <view class="manual-stockin-actions">
+        <button class="manual-stockin-button manual-stockin-button--secondary" hover-class="manual-stockin-button--hover" bindtap="onCancelManualStockIn">取消</button>
+        <button class="manual-stockin-button manual-stockin-button--primary" hover-class="manual-stockin-button--primary-hover" bindtap="onConfirmManualStockIn">去入库</button>
+      </view>
+    </view>
+  </view>
   </view>
 </view>

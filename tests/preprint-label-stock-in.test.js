@@ -28,7 +28,23 @@ test('home scan checks preprinted labels before falling back to manual stock-in'
   assert.match(handleScanMatch[0], /name:\s*'exportLabelData'/);
   assert.match(handleScanMatch[0], /action:\s*'getPreprintLabel'/);
   assert.match(handleScanMatch[0], /预生成标签/);
-  assert.match(handleScanMatch[0], /未识别预生成标签，请手动填写物料信息/);
+  assert.match(handleScanMatch[0], /showManualStockInDialog/);
+  assert.match(handleScanMatch[0], /manualStockInLabelCode/);
+});
+
+test('home scan fallback uses a custom centered manual-stock-in dialog', () => {
+  const pageJs = read('miniprogram/pages/index/index.js');
+  const pageWxml = read('miniprogram/pages/index/index.wxml');
+  const pageWxss = read('miniprogram/pages/index/index.wxss');
+
+  assert.match(pageJs, /showManualStockInDialog/);
+  assert.match(pageJs, /onConfirmManualStockIn/);
+  assert.doesNotMatch(pageJs, /title:\s*["']标签未录入["'][\s\S]*Dialog\.confirm/);
+  assert.match(pageWxml, /manual-stockin-dialog/);
+  assert.match(pageWxml, /manual-stockin-actions/);
+  assert.match(pageWxss, /\.manual-stockin-actions\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(pageWxss, /\.manual-stockin-button\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(pageWxss, /\.manual-stockin-button\s*\{[\s\S]*?justify-content:\s*center/);
 });
 
 test('single stock-in page applies preprinted label snapshots when opened with a scanned id', () => {

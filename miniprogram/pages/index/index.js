@@ -54,6 +54,8 @@ Page({
     quickWithdrawMode: "product",
     withdrawMode: "scan",
     recommendedCode: "",
+    showManualStockInDialog: false,
+    manualStockInLabelCode: "",
 
     isAdmin: false,
     isUserReady: false, // Access Control
@@ -348,15 +350,9 @@ Page({
         }
 
         // 分支 A: 标签不存在且不是预生成标签 -> 应急手动入库
-        Dialog.confirm({
-          title: "标签未录入",
-          message: `标签 ${normalizedLabelCode} 未识别预生成标签，请手动填写物料信息。是否进入手动入库？`,
-          confirmButtonText: "去入库",
-          confirmButtonColor: "#2C68FF"
-        }).then(() => {
-            wx.navigateTo({ url: `/pages/material-add/index?id=${normalizedLabelCode}` });
-        }).catch(() => {
-            // Cancel
+        this.setData({
+          showManualStockInDialog: true,
+          manualStockInLabelCode: normalizedLabelCode
         });
         return;
       }
@@ -374,6 +370,26 @@ Page({
       Toast.clear();
       console.error(err);
       Toast.fail("查询失败");
+    }
+  },
+
+  noop() {},
+
+  onCancelManualStockIn() {
+    this.setData({
+      showManualStockInDialog: false,
+      manualStockInLabelCode: ""
+    });
+  },
+
+  onConfirmManualStockIn() {
+    const labelCode = this.data.manualStockInLabelCode;
+    this.setData({
+      showManualStockInDialog: false,
+      manualStockInLabelCode: ""
+    });
+    if (labelCode) {
+      wx.navigateTo({ url: `/pages/material-add/index?id=${encodeURIComponent(labelCode)}` });
     }
   },
 
