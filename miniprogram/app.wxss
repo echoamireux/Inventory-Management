@@ -634,16 +634,23 @@ page {
   justify-content: center !important;
 }
 .van-dialog__button {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   text-align: center !important;
+  min-height: 50px !important;
+  line-height: 1.2 !important;
 }
 .van-button {
   text-align: center !important;
 }
-.van-button__text {
-  display: block !important;
+.van-dialog__button .van-button__text {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   text-align: center !important;
   width: 100% !important;
+  height: 100% !important;
 }
 /* 确认按钮使用标准蓝色 */
 .van-dialog__confirm {

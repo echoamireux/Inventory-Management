@@ -521,6 +521,17 @@ test('audit hardening fixes admin page bindings, material add dialog mount, and 
   assert.doesNotMatch(approvalCenterJs, /wx\.switchTab/);
 });
 
+test('global Vant dialog buttons are centered with flex layout', () => {
+  const appWxss = read('miniprogram/app.wxss');
+
+  assert.match(appWxss, /\.van-dialog__footer--buttons\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?align-items:\s*center/);
+  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?justify-content:\s*center/);
+  assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?justify-content:\s*center/);
+});
+
 test('read-only inventory cloud functions require active users on the backend', () => {
   [
     'cloudfunctions/getDashboardStats/index.js',
