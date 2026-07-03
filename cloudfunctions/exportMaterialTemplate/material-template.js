@@ -28,6 +28,7 @@ const UNIT_OPTIONS = {
   chemical: ['kg', 'g', 'L', 'mL'],
   film: ['m', 'm²']
 };
+const PACKAGE_TYPE_OPTIONS = ['瓶装', '桶装', '袋装', '卷装', '盒装'];
 const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 50;
 const TEMPLATE_DATA_START_ROW = 3;
@@ -92,6 +93,7 @@ function buildMaterialTemplateSpec({
   const filmSubcategoryEnd = filmSubcategories.length + 1;
   const chemicalUnitEnd = UNIT_OPTIONS.chemical.length + 1;
   const filmUnitEnd = UNIT_OPTIONS.film.length + 1;
+  const packageTypeEnd = PACKAGE_TYPE_OPTIONS.length + 1;
   const chemicalExampleSubcategory = pickRepresentativeSubcategory(
     chemicalSubcategories,
     '溶剂'
@@ -116,6 +118,7 @@ function buildMaterialTemplateSpec({
       category: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
       subcategory: `D${TEMPLATE_DATA_START_ROW}:D${TEMPLATE_MAX_ROW}`,
       unit: `E${TEMPLATE_DATA_START_ROW}:E${TEMPLATE_MAX_ROW}`,
+      packageType: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
       thicknessUm: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
       standardWidthMm: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`
     },
@@ -139,6 +142,10 @@ function buildMaterialTemplateSpec({
       filmUnits: {
         name: '膜材_单位',
         range: `Config!$D$2:$D$${filmUnitEnd}`
+      },
+      chemicalPackageTypes: {
+        name: '化材_包装形式',
+        range: `Config!$E$2:$E$${packageTypeEnd}`
       }
     },
     categoryOptions: CATEGORY_OPTIONS.slice(),
@@ -146,6 +153,7 @@ function buildMaterialTemplateSpec({
       chemical: UNIT_OPTIONS.chemical.slice(),
       film: UNIT_OPTIONS.film.slice()
     },
+    packageTypeOptions: PACKAGE_TYPE_OPTIONS.slice(),
     subcategoryOptions: {
       chemical: chemicalSubcategories.slice(),
       film: filmSubcategories.slice()
@@ -173,7 +181,8 @@ function buildMaterialTemplateSpec({
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
       `当前化材子类别：${chemicalSubcategories.join(' / ')}`,
-      `当前膜材子类别：${filmSubcategories.join(' / ')}`
+      `当前膜材子类别：${filmSubcategories.join(' / ')}`,
+      `当前化材包装形式：${PACKAGE_TYPE_OPTIONS.join(' / ')}`
     ],
     exampleRows: [
       ['001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
@@ -191,6 +200,7 @@ module.exports = {
   TEMPLATE_HEADERS,
   CATEGORY_OPTIONS,
   UNIT_OPTIONS,
+  PACKAGE_TYPE_OPTIONS,
   TEMPLATE_MAX_ROW,
   TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
   TEMPLATE_DATA_START_ROW,

@@ -26,12 +26,14 @@ test('template spec keeps the governed workbook structure and eleven-column head
     chemical: ['kg', 'g', 'L', 'mL'],
     film: ['m', 'm²']
   });
+  assert.deepEqual(spec.packageTypeOptions, ['瓶装', '桶装', '袋装', '卷装', '盒装']);
   assert.equal(spec.previewStyledRowCount, 50);
   assert.deepEqual(spec.validationRanges, {
     productCode: 'A3:A3000',
     category: 'C3:C3000',
     subcategory: 'D3:D3000',
     unit: 'E3:E3000',
+    packageType: 'F3:F3000',
     thicknessUm: 'G3:G3000',
     standardWidthMm: 'H3:H3000'
   });
@@ -59,6 +61,10 @@ test('template spec keeps the governed workbook structure and eleven-column head
     filmUnits: {
       name: '膜材_单位',
       range: 'Config!$D$2:$D$3'
+    },
+    chemicalPackageTypes: {
+      name: '化材_包装形式',
+      range: 'Config!$E$2:$E$6'
     }
   });
 });
@@ -108,12 +114,13 @@ test('template spec keeps representative example rows aligned with the new gover
   });
   const helpText = spec.helpLines.join('\n');
 
-  assert.match(spec.helpLines[spec.helpLines.length - 2], /当前化材子类别：主胶 \/ 树脂 \/ 溶剂/);
-  assert.match(spec.helpLines[spec.helpLines.length - 1], /当前膜材子类别：基材-PET \/ 基材-BOPP \/ 保护膜/);
+  assert.match(helpText, /当前化材子类别：主胶 \/ 树脂 \/ 溶剂/);
+  assert.match(helpText, /当前膜材子类别：基材-PET \/ 基材-BOPP \/ 保护膜/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
   assert.match(helpText, /产品代码\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
+  assert.match(helpText, /当前化材包装形式：瓶装 \/ 桶装 \/ 袋装 \/ 卷装 \/ 盒装/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
   assert.match(helpText, /供应商：选填/);

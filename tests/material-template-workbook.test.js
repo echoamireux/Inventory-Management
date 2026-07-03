@@ -22,9 +22,11 @@ test('generated workbook writes defined names and validation formulas compatible
   assert.match(workbookXml, /name="膜材_子类">Config!\$B\$2:\$B\$3</);
   assert.match(workbookXml, /name="化材_单位">Config!\$C\$2:\$C\$5</);
   assert.match(workbookXml, /name="膜材_单位">Config!\$D\$2:\$D\$3</);
+  assert.match(workbookXml, /name="化材_包装形式">Config!\$E\$2:\$E\$6</);
 
   assert.match(sheetXml, /<formula1>INDIRECT\(\$C3&amp;&quot;_子类&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>INDIRECT\(\$C3&amp;&quot;_单位&quot;\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>化材_包装形式<\/formula1>/);
 });
 
 test('help sheet keeps example columns aligned with the actual import table', async () => {
@@ -37,6 +39,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       category: 'C3:C3000',
       subcategory: 'D3:D3000',
       unit: 'E3:E3000',
+      packageType: 'F3:F3000',
       thicknessUm: 'G3:G3000',
       standardWidthMm: 'H3:H3000'
     },
@@ -48,6 +51,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       chemical: ['kg', 'g', 'L', 'mL'],
       film: ['m', 'm²']
     },
+    packageTypeOptions: ['瓶装', '桶装', '袋装', '卷装', '盒装'],
     subcategoryOptions: {
       chemical: ['主胶', '树脂'],
       film: ['基材-PET', '保护膜']
@@ -56,7 +60,8 @@ test('help sheet keeps example columns aligned with the actual import table', as
       chemicalSubcategories: { name: '化材_子类', range: 'Config!$A$2:$A$3' },
       filmSubcategories: { name: '膜材_子类', range: 'Config!$B$2:$B$3' },
       chemicalUnits: { name: '化材_单位', range: 'Config!$C$2:$C$5' },
-      filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' }
+      filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' },
+      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' }
     },
     helpLines: [
       '【重要：填写说明】',
@@ -87,6 +92,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       category: 'C3:C3000',
       subcategory: 'D3:D3000',
       unit: 'E3:E3000',
+      packageType: 'F3:F3000',
       thicknessUm: 'G3:G3000',
       standardWidthMm: 'H3:H3000'
     },
@@ -98,6 +104,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       chemical: ['kg', 'g', 'L', 'mL'],
       film: ['m', 'm²']
     },
+    packageTypeOptions: ['瓶装', '桶装', '袋装', '卷装', '盒装'],
     subcategoryOptions: {
       chemical: ['主胶', '树脂'],
       film: ['基材-PET', '保护膜']
@@ -106,7 +113,8 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       chemicalSubcategories: { name: '化材_子类', range: 'Config!$A$2:$A$3' },
       filmSubcategories: { name: '膜材_子类', range: 'Config!$B$2:$B$3' },
       chemicalUnits: { name: '化材_单位', range: 'Config!$C$2:$C$5' },
-      filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' }
+      filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' },
+      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' }
     },
     helpLines: ['【重要：填写说明】'],
     exampleRows: []
@@ -120,5 +128,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.equal(sheet.getRow(2).height, 22);
   assert.equal(sheet.dataValidations.model['A3:A3000'].promptTitle, '填写提示');
   assert.match(sheet.dataValidations.model['A3:A3000'].prompt, /请输入 3 位数字/);
+  assert.equal(sheet.dataValidations.model['F3:F3000'].formulae[0], '化材_包装形式');
+  assert.match(sheet.dataValidations.model['F3:F3000'].prompt, /仅化材选填/);
   assert.match(sheet.dataValidations.model['H3:H3000'].prompt, /仅膜材选填/);
 });

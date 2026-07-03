@@ -59,6 +59,11 @@ function defineConfigRanges(workbook, configSheet, spec) {
       key: spec.definedNames.filmUnits.name,
       values: spec.unitOptions.film,
       definedName: spec.definedNames.filmUnits
+    },
+    {
+      key: spec.definedNames.chemicalPackageTypes.name,
+      values: spec.packageTypeOptions,
+      definedName: spec.definedNames.chemicalPackageTypes
     }
   ];
 
@@ -159,6 +164,18 @@ function applyRangeValidations(sheet, spec) {
     errorTitle: '单位无效',
     error: '请从下拉中选择该大类允许的标准单位。',
     formulae: [spec.validationFormulae.unit]
+  });
+  sheet.dataValidations.add(spec.validationRanges.packageType, {
+    type: 'list',
+    allowBlank: true,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '仅化材选填；请从系统包装形式下拉中选择，膜材请留空。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '包装形式无效',
+    error: '化材包装形式请从下拉中选择；膜材请留空。',
+    formulae: [spec.definedNames.chemicalPackageTypes.name]
   });
   sheet.dataValidations.add(spec.validationRanges.thicknessUm, {
     type: 'decimal',
