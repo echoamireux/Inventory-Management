@@ -178,6 +178,17 @@ function assertPreprintLabelUsable(preprintLabel, item, material) {
     throw new Error('预生成标签类型与当前物料不一致');
   }
 
+  const isTest = !!(
+    item.is_test_material
+    || (material && material.is_test_material)
+    || preprintLabel.is_test_material
+  );
+  const preprintSupplierModel = String(preprintLabel.supplier_model || '').trim();
+  const inboundSupplierModel = String(item.supplier_model || '').trim();
+  if (isTest && preprintSupplierModel && inboundSupplierModel && inboundSupplierModel !== preprintSupplierModel) {
+    throw new Error('预生成标签原厂型号与当前入库信息不一致');
+  }
+
   if (category === 'film') {
     const preprintSpecs = resolvePreprintFilmSpecs(preprintLabel);
     const inboundThickness = normalizePositiveSpec(item.thickness_um);

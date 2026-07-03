@@ -530,6 +530,71 @@ test('inventory import preview requires supplier model but keeps supplier and sa
   assert.equal(optionalSourceAndNote.sample_note, '');
 });
 
+test('inventory import preview aligns test-material supplier model with preprinted label snapshot', () => {
+  const material = {
+    _id: 'mat-j-999',
+    product_code: 'J-999',
+    category: 'chemical',
+    material_name: '测试料-化材',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    is_test_material: true
+  };
+  const context = buildContext({
+    materialsByCode: new Map([['J-999', material]]),
+    preprintLabelsByUniqueCode: new Map([
+      ['L000904', {
+        _id: 'preprint-904',
+        unique_code: 'L000904',
+        status: 'unused',
+        material_id: 'mat-j-999',
+        product_code: 'J-999',
+        category: 'chemical',
+        supplier_model: 'SAMPLE-904'
+      }]
+    ])
+  });
+
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000904', '999', '化材', 'TEST-004', '防爆柜01', 'A04', '0.5', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
+  }, context);
+
+  assert.equal(preview.error, '');
+  assert.equal(preview.supplier_model, 'SAMPLE-904');
+});
+
+test('inventory import preview rejects test-material supplier model conflicts with preprinted label snapshot', () => {
+  const material = {
+    _id: 'mat-j-999',
+    product_code: 'J-999',
+    category: 'chemical',
+    material_name: '测试料-化材',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    is_test_material: true
+  };
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000905', '999', '化材', 'TEST-005', '防爆柜01', 'A05', '0.5', '小瓶', '', '', '', '', 'OTHER-MODEL', '', '2026-10-01', '']
+  }, buildContext({
+    materialsByCode: new Map([['J-999', material]]),
+    preprintLabelsByUniqueCode: new Map([
+      ['L000905', {
+        _id: 'preprint-905',
+        unique_code: 'L000905',
+        status: 'unused',
+        material_id: 'mat-j-999',
+        product_code: 'J-999',
+        category: 'chemical',
+        supplier_model: 'SAMPLE-905'
+      }]
+    ])
+  }));
+
+  assert.match(preview.error, /预生成标签原厂型号与当前入库信息不一致/);
+});
+
 test('inventory import preview and payload keep test-material identifiers as inventory-level truth', () => {
   const material = {
     _id: 'mat-j-999',
@@ -557,6 +622,51 @@ test('inventory import preview and payload keep test-material identifiers as inv
   assert.equal(payload.inventoryData.sample_note, '透明小样，客户A评估');
   assert.equal(payload.inventoryData.supplier, '送样供应商');
   assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-X');
+});
+
+test('inventory import payload aligns test-material supplier model with preprinted label snapshot', () => {
+  const material = {
+    _id: 'mat-j-999',
+    product_code: 'J-999',
+    category: 'chemical',
+    material_name: '测试料-化材',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    is_test_material: true
+  };
+  const baseRow = {
+    rowIndex: 12,
+    unique_code: 'L000906',
+    product_code: 'J-999',
+    material_name: '测试料-化材',
+    category: 'chemical',
+    sub_category: '溶剂',
+    batch_number: 'TEST-006',
+    zone_key: 'builtin:chemical:safe-cabinet-01',
+    location: '防爆柜01 | A06',
+    location_detail: 'A06',
+    expiry_date: '2026-10-01',
+    quantity_unit: 'kg',
+    net_content: 0.5,
+    is_test_material: true
+  };
+  const preprintLabel = {
+    unique_code: 'L000906',
+    category: 'chemical',
+    product_code: 'J-999',
+    supplier_model: 'SAMPLE-906'
+  };
+
+  const payload = buildInventoryImportPayload(baseRow, material, { preprintLabel });
+  assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-906');
+
+  assert.throws(
+    () => buildInventoryImportPayload({
+      ...baseRow,
+      supplier_model: 'OTHER-MODEL'
+    }, material, { preprintLabel }),
+    /预生成标签原厂型号与当前入库信息不一致/
+  );
 });
 
 test('inventory import preview derives film quantity summary and backfill reminders from manual stock-in rules', () => {

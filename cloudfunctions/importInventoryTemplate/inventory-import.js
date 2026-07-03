@@ -459,6 +459,27 @@ function validatePreprintLabelForInventoryImport(preprintLabel, row, material) {
   return '';
 }
 
+function alignTestMaterialSupplierModelWithPreprint(source = {}, preprintLabel, material, rowLabel = '') {
+  if (!preprintLabel || !isTestMaterial(material, source)) {
+    return source;
+  }
+
+  const preprintSupplierModel = normalizeText(preprintLabel.supplier_model);
+  if (!preprintSupplierModel) {
+    return source;
+  }
+
+  const sourceSupplierModel = normalizeText(source.supplier_model);
+  if (sourceSupplierModel && sourceSupplierModel !== preprintSupplierModel) {
+    throw new Error(`${rowLabel}预生成标签原厂型号与当前入库信息不一致`);
+  }
+
+  return {
+    ...source,
+    supplier_model: preprintSupplierModel
+  };
+}
+
 function resolvePreprintFilmSpecs(preprintLabel = {}) {
   const specs = preprintLabel.specs || {};
   return {
@@ -830,13 +851,20 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.is_test_material = isTestMaterial(material, row);
 
   const preprintLabelsByUniqueCode = context.preprintLabelsByUniqueCode || new Map();
+  const preprintLabel = preprintLabelsByUniqueCode.get(row.unique_code);
   const preprintValidationMessage = validatePreprintLabelForInventoryImport(
-    preprintLabelsByUniqueCode.get(row.unique_code),
+    preprintLabel,
     row,
     material
   );
   if (preprintValidationMessage) {
     row.error = preprintValidationMessage;
+    return row;
+  }
+  try {
+    Object.assign(row, alignTestMaterialSupplierModelWithPreprint(row, preprintLabel, material));
+  } catch (error) {
+    row.error = error.message || '预生成标签原厂型号与当前入库信息不一致';
     return row;
   }
 
@@ -996,21 +1024,22 @@ function decorateInventoryImportPreviewRows(rows = []) {
 
 function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const rowLabel = `第${Number(item.rowIndex) || 0}行`;
-  const category = item.category === 'film' ? 'film' : 'chemical';
-  const productCode = normalizeText(material.product_code || item.product_code);
-  const uniqueCode = normalizeLabelCodeInput(item.unique_code);
-  const materialName = normalizeText(material.material_name || material.name || item.material_name);
-  const subCategory = normalizeText(material.sub_category || item.sub_category);
-  const supplier = resolveInventorySourceText({ material, item, field: 'supplier' });
-  const supplierModel = resolveInventorySourceText({ material, item, field: 'supplier_model' });
-  const sampleNote = normalizeText(item.sample_note);
-  const isTest = isTestMaterial(material, item);
-  const batchNumber = normalizeText(item.batch_number);
-  const zoneKey = normalizeText(item.zone_key);
-  const locationDetail = normalizeText(item.location_detail);
-  const location = normalizeText(item.location) || composeLocation(item.zone_name, locationDetail);
-  const expiryDate = normalizeText(item.expiry_date);
-  const isLongTermValid = !!item.is_long_term_valid;
+  const sourceItem = alignTestMaterialSupplierModelWithPreprint(item, options.preprintLabel, material, rowLabel);
+  const category = sourceItem.category === 'film' ? 'film' : 'chemical';
+  const productCode = normalizeText(material.product_code || sourceItem.product_code);
+  const uniqueCode = normalizeLabelCodeInput(sourceItem.unique_code);
+  const materialName = normalizeText(material.material_name || material.name || sourceItem.material_name);
+  const subCategory = normalizeText(material.sub_category || sourceItem.sub_category);
+  const supplier = resolveInventorySourceText({ material, item: sourceItem, field: 'supplier' });
+  const supplierModel = resolveInventorySourceText({ material, item: sourceItem, field: 'supplier_model' });
+  const sampleNote = normalizeText(sourceItem.sample_note);
+  const isTest = isTestMaterial(material, sourceItem);
+  const batchNumber = normalizeText(sourceItem.batch_number);
+  const zoneKey = normalizeText(sourceItem.zone_key);
+  const locationDetail = normalizeText(sourceItem.location_detail);
+  const location = normalizeText(sourceItem.location) || composeLocation(sourceItem.zone_name, locationDetail);
+  const expiryDate = normalizeText(sourceItem.expiry_date);
+  const isLongTermValid = !!sourceItem.is_long_term_valid;
   const normalizedUnit = resolveMaterialDefaultUnit(category, material);
 
   if (!material || !material._id) {
@@ -1023,7 +1052,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     throw new Error(`${rowLabel}缺少生产批号`);
   }
   const testMaterialValidation = buildTestMaterialStockInValidation({
-    ...item,
+    ...sourceItem,
     batch_number: batchNumber
   }, material);
   if (!testMaterialValidation.ok) {
@@ -1082,7 +1111,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   let logUnit = inventoryData.quantity.unit || '份';
 
   if (category === 'film') {
-    const filmItem = alignFilmSpecsWithPreprint({ ...item }, options.preprintLabel, rowLabel);
+    const filmItem = alignFilmSpecsWithPreprint({ ...sourceItem }, options.preprintLabel, rowLabel);
     const resolvedWidthMm = normalizePositiveNumber(filmItem.batch_width_mm);
     const thicknessGovernance = resolveFilmThicknessGovernance({
       materialThicknessUm: extractMaterialThickness(material),
@@ -1132,12 +1161,12 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     logQuantityChange = filmState.currentLengthM;
     logUnit = 'm';
   } else {
-    const quantityVal = normalizePositiveNumber(item.net_content);
+    const quantityVal = normalizePositiveNumber(sourceItem.net_content);
     if (!quantityVal) {
       throw new Error(`${rowLabel}化材缺少净含量`);
     }
     inventoryData.quantity.val = quantityVal;
-    inventoryData.quantity.unit = item.quantity_unit;
+    inventoryData.quantity.unit = sourceItem.quantity_unit;
     inventoryData.dynamic_attrs = {
       weight_kg: quantityVal
     };
