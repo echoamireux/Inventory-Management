@@ -204,6 +204,12 @@ test('cloudfunctions requiring wx-server-sdk declare it in their package depende
   assert.deepEqual(missing, []);
 });
 
+test('batchRemoveLog package name matches its deployable function folder', () => {
+  const packageJson = JSON.parse(read('cloudfunctions/batchRemoveLog/package.json'));
+
+  assert.equal(packageJson.name, 'batchRemoveLog');
+});
+
 test('importInventoryTemplate keeps a deployable local film helper and sync script covers shared helper copies', () => {
   const syncScript = read('cloudfunctions/sync_shared.sh');
   const importInventoryQuantity = read('cloudfunctions/importInventoryTemplate/inventory-quantity.js');

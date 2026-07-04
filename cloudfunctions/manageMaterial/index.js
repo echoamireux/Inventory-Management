@@ -262,7 +262,8 @@ function buildBatchCreateConflictMap(preparedItems = []) {
       thickness_um: item.category === 'film' ? normalizeOptionalNumber(item.item.thickness_um) : null,
       standard_width_mm: item.category === 'film' ? normalizeOptionalNumber(item.item.standard_width_mm) : null,
       supplier: item.item.supplier,
-      supplier_model: item.item.supplier_model
+      supplier_model: item.item.supplier_model,
+      is_test_material: normalizeTestMaterialFlag(item.item.is_test_material).value
     })));
 
     if (signatures.size === 1) {

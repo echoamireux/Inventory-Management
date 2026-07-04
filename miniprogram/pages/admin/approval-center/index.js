@@ -207,8 +207,8 @@ Page({
           const res = await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
               data: {
+                  action: action === 'approve' ? 'approveUser' : 'rejectUser',
                   userId: id,
-                  status: action === 'approve' ? 'active' : 'rejected',
                   rejectReason: action === 'reject' ? reason : ''
               }
           });

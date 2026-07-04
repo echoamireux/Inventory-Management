@@ -84,6 +84,39 @@ test('material master sync maps standard material_name into the stock-in form na
   assert.equal(nextForm.sub_category, '测试料');
 });
 
+test('material master sync uses default_unit returned by material detail queries', () => {
+  const chemicalForm = syncFormWithMaterialMaster({
+    product_code: '',
+    name: '',
+    unit: ''
+  }, 'chemical', {
+    product_code: 'J-008',
+    material_name: 'UV减粘胶',
+    default_unit: 'mL',
+    sub_category: '胶黏剂'
+  }, 'J-');
+
+  assert.equal(chemicalForm.unit, 'mL');
+
+  const filmForm = syncFormWithMaterialMaster({
+    product_code: '',
+    name: '',
+    unit: ''
+  }, 'film', {
+    product_code: 'M-008',
+    material_name: 'PET离型膜 50um',
+    default_unit: 'm²',
+    specs: {
+      thickness_um: 50,
+      standard_width_mm: 1080
+    }
+  }, 'M-');
+
+  assert.equal(filmForm.unit, 'm²');
+  assert.equal(filmForm.thickness_um, '50');
+  assert.equal(filmForm.width_mm, '1080');
+});
+
 test('film thickness governance rejects inbound thickness that conflicts with locked master data', () => {
   assert.throws(() => {
     resolveFilmThicknessGovernance({

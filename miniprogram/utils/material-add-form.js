@@ -63,9 +63,10 @@ function syncFormWithMaterialMaster(form, activeTab, item, prefix) {
   nextForm.sample_note = '';
   nextForm.subcategory_key = item && item.subcategory_key ? item.subcategory_key : '';
   nextForm.sub_category = item && item.sub_category ? item.sub_category : '';
+  const itemUnit = item && (item.default_unit || item.unit);
 
   if (activeTab === 'chemical') {
-    const normalizedUnit = normalizeUnitInput('chemical', item && item.unit);
+    const normalizedUnit = normalizeUnitInput('chemical', itemUnit);
     nextForm.unit = normalizedUnit.ok ? normalizedUnit.unit : getDefaultUnit('chemical');
     nextForm.package_type = item && item.package_type ? item.package_type : '';
 
@@ -81,7 +82,7 @@ function syncFormWithMaterialMaster(form, activeTab, item, prefix) {
     return nextForm;
   }
 
-  const normalizedUnit = normalizeUnitInput('film', item && item.unit);
+  const normalizedUnit = normalizeUnitInput('film', itemUnit);
   const thickness = itemSpecs.thickness_um !== undefined && itemSpecs.thickness_um !== null
     ? String(itemSpecs.thickness_um)
     : '';

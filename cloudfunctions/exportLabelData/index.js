@@ -67,6 +67,31 @@ function normalizeText(value) {
   return String(value === undefined || value === null ? '' : value).trim();
 }
 
+function isRetryablePreprintTransactionConflict(error) {
+  const message = String((error && (error.errMsg || error.message)) || error || '').toLowerCase();
+  return /transaction|conflict|version|事务|冲突|版本/.test(message);
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runPreprintTransactionWithRetry(operation) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryablePreprintTransactionConflict(error) || attempt >= 3) {
+        throw error;
+      }
+      await wait(attempt * 80);
+    }
+  }
+  throw lastError;
+}
+
 async function loadMaterialForPreprint(data = {}) {
   const materialId = normalizeText(data.materialId || data.material_id);
   const productCode = normalizeText(data.productCode || data.product_code);
@@ -279,6 +304,21 @@ async function exportPreprintRecords(templateType, records = []) {
   };
 }
 
+async function markPreprintRecordsExported(records = []) {
+  const ids = (records || []).map(record => record && record._id).filter(Boolean);
+  if (!ids.length) {
+    return;
+  }
+
+  await Promise.all(ids.map(id => db.collection('preprinted_labels').doc(id).update({
+    data: {
+      exported: true,
+      exported_time: db.serverDate(),
+      update_time: db.serverDate()
+    }
+  })));
+}
+
 async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') {
   const requestId = normalizeText(data.requestId || data.request_id);
   if (!requestId) {
@@ -329,7 +369,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   }
   const voidBeforeCreateIds = voidPlan.ids || [];
 
-  return db.runTransaction(async transaction => {
+  return runPreprintTransactionWithRetry(() => db.runTransaction(async transaction => {
     for (let i = 0; i < voidBeforeCreateIds.length; i += 1) {
       const existingVoidRecord = await transaction.collection('preprinted_labels').doc(voidBeforeCreateIds[i]).get();
       if (!existingVoidRecord.data || existingVoidRecord.data.operator_id !== operatorOpenid || existingVoidRecord.data.status !== 'unused') {
@@ -385,7 +425,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
       count: resultRecords.length,
       msg: '生成成功'
     };
-  });
+  }));
 }
 
 async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpenid = '') {
@@ -398,16 +438,7 @@ async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpen
   let exportResult;
   try {
     exportResult = await exportPreprintRecords(templateType, createResult.records || []);
-    const ids = (createResult.records || []).map(record => record._id).filter(Boolean);
-    if (ids.length) {
-      await Promise.all(ids.map(id => db.collection('preprinted_labels').doc(id).update({
-        data: {
-          exported: true,
-          exported_time: db.serverDate(),
-          update_time: db.serverDate()
-        }
-      })));
-    }
+    await markPreprintRecordsExported(createResult.records || []);
   } catch (error) {
     return {
       success: false,
@@ -453,6 +484,7 @@ async function exportPreprintJob(data = {}, operatorOpenid = '') {
   }
 
   const exportResult = await exportPreprintRecords(templateType, records);
+  await markPreprintRecordsExported(records);
 
   return {
     success: true,

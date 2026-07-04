@@ -230,6 +230,13 @@ test('home and inventory pages do not keep retired client state fields', () => {
   assert.doesNotMatch(inventoryWxml, /isGrouped|showDetailPopup|detailList|detailTitle|detailTotal/);
 });
 
+test('inventory query page does not initialize direct cloud database clients', () => {
+  const inventoryJs = read('miniprogram/pages/inventory/index.js');
+
+  assert.doesNotMatch(inventoryJs, /wx\.cloud\.database\(\)/);
+  assert.doesNotMatch(inventoryJs, /db\.command/);
+});
+
 test('search-driven list pages keep an explicit request id so stale responses can be ignored safely', () => {
   const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
   const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');

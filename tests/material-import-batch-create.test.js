@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const Module = require('node:module');
+
+function read(relPath) {
+  return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
+}
 
 function loadModuleWithMocks(modulePath, mocks) {
   const resolvedModulePath = require.resolve(modulePath);
@@ -721,6 +727,12 @@ test('material import batchCreate blocks same-code rows in one file when their g
     result.results[1].reason,
     '产品代码 J-001 在本次导入文件中重复，且主数据字段不一致，请统一后再导入'
   );
+});
+
+test('material import duplicate guard treats test-material flag as a governed identity field', () => {
+  const source = read('cloudfunctions/manageMaterial/index.js');
+
+  assert.match(source, /is_test_material:\s*normalizeTestMaterialFlag\(item\.item\.is_test_material\)\.value/);
 });
 
 test('material import batchCreate ignores film-only fields on chemical rows and keeps governed master fields category-safe', async () => {

@@ -61,9 +61,37 @@ async function listActiveUsers() {
   }));
 }
 
+async function updatePendingUserStatus({ userId, status, rejectReason = '' }) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return { success: false, msg: '缺少用户 ID' };
+  }
+
+  const targetRes = await db.collection('users').doc(normalizedUserId).get();
+  const targetUser = targetRes.data;
+  if (!targetUser) {
+    return { success: false, msg: '用户不存在' };
+  }
+  if (targetUser.status !== 'pending') {
+    return { success: false, msg: '只能审批待处理用户申请' };
+  }
+  if (status === 'rejected' && !String(rejectReason || '').trim()) {
+    return { success: false, msg: '请填写驳回原因' };
+  }
+
+  await db.collection('users').doc(normalizedUserId).update({
+    data: {
+      status,
+      reject_reason: status === 'rejected' ? rejectReason : '',
+      update_time: db.serverDate()
+    }
+  });
+  return { success: true };
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { action, userId, status, role } = event;
+  const { action, userId, role } = event;
 
   // 1. 获取操作人信息
   const operatorRes = await db.collection('users').where({
@@ -78,56 +106,57 @@ exports.main = async (event, context) => {
 
   try {
     if (action === 'listPendingUsers') {
-       const authResult = assertAdminMutationAccess(operator, '仅已激活管理员可查看待审批用户');
-       if (!authResult.ok) {
-         return { success: false, msg: authResult.msg };
-       }
-       return {
-         success: true,
-         list: await listPendingUsers()
-       };
+      const authResult = assertAdminMutationAccess(operator, '仅已激活管理员可查看待审批用户');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
+      return {
+        success: true,
+        list: await listPendingUsers()
+      };
     }
 
     if (action === 'listActiveUsers') {
-       const authResult = assertSuperAdminMutationAccess(operator, '仅已激活超级管理员可查看人员权限列表');
-       if (!authResult.ok) {
-         return { success: false, msg: authResult.msg };
-       }
-       return {
-         success: true,
-         list: await listActiveUsers()
-       };
+      const authResult = assertSuperAdminMutationAccess(operator, '仅已激活超级管理员可查看人员权限列表');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
+      return {
+        success: true,
+        list: await listActiveUsers()
+      };
     }
 
     if (action === 'updateRole') {
-       const authResult = assertSuperAdminMutationAccess(operator, '越权操作：仅超级管理员可修改权限');
-       if (!authResult.ok) {
-           return { success: false, msg: authResult.msg };
-       }
-       if (!isAllowedManagedRole(role)) {
-           return { success: false, msg: '非法角色：仅允许设置为 user 或 admin' };
-       }
-       await db.collection('users').doc(userId).update({
-           data: {
-               role: role,
-               update_time: db.serverDate()
-           }
-       });
-       return { success: true };
-    } else {
-       const authResult = assertAdminMutationAccess(operator, 'Permission denied');
-       if (!authResult.ok) {
-         return { success: false, msg: authResult.msg };
-       }
-       await db.collection('users').doc(userId).update({
-         data: {
-           status: status,
-           reject_reason: event.rejectReason || '',
-           update_time: db.serverDate()
-         }
-       });
-       return { success: true };
+      const authResult = assertSuperAdminMutationAccess(operator, '越权操作：仅超级管理员可修改权限');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
+      if (!isAllowedManagedRole(role)) {
+        return { success: false, msg: '非法角色：仅允许设置为 user 或 admin' };
+      }
+      await db.collection('users').doc(userId).update({
+        data: {
+          role: role,
+          update_time: db.serverDate()
+        }
+      });
+      return { success: true };
     }
+
+    if (action === 'approveUser' || action === 'rejectUser') {
+      const authResult = assertAdminMutationAccess(operator, 'Permission denied');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
+      return await updatePendingUserStatus({
+        userId,
+        status: action === 'approveUser' ? 'active' : 'rejected',
+        rejectReason: event.rejectReason || ''
+      });
+    }
+
+    return { success: false, msg: `不支持的操作: ${action || '未指定'}` };
   } catch (err) {
     console.error(err);
     return { success: false, msg: err.message };

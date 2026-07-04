@@ -131,6 +131,142 @@ test('admin-only cloud functions use active-admin mutation gates for write opera
   assert.match(adminUpdate, /assertSuperAdminMutationAccess/);
 });
 
+test('adminUpdateUserStatus rejects unknown actions without mutating user status', async () => {
+  let updateCalled = false;
+  const db = {
+    collection(name) {
+      if (name !== 'users') {
+        throw new Error(`unexpected collection: ${name}`);
+      }
+      return {
+        where() {
+          return {
+            async get() {
+              return { data: [{ _id: 'admin-1', role: 'admin', status: 'active' }] };
+            },
+            limit() { return this; }
+          };
+        },
+        doc() {
+          return {
+            async update() {
+              updateCalled = true;
+              return {};
+            }
+          };
+        }
+      };
+    },
+    serverDate() {
+      return { $date: true };
+    }
+  };
+  const adminUpdate = loadModuleWithMocks('../cloudfunctions/adminUpdateUserStatus/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const result = await adminUpdate.main({
+    action: 'unexpectedStatusWrite',
+    userId: 'target-user',
+    status: 'active'
+  }, {});
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /不支持的操作|未知操作/);
+  assert.equal(updateCalled, false);
+});
+
+test('subcategory and warehouse zone list actions require active users before seeding data', async () => {
+  const usersDb = {
+    collection(name) {
+      if (name !== 'users') {
+        throw new Error(`unexpected collection before auth: ${name}`);
+      }
+      return {
+        where() {
+          return {
+            limit() {
+              return this;
+            },
+            async get() {
+              return { data: [{ _openid: 'openid-pending', role: 'user', status: 'pending' }] };
+            }
+          };
+        }
+      };
+    }
+  };
+
+  let ensureSubcategoriesCalled = false;
+  const manageSubcategory = loadModuleWithMocks('../cloudfunctions/manageSubcategory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-pending' };
+      },
+      database() {
+        return usersDb;
+      }
+    },
+    './material-subcategories': {
+      normalizeParentCategory(value) { return value || 'chemical'; },
+      normalizeSubcategoryName(value) { return String(value || '').trim(); },
+      normalizeStatus(value) { return value === 'disabled' ? 'disabled' : 'active'; },
+      isReservedSubcategoryName() { return false; },
+      async ensureBuiltinSubcategories() {
+        ensureSubcategoriesCalled = true;
+        return [];
+      },
+      sortSubcategoryRecords(records) { return records; },
+      filterSubcategoryRecordsByCategory(records) { return records; },
+      findSubcategoryRecordByName() { return null; }
+    }
+  });
+
+  const subcategoryResult = await manageSubcategory.main({ action: 'list' }, {});
+  assert.equal(subcategoryResult.success, false);
+  assert.match(subcategoryResult.msg, /仅已激活用户|激活/);
+  assert.equal(ensureSubcategoriesCalled, false);
+
+  let ensureZonesCalled = false;
+  const addWarehouseZone = loadModuleWithMocks('../cloudfunctions/addWarehouseZone/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-pending' };
+      },
+      database() {
+        return usersDb;
+      }
+    },
+    './warehouse-zones': {
+      normalizeZoneName(value) { return String(value || '').trim(); },
+      normalizeScope(value) { return value || 'global'; },
+      normalizeStatus(value) { return value === 'disabled' ? 'disabled' : 'active'; },
+      async ensureBuiltinZones() {
+        ensureZonesCalled = true;
+        return [];
+      },
+      sortZoneRecords(records) { return records; },
+      filterZoneRecordsByCategory(records) { return records; },
+      findZoneRecordByName() { return null; }
+    }
+  });
+
+  const zoneResult = await addWarehouseZone.main({ action: 'list' }, {});
+  assert.equal(zoneResult.success, false);
+  assert.match(zoneResult.msg, /仅已激活用户|激活/);
+  assert.equal(ensureZonesCalled, false);
+});
+
 test('removeInventory soft-deletes material inventory with doc updates inside the transaction', async () => {
   const file = read('cloudfunctions/removeInventory/index.js');
   const transactionBody = file.match(/db\.runTransaction\(async transaction => \{([\s\S]*?)\n    \}\);/);

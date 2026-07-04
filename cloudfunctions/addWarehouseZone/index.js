@@ -1,5 +1,9 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminMutationAccess } = require('./auth');
+const {
+  assertActiveUserAccess,
+  assertAdminMutationAccess,
+  isAdminRole
+} = require('./auth');
 const {
   normalizeZoneName,
   normalizeScope,
@@ -25,14 +29,21 @@ async function getOperator(openid) {
   return userRes.data && userRes.data[0];
 }
 
-async function listZones(event) {
+async function listZones(event, openid) {
+  const operator = await getOperator(openid);
+  const activeResult = assertActiveUserAccess(operator, '仅已激活用户可查看库存区域');
+  if (!activeResult.ok) {
+    return { success: false, msg: activeResult.msg };
+  }
+
+  const includeDisabled = !!(event && event.includeDisabled && isAdminRole(operator.role));
   const allZones = await ensureBuiltinZones(db);
   const normalized = sortZoneRecords(allZones);
   const filtered = event && event.category
     ? filterZoneRecordsByCategory(normalized, event.category, {
-      includeDisabled: !!event.includeDisabled
+      includeDisabled
     })
-    : normalized.filter(item => event && event.includeDisabled ? true : item.status === 'active');
+    : normalized.filter(item => includeDisabled ? true : item.status === 'active');
 
   return {
     success: true,
@@ -202,7 +213,7 @@ exports.main = async (event, context) => {
 
   try {
     if (action === 'list') {
-      return await listZones(event || {});
+      return await listZones(event || {}, OPENID);
     }
     if (action === 'create') {
       return await createZone(event && event.name, event && event.scope, OPENID);

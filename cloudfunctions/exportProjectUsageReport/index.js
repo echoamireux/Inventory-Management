@@ -6,6 +6,7 @@ const {
   summarizeProjectUsageLogs
 } = require('./project-usage-report');
 const { OFFSET_MS } = require('./cst-time');
+const { buildContainsRegExp } = require('./search');
 
 let ExcelJS;
 try {
@@ -77,17 +78,51 @@ function toDate(value, endOfDay = false) {
 function buildQuery(event = {}) {
   const conditions = [{ type: 'outbound' }];
   const projectCode = normalizeText(event.project_code || event.projectCode);
+  const keyword = normalizeText(event.keyword || event.searchVal);
+  const uniqueCode = normalizeText(event.unique_code || event.uniqueCode);
+  const productCode = normalizeText(event.product_code || event.productCode);
+  const operator = normalizeText(event.operator || event.operatorFilter);
   const startDate = toDate(event.startDate || event.start_date);
   const endDate = toDate(event.endDate || event.end_date, true);
 
   if (projectCode && projectCode !== 'all') {
     conditions.push({ project_code: projectCode });
   }
+  if (uniqueCode) {
+    conditions.push({ unique_code: uniqueCode });
+  }
+  if (productCode) {
+    conditions.push({ product_code: productCode });
+  }
+  if (operator && operator !== 'all') {
+    conditions.push(_.or([
+      { operator },
+      { operator_name: operator },
+      { operator_id: operator }
+    ]));
+  }
   if (startDate) {
     conditions.push({ timestamp: _.gte(startDate) });
   }
   if (endDate) {
     conditions.push({ timestamp: _.lte(endDate) });
+  }
+
+  const keywordRegExp = buildContainsRegExp(db, keyword);
+  if (keywordRegExp) {
+    conditions.push(_.or([
+      { project_code: keywordRegExp },
+      { project_name: keywordRegExp },
+      { product_code: keywordRegExp },
+      { material_name: keywordRegExp },
+      { unique_code: keywordRegExp },
+      { batch_number: keywordRegExp },
+      { operator: keywordRegExp },
+      { operator_name: keywordRegExp },
+      { withdraw_note: keywordRegExp },
+      { description: keywordRegExp },
+      { note: keywordRegExp }
+    ]));
   }
 
   return conditions.length === 1 ? conditions[0] : _.and(conditions);

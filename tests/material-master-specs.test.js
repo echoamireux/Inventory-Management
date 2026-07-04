@@ -622,9 +622,12 @@ test('README documents production database indexes and manual cloud console step
   assert.match(readme, /users\._openid[\s\S]*唯一索引/);
   assert.match(readme, /inventory\.unique_code[\s\S]*唯一索引/);
   assert.match(readme, /materials\.product_code[\s\S]*唯一索引/);
+  assert.match(readme, /preprinted_labels\.unique_code[\s\S]*唯一索引/);
+  assert.match(readme, /preprinted_labels\.operator_id \+ create_time desc/);
   assert.match(readme, /inventory\.product_code \+ status/);
   assert.match(readme, /inventory\.product_code \+ status \+ batch_number/);
   assert.match(readme, /inventory\.status \+ expiry_date/);
+  assert.match(readme, /inventory_log\.type \+ project_code \+ timestamp desc/);
   assert.match(readme, /inventory_log\.inventory_id \+ timestamp desc/);
   assert.match(readme, /inventory_log\.unique_code \+ timestamp desc/);
   assert.match(readme, /微信开发者工具[\s\S]*云开发[\s\S]*数据库[\s\S]*索引[\s\S]*新建索引/);

@@ -94,8 +94,8 @@ Page({
             await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
               data: {
+                action: 'rejectUser',
                 userId: this.data.rejectTargetId,
-                status: 'rejected',
                 rejectReason: reason
               }
             });
@@ -128,7 +128,7 @@ Page({
         try {
             await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
-              data: { userId: id, status: 'active' }
+              data: { action: 'approveUser', userId: id }
             });
 
             wx.showToast({ title: '已通过', icon: 'success' });

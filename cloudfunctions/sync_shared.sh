@@ -98,6 +98,7 @@ cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/searchInventory/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getProjectUsageReport/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/exportProjectUsageReport/search.js
 
 echo "   -> Updating log-search.js..."
 cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js

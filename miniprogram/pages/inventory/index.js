@@ -1,6 +1,4 @@
 // pages/inventory/index.js
-const db = wx.cloud.database();
-const _ = db.command;
 import Dialog from '@vant/weapp/dialog/dialog';
 const { resolveOpenDocumentPath } = require('../../utils/download-file');
 

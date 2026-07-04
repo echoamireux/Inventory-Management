@@ -1,5 +1,9 @@
 const cloud = require('wx-server-sdk');
-const { assertAdminMutationAccess } = require('./auth');
+const {
+  assertActiveUserAccess,
+  assertAdminMutationAccess,
+  isAdminRole
+} = require('./auth');
 const {
   normalizeParentCategory,
   normalizeSubcategoryName,
@@ -26,19 +30,26 @@ async function getOperator(openid) {
   return userRes.data && userRes.data[0];
 }
 
-async function listSubcategories(event) {
+async function listSubcategories(event, openid) {
+  const operator = await getOperator(openid);
+  const activeResult = assertActiveUserAccess(operator, '仅已激活用户可查看子类别');
+  if (!activeResult.ok) {
+    return { success: false, msg: activeResult.msg };
+  }
+
+  const includeDisabled = !!(event && event.includeDisabled && isAdminRole(operator.role));
   const allRecords = await ensureBuiltinSubcategories(db);
   const normalized = sortSubcategoryRecords(allRecords);
   const filtered = event && event.category
     ? filterSubcategoryRecordsByCategory(normalized, event.category, {
-      includeDisabled: !!event.includeDisabled,
+      includeDisabled,
       includeDeprecated: false
     })
     : normalized.filter(item => {
       if (isReservedSubcategoryName(item.name)) {
         return false;
       }
-      return event && event.includeDisabled ? true : item.status === 'active';
+      return includeDisabled ? true : item.status === 'active';
     });
 
   return {
@@ -222,7 +233,7 @@ exports.main = async (event, context) => {
 
   try {
     if (action === 'list') {
-      return await listSubcategories(event || {});
+      return await listSubcategories(event || {}, OPENID);
     }
     if (action === 'create') {
       return await createSubcategory(event && event.name, event && event.category, OPENID);

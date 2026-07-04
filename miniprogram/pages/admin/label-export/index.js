@@ -476,12 +476,35 @@ Page({
     this.setData({ creatingPreprint: true });
     Toast.loading({ message: '正在生成标签...', forbidClick: true, duration: 0 });
     try {
-      const createResult = await this.createPreprintJobBeforeExport(intent);
+      const cloudRes = await wx.cloud.callFunction({
+        name: 'exportLabelData',
+        data: {
+          action: 'createAndExportPreprintJob',
+          data: this.buildCurrentPreprintPayload(intent.requestId, intent.preprintMode, intent.countOverride)
+        }
+      });
+      const createResult = (cloudRes && cloudRes.result) || {};
       const effectiveCount = intent.countOverride || preprintForm.count;
       const snapshotForm = {
         ...preprintForm,
         count: effectiveCount
       };
+      if (!createResult.success) {
+        if (createResult.records && createResult.records.length) {
+          this.setData({
+            'preprintForm.count': effectiveCount,
+            'preprintForm.requestId': intent.requestId,
+            'preprintForm.lastSnapshot': buildPreprintFormSnapshot(snapshotForm, templateType),
+            'preprintForm.lastJobId': createResult.job_id || '',
+            'preprintForm.lastRecords': createResult.records || []
+          });
+          await this.loadRecentPreprintJobs();
+        }
+        const error = new Error(createResult.msg || '生成并导出失败');
+        error.code = createResult.code;
+        error.result = createResult;
+        throw error;
+      }
       this.setData({
         'preprintForm.count': effectiveCount,
         'preprintForm.requestId': intent.requestId,
@@ -492,13 +515,9 @@ Page({
       await this.loadRecentPreprintJobs();
 
       Toast.loading({ message: '正在导出 Excel...', forbidClick: true, duration: 0 });
-      try {
-        await this.exportPreprintJobById(createResult.job_id, templateType);
-        Toast.success(createResult.reused ? '已重新导出原批 Excel' : '已生成并打开 Excel');
-      } catch (exportError) {
-        console.error('预生成标签已创建但导出失败', exportError);
-        Toast.fail(exportError.message || '标签已生成，Excel 导出失败，请点重新导出');
-      }
+      const exportResult = normalizeLabelExportResult({ result: createResult });
+      await this.downloadAndOpenWorkbook(exportResult);
+      Toast.success(createResult.reused ? '已重新导出原批 Excel' : '已生成并打开 Excel');
     } catch (error) {
       console.error(error);
       if ((error.result && error.result.code === 'PREPRINT_ORIGINAL_ALREADY_CHANGED') || error.code === 'PREPRINT_ORIGINAL_ALREADY_CHANGED') {
@@ -510,23 +529,6 @@ Page({
     } finally {
       this.setData({ creatingPreprint: false });
     }
-  },
-
-  async createPreprintJobBeforeExport(intent = {}) {
-    const res = await wx.cloud.callFunction({
-      name: 'exportLabelData',
-      data: {
-        action: 'createPreprintJob',
-        data: this.buildCurrentPreprintPayload(intent.requestId, intent.preprintMode, intent.countOverride)
-      }
-    });
-    if (!(res.result && res.result.success)) {
-      const error = new Error((res.result && res.result.msg) || '生成失败');
-      error.code = res.result && res.result.code;
-      error.result = res.result || {};
-      throw error;
-    }
-    return res.result;
   },
 
   async exportPreprintJobById(jobId, templateType) {

@@ -300,10 +300,25 @@ module.exports = {
 - `getDashboardStats`
 - `getInventoryGrouped`
 - `getInventoryBatches`
+- `getInventoryRecord`
 - `updateInventory`
+- `addMaterial`
+- `batchAddInventory`
+- `importInventoryTemplate`
 - `manageMaterial`
 - `exportMaterialTemplate`
+- `exportInventoryTemplate`
+- `exportLabelData`
+- `exportData`
+- `getProjectUsageReport`
+- `exportProjectUsageReport`
+- `manageProjectCode`
+- `manageSubcategory`
+- `addWarehouseZone`
+- `getOperators`
 - `getLogs`
+- `getApprovalCenterData`
+- `adminUpdateUserStatus`
 
 ### 6. 生产索引配置建议
 
@@ -314,9 +329,14 @@ module.exports = {
 | `users` | `users._openid` | 唯一索引，升序 | 防止重复注册，保证一个微信用户只对应一条人员记录 |
 | `inventory` | `inventory.unique_code` | 唯一索引，升序 | 确保标签编号全库唯一，支持扫码查询 |
 | `materials` | `materials.product_code` | 唯一索引，升序 | 确保标准物料代码全库唯一 |
+| `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
+| `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
+| `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
 | `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
 | `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
 | `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
+| `inventory_log` | `inventory_log.type + project_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按项目和时间导出 |
+| `inventory_log` | `inventory_log.type + product_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按物料反查 |
 | `inventory_log` | `inventory_log.inventory_id + timestamp desc` | 复合索引，升序 + 降序 | 支持标签详情页查看历史日志 |
 | `inventory_log` | `inventory_log.unique_code + timestamp desc` | 复合索引，升序 + 降序 | 支持按标签编号追溯日志 |
 | `inventory_log` | `inventory_log.timestamp desc` | 普通索引，降序 | 支持日志列表按时间倒序加载 |
@@ -328,7 +348,7 @@ module.exports = {
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `users._openid`、`inventory.unique_code` 和 `materials.product_code` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code` 和 `preprinted_labels.unique_code` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：

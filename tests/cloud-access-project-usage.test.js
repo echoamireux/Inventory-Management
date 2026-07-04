@@ -210,6 +210,17 @@ test('project usage export workbook declares detail and summary sheets', () => {
   assert.match(exportIndex, /uploadFile/);
 });
 
+test('project usage export pushes the same narrow filters into the database query as page search', () => {
+  const exportIndex = read('cloudfunctions/exportProjectUsageReport/index.js');
+
+  assert.match(exportIndex, /event\.keyword|event\.searchVal/);
+  assert.match(exportIndex, /event\.unique_code|event\.uniqueCode/);
+  assert.match(exportIndex, /event\.product_code|event\.productCode/);
+  assert.match(exportIndex, /event\.operator|event\.operatorFilter/);
+  assert.match(exportIndex, /buildContainsRegExp/);
+  assert.match(exportIndex, /operator_name/);
+});
+
 test('project usage export workbook uses professional report styling', () => {
   const {
     PROJECT_USAGE_DETAIL_HEADERS,

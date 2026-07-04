@@ -74,7 +74,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /作废未入库标签/);
   assert.match(pageJs, /ensurePreprintChangeIntent/);
   assert.match(pageJs, /createAndExportPreprintJob/);
-  assert.match(pageJs, /createPreprintJobBeforeExport/);
+  assert.doesNotMatch(pageJs, /createPreprintJobBeforeExport/);
   assert.doesNotMatch(pageJs, /allowTempFallback:\s*false/);
   assert.match(pageJs, /loadRecentPreprintJobs/);
   assert.match(pageJs, /voidAndRecreate/);
@@ -82,7 +82,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /作废原批.*重新生成/);
   assert.match(pageJs, /保留原批.*再新增/);
   assert.match(pageJs, /总数改为/);
-  assert.match(pageJs, /action:\s*'createPreprintJob'/);
+  assert.match(pageJs, /action:\s*'createAndExportPreprintJob'/);
   assert.match(pageJs, /await this\.exportPreprintJobById/);
   assert.match(pageWxml, /<view class="field-label">[\s\S]*原厂型号[\s\S]*<text[^>]*preprintForm\.selectedMaterial\.is_test_material[^>]*class="field-required"[^>]*>\*<\/text>/);
   assert.match(pageWxml, /<view class="field-label">[\s\S]*厚度\(μm\)[\s\S]*<text[^>]*templateType === 'film'[^>]*class="field-required"[^>]*>\*<\/text>/);
@@ -120,8 +120,19 @@ test('label export cloud function separates list and export actions and only all
   assert.match(file, /仅已激活用户可导出信息标签/);
   assert.match(file, /runTransaction/);
   assert.match(file, /system_counters/);
+  assert.match(file, /retryable|isRetryable|TRANSACTION/i);
+  assert.match(file, /attempt\s*<=\s*3|attempt\s*<\s*3/);
   assert.match(file, /templateType/);
   assert.match(file, /selectedIds/);
   assert.match(file, /searchVal/);
   assert.match(file, /qr_content/);
+  assert.match(file, /function markPreprintRecordsExported[\s\S]*exported:\s*true/);
+  assert.match(file, /async function exportPreprintJob[\s\S]*markPreprintRecordsExported\(records\)/);
+});
+
+test('preprint page uses backend create-and-export action so exported batches are tracked', () => {
+  const pageJs = read('miniprogram/pages/admin/label-export/index.js');
+
+  assert.match(pageJs, /action:\s*'createAndExportPreprintJob'/);
+  assert.doesNotMatch(pageJs, /action:\s*'createPreprintJob'/);
 });
