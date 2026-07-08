@@ -8,6 +8,8 @@ const {
   buildSelectedMaterialSummary,
   buildBatchListItem,
   buildBatchSubmitItems,
+  MAX_BATCH_ENTRY_ITEMS,
+  assertBatchEntryItemLimit,
   findDuplicateBatchUniqueCode,
   buildBatchEmptyState
 } = require('../miniprogram/utils/batch-entry');
@@ -22,6 +24,18 @@ test('batch entry inherits current add-page tab and defaults invalid input to ch
   assert.equal(resolveBatchEntryTitle('chemical'), '化材批量入库');
   assert.equal(resolveBatchEntryTitle('film'), '膜材批量入库');
   assert.equal(resolveBatchEntryTitle('unknown'), '化材批量入库');
+});
+
+test('batch entry page enforces a 100-row submit limit before cloud submit', () => {
+  assert.equal(MAX_BATCH_ENTRY_ITEMS, 100);
+  assert.doesNotThrow(() => assertBatchEntryItemLimit(100));
+  assert.throws(() => assertBatchEntryItemLimit(101), /单次最多批量入库 100 条/);
+
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),
+    'utf8'
+  );
+  assert.match(pageJs, /assertBatchEntryItemLimit\(this\.data\.list\.length\)/);
 });
 
 test('batch entry rejects scanned materials from the wrong category', () => {

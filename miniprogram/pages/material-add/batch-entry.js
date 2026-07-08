@@ -13,6 +13,7 @@ const {
 const {
   resolveBatchEntryTab,
   resolveBatchEntryTitle,
+  assertBatchEntryItemLimit,
   assertBatchEntryMaterialCategory,
   buildSelectedMaterialSummary,
   buildBatchListItem,
@@ -1017,6 +1018,12 @@ Page({
   // === Submit ===
   async onSubmit() {
       if (this.data.list.length === 0) return;
+      try {
+          assertBatchEntryItemLimit(this.data.list.length);
+      } catch (err) {
+          Toast.fail(err.message || '单次批量入库数量过多');
+          return;
+      }
       if (!this.data.defaultLocationZone || !this.data.defaultLocationZoneKey) {
           Toast.fail('请先选择默认存储区域');
           return;

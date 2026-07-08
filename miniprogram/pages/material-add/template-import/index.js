@@ -4,6 +4,7 @@ const {
   normalizeInventoryTemplateExportResult
 } = require('../../../utils/inventory-template-export');
 const {
+  assertInventoryTemplateImportLimit,
   normalizeInventoryTemplatePreviewResult,
   normalizeInventoryTemplateSubmitResult
 } = require('../../../utils/inventory-template-import');
@@ -217,6 +218,12 @@ Page({
 
     if (!validItems.length) {
       Toast.fail('没有可入库的数据');
+      return;
+    }
+    try {
+      assertInventoryTemplateImportLimit(validItems.length);
+    } catch (error) {
+      Toast.fail(error.message || '单次导入数量过多');
       return;
     }
 

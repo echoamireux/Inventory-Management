@@ -15,7 +15,8 @@ const {
   buildZoneMapsByCategory,
   buildInventoryImportPreviewRow,
   decorateInventoryImportPreviewRows,
-  buildInventoryImportPayload
+  buildInventoryImportPayload,
+  assertInventoryTemplateImportLimit
 } = require('./inventory-import');
 
 cloud.init({
@@ -372,6 +373,7 @@ async function submitRows(items = [], openid, operatorName) {
       msg: '没有可入库的数据'
     };
   }
+  assertInventoryTemplateImportLimit(normalizedItems.length);
 
   const lookupKeys = {
     productCodes: Array.from(new Set(normalizedItems.map(item => String(item.product_code || '').trim()).filter(Boolean))),

@@ -1,6 +1,10 @@
 // cloudfunctions/batchAddInventory/index.js
 const cloud = require('wx-server-sdk');
-const { assertUniqueCodes, buildBatchInventoryPayload } = require('./batch-add');
+const {
+  assertBatchInventoryItemLimit,
+  assertUniqueCodes,
+  buildBatchInventoryPayload
+} = require('./batch-add');
 const { assertActiveUserAccess } = require('./auth');
 const {
   isChemicalRefillEligible,
@@ -86,6 +90,7 @@ exports.main = async (event, context) => {
       return { success: false, msg: authResult.msg };
     }
 
+    assertBatchInventoryItemLimit(items.length);
     assertUniqueCodes(items);
 
     const materialIds = Array.from(new Set(

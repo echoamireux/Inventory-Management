@@ -522,6 +522,7 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
       }
     },
     './batch-add': {
+      assertBatchInventoryItemLimit() {},
       assertUniqueCodes() {},
       buildBatchInventoryPayload(_item, _material, index) {
         if (index === 0) {

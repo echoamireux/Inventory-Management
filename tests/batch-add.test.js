@@ -2,9 +2,23 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  MAX_BATCH_INVENTORY_ITEMS,
+  assertBatchInventoryItemLimit,
   assertUniqueCodes,
   buildBatchInventoryPayload
 } = require('../cloudfunctions/_shared/batch-add');
+
+test('batch add enforces a 100-row submit limit before database work', () => {
+  assert.equal(MAX_BATCH_INVENTORY_ITEMS, 100);
+  assert.doesNotThrow(() => assertBatchInventoryItemLimit(100));
+  assert.throws(() => assertBatchInventoryItemLimit(101), /单次最多批量入库 100 条/);
+
+  const cloudIndex = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../cloudfunctions/batchAddInventory/index.js'),
+    'utf8'
+  );
+  assert.match(cloudIndex, /assertBatchInventoryItemLimit\(items\.length\)/);
+});
 
 test('batch add rejects duplicate unique codes before hitting database', () => {
   assert.throws(() => {

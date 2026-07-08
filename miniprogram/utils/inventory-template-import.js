@@ -1,4 +1,12 @@
 const LEGACY_IMPORT_TEMPLATE_HINT = '当前云函数版本过旧，请部署最新版 importInventoryTemplate';
+const MAX_INVENTORY_TEMPLATE_IMPORT_ROWS = 100;
+
+function assertInventoryTemplateImportLimit(count) {
+  const total = Number(count) || 0;
+  if (total > MAX_INVENTORY_TEMPLATE_IMPORT_ROWS) {
+    throw new Error(`单次最多导入 ${MAX_INVENTORY_TEMPLATE_IMPORT_ROWS} 条库存数据，请拆分文件后再导入`);
+  }
+}
 
 function normalizeInventoryTemplatePreviewResult(res) {
   const result = res && res.result ? res.result : {};
@@ -38,6 +46,8 @@ function normalizeInventoryTemplateSubmitResult(res) {
 
 module.exports = {
   LEGACY_IMPORT_TEMPLATE_HINT,
+  MAX_INVENTORY_TEMPLATE_IMPORT_ROWS,
+  assertInventoryTemplateImportLimit,
   normalizeInventoryTemplatePreviewResult,
   normalizeInventoryTemplateSubmitResult
 };

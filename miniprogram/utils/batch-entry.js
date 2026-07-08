@@ -1,7 +1,16 @@
 const { composeLocation } = require('./location-zone');
 
+const MAX_BATCH_ENTRY_ITEMS = 100;
+
 function resolveBatchEntryTab(tab) {
   return tab === 'film' ? 'film' : 'chemical';
+}
+
+function assertBatchEntryItemLimit(count) {
+  const total = Number(count) || 0;
+  if (total > MAX_BATCH_ENTRY_ITEMS) {
+    throw new Error(`单次最多批量入库 ${MAX_BATCH_ENTRY_ITEMS} 条，请拆分后再提交`);
+  }
 }
 
 function resolveBatchEntryTitle(tab) {
@@ -209,8 +218,10 @@ function buildBatchSubmitItems(items, defaults = {}) {
 }
 
 module.exports = {
+  MAX_BATCH_ENTRY_ITEMS,
   resolveBatchEntryTab,
   resolveBatchEntryTitle,
+  assertBatchEntryItemLimit,
   assertBatchEntryMaterialCategory,
   buildSelectedMaterialSummary,
   buildBatchListItem,

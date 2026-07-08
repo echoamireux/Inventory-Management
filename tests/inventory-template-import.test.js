@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  MAX_INVENTORY_TEMPLATE_IMPORT_ROWS,
+  assertInventoryTemplateImportLimit,
   isInventoryTemplateGroupHeaderRow,
   isInventoryTemplateHeaderRow,
   isInventoryTemplateInlineHintRow,
@@ -12,6 +14,13 @@ const {
   decorateInventoryImportPreviewRows,
   buildInventoryImportPayload
 } = require('../cloudfunctions/importInventoryTemplate/inventory-import');
+const {
+  LEGACY_IMPORT_TEMPLATE_HINT,
+  MAX_INVENTORY_TEMPLATE_IMPORT_ROWS: FRONTEND_MAX_INVENTORY_TEMPLATE_IMPORT_ROWS,
+  assertInventoryTemplateImportLimit: assertFrontendInventoryTemplateImportLimit,
+  normalizeInventoryTemplatePreviewResult,
+  normalizeInventoryTemplateSubmitResult
+} = require('../miniprogram/utils/inventory-template-import');
 
 function buildContext(overrides = {}) {
   return {
@@ -34,12 +43,6 @@ function buildContext(overrides = {}) {
 }
 
 test('inventory template import preview result normalizes valid payloads and rejects legacy structures', () => {
-  const {
-    LEGACY_IMPORT_TEMPLATE_HINT,
-    normalizeInventoryTemplatePreviewResult,
-    normalizeInventoryTemplateSubmitResult
-  } = require('../miniprogram/utils/inventory-template-import');
-
   assert.deepEqual(
     normalizeInventoryTemplatePreviewResult({
       result: {
@@ -83,6 +86,28 @@ test('inventory template import preview result normalizes valid payloads and rej
       msg: '成功入库 3 条'
     }
   );
+});
+
+test('inventory template import enforces a 100-row submit limit in frontend and cloud guards', () => {
+  assert.equal(MAX_INVENTORY_TEMPLATE_IMPORT_ROWS, 100);
+  assert.equal(FRONTEND_MAX_INVENTORY_TEMPLATE_IMPORT_ROWS, 100);
+
+  assert.doesNotThrow(() => assertInventoryTemplateImportLimit(100));
+  assert.doesNotThrow(() => assertFrontendInventoryTemplateImportLimit(100));
+  assert.throws(() => assertInventoryTemplateImportLimit(101), /单次最多导入 100 条库存数据/);
+  assert.throws(() => assertFrontendInventoryTemplateImportLimit(101), /单次最多导入 100 条库存数据/);
+
+  const cloudIndex = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../cloudfunctions/importInventoryTemplate/index.js'),
+    'utf8'
+  );
+  const pageJs = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../miniprogram/pages/material-add/template-import/index.js'),
+    'utf8'
+  );
+
+  assert.match(cloudIndex, /assertInventoryTemplateImportLimit\(normalizedItems\.length\)/);
+  assert.match(pageJs, /assertInventoryTemplateImportLimit\(validItems\.length\)/);
 });
 
 test('inventory template import uses an explicit empty-data message instead of a success empty list payload', () => {

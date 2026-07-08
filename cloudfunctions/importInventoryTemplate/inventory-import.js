@@ -14,6 +14,7 @@ const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请�
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
 const INVENTORY_TEMPLATE_SCHEMA_VERSION = 'inventory-import-v2';
 const EMPTY_INVENTORY_TEMPLATE_ROWS_HINT = '未检测到数据行，请从第 4 行开始填写后直接上传 .xlsx 文件';
+const MAX_INVENTORY_TEMPLATE_IMPORT_ROWS = 100;
 const BUILTIN_ZONE_SEEDS = [
   { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01', scope: 'chemical', status: 'active', sort_order: 10 },
   { zone_key: 'builtin:chemical:safe-cabinet-02', name: '防爆柜02', scope: 'chemical', status: 'active', sort_order: 20 },
@@ -30,6 +31,13 @@ const BUILTIN_ZONE_SEEDS = [
 
 function normalizeText(value) {
   return String(value == null ? '' : value).trim();
+}
+
+function assertInventoryTemplateImportLimit(count) {
+  const total = Number(count) || 0;
+  if (total > MAX_INVENTORY_TEMPLATE_IMPORT_ROWS) {
+    throw new Error(`单次最多导入 ${MAX_INVENTORY_TEMPLATE_IMPORT_ROWS} 条库存数据，请拆分文件后再导入`);
+  }
 }
 
 function roundNumber(value, digits = 3) {
@@ -1193,8 +1201,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
 }
 
 module.exports = {
+  MAX_INVENTORY_TEMPLATE_IMPORT_ROWS,
   EMPTY_INVENTORY_TEMPLATE_ROWS_HINT,
   INVALID_TEMPLATE_HEADER_MSG,
+  assertInventoryTemplateImportLimit,
   buildEmptyInventoryTemplatePreviewResult,
   isInventoryTemplateGroupHeaderRow,
   isInventoryTemplateHeaderRow,

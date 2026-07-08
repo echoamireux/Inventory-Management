@@ -12,6 +12,15 @@ const {
   resolveInventorySourceText
 } = require('./test-material');
 
+const MAX_BATCH_INVENTORY_ITEMS = 100;
+
+function assertBatchInventoryItemLimit(count) {
+  const total = Number(count) || 0;
+  if (total > MAX_BATCH_INVENTORY_ITEMS) {
+    throw new Error(`单次最多批量入库 ${MAX_BATCH_INVENTORY_ITEMS} 条，请拆分后再提交`);
+  }
+}
+
 function assertUniqueCodes(items) {
   const seen = new Set();
 
@@ -263,6 +272,8 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
 }
 
 module.exports = {
+  MAX_BATCH_INVENTORY_ITEMS,
+  assertBatchInventoryItemLimit,
   assertUniqueCodes,
   buildBatchInventoryPayload
 };
