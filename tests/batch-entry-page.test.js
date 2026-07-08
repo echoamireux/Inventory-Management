@@ -219,6 +219,27 @@ test('batch submit payload composes zone-only and zone-detail locations consiste
   assert.match(items[1].expiry_date, /^2026-07-01T/);
 });
 
+test('batch submit payload keeps managed location detail key from defaults', () => {
+  const items = buildBatchSubmitItems([
+    {
+      unique_code: 'L000001',
+      material_id: 'mat-1',
+      product_code: 'J-000001'
+    }
+  ], {
+    defaultLocationZoneKey: 'builtin:chemical:safe-cabinet-01',
+    defaultLocationZoneName: '防爆柜01',
+    defaultLocationDetailKey: 'builtin:chemical:safe-cabinet-01:F1',
+    defaultLocationDetail: 'F1',
+    defaultBatchNo: 'B-01',
+    defaultIsLongTermValid: true
+  });
+
+  assert.equal(items[0].location_detail_key, 'builtin:chemical:safe-cabinet-01:F1');
+  assert.equal(items[0].location_detail, 'F1');
+  assert.equal(items[0].location, '防爆柜01 | F1');
+});
+
 test('batch submit payload preserves refill metadata for pending refill rows', () => {
   const items = buildBatchSubmitItems([
     {

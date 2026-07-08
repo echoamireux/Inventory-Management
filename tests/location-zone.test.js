@@ -6,6 +6,7 @@ const {
   mergeLocationZones,
   buildLocationZoneState,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   buildLocationPayload,
   resolveInventoryLocation,
   extractLocationSelection
@@ -106,6 +107,63 @@ test('zone-key payload keeps stable reference while display text follows current
   );
 });
 
+test('detail-key payload follows current managed detail name', () => {
+  const zoneMap = buildZoneMap([
+    { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }
+  ]);
+  const detailMapByZone = buildLocationDetailMapByZone([
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      name: 'F1'
+    }
+  ]);
+
+  assert.deepEqual(
+    buildLocationPayload(
+      'builtin:chemical:safe-cabinet-01',
+      '',
+      zoneMap,
+      detailMapByZone,
+      'builtin:chemical:safe-cabinet-01:F1'
+    ),
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      location_detail: 'F1',
+      location_text: '防爆柜01 | F1',
+      location: '防爆柜01 | F1'
+    }
+  );
+
+  const renamedDetailMapByZone = buildLocationDetailMapByZone([
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      name: 'A'
+    }
+  ]);
+
+  assert.equal(
+    resolveInventoryLocation({
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      location_detail: 'F1'
+    }, zoneMap, renamedDetailMapByZone),
+    '防爆柜01 | A'
+  );
+
+  assert.throws(
+    () => buildLocationPayload(
+      'builtin:chemical:safe-cabinet-01',
+      '',
+      zoneMap,
+      detailMapByZone
+    ),
+    /请选择详细坐标/
+  );
+});
+
 test('location selection extraction only trusts structured zone fields', () => {
   const zoneMap = buildZoneMap([
     { zone_key: 'global:safe-cabinet', name: '防爆柜' }
@@ -120,6 +178,7 @@ test('location selection extraction only trusts structured zone fields', () => {
     {
       zone_key: 'global:safe-cabinet',
       location_zone: '防爆柜',
+      location_detail_key: '',
       location_detail: 'B-02'
     }
   );
@@ -131,6 +190,7 @@ test('location selection extraction only trusts structured zone fields', () => {
     {
       zone_key: '',
       location_zone: '',
+      location_detail_key: '',
       location_detail: ''
     }
   );

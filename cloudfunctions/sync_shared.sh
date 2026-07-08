@@ -122,6 +122,7 @@ cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/addMaterial/warehous
 cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/batchAddInventory/warehouse-zones.js
 cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/editInventory/warehouse-zones.js
 cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/getInventoryGrouped/warehouse-zones.js
+cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/getInventoryBatches/warehouse-zones.js
 cp cloudfunctions/_shared/warehouse-zones.js cloudfunctions/exportData/warehouse-zones.js
 
 echo "   -> Updating batch-add.js..."

@@ -16,6 +16,7 @@ const DEFAULT_ZONES = {
   chemical: ['防爆柜01', '防爆柜02', '防爆柜03', '防爆柜04', '防爆柜05', '防爆柜06', '防爆柜07'],
   film: ['研发仓1', '研发仓2', '研发仓3', '实验线']
 };
+const DEFAULT_LOCATION_DETAILS = ['F1', 'F2', 'F3', 'F4', 'F5'];
 const OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function pad(value) {
@@ -99,6 +100,45 @@ async function loadZoneNamesByCategory() {
   return state;
 }
 
+async function loadLocationDetailNames() {
+  const names = DEFAULT_LOCATION_DETAILS.slice();
+  const seen = new Set(names);
+
+  try {
+    let skip = 0;
+    while (true) {
+      const res = await db.collection('warehouse_location_details').skip(skip).limit(100).get();
+      const batch = res.data || [];
+      batch
+        .filter(item => (item.status || 'active') === 'active')
+        .sort((left, right) => {
+          const leftOrder = Number(left.sort_order || 0);
+          const rightOrder = Number(right.sort_order || 0);
+          if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+          }
+          return String(left.detail_key || left.name || '').localeCompare(String(right.detail_key || right.name || ''));
+        })
+        .forEach((item) => {
+          const name = String(item.name || '').trim();
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            names.push(name);
+          }
+        });
+
+      if (batch.length < 100) {
+        break;
+      }
+      skip += 100;
+    }
+  } catch (_error) {
+    // Keep builtin default F1-F5 when the collection does not exist yet.
+  }
+
+  return names;
+}
+
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext();
 
@@ -113,9 +153,11 @@ exports.main = async () => {
     }
 
     const zones = await loadZoneNamesByCategory();
+    const locationDetails = await loadLocationDetailNames();
     const spec = buildInventoryTemplateSpec({
       chemicalZones: zones.chemical,
-      filmZones: zones.film
+      filmZones: zones.film,
+      locationDetails
     });
     const workbook = await buildInventoryTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();

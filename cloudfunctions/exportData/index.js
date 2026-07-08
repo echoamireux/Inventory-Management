@@ -3,8 +3,10 @@ const cloud = require('wx-server-sdk');
 const { buildStableExportSort } = require('./export-order');
 const {
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
   buildZoneMap,
+  buildLocationDetailMapByZone
 } = require('./warehouse-zones');
 const {
   ensureBuiltinSubcategories,
@@ -88,13 +90,16 @@ exports.main = async (event, context) => {
     }
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+    const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
     const zoneMap = buildZoneMap(zoneRecords);
+    const detailMapByZone = buildLocationDetailMapByZone(detailRecords, { includeDisabled: true });
     const subcategoryRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
     const rows = dataList.map((item) => buildInventoryExportRow(item, {
       material: (item.material_info && item.material_info[0]) || {},
       zoneMap,
+      detailMapByZone,
       subcategoryMap
     }));
 

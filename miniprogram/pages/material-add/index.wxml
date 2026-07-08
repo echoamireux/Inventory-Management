@@ -238,10 +238,20 @@
         <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
           <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
         </view>
+        <van-cell
+          wx:if="{{ form.requires_location_detail }}"
+          title="详细坐标"
+          value="{{ form.location_detail || '请选择' }}"
+          is-link
+          required
+          bind:click="showLocationDetailSheet"
+          title-class="field-label-bold"
+        />
         <van-field
+          wx:else
           value="{{ form.location_detail }}"
           label="详细坐标"
-          placeholder="层-列 (如: A-01)"
+          placeholder="如: F1、A-01、机台旁"
           data-field="location_detail"
           bind:change="onInput"
         />
@@ -383,6 +393,14 @@
     actions="{{ locationZoneActions }}"
     bind:close="onLocationClose"
     bind:select="onLocationSelect"
+  />
+
+  <!-- 详细坐标选择器 -->
+  <van-action-sheet
+    show="{{ showLocationDetailSheet }}"
+    actions="{{ locationDetailActions }}"
+    bind:close="onLocationDetailClose"
+    bind:select="onLocationDetailSelect"
   />
 
   <!-- 日期选择器 -->

@@ -20,9 +20,11 @@ const {
 } = require('./test-material');
 const {
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   buildInventoryLocationPayload
 } = require('./warehouse-zones');
 const { assertActiveUserAccess } = require('./auth');
@@ -182,11 +184,14 @@ exports.main = async (event, context) => {
     const explicitExpiryDate = explicitExpiryState.value;
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+    const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
+    const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
     const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, base.category));
     const locationPayload = buildInventoryLocationPayload({
       zoneKey: inventory.zone_key,
+      locationDetailKey: inventory.location_detail_key,
       locationDetail: inventory.location_detail
-    }, zoneMap);
+    }, zoneMap, detailMapByZone);
 
     return await db.runTransaction(async transaction => {
       const existingInventoryRes = await transaction.collection('inventory').where({

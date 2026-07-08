@@ -13,6 +13,7 @@ const {
   normalizeLabelCodeInput,
   collectInventoryImportLookupKeys,
   buildZoneMapsByCategory,
+  buildLocationDetailMapByZone,
   buildInventoryImportPreviewRow,
   decorateInventoryImportPreviewRows,
   buildInventoryImportPayload,
@@ -46,6 +47,27 @@ async function loadActiveZoneRecords() {
   while (true) {
     try {
       const res = await db.collection('warehouse_zones').skip(skip).limit(100).get();
+      const batch = res.data || [];
+      rows.push(...batch);
+      if (batch.length < 100) {
+        break;
+      }
+      skip += 100;
+    } catch (_error) {
+      break;
+    }
+  }
+
+  return rows;
+}
+
+async function loadActiveLocationDetailRecords() {
+  const rows = [];
+  let skip = 0;
+
+  while (true) {
+    try {
+      const res = await db.collection('warehouse_location_details').skip(skip).limit(100).get();
       const batch = res.data || [];
       rows.push(...batch);
       if (batch.length < 100) {
@@ -336,12 +358,14 @@ async function previewRows(rawRows = [], templateMeta = null) {
     existingInventoryByUniqueCode,
     preprintLabelsByUniqueCode,
     zoneRecords,
+    locationDetailRecords,
     currentInventoryByProductCode
   ] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
     loadPreprintLabelsByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
+    loadActiveLocationDetailRecords(),
     loadCurrentInStockInventoryByCodes(lookupKeys.productCodes)
   ]);
   const existingUniqueCodes = new Set(existingInventoryByUniqueCode.keys());
@@ -353,6 +377,7 @@ async function previewRows(rawRows = [], templateMeta = null) {
     preprintLabelsByUniqueCode,
     duplicateUniqueCodes: buildDuplicateUniqueCodeSet(rows),
     zoneMapsByCategory: buildZoneMapsByCategory(zoneRecords),
+    locationDetailMapByZone: buildLocationDetailMapByZone(locationDetailRecords),
     currentInventoryByProductCode
   })));
 
@@ -380,12 +405,14 @@ async function submitRows(items = [], openid, operatorName) {
     uniqueCodes: Array.from(new Set(normalizedItems.map(item => String(item.unique_code || '').trim()).filter(Boolean)))
   };
 
-  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords] = await Promise.all([
+  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, locationDetailRecords] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
-    loadActiveZoneRecords()
+    loadActiveZoneRecords(),
+    loadActiveLocationDetailRecords()
   ]);
   const zoneMapsByCategory = buildZoneMapsByCategory(zoneRecords);
+  const locationDetailMapByZone = buildLocationDetailMapByZone(locationDetailRecords);
   const seenUniqueCodes = new Set();
 
   return db.runTransaction(async (transaction) => {
@@ -404,6 +431,21 @@ async function submitRows(items = [], openid, operatorName) {
       const activeZone = Array.from(zoneMap.values()).find(zone => zone.zone_key === item.zone_key);
       if (!activeZone) {
         throw new Error(`库区已失效，请刷新后重新选择：${item.zone_key || '未选择'}`);
+      }
+      const detailGroup = locationDetailMapByZone.get(activeZone.zone_key);
+      if (detailGroup && detailGroup.list && detailGroup.list.length > 0) {
+        const detailKey = String(item.location_detail_key || '').trim();
+        const detailName = String(item.location_detail || '').trim();
+        const detailRecord = detailKey
+          ? detailGroup.byKey.get(detailKey)
+          : detailGroup.byName.get(detailName);
+        if (!detailRecord) {
+          throw new Error(`详细坐标已失效，请刷新模板后重新选择：${detailName || detailKey || '未选择'}`);
+        }
+        item.location_detail_key = detailRecord.detail_key;
+        item.location_detail = detailRecord.name;
+        item.location = `${activeZone.name} | ${detailRecord.name}`;
+        item.location_text = item.location;
       }
 
       const material = materialsByCode.get(String(item.product_code || '').trim());

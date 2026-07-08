@@ -16,24 +16,57 @@
   </view>
 
   <view wx:else class="zone-list">
-    <block wx:for="{{ zones }}" wx:key="zone_key">
-      <view class="zone-card {{ item.status === 'disabled' ? 'zone-card--disabled' : '' }}">
+    <block wx:for="{{ zones }}" wx:key="zone_key" wx:for-item="zone" wx:for-index="zoneIndex">
+      <view class="zone-card {{ zone.status === 'disabled' ? 'zone-card--disabled' : '' }}">
         <view class="zone-card__main">
-          <view class="zone-card__name">{{ item.name }}</view>
+          <view class="zone-card__name">{{ zone.name }}</view>
           <view class="zone-card__meta">
-            <van-tag plain type="primary" wx:if="{{ item.is_builtin }}">默认</van-tag>
+            <van-tag plain type="primary" wx:if="{{ zone.is_builtin }}">默认</van-tag>
             <van-tag plain type="success" wx:else>共享</van-tag>
-            <van-tag plain color="#6b7280" wx:if="{{ item.status === 'disabled' }}">已停用</van-tag>
-            <text class="zone-card__scope">{{ item.scope === 'film' ? '膜材' : (item.scope === 'chemical' ? '化材' : '共享') }}</text>
+            <van-tag plain color="#6b7280" wx:if="{{ zone.status === 'disabled' }}">已停用</van-tag>
+            <text class="zone-card__scope">{{ zone.scope === 'film' ? '膜材' : (zone.scope === 'chemical' ? '化材' : '共享') }}</text>
           </view>
         </view>
         <view class="zone-card__actions">
-          <van-button size="mini" plain type="primary" bind:click="onRenameZone" data-index="{{ index }}">改名</van-button>
-          <van-button size="mini" plain bind:click="onToggleZone" data-index="{{ index }}">
-            {{ item.status === 'disabled' ? '启用' : '停用' }}
+          <van-button size="mini" plain type="primary" bind:click="onRenameZone" data-index="{{ zoneIndex }}">改名</van-button>
+          <van-button size="mini" plain bind:click="onToggleZone" data-index="{{ zoneIndex }}">
+            {{ zone.status === 'disabled' ? '启用' : '停用' }}
           </van-button>
-          <van-button size="mini" plain bind:click="onMoveUp" data-index="{{ index }}" disabled="{{ index === 0 }}">上移</van-button>
-          <van-button size="mini" plain bind:click="onMoveDown" data-index="{{ index }}" disabled="{{ index === zones.length - 1 }}">下移</van-button>
+          <van-button size="mini" plain bind:click="onMoveUp" data-index="{{ zoneIndex }}" disabled="{{ zoneIndex === 0 }}">上移</van-button>
+          <van-button size="mini" plain bind:click="onMoveDown" data-index="{{ zoneIndex }}" disabled="{{ zoneIndex === zones.length - 1 }}">下移</van-button>
+        </view>
+        <view class="zone-detail-section">
+          <view class="zone-detail-header">
+            <view>
+              <view class="zone-detail-title">详细坐标</view>
+              <view class="zone-detail-hint">有明细坐标的库区，入库和移库时必须选择其中一项。</view>
+            </view>
+            <van-button size="mini" plain type="primary" bind:click="onCreateDetail" data-index="{{ zoneIndex }}">新增</van-button>
+          </view>
+          <view wx:if="{{ zone.details.length > 0 }}" class="zone-detail-list">
+            <view
+              wx:for="{{ zone.details }}"
+              wx:key="detail_key"
+              wx:for-item="detail"
+              wx:for-index="detailIndex"
+              class="zone-detail-row {{ detail.status === 'disabled' ? 'zone-detail-row--disabled' : '' }}"
+            >
+              <view class="zone-detail-row__main">
+                <text class="zone-detail-row__name">{{ detail.name }}</text>
+                <van-tag plain color="#6b7280" wx:if="{{ detail.status === 'disabled' }}">已停用</van-tag>
+                <van-tag plain type="primary" wx:elif="{{ detail.is_builtin }}">默认</van-tag>
+              </view>
+              <view class="zone-detail-row__actions">
+                <van-button size="mini" plain type="primary" bind:click="onRenameDetail" data-zone-index="{{ zoneIndex }}" data-detail-index="{{ detailIndex }}">改名</van-button>
+                <van-button size="mini" plain bind:click="onToggleDetail" data-zone-index="{{ zoneIndex }}" data-detail-index="{{ detailIndex }}">
+                  {{ detail.status === 'disabled' ? '启用' : '停用' }}
+                </van-button>
+                <van-button size="mini" plain bind:click="onMoveDetailUp" data-zone-index="{{ zoneIndex }}" data-detail-index="{{ detailIndex }}" disabled="{{ detailIndex === 0 }}">上移</van-button>
+                <van-button size="mini" plain bind:click="onMoveDetailDown" data-zone-index="{{ zoneIndex }}" data-detail-index="{{ detailIndex }}" disabled="{{ detailIndex === zone.details.length - 1 }}">下移</van-button>
+              </view>
+            </view>
+          </view>
+          <view wx:else class="zone-detail-empty">未配置详细坐标，此库区表单中可自由填写详细坐标。</view>
         </view>
       </view>
     </block>

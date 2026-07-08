@@ -11,6 +11,13 @@ const {
   buildInventoryAllocationRecommendation
 } = require('./inventory-allocation');
 const { assertActiveUserAccess } = require('./auth');
+const {
+  loadAllZoneRecords,
+  loadAllLocationDetailRecords,
+  buildZoneMap,
+  buildLocationDetailMapByZone,
+  resolveInventoryLocationText
+} = require('./warehouse-zones');
 
 const ALERT_CONFIG = {
   EXPIRY_DAYS: 30
@@ -67,15 +74,20 @@ exports.main = async (event) => {
     }
 
     const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
-    const inventoryItems = await loadInventoryItems(where);
-    const zoneMap = await loadZoneMap();
+    const [inventoryItems, zoneRecords, detailRecords] = await Promise.all([
+      loadInventoryItems(where),
+      loadAllZoneRecords(db),
+      loadAllLocationDetailRecords(db)
+    ]);
+    const zoneMap = buildZoneMap(zoneRecords);
+    const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
     const groupedMap = new Map();
 
     for (let i = 0; i < inventoryItems.length; i += 1) {
       const item = inventoryItems[i] || {};
       const batchNumber = String(item.batch_number || '').trim() || '无批号';
       const batchGroupKey = buildBatchGroupKey(item);
-      const resolvedLocation = resolveInventoryLocationText(item, zoneMap);
+      const resolvedLocation = resolveInventoryLocationText(item, zoneMap, detailMapByZone);
       let group = groupedMap.get(batchGroupKey);
 
       if (!group) {
@@ -255,43 +267,6 @@ async function loadInventoryItems(where) {
   }
 
   return list;
-}
-
-async function loadZoneMap() {
-  const pageSize = 100;
-  let skip = 0;
-  let rows = [];
-
-  while (true) {
-    const res = await db.collection('warehouse_zones')
-      .skip(skip)
-      .limit(pageSize)
-      .get()
-      .catch(() => ({ data: [] }));
-
-    const batch = res.data || [];
-    rows = rows.concat(batch);
-    if (batch.length < pageSize) {
-      break;
-    }
-    skip += pageSize;
-  }
-
-  return new Map(
-    rows
-      .filter(item => item && item.zone_key)
-      .map(item => [String(item.zone_key).trim(), String(item.name || '').trim()])
-  );
-}
-
-function resolveInventoryLocationText(item = {}, zoneMap = new Map()) {
-  const zoneKey = String(item.zone_key || '').trim();
-  const locationDetail = String(item.location_detail || '').trim();
-  const zoneName = zoneKey && zoneMap.has(zoneKey) ? zoneMap.get(zoneKey) : '';
-  if (zoneName) {
-    return locationDetail ? `${zoneName} | ${locationDetail}` : zoneName;
-  }
-  return String(item.location_text || item.location || '').trim();
 }
 
 function summarizeLocationScope(locations = []) {

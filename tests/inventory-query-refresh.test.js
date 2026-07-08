@@ -433,6 +433,9 @@ test('home retrieval popup and inventory batch page share the same batch aggrega
   assert.match(batchCf, /labelCount|itemCount/);
   assert.match(batchCf, /page\s*=/);
   assert.match(batchCf, /pageSize\s*=/);
+  assert.match(batchCf, /require\('\.\/warehouse-zones'\)/);
+  assert.match(batchCf, /buildLocationDetailMapByZone/);
+  assert.match(batchCf, /resolveInventoryLocationText\(item,\s*zoneMap,\s*detailMapByZone\)/);
 });
 
 test('home scan opens inventory detail for existing labels instead of direct withdrawal popup', () => {

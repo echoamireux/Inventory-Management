@@ -1,5 +1,5 @@
-const { resolveInventoryLocation, buildZoneMap } = require('./location-zone');
-const { listZoneRecords } = require('./zone-service');
+const { resolveInventoryLocation, buildZoneMap, buildLocationDetailMapByZone } = require('./location-zone');
+const { listZoneConfig } = require('./zone-service');
 const {
   buildMaterialMap,
   mergeInventoryMaterialData,
@@ -78,9 +78,11 @@ async function loadBatchLabelPage({
   const effectiveCategory = String(category || rawList[0]?.category || 'chemical').trim() || 'chemical';
 
   let zoneMap = new Map();
+  let detailMapByZone = new Map();
   try {
-    const zoneRecords = await listZoneRecords(effectiveCategory, true);
-    zoneMap = buildZoneMap(zoneRecords);
+    const zoneConfig = await listZoneConfig(effectiveCategory, true);
+    zoneMap = buildZoneMap(zoneConfig.zones || []);
+    detailMapByZone = buildLocationDetailMapByZone(zoneConfig.details || [], { includeDisabled: true });
   } catch (zoneError) {
     console.warn('加载库区映射失败', zoneError);
   }
@@ -106,7 +108,7 @@ async function loadBatchLabelPage({
       isExpiring: expiryState.isExpiring,
       expiryBadgeText: expiryState.expiryBadgeText,
       rowTone: expiryState.rowTone,
-      location: resolveInventoryLocation(mergedItem, zoneMap) || '--',
+      location: resolveInventoryLocation(mergedItem, zoneMap, detailMapByZone) || '--',
       _qtyStr: `${quantityState.displayQuantity} ${quantityState.displayUnit}`
     };
   });

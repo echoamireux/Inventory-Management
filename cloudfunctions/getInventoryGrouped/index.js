@@ -11,8 +11,10 @@ const ALERT_CONFIG = require('./alert-config');
 const { loadMaterialMapByProductCodes } = require('./material-map');
 const {
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   resolveInventoryLocationText
 } = require('./warehouse-zones');
 const {
@@ -118,7 +120,7 @@ function buildInventoryGroupKey(item = {}) {
   return productCode;
 }
 
-function buildInventoryGroups(sourceItems, zoneMap) {
+function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
   const byGroupKey = new Map();
 
   (sourceItems || []).forEach((item) => {
@@ -171,11 +173,9 @@ function buildInventoryGroups(sourceItems, zoneMap) {
       group.firstUnit = item.quantity.unit;
     }
 
-    if (item.location_text) {
-      group.locationSet.add(item.location_text);
-    }
-    if (item.location) {
-      group.locationSet.add(item.location);
+    const resolvedLocation = resolveInventoryLocationText(item, zoneMap, detailMapByZone);
+    if (resolvedLocation) {
+      group.locationSet.add(resolvedLocation);
     }
     if (item.zone_key) {
       const zone = zoneMap.get(item.zone_key);
@@ -243,7 +243,9 @@ exports.main = async (event, context) => {
     const where = searchConditions.length === 1 ? searchConditions[0] : _.and(searchConditions);
 
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+    const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
     const zoneMap = buildZoneMap(zoneRecords);
+    const detailMapByZone = buildLocationDetailMapByZone(detailRecords, { includeDisabled: true });
     const subcategoryRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
@@ -252,7 +254,7 @@ exports.main = async (event, context) => {
       matchedSourceItems.map(item => buildInventoryGroupKey(item))
     );
     const groupSourceItems = regex ? await loadInventoryGroupSourceItems(baseWhere) : matchedSourceItems;
-    const groups = buildInventoryGroups(groupSourceItems, zoneMap)
+    const groups = buildInventoryGroups(groupSourceItems, zoneMap, detailMapByZone)
       .filter(item => !regex || matchedGroupKeys.has(item._groupKey));
 
     const productCodes = groups
@@ -369,7 +371,7 @@ exports.main = async (event, context) => {
 
       item.recommendedCode = recommendation.recommendedCode;
       item.recommendedBatchNumber = recommendation.recommendedBatchNumber;
-      item.matchReasonText = resolveGroupMatchReasonText({ ...item, items }, normalizedKeyword, zoneMap);
+      item.matchReasonText = resolveGroupMatchReasonText({ ...item, items }, normalizedKeyword, zoneMap, detailMapByZone);
     });
 
     return { success: true, list, total, page, pageSize, isEnd };
@@ -468,7 +470,7 @@ async function loadInventoryItemsForGroups(baseWhere, groups) {
     return result;
 }
 
-function resolveGroupMatchReasonText(group, keyword, zoneMap) {
+function resolveGroupMatchReasonText(group, keyword, zoneMap, detailMapByZone) {
     const normalizedKeyword = normalizeSearchKeyword(keyword);
     if (!normalizedKeyword || !group) {
       return '';
@@ -492,7 +494,7 @@ function resolveGroupMatchReasonText(group, keyword, zoneMap) {
     if (groupItems.some(item => {
       const searchableItem = {
         ...item,
-        resolved_location_text: resolveInventoryLocationText(item, zoneMap)
+        resolved_location_text: resolveInventoryLocationText(item, zoneMap, detailMapByZone)
       };
       return matchesSearchFields(
         searchableItem,

@@ -2,9 +2,11 @@ const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 const {
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   buildInventoryLocationPayload,
   resolveInventoryLocationText
 } = require('./warehouse-zones');
@@ -110,7 +112,7 @@ exports.main = async (event, context) => {
         const userRes = await transaction.collection('users').where({ _openid: OPENID }).get();
         const operator = userRes.data[0];
         const updateKeys = Object.keys(updates || {});
-        const locationUpdateKeys = new Set(['zone_key', 'location_detail']);
+        const locationUpdateKeys = new Set(['zone_key', 'location_detail', 'location_detail_key']);
         const widthUpdateKeys = new Set(['width_mm', 'adjust_reason']);
         const stocktakeUpdateKeys = new Set(['stocktake_quantity', 'adjust_reason']);
         const isLocationUpdate = updateKeys.length > 0 && updateKeys.every(key => locationUpdateKeys.has(key));
@@ -246,12 +248,15 @@ exports.main = async (event, context) => {
         }
 
         const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+        const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
+        const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
         const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, item.category));
         const locationPayload = buildInventoryLocationPayload({
           zoneKey: updates.zone_key,
+          locationDetailKey: updates.location_detail_key,
           locationDetail: updates.location_detail
-        }, zoneMap);
-        const oldLocation = resolveInventoryLocationText(item, zoneMap) || '未知';
+        }, zoneMap, detailMapByZone);
+        const oldLocation = resolveInventoryLocationText(item, zoneMap, detailMapByZone) || '未知';
         const newLocation = locationPayload.location_text || '未知';
 
         await transaction.collection('inventory').doc(inventory_id).update({

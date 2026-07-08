@@ -1,10 +1,14 @@
 import Toast from '@vant/weapp/toast/toast';
 const {
-  listZoneRecords,
+  listZoneConfig,
   createZone,
   renameZone,
   setZoneStatus,
-  reorderZones
+  reorderZones,
+  createLocationDetail,
+  renameLocationDetail,
+  setLocationDetailStatus,
+  reorderLocationDetails
 } = require('../../../utils/zone-service');
 
 function resolveCategory(options) {
@@ -25,6 +29,25 @@ function buildScopeOptions(category) {
 
 function resolveDefaultScope(category) {
   return category === 'film' ? 'film' : 'chemical';
+}
+
+function buildZonesWithDetails(zones, details) {
+  const detailMap = new Map();
+  (details || []).forEach((detail) => {
+    const zoneKey = String((detail && detail.zone_key) || '').trim();
+    if (!zoneKey) {
+      return;
+    }
+    if (!detailMap.has(zoneKey)) {
+      detailMap.set(zoneKey, []);
+    }
+    detailMap.get(zoneKey).push(detail);
+  });
+
+  return (zones || []).map(zone => ({
+    ...zone,
+    details: detailMap.get(zone.zone_key) || []
+  }));
 }
 
 Page({
@@ -71,8 +94,10 @@ Page({
   async loadZones() {
     this.setData({ loading: true });
     try {
-      const zones = await listZoneRecords(this.data.category, true);
-      this.setData({ zones });
+      const zoneConfig = await listZoneConfig(this.data.category, true);
+      this.setData({
+        zones: buildZonesWithDetails(zoneConfig.zones || [], zoneConfig.details || [])
+      });
     } catch (err) {
       console.error(err);
       Toast.fail(err.message || '加载库区失败');
@@ -211,6 +236,137 @@ Page({
     try {
       await reorderZones(list.map(item => item.zone_key));
       this.setData({ zones: list });
+      Toast.success('排序已更新');
+    } catch (err) {
+      console.error(err);
+      Toast.fail(err.message || '排序失败');
+      await this.loadZones();
+    } finally {
+      wx.hideLoading();
+    }
+  },
+  onCreateDetail(e) {
+    const zone = this.data.zones[e.currentTarget.dataset.index];
+    if (!zone || !zone.zone_key) {
+      return;
+    }
+
+    wx.showModal({
+      title: '新增详细坐标',
+      editable: true,
+      placeholderText: '例如 F6、样品层',
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+
+        const name = String(res.content || '').trim();
+        if (!name) {
+          Toast.fail('请输入详细坐标名称');
+          return;
+        }
+
+        wx.showLoading({ title: '创建中...' });
+        try {
+          await createLocationDetail(zone.zone_key, name);
+          Toast.success('创建成功');
+          await this.loadZones();
+        } catch (err) {
+          console.error(err);
+          Toast.fail(err.message || '创建失败');
+        } finally {
+          wx.hideLoading();
+        }
+      }
+    });
+  },
+
+  onRenameDetail(e) {
+    const zone = this.data.zones[e.currentTarget.dataset.zoneIndex];
+    const detail = zone && zone.details ? zone.details[e.currentTarget.dataset.detailIndex] : null;
+    if (!detail || !detail.detail_key) {
+      return;
+    }
+
+    wx.showModal({
+      title: '重命名详细坐标',
+      editable: true,
+      placeholderText: `当前名称：${detail.name}`,
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+
+        const name = String(res.content || '').trim();
+        if (!name) {
+          Toast.fail('请输入新的详细坐标名称');
+          return;
+        }
+
+        wx.showLoading({ title: '保存中...' });
+        try {
+          await renameLocationDetail(detail.detail_key, name);
+          Toast.success('已重命名');
+          await this.loadZones();
+        } catch (err) {
+          console.error(err);
+          Toast.fail(err.message || '重命名失败');
+        } finally {
+          wx.hideLoading();
+        }
+      }
+    });
+  },
+
+  async onToggleDetail(e) {
+    const zone = this.data.zones[e.currentTarget.dataset.zoneIndex];
+    const detail = zone && zone.details ? zone.details[e.currentTarget.dataset.detailIndex] : null;
+    if (!detail || !detail.detail_key) {
+      return;
+    }
+
+    const nextStatus = detail.status === 'disabled' ? 'active' : 'disabled';
+    const actionLabel = nextStatus === 'active' ? '启用' : '停用';
+
+    wx.showLoading({ title: `${actionLabel}中...` });
+    try {
+      await setLocationDetailStatus(detail.detail_key, nextStatus);
+      Toast.success(`${actionLabel}成功`);
+      await this.loadZones();
+    } catch (err) {
+      console.error(err);
+      Toast.fail(err.message || `${actionLabel}失败`);
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
+  onMoveDetailUp(e) {
+    this.moveDetail(e.currentTarget.dataset.zoneIndex, e.currentTarget.dataset.detailIndex, -1);
+  },
+
+  onMoveDetailDown(e) {
+    this.moveDetail(e.currentTarget.dataset.zoneIndex, e.currentTarget.dataset.detailIndex, 1);
+  },
+
+  async moveDetail(zoneIndex, detailIndex, delta) {
+    const zones = this.data.zones.slice();
+    const zone = zones[zoneIndex];
+    const details = zone && zone.details ? zone.details.slice() : [];
+    const nextIndex = detailIndex + delta;
+    if (!zone || detailIndex < 0 || nextIndex < 0 || nextIndex >= details.length) {
+      return;
+    }
+
+    const temp = details[detailIndex];
+    details[detailIndex] = details[nextIndex];
+    details[nextIndex] = temp;
+
+    wx.showLoading({ title: '排序中...' });
+    try {
+      await reorderLocationDetails(zone.zone_key, details.map(item => item.detail_key));
+      zones[zoneIndex] = { ...zone, details };
+      this.setData({ zones });
       Toast.success('排序已更新');
     } catch (err) {
       console.error(err);

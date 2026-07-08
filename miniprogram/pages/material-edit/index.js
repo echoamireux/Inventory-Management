@@ -2,11 +2,14 @@
 const {
   buildLocationZoneActions,
   buildZoneMap,
+  buildLocationDetailMapByZone,
+  buildLocationDetailActions,
+  hasManagedLocationDetails,
   buildLocationPayload,
   extractLocationSelection
 } = require('../../utils/location-zone');
 const { getMovePageAccessState, canManageZones } = require('../../utils/move-page-access');
-const { listZoneRecords } = require('../../utils/zone-service');
+const { listZoneConfig } = require('../../utils/zone-service');
 
 Page({
   data: {
@@ -14,7 +17,9 @@ Page({
     form: {
       zone_key: '',
       location_zone: '',
+      location_detail_key: '',
       location_detail: '',
+      requires_location_detail: false,
       batch_number: '',
       material_name: '',
       product_code: '',
@@ -24,7 +29,10 @@ Page({
     loading: false,
     canManageZones: false,
     zoneRecords: [],
+    detailRecords: [],
     showLocationSheet: false,
+    showLocationDetailSheet: false,
+    locationDetailActions: [],
     locationZoneActions: []
   },
 
@@ -114,18 +122,26 @@ Page({
 
   async loadZones(category = 'chemical', inventoryItem = null, baseForm = null) {
     try {
-      const zoneRecords = await listZoneRecords(category, false);
+      const zoneConfig = await listZoneConfig(category, false);
+      const zoneRecords = zoneConfig.zones || [];
+      const detailRecords = zoneConfig.details || [];
       const zoneMap = buildZoneMap(zoneRecords);
-      const selection = extractLocationSelection(inventoryItem || this.data.form, zoneMap);
+      const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
+      const selection = extractLocationSelection(inventoryItem || this.data.form, zoneMap, detailMapByZone);
+      const locationDetailActions = buildLocationDetailActions(selection.zone_key, detailMapByZone);
 
       this.setData({
         zoneRecords,
+        detailRecords,
         locationZoneActions: buildLocationZoneActions(zoneRecords, this.data.canManageZones),
+        locationDetailActions,
         form: {
           ...(baseForm || this.data.form),
           zone_key: selection.zone_key,
           location_zone: selection.location_zone,
+          location_detail_key: selection.location_detail_key,
           location_detail: selection.location_detail,
+          requires_location_detail: hasManagedLocationDetails(selection.zone_key, detailMapByZone),
           category
         }
       });
@@ -133,6 +149,8 @@ Page({
       console.error('Load zones failed', err);
       this.setData({
         zoneRecords: [],
+        detailRecords: [],
+        locationDetailActions: [],
         locationZoneActions: buildLocationZoneActions([], this.data.canManageZones)
       });
       wx.showToast({ title: err.message || '加载库区失败', icon: 'none' });
@@ -150,10 +168,37 @@ Page({
   onLocationSelect(e) {
     const zoneName = e.detail.name;
     const zoneRecord = this.data.zoneRecords.find(item => item.name === zoneName);
+    const zoneKey = zoneRecord ? zoneRecord.zone_key : '';
+    const detailMapByZone = buildLocationDetailMapByZone(this.data.detailRecords);
+    const locationDetailActions = buildLocationDetailActions(zoneKey, detailMapByZone);
     this.setData({
-      'form.zone_key': zoneRecord ? zoneRecord.zone_key : '',
+      'form.zone_key': zoneKey,
       'form.location_zone': zoneName,
+      'form.location_detail_key': '',
+      'form.location_detail': '',
+      'form.requires_location_detail': hasManagedLocationDetails(zoneKey, detailMapByZone),
+      locationDetailActions,
       showLocationSheet: false
+    });
+  },
+
+  showLocationDetailSheet() {
+    if (!this.data.form.requires_location_detail) {
+      return;
+    }
+    this.setData({ showLocationDetailSheet: true });
+  },
+
+  onLocationDetailClose() {
+    this.setData({ showLocationDetailSheet: false });
+  },
+
+  onLocationDetailSelect(e) {
+    const item = e.detail || {};
+    this.setData({
+      'form.location_detail_key': item.detail_key || '',
+      'form.location_detail': item.name || '',
+      showLocationDetailSheet: false
     });
   },
 
@@ -177,14 +222,20 @@ Page({
     if (!form.location_zone || !form.zone_key) {
       return wx.showToast({ title: '请选择存储区域', icon: 'none' });
     }
+    if (form.requires_location_detail && !form.location_detail_key) {
+      return wx.showToast({ title: '请选择详细坐标', icon: 'none' });
+    }
 
     const locationPayload = buildLocationPayload(
       form.zone_key,
       form.location_detail,
-      buildZoneMap(zoneRecords)
+      buildZoneMap(zoneRecords),
+      buildLocationDetailMapByZone(this.data.detailRecords),
+      form.location_detail_key
     );
     const updates = {
       zone_key: locationPayload.zone_key,
+      location_detail_key: locationPayload.location_detail_key || '',
       location_detail: locationPayload.location_detail
     };
 

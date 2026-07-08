@@ -34,10 +34,12 @@ test('move page loads active category zones from cloud zone service instead of l
   const pageJs = read('miniprogram/pages/material-edit/index.js');
   const pageWxml = read('miniprogram/pages/material-edit/index.wxml');
 
-  assert.match(pageJs, /listZoneRecords\(category,\s*false\)/);
+  assert.match(pageJs, /listZoneConfig\(category,\s*false\)/);
   assert.match(pageJs, /buildLocationZoneActions\(zoneRecords,\s*this\.data\.canManageZones\)/);
-  assert.match(pageJs, /buildLocationPayload\(\s*form\.zone_key,\s*form\.location_detail,\s*buildZoneMap\(zoneRecords\)\s*\)/);
+  assert.match(pageJs, /buildLocationDetailMapByZone\(detailRecords\)/);
+  assert.match(pageJs, /location_detail_key:\s*locationPayload\.location_detail_key/);
   assert.match(pageWxml, /actions="{{ locationZoneActions }}"/);
+  assert.match(pageWxml, /actions="{{ locationDetailActions }}"/);
 
   assert.doesNotMatch(pageJs, /实验室1|lab1|zone1|builtin:film:warehouse1|DEFAULT_ZONES|buildLocationZoneState/);
   assert.doesNotMatch(pageWxml, /实验室1|lab1|zone1|builtin:film:warehouse1/);

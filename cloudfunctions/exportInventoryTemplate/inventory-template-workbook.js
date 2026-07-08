@@ -102,6 +102,11 @@ function defineConfigRanges(workbook, configSheet, spec) {
       key: spec.definedNames.filmZones.name,
       values: spec.zoneOptions.film,
       definedName: spec.definedNames.filmZones
+    },
+    {
+      key: spec.definedNames.locationDetails.name,
+      values: spec.zoneOptions.details || [],
+      definedName: spec.definedNames.locationDetails
     }
   ];
 
@@ -174,6 +179,18 @@ function applyRangeValidations(sheet, spec) {
     error: '请从下拉列表中选择当前启用的存储区域。',
     formulae: [spec.validationFormulae.zone]
   });
+
+  if (spec.validationRanges.locationDetail && spec.definedNames.locationDetails) {
+    sheet.dataValidations.add(spec.validationRanges.locationDetail, {
+      type: 'list',
+      allowBlank: true,
+      showInputMessage: true,
+      promptTitle: '填写提示',
+      prompt: '防爆柜等已配置明细坐标的库区，请选择 F1-F5 等系统坐标。',
+      showErrorMessage: false,
+      formulae: [spec.definedNames.locationDetails.name]
+    });
+  }
 
   sheet.dataValidations.add(spec.validationRanges.expiryDate, {
     type: 'custom',

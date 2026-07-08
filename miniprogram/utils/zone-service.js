@@ -46,6 +46,17 @@ function listZoneRecords(category, includeDisabled = false) {
   }).then(result => result.list || []);
 }
 
+function listZoneConfig(category, includeDisabled = false) {
+  return callZoneFunction({
+    action: 'list',
+    category,
+    includeDisabled
+  }).then(result => ({
+    zones: result.list || [],
+    details: result.detail_list || []
+  }));
+}
+
 function createZone(name, scope = 'global') {
   return callZoneFunction({
     action: 'create',
@@ -77,12 +88,49 @@ function reorderZones(zoneKeys) {
   });
 }
 
+function createLocationDetail(zoneKey, name) {
+  return callZoneFunction({
+    action: 'createDetail',
+    zone_key: zoneKey,
+    name
+  });
+}
+
+function renameLocationDetail(detailKey, name) {
+  return callZoneFunction({
+    action: 'renameDetail',
+    detail_key: detailKey,
+    name
+  });
+}
+
+function setLocationDetailStatus(detailKey, status) {
+  return callZoneFunction({
+    action: 'setDetailStatus',
+    detail_key: detailKey,
+    status
+  });
+}
+
+function reorderLocationDetails(zoneKey, detailKeys) {
+  return callZoneFunction({
+    action: 'reorderDetails',
+    zone_key: zoneKey,
+    detail_keys: detailKeys
+  });
+}
+
 module.exports = {
   LEGACY_ZONE_FUNCTION_HINT,
   normalizeZoneFunctionResult,
+  listZoneConfig,
   listZoneRecords,
   createZone,
   renameZone,
   setZoneStatus,
-  reorderZones
+  reorderZones,
+  createLocationDetail,
+  renameLocationDetail,
+  setLocationDetailStatus,
+  reorderLocationDetails
 };

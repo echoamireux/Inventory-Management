@@ -6,12 +6,16 @@ const {
 } = require('./auth');
 const {
   normalizeZoneName,
+  normalizeLocationDetailName,
   normalizeScope,
   normalizeStatus,
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
+  sortLocationDetailRecords,
   filterZoneRecordsByCategory,
-  findZoneRecordByName
+  findZoneRecordByName,
+  findLocationDetailRecordByName
 } = require('./warehouse-zones');
 
 cloud.init({
@@ -22,6 +26,10 @@ const db = cloud.database();
 
 function buildCustomZoneKey() {
   return `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildCustomDetailKey(zoneKey) {
+  return `${String(zoneKey || '').trim()}:custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 }
 
 async function getOperator(openid) {
@@ -38,16 +46,22 @@ async function listZones(event, openid) {
 
   const includeDisabled = !!(event && event.includeDisabled && isAdminRole(operator.role));
   const allZones = await ensureBuiltinZones(db);
+  const allDetails = await ensureBuiltinLocationDetails(db, allZones);
   const normalized = sortZoneRecords(allZones);
   const filtered = event && event.category
     ? filterZoneRecordsByCategory(normalized, event.category, {
       includeDisabled
     })
     : normalized.filter(item => includeDisabled ? true : item.status === 'active');
+  const visibleZoneKeys = new Set(filtered.map(item => item.zone_key));
+  const detailList = sortLocationDetailRecords(allDetails)
+    .filter(item => visibleZoneKeys.has(item.zone_key))
+    .filter(item => includeDisabled ? true : item.status === 'active');
 
   return {
     success: true,
-    list: filtered
+    list: filtered,
+    detail_list: detailList
   };
 }
 
@@ -207,6 +221,184 @@ async function reorderExistingZones(zoneKeys, openid) {
   };
 }
 
+async function createLocationDetail(zoneKey, name, openid) {
+  const operator = await getOperator(openid);
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可新建详细坐标');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
+
+  const normalizedZoneKey = String(zoneKey || '').trim();
+  const normalizedName = normalizeLocationDetailName(name);
+  if (!normalizedZoneKey) {
+    return { success: false, msg: '请选择库存区域' };
+  }
+  if (!normalizedName) {
+    return { success: false, msg: '请输入详细坐标名称' };
+  }
+
+  const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
+  const zone = existingZones.find(item => item.zone_key === normalizedZoneKey);
+  if (!zone) {
+    return { success: false, msg: '库存区域不存在' };
+  }
+
+  const existingDetails = sortLocationDetailRecords(await ensureBuiltinLocationDetails(db, existingZones));
+  const existing = findLocationDetailRecordByName(existingDetails, normalizedZoneKey, normalizedName);
+  if (existing) {
+    if (existing.status === 'disabled' && existing._id) {
+      await db.collection('warehouse_location_details').doc(existing._id).update({
+        data: {
+          status: 'active',
+          updated_at: db.serverDate()
+        }
+      });
+    }
+
+    return {
+      success: true,
+      msg: '详细坐标已存在',
+      detail_key: existing.detail_key,
+      id: existing._id
+    };
+  }
+
+  const zoneDetails = existingDetails.filter(item => item.zone_key === normalizedZoneKey);
+  const maxSortOrder = zoneDetails.reduce((max, item) => Math.max(max, Number(item.sort_order) || 0), 0);
+  const detailKey = buildCustomDetailKey(normalizedZoneKey);
+  const res = await db.collection('warehouse_location_details').add({
+    data: {
+      zone_key: normalizedZoneKey,
+      detail_key: detailKey,
+      name: normalizedName,
+      is_builtin: false,
+      status: 'active',
+      sort_order: maxSortOrder + 10,
+      created_at: db.serverDate(),
+      updated_at: db.serverDate()
+    }
+  });
+
+  return {
+    success: true,
+    msg: '创建成功',
+    detail_key: detailKey,
+    id: res._id
+  };
+}
+
+async function renameLocationDetail(detailKey, name, openid) {
+  const operator = await getOperator(openid);
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可重命名详细坐标');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
+
+  const normalizedDetailKey = String(detailKey || '').trim();
+  const normalizedName = normalizeLocationDetailName(name);
+  if (!normalizedName) {
+    return { success: false, msg: '请输入详细坐标名称' };
+  }
+
+  const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
+  const existingDetails = sortLocationDetailRecords(await ensureBuiltinLocationDetails(db, existingZones));
+  const currentDetail = existingDetails.find(item => item.detail_key === normalizedDetailKey);
+  if (!currentDetail || !currentDetail._id) {
+    return { success: false, msg: '详细坐标不存在' };
+  }
+
+  const duplicate = findLocationDetailRecordByName(
+    existingDetails,
+    currentDetail.zone_key,
+    normalizedName,
+    normalizedDetailKey
+  );
+  if (duplicate) {
+    return { success: false, msg: '该库区下已存在同名详细坐标' };
+  }
+
+  await db.collection('warehouse_location_details').doc(currentDetail._id).update({
+    data: {
+      name: normalizedName,
+      updated_at: db.serverDate()
+    }
+  });
+
+  return {
+    success: true,
+    msg: '重命名成功'
+  };
+}
+
+async function setLocationDetailStatus(detailKey, status, openid) {
+  const operator = await getOperator(openid);
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可启用或停用详细坐标');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
+
+  const normalizedDetailKey = String(detailKey || '').trim();
+  const normalized = normalizeStatus(status);
+  const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
+  const existingDetails = sortLocationDetailRecords(await ensureBuiltinLocationDetails(db, existingZones));
+  const currentDetail = existingDetails.find(item => item.detail_key === normalizedDetailKey);
+  if (!currentDetail || !currentDetail._id) {
+    return { success: false, msg: '详细坐标不存在' };
+  }
+
+  await db.collection('warehouse_location_details').doc(currentDetail._id).update({
+    data: {
+      status: normalized,
+      updated_at: db.serverDate()
+    }
+  });
+
+  return {
+    success: true,
+    msg: normalized === 'active' ? '已启用' : '已停用'
+  };
+}
+
+async function reorderLocationDetails(zoneKey, detailKeys, openid) {
+  const operator = await getOperator(openid);
+  const authResult = assertAdminMutationAccess(operator, '仅管理员可调整详细坐标顺序');
+  if (!authResult.ok) {
+    return { success: false, msg: authResult.msg };
+  }
+
+  const normalizedZoneKey = String(zoneKey || '').trim();
+  if (!Array.isArray(detailKeys) || detailKeys.length === 0) {
+    return { success: false, msg: '缺少排序数据' };
+  }
+
+  const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
+  const existingDetails = sortLocationDetailRecords(await ensureBuiltinLocationDetails(db, existingZones));
+  const detailMap = new Map(
+    existingDetails
+      .filter(item => item.zone_key === normalizedZoneKey)
+      .map(item => [item.detail_key, item])
+  );
+  const validKeys = detailKeys.map(key => String(key || '').trim()).filter(key => detailMap.has(key));
+  if (validKeys.length === 0) {
+    return { success: false, msg: '未找到可排序的详细坐标' };
+  }
+
+  for (let index = 0; index < validKeys.length; index += 1) {
+    const detail = detailMap.get(validKeys[index]);
+    await db.collection('warehouse_location_details').doc(detail._id).update({
+      data: {
+        sort_order: (index + 1) * 10,
+        updated_at: db.serverDate()
+      }
+    });
+  }
+
+  return {
+    success: true,
+    msg: '排序已更新'
+  };
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const action = event && event.action ? event.action : (event && event.name ? 'create' : 'list');
@@ -226,6 +418,26 @@ exports.main = async (event, context) => {
     }
     if (action === 'reorder') {
       return await reorderExistingZones(event && event.zone_keys, OPENID);
+    }
+    if (action === 'createDetail') {
+      return await createLocationDetail(
+        String(event && event.zone_key || '').trim(),
+        event && event.name,
+        OPENID
+      );
+    }
+    if (action === 'renameDetail') {
+      return await renameLocationDetail(String(event && event.detail_key || '').trim(), event && event.name, OPENID);
+    }
+    if (action === 'setDetailStatus') {
+      return await setLocationDetailStatus(String(event && event.detail_key || '').trim(), event && event.status, OPENID);
+    }
+    if (action === 'reorderDetails') {
+      return await reorderLocationDetails(
+        String(event && event.zone_key || '').trim(),
+        event && event.detail_keys,
+        OPENID
+      );
     }
 
     return {

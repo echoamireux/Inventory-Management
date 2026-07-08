@@ -12,9 +12,11 @@ const {
 } = require('./inventory-quantity');
 const {
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   buildInventoryLocationPayload
 } = require('./warehouse-zones');
 
@@ -106,6 +108,8 @@ exports.main = async (event, context) => {
       .get();
     const materialMap = new Map((materialRes.data || []).map(item => [item._id, item]));
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
+    const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
+    const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
     const zoneMaps = {
       chemical: buildZoneMap(filterZoneRecordsByCategory(zoneRecords, 'chemical')),
       film: buildZoneMap(filterZoneRecordsByCategory(zoneRecords, 'film'))
@@ -116,8 +120,9 @@ exports.main = async (event, context) => {
       const category = prepared.inventoryData.category === 'film' ? 'film' : 'chemical';
       const locationPayload = buildInventoryLocationPayload({
         zoneKey: item && item.zone_key,
+        locationDetailKey: item && item.location_detail_key,
         locationDetail: item && item.location_detail
-      }, zoneMaps[category]);
+      }, zoneMaps[category], detailMapByZone);
 
       prepared.inventoryData = Object.assign({}, prepared.inventoryData, locationPayload);
       return prepared;

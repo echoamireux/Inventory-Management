@@ -10,6 +10,10 @@ function getMaterialSubmitValidationMessage(form = {}) {
     return '请选择存储区域';
   }
 
+  if (form.requires_location_detail && !hasFilledValue(form.location_detail_key) && !hasFilledValue(form.location_detail)) {
+    return '请选择详细坐标';
+  }
+
   if (form.is_test_material && !hasFilledValue(form.supplier_model)) {
     return '测试料请填写原厂型号';
   }

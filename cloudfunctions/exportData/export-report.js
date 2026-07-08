@@ -177,14 +177,19 @@ function resolveZoneLabel(item = {}, zoneMap) {
   return zoneName || '--';
 }
 
-function resolveLocationDetail(item = {}) {
-  const detail = String(item.location_detail || '').trim();
+function resolveLocationDetail(item = {}, detailMapByZone) {
+  const zoneKey = String(item.zone_key || '').trim();
+  const detailKey = String(item.location_detail_key || '').trim();
+  const detailGroup = zoneKey && detailMapByZone instanceof Map ? detailMapByZone.get(zoneKey) : null;
+  const detailRecord = detailKey && detailGroup && detailGroup.byKey ? detailGroup.byKey.get(detailKey) : null;
+  const detail = String((detailRecord && detailRecord.name) || item.location_detail || '').trim();
   return detail || '--';
 }
 
 function buildInventoryExportRow(item = {}, context = {}) {
   const material = context.material || {};
   const zoneMap = context.zoneMap;
+  const detailMapByZone = context.detailMapByZone;
   const subcategoryMap = context.subcategoryMap;
   const category = item.category || material.category;
   const quantity = item.quantity || {};
@@ -219,7 +224,7 @@ function buildInventoryExportRow(item = {}, context = {}) {
     currentStock,
     unit,
     zoneLabel: resolveZoneLabel(item, zoneMap),
-    locationDetail: resolveLocationDetail(item),
+    locationDetail: resolveLocationDetail(item, detailMapByZone),
     chemicalPackageType,
     filmWidthMm,
     filmThicknessUm,

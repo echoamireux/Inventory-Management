@@ -17,7 +17,7 @@ const INVENTORY_TEMPLATE_HEADERS = [
   '类别*',
   '生产批号*',
   '存储区域*',
-  '详细坐标',
+  '详细坐标*',
   '净含量',
   '包装形式',
   '膜材厚度(μm)',
@@ -35,7 +35,7 @@ const TEMPLATE_INLINE_HINTS = [
   '必填',
   '必填',
   '必填',
-  '选填',
+  '必填',
   '化材必填',
   '化材选填',
   '膜材条件必填',
@@ -54,10 +54,12 @@ const TEMPLATE_DATA_START_ROW = 4;
 
 function buildInventoryTemplateSpec({
   chemicalZones = [],
-  filmZones = []
+  filmZones = [],
+  locationDetails = []
 } = {}) {
   const chemicalZoneEnd = chemicalZones.length + 1;
   const filmZoneEnd = filmZones.length + 1;
+  const locationDetailEnd = locationDetails.length + 1;
 
   return {
     dataSheetName: DATA_SHEET_NAME,
@@ -75,6 +77,7 @@ function buildInventoryTemplateSpec({
       productCode: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`,
       category: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
       zone: `E${TEMPLATE_DATA_START_ROW}:E${TEMPLATE_MAX_ROW}`,
+      locationDetail: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
       netContent: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
       thicknessUm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`,
       batchWidthMm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
@@ -94,11 +97,16 @@ function buildInventoryTemplateSpec({
       filmZones: {
         name: '膜材_库区',
         range: `Config!$B$2:$B$${filmZoneEnd}`
+      },
+      locationDetails: {
+        name: '详细坐标',
+        range: `Config!$C$2:$C$${locationDetailEnd}`
       }
     },
     zoneOptions: {
       chemical: chemicalZones.slice(),
-      film: filmZones.slice()
+      film: filmZones.slice(),
+      details: locationDetails.slice()
     },
     helpLines: [
       '【重要：填写说明】',
@@ -112,7 +120,7 @@ function buildInventoryTemplateSpec({
       '标签编号*：必填。格式固定为 L + 6 位数字，例如 L000123。',
       '产品代码*：必填。请填写 3 位数字，例如 001；系统会按类别归一化为标准产品代码。',
       '类别*：必填。只能选择“化材”或“膜材”。',
-      '生产批号* / 存储区域*：必填。存储区域必须从当前系统启用库区中选择。',
+      '生产批号* / 存储区域* / 详细坐标*：必填。存储区域必须从当前系统启用库区中选择；防爆柜等配置了明细坐标的库区，请选择 F1-F5 等系统坐标。',
       '过期日期 / 长期有效：二选一；过期日期请按 YYYY-MM-DD 填写，且必须是合法日期并且不能早于当天。',
       '默认单位由系统按主数据自动带出，本模板无需填写单位。',
       '净含量：仅化材必填；膜材请留空。',
@@ -124,11 +132,12 @@ function buildInventoryTemplateSpec({
       '样品说明/备注：选填。用于记录颜色、用途、项目或其他型号批号表达不出来的信息。',
       '',
       `当前化材库区：${chemicalZones.join(' / ')}`,
-      `当前膜材库区：${filmZones.join(' / ')}`
+      `当前膜材库区：${filmZones.join(' / ')}`,
+      `当前详细坐标：${locationDetails.join(' / ')}`
     ],
     exampleRows: [
-      ['L000101', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
-      ['L000201', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', 'F01', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
+      ['L000101', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', locationDetails[0] || 'F1', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
+      ['L000201', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', locationDetails[1] || 'F2', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
     ]
   };
 }

@@ -196,7 +196,7 @@ test('inventory template import keeps the formal header row as the only hard gat
         '类别*',
         '生产批号*',
         '存储区域*',
-        '详细坐标',
+        '详细坐标*',
         '净含量',
         '包装形式',
         '膜材厚度(μm)',
@@ -211,7 +211,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     },
     {
       rowIndex: 3,
-      values: ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一']
+      values: ['必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一']
     }
   ]);
 
@@ -301,7 +301,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     '类别*',
     '生产批号*',
     '存储区域*',
-    '详细坐标',
+    '详细坐标*',
     '净含量',
     '包装形式',
     '膜材厚度(μm)',

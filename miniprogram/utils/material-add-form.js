@@ -17,7 +17,9 @@ const EMPTY_MATERIAL_ADD_FORM = {
   batch_number: '',
   zone_key: '',
   location_zone: '',
+  location_detail_key: '',
   location_detail: '',
+  requires_location_detail: false,
   unit: '',
   net_content: '',
   package_type: '',
@@ -116,6 +118,8 @@ function buildContinueEntryForm(form, activeTab, item, prefix) {
     length_m: '',
     zone_key: syncedForm.zone_key,
     location_zone: syncedForm.location_zone,
+    location_detail_key: syncedForm.location_detail_key,
+    requires_location_detail: syncedForm.requires_location_detail,
     location_detail: syncedForm.location_detail
   };
 }

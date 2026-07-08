@@ -92,6 +92,7 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
   const locationZoneKey = String(defaults.defaultLocationZoneKey || '').trim();
   const locationZoneName = String(defaults.defaultLocationZoneName || defaults.defaultLocationZone || '').trim();
   const locationZone = String(defaults.defaultLocationZone || '').trim();
+  const locationDetailKey = String(defaults.defaultLocationDetailKey || '').trim();
   const locationDetail = String(defaults.defaultLocationDetail || '').trim();
   const isLongTermValid = !!defaults.defaultIsLongTermValid;
 
@@ -113,6 +114,7 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
     is_long_term_valid: isLongTermValid,
     zone_key: locationZoneKey,
     location_zone: locationZone,
+    location_detail_key: locationDetailKey,
     location_detail: locationDetail,
     location: composeLocation(locationZoneName || locationZone, locationDetail),
     quantity: {
@@ -175,6 +177,7 @@ function toISOStringOrNull(value) {
 function buildBatchSubmitItems(items, defaults = {}) {
   const defaultLocation = composeLocation(defaults.defaultLocationZoneName || defaults.defaultLocationZone, defaults.defaultLocationDetail);
   const defaultZoneKey = String(defaults.defaultLocationZoneKey || '').trim();
+  const defaultLocationDetailKey = String(defaults.defaultLocationDetailKey || '').trim();
   const defaultIsLongTermValid = !!defaults.defaultIsLongTermValid;
 
   return (items || []).map((item) => {
@@ -188,6 +191,11 @@ function buildBatchSubmitItems(items, defaults = {}) {
       : String(defaults.defaultLocationDetail || '').trim();
     const itemLocation = composeLocation(resolvedZoneName, resolvedLocationDetail) || item.location || defaultLocation;
     const zoneKey = String(item.zone_key || defaultZoneKey || '').trim();
+    const locationDetailKey = String(
+      hasOwnZone || hasOwnZoneKey
+        ? (item.location_detail_key || '')
+        : (item.location_detail_key || defaultLocationDetailKey || '')
+    ).trim();
     const locationDetail = String(
       hasOwnZone || hasOwnZoneKey
         ? (item.location_detail || '')
@@ -204,6 +212,7 @@ function buildBatchSubmitItems(items, defaults = {}) {
       ...item,
       unique: undefined,
       zone_key: zoneKey,
+      location_detail_key: locationDetailKey,
       location_detail: locationDetail,
       location_text: itemLocation,
       location: itemLocation,

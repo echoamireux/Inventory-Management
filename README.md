@@ -160,7 +160,7 @@
 - `pages/admin/material-import/index`
   物料导入
 - `pages/admin/zone-manage/index`
-  库区管理
+  库区与详细坐标管理
 - `pages/admin/subcategory-manage/index`
   子类别管理
 - `pages/super-admin/user-manage/index`
@@ -197,7 +197,7 @@
 - `manageSubcategory`
   子类别管理
 - `addWarehouseZone`
-  库区管理
+  库区与详细坐标管理
 - `getLogs`
   日志查询
 - `adminUpdateUserStatus`
@@ -230,7 +230,7 @@
 │   ├── updateInventory/              # 领用扣减与分摊日志
 │   ├── manageMaterial/               # 主数据维护
 │   ├── manageSubcategory/            # 子类别管理
-│   ├── addWarehouseZone/             # 库区管理
+│   ├── addWarehouseZone/             # 库区与详细坐标管理
 │   ├── getLogs/                      # 日志查询
 │   └── ...
 ├── miniprogram/
@@ -332,6 +332,8 @@ module.exports = {
 | `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
 | `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
+| `warehouse_location_details` | `warehouse_location_details.detail_key` | 唯一索引，升序 | 确保每个详细坐标稳定 ID 唯一，支持 F1-F5 改名后库存展示跟随最新名称 |
+| `warehouse_location_details` | `warehouse_location_details.zone_key + sort_order` | 复合索引，升序 + 升序 | 支持库区管理页按库区加载和排序详细坐标 |
 | `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
 | `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model` | 复合索引，升序 + 升序 + 升序 | 支持测试料共用 `999` 时按原厂型号拆分查询库存 |
@@ -350,7 +352,7 @@ module.exports = {
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code` 和 `preprinted_labels.unique_code` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`preprinted_labels.unique_code` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：
@@ -358,6 +360,14 @@ module.exports = {
 - 唯一索引创建前必须确认集合中没有重复值，否则索引会创建失败。
 - 索引构建期间不要批量导入大量数据。
 - 索引创建完成后，建议重新测试库存查询、扫码领料、日志查看和库存导出。
+
+## 库区与详细坐标规则
+
+- `存储区域` 表示大库位，例如 `防爆柜01`、`研发仓1`。
+- `详细坐标` 表示大库位下的具体层位或点位。默认化材防爆柜会自动补齐 `F1` 至 `F5`，建议按 `F1` 为上层、`F5` 为下层理解。
+- 系统会保存 `location_detail_key` 作为稳定 ID；管理员把 `F1` 改名为 `A` 后，当前库存展示会跟随新名称，历史日志仍保留当时操作快照。
+- 单条入库、批量扫码入库、Excel 库存导入和移库都会校验详细坐标。有管理坐标的库区必须从下拉项中选择；未配置明细坐标的库区仍可填写自由文本。
+- 导出最新库存入库模板后，`详细坐标*` 会提供当前启用坐标下拉。旧模板可兼容预览，但正式使用建议重新导出最新模板。
 
 ## 模板导入说明
 
@@ -396,7 +406,7 @@ npm test
 - 膜材数量换算
 - 搜索工具
 - 导入逻辑
-- 库区与子类别管理
+- 库区、详细坐标与子类别管理
 
 ### README 口径说明
 
@@ -411,6 +421,7 @@ npm test
 
 - 修改预警阈值时，请同步检查前后端共享配置
 - 修改库存分配规则时，请同时检查首页推荐、批次推荐和实际扣减逻辑
+- 修改库区或详细坐标规则时，请同步检查单条入库、批量入库、模板导入、移库和库存导出
 - 修改物料导入字段时，请同步更新：
   - `exportMaterialTemplate`
   - 导入解析与校验逻辑

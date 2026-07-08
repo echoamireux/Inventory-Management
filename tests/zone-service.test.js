@@ -25,6 +25,66 @@ test('listZoneRecords returns the current zone list from the deployed cloud func
   });
 });
 
+test('listZoneConfig returns zones and managed location details together', async () => {
+  const { listZoneConfig } = loadZoneServiceWithWx({
+    cloud: {
+      callFunction: async () => ({
+        result: {
+          success: true,
+          list: [{ zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }],
+          detail_list: [
+            {
+              zone_key: 'builtin:chemical:safe-cabinet-01',
+              detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+              name: 'F1'
+            }
+          ]
+        }
+      })
+    }
+  });
+
+  assert.deepEqual(await listZoneConfig('chemical', false), {
+    zones: [{ zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }],
+    details: [
+      {
+        zone_key: 'builtin:chemical:safe-cabinet-01',
+        detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+        name: 'F1'
+      }
+    ]
+  });
+});
+
+test('detail management calls use explicit detail actions', async () => {
+  const calls = [];
+  const {
+    createLocationDetail,
+    renameLocationDetail,
+    setLocationDetailStatus,
+    reorderLocationDetails
+  } = loadZoneServiceWithWx({
+    cloud: {
+      callFunction: async (payload) => {
+        calls.push(payload);
+        return { result: { success: true } };
+      }
+    }
+  });
+
+  await createLocationDetail('zone-1', 'F6');
+  await renameLocationDetail('zone-1:F1', 'A');
+  await setLocationDetailStatus('zone-1:F1', 'disabled');
+  await reorderLocationDetails('zone-1', ['zone-1:F2', 'zone-1:F1']);
+
+  assert.deepEqual(calls.map(item => item.data), [
+    { action: 'createDetail', zone_key: 'zone-1', name: 'F6' },
+    { action: 'renameDetail', detail_key: 'zone-1:F1', name: 'A' },
+    { action: 'setDetailStatus', detail_key: 'zone-1:F1', status: 'disabled' },
+    { action: 'reorderDetails', zone_key: 'zone-1', detail_keys: ['zone-1:F2', 'zone-1:F1'] }
+  ]);
+});
+
 test('createZone sends the selected scope to the zone cloud function', async () => {
   const calls = [];
   const { createZone } = loadZoneServiceWithWx({

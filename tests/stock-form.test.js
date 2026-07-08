@@ -30,6 +30,30 @@ test('material add submit validation reports missing storage zone when batch num
   );
 });
 
+test('material add submit validation requires managed location detail when zone has detail options', () => {
+  assert.equal(
+    getMaterialSubmitValidationMessage({
+      batch_number: '20260523',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      requires_location_detail: true,
+      location_detail_key: '',
+      location_detail: ''
+    }),
+    '请选择详细坐标'
+  );
+
+  assert.equal(
+    getMaterialSubmitValidationMessage({
+      batch_number: '20260523',
+      zone_key: 'builtin:chemical:safe-cabinet-02',
+      requires_location_detail: true,
+      location_detail_key: 'builtin:chemical:safe-cabinet-02:F1',
+      location_detail: ''
+    }),
+    ''
+  );
+});
+
 test('material add submit validation requires supplier model for test materials', () => {
   assert.equal(
     getMaterialSubmitValidationMessage({

@@ -9,6 +9,9 @@ const {
 const {
   buildLocationZoneActions,
   buildZoneMap,
+  buildLocationDetailMapByZone,
+  buildLocationDetailActions,
+  hasManagedLocationDetails,
   buildLocationPayload
 } = require('../../utils/location-zone');
 const {
@@ -18,7 +21,7 @@ const {
   isValidLabelCode
 } = require('../../utils/label-code');
 const { registerZoneManagementAccess } = require('../../utils/material-add-access');
-const { listZoneRecords } = require('../../utils/zone-service');
+const { listZoneConfig } = require('../../utils/zone-service');
 const { listSubcategoryRecords } = require('../../utils/subcategory-service');
 const {
   getDefaultUnit,
@@ -101,6 +104,7 @@ Page({
     showRequestUnitSheet: false,
     showPackageTypeSheet: false,
     showLocationSheet: false,
+    showLocationDetailSheet: false,
     showDatePicker: false,
     showSuccessDialog: false,
 
@@ -121,9 +125,11 @@ Page({
     subCategoryRecords: [],
     dbZones: [],
     zoneRecords: [],
+    detailRecords: [],
 
     locationZones: [],
     locationZoneActions: [],
+    locationDetailActions: [],
 
     // 使用常量
     unitActions: getUnitActions('chemical'),
@@ -233,22 +239,28 @@ Page({
 
   async loadZones() {
       try {
-          const zoneRecords = await listZoneRecords(this.data.activeTab, false);
+          const zoneConfig = await listZoneConfig(this.data.activeTab, false);
+          const zoneRecords = zoneConfig.zones || [];
+          const detailRecords = zoneConfig.details || [];
           this.setData({
             zoneRecords,
+            detailRecords,
             dbZones: zoneRecords.map(z => z.name)
           }, () => {
-            this.syncSelectedZoneName(zoneRecords);
+            this.syncSelectedZoneName(zoneRecords, detailRecords);
             this.updateZoneActions(zoneRecords);
+            this.updateLocationDetailActions(this.data.form.zone_key, detailRecords);
           });
 
       } catch (err) {
           console.error('Load zones failed', err);
           this.setData({
             zoneRecords: [],
+            detailRecords: [],
             dbZones: []
           }, () => {
             this.updateZoneActions([]);
+            this.updateLocationDetailActions('', []);
           });
           Toast.fail(err.message || '加载库区失败');
       }
@@ -262,17 +274,42 @@ Page({
       });
   },
 
-  syncSelectedZoneName(zoneRecords = this.data.zoneRecords) {
+  updateLocationDetailActions(zoneKey = this.data.form.zone_key, detailRecords = this.data.detailRecords) {
+      const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
+      const locationDetailActions = buildLocationDetailActions(zoneKey, detailMapByZone);
+      const requiresLocationDetail = locationDetailActions.length > 0;
+      this.setData({
+        locationDetailActions,
+        'form.requires_location_detail': requiresLocationDetail
+      });
+      return {
+        detailMapByZone,
+        locationDetailActions,
+        requiresLocationDetail
+      };
+  },
+
+  syncSelectedZoneName(zoneRecords = this.data.zoneRecords, detailRecords = this.data.detailRecords) {
       const zoneMap = buildZoneMap(zoneRecords);
+      const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
       const zoneKey = this.data.form.zone_key;
       if (!zoneKey) {
+        this.setData({
+          locationDetailActions: [],
+          'form.requires_location_detail': false
+        });
         return;
       }
 
       const zone = zoneMap.get(zoneKey);
       if (zone) {
+        const detailGroup = detailMapByZone.get(zoneKey);
+        const currentDetailKey = this.data.form.location_detail_key;
+        const detailRecord = currentDetailKey && detailGroup && detailGroup.byKey.get(currentDetailKey);
         this.setData({
-          'form.location_zone': zone.name
+          'form.location_zone': zone.name,
+          'form.location_detail': detailRecord ? detailRecord.name : this.data.form.location_detail,
+          'form.requires_location_detail': hasManagedLocationDetails(zoneKey, detailMapByZone)
         });
         return;
       }
@@ -280,6 +317,8 @@ Page({
       this.setData({
         'form.zone_key': '',
         'form.location_zone': '',
+        'form.location_detail_key': '',
+        'form.requires_location_detail': false,
         'form.location_detail': ''
       });
   },
@@ -305,6 +344,8 @@ Page({
         'form.length_m': '',
         'form.zone_key': '',
         'form.location_zone': '',
+        'form.location_detail_key': '',
+        'form.requires_location_detail': false,
         'form.location_detail': '',
         labelCodeError: '',
         labelCodeChecking: false,
@@ -1144,10 +1185,35 @@ Page({
   onLocationSelect(e) {
       const zone = e.detail.name;
       const zoneRecord = this.data.zoneRecords.find(item => item.name === zone);
+      const zoneKey = zoneRecord ? zoneRecord.zone_key : '';
+      const detailState = this.updateLocationDetailActions(zoneKey);
       this.setData({
-          'form.zone_key': zoneRecord ? zoneRecord.zone_key : '',
+          'form.zone_key': zoneKey,
           'form.location_zone': zone,
+          'form.location_detail_key': '',
+          'form.location_detail': '',
+          'form.requires_location_detail': detailState.requiresLocationDetail,
           showLocationSheet: false
+      });
+  },
+
+  showLocationDetailSheet() {
+      if (!this.data.form.requires_location_detail) {
+        return;
+      }
+      this.setData({ showLocationDetailSheet: true });
+  },
+
+  onLocationDetailClose() {
+      this.setData({ showLocationDetailSheet: false });
+  },
+
+  onLocationDetailSelect(e) {
+      const item = e.detail || {};
+      this.setData({
+          'form.location_detail_key': item.detail_key || '',
+          'form.location_detail': item.name || '',
+          showLocationDetailSheet: false
       });
   },
 
@@ -1207,7 +1273,9 @@ Page({
     const locationPayload = buildLocationPayload(
       form.zone_key,
       form.location_detail,
-      buildZoneMap(this.data.zoneRecords)
+      buildZoneMap(this.data.zoneRecords),
+      buildLocationDetailMapByZone(this.data.detailRecords),
+      form.location_detail_key
     );
 
     // 2. 构造参数

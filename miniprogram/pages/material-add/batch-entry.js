@@ -7,6 +7,9 @@ const {
 } = require('../../utils/constants');
 const {
   buildLocationZoneActions,
+  buildLocationDetailMapByZone,
+  buildLocationDetailActions,
+  hasManagedLocationDetails,
   composeLocation,
   buildZoneMap
 } = require('../../utils/location-zone');
@@ -25,7 +28,7 @@ const {
   normalizeLabelCodeInput,
   isValidLabelCode
 } = require('../../utils/label-code');
-const { listZoneRecords } = require('../../utils/zone-service');
+const { listZoneConfig } = require('../../utils/zone-service');
 const { canManageZones } = require('../../utils/move-page-access');
 const {
   sanitizeProductCodeNumberInput,
@@ -75,12 +78,17 @@ Page({
     defaultIsLongTermValid: false,
     defaultLocationZoneKey: '',
     defaultLocationZone: '',
+    defaultLocationDetailKey: '',
     defaultLocationDetail: '',
+    defaultRequiresLocationDetail: false,
     defaultLocationDisplay: '',
     dbZones: [],
     zoneRecords: [],
+    detailRecords: [],
     locationZoneActions: [],
+    locationDetailActions: [],
     showLocationSheet: false,
+    showLocationDetailSheet: false,
     canManageZones: false,
     showDate: false,
     currentDate: new Date().getTime(),
@@ -907,15 +915,51 @@ Page({
       const zone = Object.prototype.hasOwnProperty.call(next, 'defaultLocationZone')
           ? next.defaultLocationZone
           : this.data.defaultLocationZone;
+      const detailKey = Object.prototype.hasOwnProperty.call(next, 'defaultLocationDetailKey')
+          ? next.defaultLocationDetailKey
+          : this.data.defaultLocationDetailKey;
       const detail = Object.prototype.hasOwnProperty.call(next, 'defaultLocationDetail')
           ? next.defaultLocationDetail
           : this.data.defaultLocationDetail;
+      const detailState = this.buildDefaultLocationDetailState(zoneKey, {
+          defaultLocationDetailKey: detailKey,
+          defaultLocationDetail: detail
+      });
 
       this.setData({
           ...next,
           defaultLocationZoneKey: zoneKey,
-          defaultLocationDisplay: composeLocation(zone, detail)
+          defaultLocationDetailKey: detailState.defaultLocationDetailKey,
+          defaultLocationDetail: detailState.defaultLocationDetail,
+          defaultRequiresLocationDetail: detailState.defaultRequiresLocationDetail,
+          locationDetailActions: detailState.locationDetailActions,
+          defaultLocationDisplay: composeLocation(zone, detailState.defaultLocationDetail)
       });
+  },
+
+  buildDefaultLocationDetailState(zoneKey, next = {}) {
+      const detailMapByZone = buildLocationDetailMapByZone(this.data.detailRecords);
+      const locationDetailActions = buildLocationDetailActions(zoneKey, detailMapByZone);
+      const defaultRequiresLocationDetail = hasManagedLocationDetails(zoneKey, detailMapByZone);
+      const currentDetailKey = String(
+          Object.prototype.hasOwnProperty.call(next, 'defaultLocationDetailKey')
+              ? next.defaultLocationDetailKey
+              : this.data.defaultLocationDetailKey
+      ).trim();
+      const currentDetail = String(
+          Object.prototype.hasOwnProperty.call(next, 'defaultLocationDetail')
+              ? next.defaultLocationDetail
+              : this.data.defaultLocationDetail
+      ).trim();
+      const detailGroup = detailMapByZone.get(String(zoneKey || '').trim());
+      const detailRecord = currentDetailKey && detailGroup && detailGroup.byKey.get(currentDetailKey);
+
+      return {
+          locationDetailActions,
+          defaultRequiresLocationDetail,
+          defaultLocationDetailKey: detailRecord ? detailRecord.detail_key : (defaultRequiresLocationDetail ? '' : currentDetailKey),
+          defaultLocationDetail: detailRecord ? detailRecord.name : (defaultRequiresLocationDetail ? '' : currentDetail)
+      };
   },
 
   showLocationSheet() {
@@ -932,7 +976,29 @@ Page({
       this.syncDefaultLocationDisplay({
           defaultLocationZoneKey: zoneRecord ? zoneRecord.zone_key : '',
           defaultLocationZone: zone,
+          defaultLocationDetailKey: '',
+          defaultLocationDetail: '',
           showLocationSheet: false
+      });
+  },
+
+  showLocationDetailSheet() {
+      if (!this.data.defaultRequiresLocationDetail) {
+          return;
+      }
+      this.setData({ showLocationDetailSheet: true });
+  },
+
+  onLocationDetailClose() {
+      this.setData({ showLocationDetailSheet: false });
+  },
+
+  onLocationDetailSelect(e) {
+      const item = e.detail || {};
+      this.syncDefaultLocationDisplay({
+          defaultLocationDetailKey: item.detail_key || '',
+          defaultLocationDetail: item.name || '',
+          showLocationDetailSheet: false
       });
   },
 
@@ -942,11 +1008,14 @@ Page({
 
   async loadZones() {
       try {
-          const zoneRecords = await listZoneRecords(this.data.activeTab, false);
+          const zoneConfig = await listZoneConfig(this.data.activeTab, false);
+          const zoneRecords = zoneConfig.zones || [];
+          const detailRecords = zoneConfig.details || [];
 
           this.setData({
               dbZones: zoneRecords.map((z) => z.name),
               zoneRecords,
+              detailRecords,
               locationZoneActions: buildLocationZoneActions(zoneRecords, this.data.canManageZones)
           }, () => {
               const zoneMap = buildZoneMap(zoneRecords);
@@ -958,8 +1027,11 @@ Page({
                   this.syncDefaultLocationDisplay({
                       defaultLocationZoneKey: '',
                       defaultLocationZone: '',
+                      defaultLocationDetailKey: '',
                       defaultLocationDetail: ''
                   });
+              } else {
+                  this.syncDefaultLocationDisplay({});
               }
           });
       } catch (err) {
@@ -967,6 +1039,9 @@ Page({
           this.setData({
               dbZones: [],
               zoneRecords: [],
+              detailRecords: [],
+              locationDetailActions: [],
+              defaultRequiresLocationDetail: false,
               locationZoneActions: buildLocationZoneActions([], this.data.canManageZones)
           });
           Toast.fail(err.message || '加载库区失败');
@@ -1028,6 +1103,10 @@ Page({
           Toast.fail('请先选择默认存储区域');
           return;
       }
+      if (this.data.defaultRequiresLocationDetail && !this.data.defaultLocationDetailKey) {
+          Toast.fail('请选择详细坐标');
+          return;
+      }
 
       try {
           const app = getApp();
@@ -1040,6 +1119,7 @@ Page({
               defaultLocationZoneKey: this.data.defaultLocationZoneKey,
               defaultLocationZoneName: this.data.defaultLocationZone,
               defaultLocationZone: this.data.defaultLocationZone,
+              defaultLocationDetailKey: this.data.defaultLocationDetailKey,
               defaultLocationDetail: this.data.defaultLocationDetail
           });
           const refillCount = items.filter(item => item.submit_action === 'refill').length;

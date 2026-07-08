@@ -8,8 +8,10 @@ const {
 } = require('./test-material');
 const NEW_TEMPLATE_COLUMN_COUNT = 16;
 const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
-const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
-const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '选填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
+const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标*', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
+const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
+const LEGACY_LOCATION_DETAIL_HEADER = '详细坐标';
+const LEGACY_LOCATION_DETAIL_HINT = '选填';
 const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请使用系统当前模板中的正式字段行';
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
 const INVENTORY_TEMPLATE_SCHEMA_VERSION = 'inventory-import-v2';
@@ -28,6 +30,7 @@ const BUILTIN_ZONE_SEEDS = [
   { zone_key: 'builtin:film:research-warehouse-03', name: '研发仓3', scope: 'film', status: 'active', sort_order: 130 },
   { zone_key: 'builtin:film:pilot-line', name: '实验线', scope: 'film', status: 'active', sort_order: 140 }
 ];
+const DEFAULT_SAFE_CABINET_LOCATION_DETAILS = ['F1', 'F2', 'F3', 'F4', 'F5'];
 
 function normalizeText(value) {
   return String(value == null ? '' : value).trim();
@@ -530,11 +533,23 @@ function isInventoryTemplateGroupHeaderRow(row = []) {
 }
 
 function isInventoryTemplateHeaderRow(row = []) {
-  return INVENTORY_TEMPLATE_HEADER_ROW.every((value, index) => normalizeText(row[index]) === value);
+  return INVENTORY_TEMPLATE_HEADER_ROW.every((value, index) => {
+    const actual = normalizeText(row[index]);
+    if (index === 5 && actual === LEGACY_LOCATION_DETAIL_HEADER) {
+      return true;
+    }
+    return actual === value;
+  });
 }
 
 function isInventoryTemplateInlineHintRow(row = []) {
-  return INVENTORY_TEMPLATE_INLINE_HINT_ROW.every((value, index) => normalizeText(row[index]) === value);
+  return INVENTORY_TEMPLATE_INLINE_HINT_ROW.every((value, index) => {
+    const actual = normalizeText(row[index]);
+    if (index === 5 && actual === LEGACY_LOCATION_DETAIL_HINT) {
+      return true;
+    }
+    return actual === value;
+  });
 }
 
 function normalizeInventoryTemplateValues(rawValues = []) {
@@ -733,6 +748,74 @@ function buildZoneMapsByCategory(records = []) {
   return result;
 }
 
+function isBuiltinSafeCabinetZoneKey(zoneKey) {
+  return /^builtin:chemical:safe-cabinet-\d+$/u.test(normalizeText(zoneKey));
+}
+
+function buildDefaultLocationDetailRecords() {
+  const records = [];
+  BUILTIN_ZONE_SEEDS
+    .filter(zone => isBuiltinSafeCabinetZoneKey(zone.zone_key))
+    .forEach((zone) => {
+      DEFAULT_SAFE_CABINET_LOCATION_DETAILS.forEach((name, index) => {
+        records.push({
+          zone_key: zone.zone_key,
+          detail_key: `${zone.zone_key}:${name}`,
+          name,
+          status: 'active',
+          sort_order: (index + 1) * 10
+        });
+      });
+    });
+  return records;
+}
+
+function buildLocationDetailMapByZone(records = []) {
+  const byDetailKey = new Map();
+  buildDefaultLocationDetailRecords()
+    .concat(Array.isArray(records) ? records : [])
+    .forEach((item) => {
+      const zoneKey = normalizeText(item.zone_key);
+      const name = normalizeText(item.name);
+      const detailKey = normalizeText(item.detail_key || item._id);
+      if (!zoneKey || !name || !detailKey) {
+        return;
+      }
+      byDetailKey.set(detailKey, {
+        zone_key: zoneKey,
+        detail_key: detailKey,
+        name,
+        status: normalizeText(item.status || 'active') === 'disabled' ? 'disabled' : 'active',
+        sort_order: Number(item.sort_order || item.order || 0)
+      });
+    });
+
+  const byZone = new Map();
+  Array.from(byDetailKey.values())
+    .filter(item => item.status === 'active')
+    .sort((left, right) => {
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return left.detail_key.localeCompare(right.detail_key);
+    })
+    .forEach((item) => {
+      if (!byZone.has(item.zone_key)) {
+        byZone.set(item.zone_key, {
+          list: [],
+          byName: new Map(),
+          byKey: new Map()
+        });
+      }
+      const group = byZone.get(item.zone_key);
+      group.list.push(item);
+      group.byName.set(item.name, item);
+      group.byKey.set(item.detail_key, item);
+    });
+
+  return byZone;
+}
+
 function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   const { rowIndex, values } = normalizePreviewRowInput(rawRow);
   const row = {
@@ -747,6 +830,7 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     zone_name: '',
     zone_key: '',
     location_detail: '',
+    location_detail_key: '',
     location: '',
     expiry_date: '',
     is_long_term_valid: false,
@@ -894,6 +978,22 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     return row;
   }
   row.zone_key = zoneRecord.zone_key;
+  const detailMapByZone = context.locationDetailMapByZone || new Map();
+  const detailGroup = detailMapByZone.get(row.zone_key);
+  if (detailGroup && detailGroup.list && detailGroup.list.length > 0) {
+    const detailName = normalizeText(row.location_detail);
+    if (!detailName) {
+      row.error = '请选择详细坐标';
+      return row;
+    }
+    const detailRecord = detailGroup.byName.get(detailName);
+    if (!detailRecord) {
+      row.error = '详细坐标无效，请选择当前库区启用的坐标';
+      return row;
+    }
+    row.location_detail_key = detailRecord.detail_key;
+    row.location_detail = detailRecord.name;
+  }
   row.location = composeLocation(zoneRecord.name, row.location_detail);
 
   if (!longTerm.ok) {
@@ -1044,6 +1144,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const isTest = isTestMaterial(material, sourceItem);
   const batchNumber = normalizeText(sourceItem.batch_number);
   const zoneKey = normalizeText(sourceItem.zone_key);
+  const locationDetailKey = normalizeText(sourceItem.location_detail_key);
   const locationDetail = normalizeText(sourceItem.location_detail);
   const location = normalizeText(sourceItem.location) || composeLocation(sourceItem.zone_name, locationDetail);
   const expiryDate = normalizeText(sourceItem.expiry_date);
@@ -1093,6 +1194,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     is_test_material: isTest,
     batch_number: batchNumber,
     zone_key: zoneKey,
+    location_detail_key: locationDetailKey,
     location_detail: locationDetail,
     location_text: location,
     location,
@@ -1214,6 +1316,7 @@ module.exports = {
   normalizeLabelCodeInput,
   collectInventoryImportLookupKeys,
   buildZoneMapsByCategory,
+  buildLocationDetailMapByZone,
   buildInventoryImportPreviewRow,
   decorateInventoryImportPreviewRows,
   buildInventoryImportPayload

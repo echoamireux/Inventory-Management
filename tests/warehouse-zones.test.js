@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 
 const {
   BUILTIN_ZONE_SEEDS,
+  DEFAULT_SAFE_CABINET_LOCATION_DETAILS,
   normalizeZoneRecord,
   sortZoneRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
+  buildLocationDetailMapByZone,
+  buildBuiltinLocationDetailSeeds,
+  ensureBuiltinLocationDetails,
   composeLocationText,
   ensureBuiltinZones,
   buildInventoryLocationPayload,
@@ -84,6 +88,83 @@ function createMockDb(initialRecords) {
   };
 }
 
+function createMockMultiCollectionDb(initialCollections) {
+  const state = {};
+
+  Object.keys(initialCollections).forEach((name) => {
+    state[name] = {
+      records: initialCollections[name].map(item => ({ ...item })),
+      nextId: initialCollections[name].length + 1
+    };
+  });
+
+  function getCollectionState(name) {
+    if (!state[name]) {
+      state[name] = { records: [], nextId: 1 };
+    }
+    return state[name];
+  }
+
+  return {
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      const collectionState = getCollectionState(name);
+
+      return {
+        skip(skip) {
+          return {
+            limit(limit) {
+              return {
+                async get() {
+                  return {
+                    data: collectionState.records
+                      .slice(skip, skip + limit)
+                      .map(item => ({ ...item }))
+                  };
+                }
+              };
+            }
+          };
+        },
+        doc(id) {
+          return {
+            async update({ data }) {
+              const index = collectionState.records.findIndex(item => item._id === id);
+              if (index === -1) {
+                throw new Error(`missing doc: ${name}/${id}`);
+              }
+              collectionState.records[index] = {
+                ...collectionState.records[index],
+                ...data
+              };
+            },
+            async set({ data }) {
+              const index = collectionState.records.findIndex(item => item._id === id);
+              if (index === -1) {
+                collectionState.records.push({ _id: id, ...data });
+              } else {
+                collectionState.records[index] = {
+                  ...collectionState.records[index],
+                  ...data
+                };
+              }
+              return { _id: id };
+            }
+          };
+        },
+        async add({ data }) {
+          const _id = `${name}-mock-${collectionState.nextId++}`;
+          collectionState.records.push({ _id, ...data });
+          return { _id };
+        }
+      };
+    },
+    state
+  };
+}
+
 test('builtin zone seeds cover both chemical and film defaults', () => {
   const zoneKeys = BUILTIN_ZONE_SEEDS.map(item => item.zone_key);
 
@@ -114,6 +195,87 @@ test('builtin zone seeds cover both chemical and film defaults', () => {
     '研发仓3',
     '实验线'
   ]);
+});
+
+test('builtin chemical safe cabinets expose F1-F5 managed location details', () => {
+  assert.deepEqual(DEFAULT_SAFE_CABINET_LOCATION_DETAILS, ['F1', 'F2', 'F3', 'F4', 'F5']);
+
+  const seeds = buildBuiltinLocationDetailSeeds([
+    { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' },
+    { zone_key: 'builtin:film:research-warehouse-01', name: '研发仓1' }
+  ]);
+
+  assert.deepEqual(
+    seeds.map(item => ({ zone_key: item.zone_key, detail_key: item.detail_key, name: item.name })),
+    [
+      { zone_key: 'builtin:chemical:safe-cabinet-01', detail_key: 'builtin:chemical:safe-cabinet-01:F1', name: 'F1' },
+      { zone_key: 'builtin:chemical:safe-cabinet-01', detail_key: 'builtin:chemical:safe-cabinet-01:F2', name: 'F2' },
+      { zone_key: 'builtin:chemical:safe-cabinet-01', detail_key: 'builtin:chemical:safe-cabinet-01:F3', name: 'F3' },
+      { zone_key: 'builtin:chemical:safe-cabinet-01', detail_key: 'builtin:chemical:safe-cabinet-01:F4', name: 'F4' },
+      { zone_key: 'builtin:chemical:safe-cabinet-01', detail_key: 'builtin:chemical:safe-cabinet-01:F5', name: 'F5' }
+    ]
+  );
+});
+
+test('ensureBuiltinLocationDetails fills missing safe cabinet details without re-enabling disabled ones', async () => {
+  const db = createMockMultiCollectionDb({
+    warehouse_zones: [
+      {
+        _id: 'builtin_chemical_safe-cabinet-01',
+        zone_key: 'builtin:chemical:safe-cabinet-01',
+        name: '防爆柜01',
+        scope: 'chemical',
+        is_builtin: true,
+        status: 'active',
+        sort_order: 10
+      },
+      {
+        _id: 'builtin_film_research-warehouse-01',
+        zone_key: 'builtin:film:research-warehouse-01',
+        name: '研发仓1',
+        scope: 'film',
+        is_builtin: true,
+        status: 'active',
+        sort_order: 110
+      }
+    ],
+    warehouse_location_details: [
+      {
+        _id: 'builtin_chemical_safe-cabinet-01_F1',
+        zone_key: 'builtin:chemical:safe-cabinet-01',
+        detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+        name: 'A',
+        is_builtin: true,
+        status: 'disabled',
+        sort_order: 10
+      }
+    ]
+  });
+
+  const records = await ensureBuiltinLocationDetails(db, db.state.warehouse_zones.records);
+  const safeCabinetDetails = records
+    .filter(item => item.zone_key === 'builtin:chemical:safe-cabinet-01')
+    .sort((left, right) => left.sort_order - right.sort_order);
+
+  assert.deepEqual(
+    safeCabinetDetails.map(item => ({
+      detail_key: item.detail_key,
+      name: item.name,
+      status: item.status
+    })),
+    [
+      { detail_key: 'builtin:chemical:safe-cabinet-01:F1', name: 'A', status: 'disabled' },
+      { detail_key: 'builtin:chemical:safe-cabinet-01:F2', name: 'F2', status: 'active' },
+      { detail_key: 'builtin:chemical:safe-cabinet-01:F3', name: 'F3', status: 'active' },
+      { detail_key: 'builtin:chemical:safe-cabinet-01:F4', name: 'F4', status: 'active' },
+      { detail_key: 'builtin:chemical:safe-cabinet-01:F5', name: 'F5', status: 'active' }
+    ]
+  );
+
+  assert.equal(
+    records.some(item => item.zone_key === 'builtin:film:research-warehouse-01'),
+    false
+  );
 });
 
 test('legacy zone docs normalize into unified active global records', () => {
@@ -256,6 +418,63 @@ test('inventory location payload stores zone reference and resolves renamed disp
     '研发一仓 | 机台-A'
   );
   assert.equal(composeLocationText('研发一仓', '机台-A'), '研发一仓 | 机台-A');
+});
+
+test('inventory location payload stores detail key and follows renamed detail display text', () => {
+  const zoneMap = buildZoneMap([
+    { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01' }
+  ]);
+  const detailMapByZone = buildLocationDetailMapByZone([
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      name: 'F1',
+      status: 'active',
+      sort_order: 10
+    }
+  ]);
+
+  assert.deepEqual(
+    buildInventoryLocationPayload({
+      zoneKey: 'builtin:chemical:safe-cabinet-01',
+      locationDetailKey: 'builtin:chemical:safe-cabinet-01:F1'
+    }, zoneMap, detailMapByZone),
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      location_detail: 'F1',
+      location_text: '防爆柜01 | F1',
+      location: '防爆柜01 | F1'
+    }
+  );
+
+  const renamedDetailMapByZone = buildLocationDetailMapByZone([
+    {
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      name: 'A',
+      status: 'active',
+      sort_order: 10
+    }
+  ]);
+
+  assert.equal(
+    resolveInventoryLocationText({
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail_key: 'builtin:chemical:safe-cabinet-01:F1',
+      location_detail: 'F1',
+      location: '防爆柜01 | F1'
+    }, zoneMap, renamedDetailMapByZone),
+    '防爆柜01 | A'
+  );
+
+  assert.throws(
+    () => buildInventoryLocationPayload({
+      zoneKey: 'builtin:chemical:safe-cabinet-01',
+      locationDetail: ''
+    }, zoneMap, detailMapByZone),
+    /请选择详细坐标/
+  );
 });
 
 test('ensureBuiltinZones preserves reordered builtin sort order already stored in database', async () => {

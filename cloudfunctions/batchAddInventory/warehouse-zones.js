@@ -92,6 +92,7 @@ const BUILTIN_ZONE_SEEDS = [
 const BUILTIN_ZONE_KEY_SET = new Set(BUILTIN_ZONE_SEEDS.map(item => item.zone_key));
 const BUILTIN_ZONE_SEED_BY_KEY = new Map(BUILTIN_ZONE_SEEDS.map(item => [item.zone_key, item]));
 const BUILTIN_ZONE_SEED_BY_NAME = new Map(BUILTIN_ZONE_SEEDS.map(item => [item.name, item]));
+const DEFAULT_SAFE_CABINET_LOCATION_DETAILS = ['F1', 'F2', 'F3', 'F4', 'F5'];
 
 function normalizeScope(scope) {
   return scope === 'chemical' || scope === 'film' ? scope : 'global';
@@ -105,6 +106,10 @@ function normalizeZoneName(name) {
   return String(name || '').trim();
 }
 
+function normalizeLocationDetailName(name) {
+  return String(name || '').trim();
+}
+
 function composeLocationText(zoneName, locationDetail) {
   const safeZoneName = String(zoneName || '').trim();
   const safeDetail = String(locationDetail || '').trim();
@@ -114,6 +119,14 @@ function composeLocationText(zoneName, locationDetail) {
   }
 
   return safeDetail ? `${safeZoneName} | ${safeDetail}` : safeZoneName;
+}
+
+function isBuiltinSafeCabinetZoneKey(zoneKey) {
+  return /^builtin:chemical:safe-cabinet-\d+$/.test(String(zoneKey || '').trim());
+}
+
+function buildLocationDetailDocId(detailKey) {
+  return String(detailKey || '').trim().replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
 function normalizeZoneRecord(record) {
@@ -131,6 +144,46 @@ function normalizeZoneRecord(record) {
       normalized.sort_order !== undefined ? normalized.sort_order : normalized.order
     ) || 0
   };
+}
+
+function normalizeLocationDetailRecord(record) {
+  const normalized = record || {};
+  const detailKey = String(normalized.detail_key || normalized._id || '').trim();
+
+  return {
+    _id: normalized._id,
+    zone_key: String(normalized.zone_key || '').trim(),
+    detail_key: detailKey,
+    name: normalizeLocationDetailName(normalized.name),
+    is_builtin: !!normalized.is_builtin,
+    status: normalizeStatus(normalized.status),
+    sort_order: Number(
+      normalized.sort_order !== undefined ? normalized.sort_order : normalized.order
+    ) || 0
+  };
+}
+
+function buildBuiltinLocationDetailSeeds(zoneRecords) {
+  const seeds = [];
+  const zones = sortZoneRecords(zoneRecords || []);
+
+  zones
+    .filter(zone => isBuiltinSafeCabinetZoneKey(zone.zone_key))
+    .forEach((zone) => {
+      DEFAULT_SAFE_CABINET_LOCATION_DETAILS.forEach((name, index) => {
+        const detailKey = `${zone.zone_key}:${name}`;
+        seeds.push({
+          zone_key: zone.zone_key,
+          detail_key: detailKey,
+          name,
+          is_builtin: true,
+          status: 'active',
+          sort_order: (index + 1) * 10
+        });
+      });
+    });
+
+  return seeds;
 }
 
 function resolveBuiltinZoneSeed(zone) {
@@ -252,6 +305,93 @@ async function loadAllZoneRecords(db, pageSize = 100) {
   return allRecords;
 }
 
+async function loadAllLocationDetailRecords(db, pageSize = 100) {
+  const collection = db.collection('warehouse_location_details');
+  let skip = 0;
+  let allRecords = [];
+
+  while (true) {
+    let response;
+    try {
+      response = await collection.skip(skip).limit(pageSize).get();
+    } catch (error) {
+      if (skip === 0) {
+        return [];
+      }
+      throw error;
+    }
+
+    const batch = (response && response.data) || [];
+    allRecords = allRecords.concat(batch);
+    if (batch.length < pageSize) {
+      break;
+    }
+    skip += pageSize;
+  }
+
+  return allRecords;
+}
+
+async function ensureBuiltinLocationDetails(db, zoneRecords) {
+  const collection = db.collection('warehouse_location_details');
+  const zones = sortZoneRecords(zoneRecords || await ensureBuiltinZones(db));
+  const seeds = buildBuiltinLocationDetailSeeds(zones);
+  const existingRecords = await loadAllLocationDetailRecords(db);
+  const normalizedRecords = existingRecords.map(normalizeLocationDetailRecord);
+  const byKey = new Map(normalizedRecords.map(item => [item.detail_key, item]));
+  const byZoneAndName = new Map(
+    normalizedRecords.map(item => [`${item.zone_key}::${item.name}`, item])
+  );
+
+  for (let i = 0; i < seeds.length; i += 1) {
+    const seed = seeds[i];
+    const existingByKey = byKey.get(seed.detail_key);
+    if (existingByKey) {
+      const needsMetadataRefresh =
+        existingByKey.zone_key !== seed.zone_key ||
+        existingByKey.is_builtin !== true;
+
+      if (needsMetadataRefresh && existingByKey._id) {
+        await collection.doc(existingByKey._id).update({
+          data: {
+            zone_key: seed.zone_key,
+            is_builtin: true,
+            updated_at: db.serverDate()
+          }
+        });
+      }
+      continue;
+    }
+
+    const legacyByName = byZoneAndName.get(`${seed.zone_key}::${seed.name}`);
+    if (legacyByName && legacyByName._id) {
+      await collection.doc(legacyByName._id).update({
+        data: {
+          detail_key: seed.detail_key,
+          is_builtin: true,
+          updated_at: db.serverDate()
+        }
+      });
+      continue;
+    }
+
+    await collection.doc(buildLocationDetailDocId(seed.detail_key)).set({
+      data: {
+        zone_key: seed.zone_key,
+        detail_key: seed.detail_key,
+        name: seed.name,
+        is_builtin: true,
+        status: 'active',
+        sort_order: seed.sort_order,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+  }
+
+  return loadAllLocationDetailRecords(db);
+}
+
 async function ensureBuiltinZones(db) {
   const collection = db.collection('warehouse_zones');
   let existingRecords = await loadAllZoneRecords(db);
@@ -352,6 +492,73 @@ function buildZoneMap(records) {
   );
 }
 
+function buildLocationDetailMapByZone(records, options = {}) {
+  const includeDisabled = !!options.includeDisabled;
+  const byZone = new Map();
+
+  (records || [])
+    .map(normalizeLocationDetailRecord)
+    .filter(item => item.zone_key && item.detail_key && item.name)
+    .filter(item => includeDisabled || item.status === 'active')
+    .sort((left, right) => {
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return String(left.detail_key).localeCompare(String(right.detail_key));
+    })
+    .forEach((item) => {
+      if (!byZone.has(item.zone_key)) {
+        byZone.set(item.zone_key, {
+          list: [],
+          byKey: new Map(),
+          byName: new Map()
+        });
+      }
+
+      const group = byZone.get(item.zone_key);
+      if (group.byKey.has(item.detail_key)) {
+        return;
+      }
+
+      group.list.push(item);
+      group.byKey.set(item.detail_key, item);
+      if (!group.byName.has(item.name)) {
+        group.byName.set(item.name, item);
+      }
+    });
+
+  return byZone;
+}
+
+function sortLocationDetailRecords(records) {
+  return (records || [])
+    .map(normalizeLocationDetailRecord)
+    .filter(item => item.zone_key && item.detail_key && item.name)
+    .sort((left, right) => {
+      if (left.zone_key !== right.zone_key) {
+        return String(left.zone_key).localeCompare(String(right.zone_key));
+      }
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return String(left.detail_key).localeCompare(String(right.detail_key));
+    });
+}
+
+function findLocationDetailRecordByName(records, zoneKey, name, excludeDetailKey = '') {
+  const normalizedZoneKey = String(zoneKey || '').trim();
+  const normalizedName = normalizeLocationDetailName(name);
+  const excludedKey = String(excludeDetailKey || '').trim();
+
+  return (records || [])
+    .map(normalizeLocationDetailRecord)
+    .find(item =>
+      item.zone_key === normalizedZoneKey &&
+      item.name === normalizedName &&
+      item.detail_key !== excludedKey
+    );
+}
+
 function findZoneRecordByName(records, name, excludeZoneKey = '') {
   const normalizedName = normalizeZoneName(name);
   const excludedKey = String(excludeZoneKey || '').trim();
@@ -361,30 +568,61 @@ function findZoneRecordByName(records, name, excludeZoneKey = '') {
     .find(item => item.name === normalizedName && item.zone_key !== excludedKey);
 }
 
-function buildInventoryLocationPayload(selection, zoneMap) {
+function buildInventoryLocationPayload(selection, zoneMap, detailMapByZone) {
   const zoneKey = String((selection && selection.zoneKey) || '').trim();
   const locationDetail = String((selection && selection.locationDetail) || '').trim();
+  const locationDetailKey = String((selection && selection.locationDetailKey) || '').trim();
   const zone = zoneMap && zoneMap.get(zoneKey);
 
   if (!zone || !zone.name) {
     throw new Error(`无效库区: ${zoneKey || '未选择'}`);
   }
 
-  const locationText = composeLocationText(zone.name, locationDetail);
+  const detailGroup = detailMapByZone && detailMapByZone.get(zoneKey);
+  const hasManagedDetails = !!(detailGroup && detailGroup.list && detailGroup.list.length);
+  let resolvedDetail = locationDetail;
+  let resolvedDetailKey = '';
 
-  return {
+  if (hasManagedDetails) {
+    let detailRecord;
+    if (locationDetailKey) {
+      detailRecord = detailGroup.byKey && detailGroup.byKey.get(locationDetailKey);
+    } else if (locationDetail) {
+      detailRecord = detailGroup.byName && detailGroup.byName.get(locationDetail);
+    }
+
+    if (!detailRecord) {
+      throw new Error(locationDetailKey || locationDetail ? '无效详细坐标' : '请选择详细坐标');
+    }
+
+    resolvedDetail = detailRecord.name;
+    resolvedDetailKey = detailRecord.detail_key;
+  }
+
+  const locationText = composeLocationText(zone.name, resolvedDetail);
+  const payload = {
     zone_key: zoneKey,
-    location_detail: locationDetail,
+    location_detail: resolvedDetail,
     location_text: locationText,
     location: locationText
   };
+
+  if (resolvedDetailKey) {
+    payload.location_detail_key = resolvedDetailKey;
+  }
+
+  return payload;
 }
 
-function resolveInventoryLocationText(item, zoneMap) {
+function resolveInventoryLocationText(item, zoneMap, detailMapByZone) {
   const zoneKey = String((item && item.zone_key) || '').trim();
   if (zoneKey && zoneMap && zoneMap.has(zoneKey)) {
     const zone = zoneMap.get(zoneKey);
-    return composeLocationText(zone.name, item && item.location_detail);
+    const detailKey = String((item && item.location_detail_key) || '').trim();
+    const detailGroup = detailMapByZone && detailMapByZone.get(zoneKey);
+    const detailRecord = detailKey && detailGroup && detailGroup.byKey && detailGroup.byKey.get(detailKey);
+    const detailName = detailRecord ? detailRecord.name : (item && item.location_detail);
+    return composeLocationText(zone.name, detailName);
   }
 
   return String((item && item.location_text) || '').trim();
@@ -392,17 +630,26 @@ function resolveInventoryLocationText(item, zoneMap) {
 
 module.exports = {
   BUILTIN_ZONE_SEEDS,
+  DEFAULT_SAFE_CABINET_LOCATION_DETAILS,
   normalizeScope,
   normalizeStatus,
   normalizeZoneName,
+  normalizeLocationDetailName,
   composeLocationText,
   normalizeZoneRecord,
+  normalizeLocationDetailRecord,
+  buildBuiltinLocationDetailSeeds,
   loadAllZoneRecords,
+  loadAllLocationDetailRecords,
   ensureBuiltinZones,
+  ensureBuiltinLocationDetails,
   sortZoneRecords,
+  sortLocationDetailRecords,
   filterZoneRecordsByCategory,
   buildZoneMap,
+  buildLocationDetailMapByZone,
   findZoneRecordByName,
+  findLocationDetailRecordByName,
   buildInventoryLocationPayload,
   resolveInventoryLocationText
 };

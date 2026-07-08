@@ -1,7 +1,7 @@
 import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
-const { resolveInventoryLocation, buildZoneMap } = require('../../utils/location-zone');
-const { listZoneRecords } = require('../../utils/zone-service');
+const { resolveInventoryLocation, buildZoneMap, buildLocationDetailMapByZone } = require('../../utils/location-zone');
+const { listZoneConfig } = require('../../utils/zone-service');
 const { listSubcategoryRecords } = require('../../utils/subcategory-service');
 const { buildSubcategoryMap, resolveSubcategoryDisplay } = require('../../utils/material-subcategory');
 const {
@@ -78,8 +78,12 @@ Page({
             }
 
             try {
-                const zoneRecords = await listZoneRecords(item.category || 'chemical', true);
-                item.location = resolveInventoryLocation(item, buildZoneMap(zoneRecords));
+                const zoneConfig = await listZoneConfig(item.category || 'chemical', true);
+                item.location = resolveInventoryLocation(
+                    item,
+                    buildZoneMap(zoneConfig.zones || []),
+                    buildLocationDetailMapByZone(zoneConfig.details || [], { includeDisabled: true })
+                );
             } catch (zoneErr) {
                 console.warn('Zone lookup failed', zoneErr);
             }

@@ -51,7 +51,7 @@ test('inventory template headers keep label-first structure and consecutive film
     '类别*',
     '生产批号*',
     '存储区域*',
-    '详细坐标',
+    '详细坐标*',
     '净含量',
     '包装形式',
     '膜材厚度(μm)',
