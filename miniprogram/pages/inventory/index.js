@@ -199,6 +199,8 @@ Page({
       // URL Encoding
       let url = `/pages/inventory/detail-list?code=${encodeURIComponent(code)}&name=${encodeURIComponent(name)}`;
       if (item.category) url += `&category=${item.category}`;
+      const supplierModel = String(item.supplier_model || '').trim();
+      if (supplierModel) url += `&supplier_model=${encodeURIComponent(supplierModel)}`;
 
       wx.navigateTo({ url });
   },

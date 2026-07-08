@@ -16,6 +16,7 @@ Component({
     display: {
       materialName: '',
       subcategoryLabel: '',
+      supplierModelLabel: '',
       batchCountLabel: '',
       locationSummary: '',
       matchReasonText: ''

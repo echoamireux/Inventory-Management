@@ -7,7 +7,7 @@
       <view class="flex-1">
         <van-search
           value="{{ searchVal }}"
-          placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
+          placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
           shape="round"
           bind:search="onSearch"
           bind:change="onSearchChange"
@@ -49,7 +49,7 @@
           <!-- 使用统一组件 -->
           <material-list-item
             wx:for="{{ list }}"
-            wx:key="product_code"
+            wx:key="_groupKey"
             item="{{ item }}"
             showCategory="{{ false }}"
             bind:tap="goToDetail"

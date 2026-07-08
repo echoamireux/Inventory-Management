@@ -15,6 +15,7 @@ Component({
       batchValue: '',
       materialName: '',
       subcategoryLabel: '',
+      supplierModelLabel: '',
       labelCountLabel: '',
       locationSummary: '',
       expiryBadgeText: ''

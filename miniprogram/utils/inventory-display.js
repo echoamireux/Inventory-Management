@@ -91,9 +91,11 @@ function getInventoryExpiryAlertState(item = {}) {
 }
 
 function buildGroupedInventoryCardState(item = {}) {
+  const supplierModel = String(item.supplier_model || '').trim();
   return {
     materialName: String(item.material_name || '').trim(),
     subcategoryLabel: String(item.sub_category || '').trim(),
+    supplierModelLabel: item.is_test_material && supplierModel ? `型号 ${supplierModel}` : '',
     batchCountLabel: Number(item.totalCount) > 0 ? `${item.totalCount} 批次` : '',
     locationSummary: summarizeLocationScope(item.locations || []),
     matchReasonText: String(item.matchReasonText || '').trim()
@@ -103,6 +105,7 @@ function buildGroupedInventoryCardState(item = {}) {
 function buildBatchCardState(item = {}) {
   const labelCount = Number(item.labelCount !== undefined ? item.labelCount : item.itemCount);
   const locationSummary = String(item.locationSummary || '').trim() || summarizeLocationScope(item.locations || []);
+  const supplierModel = String(item.supplier_model || '').trim();
   let expiryBadgeText = '';
 
   if (item.isExpiring) {
@@ -116,6 +119,7 @@ function buildBatchCardState(item = {}) {
     batchValue: String(item.batch_number || '').trim() || '未填写',
     materialName: String(item.material_name || '').trim(),
     subcategoryLabel: String(item.sub_category || '').trim(),
+    supplierModelLabel: item.is_test_material && supplierModel ? `型号 ${supplierModel}` : '',
     labelCountLabel: labelCount > 0 ? `${labelCount}个标签` : '',
     locationSummary,
     expiryBadgeText

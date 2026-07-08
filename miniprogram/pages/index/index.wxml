@@ -10,7 +10,7 @@
   <view class="sticky-top z-index-10 search-transparent">
      <van-search
         value="{{ homeSearchVal }}"
-        placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
+        placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
         shape="round"
         bind:search="onSearch"
         bind:change="onSearchChange"
@@ -136,7 +136,7 @@
            <view class="px-safe pb-5">
               <van-search
                  value="{{ selectSearchVal }}"
-                 placeholder="产品代码/物料名称/标签编号/批号/供应商/库位"
+                 placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
                  shape="round"
                  background="#fff"
                  bind:search="onSelectSearch"

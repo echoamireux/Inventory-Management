@@ -157,8 +157,9 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(homeIndexWxml, /value="\{\{ homeSearchVal \}\}"/);
   assert.match(homeIndexWxml, /bind:change="onSearchChange"/);
   assert.match(homeIndexWxml, /bind:clear="onSearchClear"/);
+  assert.match(homeIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
 
-  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
   assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
   assert.match(materialListWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
   assert.match(logsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
@@ -171,12 +172,46 @@ test('grouped inventory search keeps full product totals while using search only
   assert.match(groupedCf, /const baseConditions = \[\{ status: 'in_stock' \}\]/);
   assert.match(groupedCf, /const searchConditions = baseConditions\.slice\(\)/);
   assert.match(groupedCf, /const matchedSourceItems = await loadInventoryGroupSourceItems\(where\)/);
-  assert.match(groupedCf, /const matchedProductCodes = new Set/);
+  assert.match(groupedCf, /const matchedGroupKeys = new Set/);
   assert.match(groupedCf, /const groupSourceItems = regex \? await loadInventoryGroupSourceItems\(baseWhere\) : matchedSourceItems/);
-  assert.match(groupedCf, /matchedProductCodes\.has\(item\.product_code\)/);
-  assert.match(groupedCf, /loadInventoryItemsByProductCodes\(baseWhere, pageCodes\)/);
+  assert.match(groupedCf, /matchedGroupKeys\.has\(item\._groupKey\)/);
+  assert.match(groupedCf, /loadInventoryItemsForGroups\(baseWhere, list\)/);
   assert.doesNotMatch(groupedCf, /loadInventoryItemsByProductCodes\(where, pageCodes\)/);
   assert.doesNotMatch(groupedCf, /OFFSET_MS|currentRescaled|getTime\(\)\s*\+\s*8\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+});
+
+test('test material inventory queries keep supplier model as a narrowing identity', () => {
+  const inventoryIndexWxml = read('miniprogram/pages/inventory/index.wxml');
+  const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
+  const detailJs = read('miniprogram/pages/inventory/detail-list.js');
+  const detailWxml = read('miniprogram/pages/inventory/detail-list.wxml');
+  const labelQueryUtil = read('miniprogram/utils/inventory-label-query.js');
+  const batchCf = read('cloudfunctions/getInventoryBatches/index.js');
+  const recordCf = read('cloudfunctions/getInventoryRecord/index.js');
+  const exportDataCf = read('cloudfunctions/exportData/index.js');
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+
+  assert.match(inventoryIndexWxml, /wx:key="_groupKey"/);
+  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(inventoryIndexJs, /supplierModel/);
+  assert.match(inventoryIndexJs, /supplier_model=/);
+
+  assert.match(groupedCf, /buildInventoryGroupKey/);
+  assert.match(groupedCf, /is_test_material[\s\S]*supplier_model/);
+  assert.match(groupedCf, /_groupKey/);
+  assert.match(groupedCf, /supplier_model:\s*item\.supplier_model/);
+
+  assert.match(detailJs, /querySupplierModel/);
+  assert.match(detailJs, /supplierModel:\s*querySupplierModel/);
+  assert.match(detailJs, /supplierModel:\s*this\.data\.querySupplierModel/);
+  assert.match(detailWxml, /label\.supplier_model/);
+
+  assert.match(labelQueryUtil, /supplierModel/);
+  assert.match(batchCf, /supplierModel/);
+  assert.match(batchCf, /supplier_model:\s*supplierModel/);
+  assert.match(recordCf, /supplierModel/);
+  assert.match(recordCf, /supplier_model:\s*supplierModel/);
+  assert.match(exportDataCf, /\{\s*supplier_model:\s*searchRegex\s*\}/);
 });
 
 test('app user status check surfaces retry and routes disabled users away from business pages', () => {
@@ -378,7 +413,7 @@ test('standalone label list page remains compact when opened directly', () => {
   assert.match(labelsWxml, /item\._qtyStr/);
   assert.match(labelsWxml, /item\.location/);
   assert.match(labelsWxml, /class="list-end-state"/);
-  assert.doesNotMatch(labelsWxml, /item\.batch_number|item\.supplier|item\._expiryStr/);
+  assert.doesNotMatch(labelsWxml, /item\.batch_number|item\.supplier(?!_model)|item\._expiryStr/);
   assert.doesNotMatch(labelsWxss, /\.label-code\.is-warning/);
   assert.match(labelsWxss, /\.label-qty\.is-warning[\s\S]*var\(--color-warning\)/);
   assert.doesNotMatch(labelsWxss, /\.list-end-state/);

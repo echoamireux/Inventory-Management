@@ -7,6 +7,7 @@ Page({
     hasLoadedOnce: false,
     queryCode: '',
     queryName: '',
+    querySupplierModel: '',
     batchNumber: '',
     category: '',
     lastSeenInventoryChangeAt: 0,
@@ -21,12 +22,14 @@ Page({
     const batchNumber = decodeURIComponent(options.batch || '');
     const queryCode = decodeURIComponent(options.code || '');
     const queryName = decodeURIComponent(options.name || '');
+    const querySupplierModel = decodeURIComponent(options.supplier_model || options.supplierModel || '');
     const category = options.category || '';
 
     this.setData({
       batchNumber,
       queryCode,
       queryName,
+      querySupplierModel,
       category
     });
 
@@ -74,11 +77,12 @@ Page({
     });
 
     try {
-      const { batchNumber, queryCode, queryName, category, pageSize, list } = this.data;
+      const { batchNumber, queryCode, queryName, querySupplierModel, category, pageSize, list } = this.data;
       const result = await loadBatchLabelPage({
         batchNumber,
         productCode: queryCode,
         materialName: queryName,
+        supplierModel: querySupplierModel,
         category,
         page: nextPage,
         pageSize

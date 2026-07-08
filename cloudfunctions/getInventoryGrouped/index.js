@@ -62,7 +62,14 @@ async function loadInventoryGroupSourceItems(where, pageSize = 100) {
         expiry_date: true,
         location: true,
         location_text: true,
-        zone_key: true
+        location_detail: true,
+        zone_key: true,
+        batch_number: true,
+        supplier: true,
+        supplier_model: true,
+        sample_note: true,
+        unique_code: true,
+        is_test_material: true
       })
       .skip(skip)
       .limit(pageSize)
@@ -98,18 +105,35 @@ function pickEarlierExpiry(current, next) {
   return nextTime < currentTime ? next : current;
 }
 
+function normalizeIdentityText(value) {
+  return String(value || '').trim();
+}
+
+function buildInventoryGroupKey(item = {}) {
+  const productCode = normalizeIdentityText(item.product_code) || '无产品代码';
+  const supplierModel = normalizeIdentityText(item.supplier_model);
+  if (item.is_test_material && supplierModel) {
+    return `${productCode}::test-model::${supplierModel}`;
+  }
+  return productCode;
+}
+
 function buildInventoryGroups(sourceItems, zoneMap) {
-  const byProductCode = new Map();
+  const byGroupKey = new Map();
 
   (sourceItems || []).forEach((item) => {
     const productCode = item.product_code || '无产品代码';
-    if (!byProductCode.has(productCode)) {
-      byProductCode.set(productCode, {
+    const groupKey = buildInventoryGroupKey(item);
+    if (!byGroupKey.has(groupKey)) {
+      byGroupKey.set(groupKey, {
+        _groupKey: groupKey,
         product_code: productCode,
         material_name: item.material_name,
         category: item.category,
         subcategory_key: item.subcategory_key || '',
         sub_category: item.sub_category,
+        supplier_model: item.supplier_model || '',
+        is_test_material: !!item.is_test_material,
         totalCount: 0,
         minExpiry: null,
         totalChemicalQty: 0,
@@ -119,7 +143,7 @@ function buildInventoryGroups(sourceItems, zoneMap) {
       });
     }
 
-    const group = byProductCode.get(productCode);
+    const group = byGroupKey.get(groupKey);
     group.totalCount += 1;
     group.minExpiry = pickEarlierExpiry(group.minExpiry, item.expiry_date);
     group.totalChemicalQty += Number(item.quantity && item.quantity.val) || 0;
@@ -136,6 +160,12 @@ function buildInventoryGroups(sourceItems, zoneMap) {
     }
     if (!group.sub_category && item.sub_category) {
       group.sub_category = item.sub_category;
+    }
+    if (!group.supplier_model && item.supplier_model) {
+      group.supplier_model = item.supplier_model;
+    }
+    if (item.is_test_material) {
+      group.is_test_material = true;
     }
     if (!group.firstUnit && item.quantity && item.quantity.unit) {
       group.firstUnit = item.quantity.unit;
@@ -155,12 +185,15 @@ function buildInventoryGroups(sourceItems, zoneMap) {
     }
   });
 
-  return Array.from(byProductCode.values()).map(item => ({
+  return Array.from(byGroupKey.values()).map(item => ({
+    _groupKey: item._groupKey,
     product_code: item.product_code,
     material_name: item.material_name,
     category: item.category,
     subcategory_key: item.subcategory_key || '',
     sub_category: item.sub_category,
+    supplier_model: item.supplier_model || '',
+    is_test_material: !!item.is_test_material,
     totalCount: item.totalCount,
     minExpiry: item.minExpiry || null,
     totalChemicalQty: Number(item.totalChemicalQty) || 0,
@@ -215,12 +248,12 @@ exports.main = async (event, context) => {
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
     const matchedSourceItems = await loadInventoryGroupSourceItems(where);
-    const matchedProductCodes = new Set(
-      matchedSourceItems.map(item => item.product_code || '无产品代码')
+    const matchedGroupKeys = new Set(
+      matchedSourceItems.map(item => buildInventoryGroupKey(item))
     );
     const groupSourceItems = regex ? await loadInventoryGroupSourceItems(baseWhere) : matchedSourceItems;
     const groups = buildInventoryGroups(groupSourceItems, zoneMap)
-      .filter(item => !regex || matchedProductCodes.has(item.product_code));
+      .filter(item => !regex || matchedGroupKeys.has(item._groupKey));
 
     const productCodes = groups
       .map(item => item.product_code)
@@ -265,11 +298,14 @@ exports.main = async (event, context) => {
         const isRisky = isExpiring || isLowStock;
 
         return {
+          _groupKey: item._groupKey,
           product_code: item.product_code,
           material_name: item.material_name,
           category: item.category,
           subcategory_key: item.subcategory_key || '',
           sub_category: resolveSubcategoryDisplay(item, subcategoryMap),
+          supplier_model: item.supplier_model || '',
+          is_test_material: !!item.is_test_material,
           totalQuantity: totalQuantity,
           totalBaseLengthM: totalBaseLengthM,
           totalCount: item.totalCount,
@@ -303,7 +339,11 @@ exports.main = async (event, context) => {
       if (timeA !== timeB) {
         return timeA - timeB;
       }
-      return String(a.product_code).localeCompare(String(b.product_code));
+      const codeCompare = String(a.product_code).localeCompare(String(b.product_code));
+      if (codeCompare !== 0) {
+        return codeCompare;
+      }
+      return String(a.supplier_model || '').localeCompare(String(b.supplier_model || ''));
     });
 
     const total = filteredGroups.length;
@@ -311,12 +351,9 @@ exports.main = async (event, context) => {
     const list = filteredGroups.slice(start, start + pageSize);
     const isEnd = start + list.length >= total;
 
-    const pageCodes = list
-      .map(item => item.product_code)
-      .filter(code => code && code !== '无产品代码');
-    const pageItemsMap = await loadInventoryItemsByProductCodes(baseWhere, pageCodes);
+    const pageItemsMap = await loadInventoryItemsForGroups(baseWhere, list);
     list.forEach((item) => {
-      const items = pageItemsMap.get(item.product_code) || [];
+      const items = pageItemsMap.get(item._groupKey) || [];
       const material = materialMap.get(item.product_code) || {};
       const recommendation = buildInventoryAllocationRecommendation(items);
 
@@ -365,8 +402,13 @@ function checkLowStock(item = {}) {
     return (Number(item.totalQuantity) || 0) <= ALERT_CONFIG.LOW_STOCK.chemical;
 }
 
-async function loadInventoryItemsByProductCodes(baseWhere, productCodes) {
-    if (!Array.isArray(productCodes) || productCodes.length === 0) {
+async function loadInventoryItemsForGroups(baseWhere, groups) {
+    const productCodes = Array.from(new Set(
+      (groups || [])
+        .map(item => item && item.product_code)
+        .filter(code => code && code !== '无产品代码')
+    ));
+    if (productCodes.length === 0) {
       return new Map();
     }
 
@@ -410,11 +452,11 @@ async function loadInventoryItemsByProductCodes(baseWhere, productCodes) {
 
       const list = res.data || [];
       list.forEach((item) => {
-        const productCode = item.product_code || '无产品代码';
-        if (!result.has(productCode)) {
-          result.set(productCode, []);
+        const groupKey = buildInventoryGroupKey(item);
+        if (!result.has(groupKey)) {
+          result.set(groupKey, []);
         }
-        result.get(productCode).push(item);
+        result.get(groupKey).push(item);
       });
 
       if (list.length < pageSize) {

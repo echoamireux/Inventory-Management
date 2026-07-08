@@ -24,6 +24,7 @@ test('grouped inventory card shows subcategory and single-location summary witho
   assert.deepEqual(state, {
     materialName: '化材-1',
     subcategoryLabel: '主胶',
+    supplierModelLabel: '',
     batchCountLabel: '2 批次',
     locationSummary: '防爆柜02 | A-01',
     matchReasonText: ''
@@ -39,6 +40,28 @@ test('grouped inventory card compresses multi-location inventory into a short su
   });
 
   assert.equal(state.locationSummary, '2个库位');
+});
+
+test('test material inventory cards expose supplier model as the practical identity', () => {
+  const groupedState = buildGroupedInventoryCardState({
+    material_name: '测试料-化材',
+    sub_category: '测试料',
+    totalCount: 3,
+    is_test_material: true,
+    supplier_model: 'TEST-037',
+    locations: ['防爆柜02 | A-01']
+  });
+  const batchState = buildBatchCardState({
+    batch_number: 'B-037',
+    material_name: '测试料-化材',
+    sub_category: '测试料',
+    itemCount: 2,
+    is_test_material: true,
+    supplier_model: 'TEST-037'
+  });
+
+  assert.equal(groupedState.supplierModelLabel, '型号 TEST-037');
+  assert.equal(batchState.supplierModelLabel, '型号 TEST-037');
 });
 
 test('location summary uses a concrete count once one product spans multiple locations', () => {
@@ -59,6 +82,7 @@ test('batch card exposes explicit batch semantics with label count and location 
     batchValue: '20260523',
     materialName: '化材-1',
     subcategoryLabel: '主胶',
+    supplierModelLabel: '',
     labelCountLabel: '10个标签',
     locationSummary: '2个库位',
     expiryBadgeText: ''

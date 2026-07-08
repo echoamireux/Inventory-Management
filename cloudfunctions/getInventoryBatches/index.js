@@ -24,10 +24,24 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function normalizeIdentityText(value) {
+  return String(value || '').trim();
+}
+
+function buildBatchGroupKey(item = {}) {
+  const batchNumber = normalizeIdentityText(item.batch_number) || '无批号';
+  const supplierModel = normalizeIdentityText(item.supplier_model);
+  if (item.is_test_material && supplierModel) {
+    return `${batchNumber}::test-model::${supplierModel}`;
+  }
+  return batchNumber;
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   const productCode = String(event.productCode || event.code || '').trim();
   const materialName = String(event.materialName || event.name || '').trim();
+  const supplierModel = String(event.supplierModel || event.supplier_model || '').trim();
   const category = String(event.category || '').trim();
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
@@ -48,6 +62,9 @@ exports.main = async (event) => {
     if (category) {
       conditions.push({ category });
     }
+    if (supplierModel) {
+      conditions.push({ supplier_model: supplierModel });
+    }
 
     const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
     const inventoryItems = await loadInventoryItems(where);
@@ -57,23 +74,27 @@ exports.main = async (event) => {
     for (let i = 0; i < inventoryItems.length; i += 1) {
       const item = inventoryItems[i] || {};
       const batchNumber = String(item.batch_number || '').trim() || '无批号';
+      const batchGroupKey = buildBatchGroupKey(item);
       const resolvedLocation = resolveInventoryLocationText(item, zoneMap);
-      let group = groupedMap.get(batchNumber);
+      let group = groupedMap.get(batchGroupKey);
 
       if (!group) {
         group = {
           batch_number: batchNumber,
+          _batchGroupKey: batchGroupKey,
           product_code: item.product_code || '',
           material_name: item.material_name || '',
           category: item.category || '',
           subcategory_key: item.subcategory_key || '',
           sub_category: item.sub_category || '',
+          supplier_model: item.supplier_model || '',
+          is_test_material: !!item.is_test_material,
           labelCount: 0,
           minExpiry: item.expiry_date || null,
           locations: new Set(),
           records: []
         };
-        groupedMap.set(batchNumber, group);
+        groupedMap.set(batchGroupKey, group);
       }
 
       group.records.push(item);
@@ -92,6 +113,12 @@ exports.main = async (event) => {
       }
       if (!group.sub_category && item.sub_category) {
         group.sub_category = item.sub_category;
+      }
+      if (!group.supplier_model && item.supplier_model) {
+        group.supplier_model = item.supplier_model;
+      }
+      if (item.is_test_material) {
+        group.is_test_material = true;
       }
       if (item.expiry_date && (!group.minExpiry || new Date(item.expiry_date) < new Date(group.minExpiry))) {
         group.minExpiry = item.expiry_date;
@@ -129,11 +156,14 @@ exports.main = async (event) => {
 
       return {
         batch_number: group.batch_number,
+        _batchGroupKey: group._batchGroupKey,
         product_code: material.product_code || group.product_code,
         material_name: material.material_name || group.material_name,
         category: group.category,
         subcategory_key: material.subcategory_key || group.subcategory_key || '',
         sub_category: material.sub_category || group.sub_category || '',
+        supplier_model: group.supplier_model || '',
+        is_test_material: !!group.is_test_material,
         totalQuantity,
         totalBaseLengthM,
         unit,
@@ -153,7 +183,11 @@ exports.main = async (event) => {
       if (timeLeft !== timeRight) {
         return timeLeft - timeRight;
       }
-      return String(left.batch_number).localeCompare(String(right.batch_number));
+      const batchCompare = String(left.batch_number).localeCompare(String(right.batch_number));
+      if (batchCompare !== 0) {
+        return batchCompare;
+      }
+      return String(left.supplier_model || '').localeCompare(String(right.supplier_model || ''));
     });
 
     const total = sortedBatches.length;
@@ -196,7 +230,9 @@ async function loadInventoryItems(where) {
     location_detail: true,
     zone_key: true,
     batch_number: true,
-    unique_code: true
+    unique_code: true,
+    supplier_model: true,
+    is_test_material: true
   };
   const pageSize = 200;
   let skip = 0;

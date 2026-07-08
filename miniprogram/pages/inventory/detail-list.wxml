@@ -27,6 +27,7 @@
           >
             <view class="label-inline-main">
               <text class="label-inline-code">{{ label.unique_code }}</text>
+              <text wx:if="{{ label.supplier_model }}" class="label-inline-model">型号 {{ label.supplier_model }}</text>
               <view wx:if="{{ label.expiryBadgeText }}" class="label-inline-badge">{{ label.expiryBadgeText }}</view>
             </view>
             <text class="label-inline-qty {{ label.rowTone === 'warning' ? 'is-warning' : '' }}">{{ label._qtyStr }}</text>

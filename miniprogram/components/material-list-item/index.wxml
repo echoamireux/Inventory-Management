@@ -18,6 +18,11 @@
       type="subcategory"
       text="{{ display.subcategoryLabel }}"
     />
+    <material-tag
+      wx:if="{{ display.supplierModelLabel }}"
+      type="brand"
+      text="{{ display.supplierModelLabel }}"
+    />
   </view>
 
   <view wx:if="{{ display.matchReasonText }}" class="material-match-reason">

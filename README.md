@@ -334,6 +334,8 @@ module.exports = {
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
 | `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
 | `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
+| `inventory` | `inventory.product_code + status + supplier_model` | 复合索引，升序 + 升序 + 升序 | 支持测试料共用 `999` 时按原厂型号拆分查询库存 |
+| `inventory` | `inventory.product_code + status + supplier_model + batch_number` | 复合索引，升序 + 升序 + 升序 + 升序 | 支持测试料按产品代码、原厂型号和批号展开标签明细 |
 | `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
 | `inventory_log` | `inventory_log.type + project_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按项目和时间导出 |
 | `inventory_log` | `inventory_log.type + product_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按物料反查 |

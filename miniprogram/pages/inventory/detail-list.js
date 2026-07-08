@@ -2,7 +2,7 @@
 const { loadBatchLabelPage } = require('../../utils/inventory-label-query');
 
 function buildBatchKey(item = {}) {
-  return `${String(item.product_code || '').trim()}::${String(item.batch_number || '').trim()}`;
+  return `${String(item.product_code || '').trim()}::${String(item.supplier_model || '').trim()}::${String(item.batch_number || '').trim()}`;
 }
 
 Page({
@@ -12,6 +12,7 @@ Page({
     hasLoadedOnce: false,
     queryCode: '',
     queryName: '',
+    querySupplierModel: '',
     category: '',
     lastSeenInventoryChangeAt: 0,
     page: 1,
@@ -28,11 +29,13 @@ Page({
   onLoad(options) {
     const decodedName = decodeURIComponent(options.name || '');
     const decodedCode = decodeURIComponent(options.code || '');
+    const decodedSupplierModel = decodeURIComponent(options.supplier_model || options.supplierModel || '');
     const category = options.category || '';
 
     this.setData({
       queryCode: decodedCode,
       queryName: decodedName,
+      querySupplierModel: decodedSupplierModel,
       category
     });
 
@@ -81,12 +84,13 @@ Page({
     });
 
     try {
-      const { queryCode, queryName, category, pageSize, list } = this.data;
+      const { queryCode, queryName, querySupplierModel, category, pageSize, list } = this.data;
       const res = await wx.cloud.callFunction({
         name: 'getInventoryBatches',
         data: {
           productCode: queryCode,
           materialName: queryName,
+          supplierModel: querySupplierModel,
           category,
           page: nextPage,
           pageSize
@@ -247,6 +251,7 @@ Page({
       batchNumber: item.batch_number,
       productCode: this.data.queryCode,
       materialName: this.data.queryName,
+      supplierModel: this.data.querySupplierModel,
       category: this.data.category,
       page: 1,
       pageSize

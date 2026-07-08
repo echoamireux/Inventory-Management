@@ -7,7 +7,7 @@ const {
   getInventoryExpiryAlertState
 } = require('./inventory-display');
 
-function buildBatchLabelWhere({ batchNumber = '', productCode = '', materialName = '', category = '' } = {}) {
+function buildBatchLabelWhere({ batchNumber = '', productCode = '', materialName = '', category = '', supplierModel = '' } = {}) {
   const where = {
     status: 'in_stock',
     batch_number: batchNumber
@@ -21,6 +21,9 @@ function buildBatchLabelWhere({ batchNumber = '', productCode = '', materialName
 
   if (category) {
     where.category = category;
+  }
+  if (supplierModel) {
+    where.supplier_model = supplierModel;
   }
 
   return where;
@@ -39,6 +42,7 @@ async function loadBatchLabelPage({
   productCode = '',
   materialName = '',
   category = '',
+  supplierModel = '',
   page = 1,
   pageSize = 20
 } = {}) {
@@ -60,6 +64,7 @@ async function loadBatchLabelPage({
       productCode: String(productCode || '').trim(),
       materialName: String(materialName || '').trim(),
       category: String(category || '').trim(),
+      supplierModel: String(supplierModel || '').trim(),
       page: nextPage,
       pageSize: nextPageSize
     }

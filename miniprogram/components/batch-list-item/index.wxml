@@ -28,6 +28,11 @@
       type="subcategory"
       text="{{ display.subcategoryLabel }}"
     />
+    <material-tag
+      wx:if="{{ display.supplierModelLabel }}"
+      type="brand"
+      text="{{ display.supplierModelLabel }}"
+    />
   </view>
 
   <view class="batch-tags-row">

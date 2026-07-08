@@ -57,6 +57,7 @@ exports.main = async (event, context) => {
             { unique_code: searchRegex },
             { batch_number: searchRegex },
             { supplier: searchRegex },
+            { supplier_model: searchRegex },
             { location: searchRegex },
             { location_text: searchRegex }
         ];

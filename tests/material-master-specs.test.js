@@ -626,6 +626,8 @@ test('README documents production database indexes and manual cloud console step
   assert.match(readme, /preprinted_labels\.operator_id \+ create_time desc/);
   assert.match(readme, /inventory\.product_code \+ status/);
   assert.match(readme, /inventory\.product_code \+ status \+ batch_number/);
+  assert.match(readme, /inventory\.product_code \+ status \+ supplier_model/);
+  assert.match(readme, /inventory\.product_code \+ status \+ supplier_model \+ batch_number/);
   assert.match(readme, /inventory\.status \+ expiry_date/);
   assert.match(readme, /inventory_log\.type \+ project_code \+ timestamp desc/);
   assert.match(readme, /inventory_log\.inventory_id \+ timestamp desc/);

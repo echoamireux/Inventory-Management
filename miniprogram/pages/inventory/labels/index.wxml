@@ -13,6 +13,7 @@
     >
       <view class="label-main">
         <text class="label-code">{{ item.unique_code }}</text>
+        <text wx:if="{{ item.supplier_model }}" class="label-model">型号 {{ item.supplier_model }}</text>
         <view wx:if="{{ item.expiryBadgeText }}" class="label-badge">{{ item.expiryBadgeText }}</view>
       </view>
       <text class="label-qty {{ item.rowTone === 'warning' ? 'is-warning' : '' }}">{{ item._qtyStr }}</text>

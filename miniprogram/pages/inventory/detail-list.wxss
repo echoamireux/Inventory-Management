@@ -86,6 +86,21 @@
   font-weight: 600;
 }
 
+.label-inline-model {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(44, 104, 255, 0.08);
+  color: var(--color-brand);
+  font-size: 20rpx;
+  line-height: 1.2;
+  font-weight: 600;
+  max-width: 180rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .label-inline-qty {
   font-family: var(--font-mono);
   font-size: 18px;

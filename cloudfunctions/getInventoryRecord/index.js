@@ -108,6 +108,7 @@ async function getBatchLabels(event = {}) {
   const batchNumber = normalizeText(event.batchNumber || event.batch_number);
   const productCode = normalizeText(event.productCode || event.product_code);
   const materialName = normalizeText(event.materialName || event.material_name);
+  const supplierModel = normalizeText(event.supplierModel || event.supplier_model);
   const category = normalizeText(event.category);
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(event.pageSize) || 20));
@@ -127,6 +128,9 @@ async function getBatchLabels(event = {}) {
   }
   if (category) {
     conditions.push({ category });
+  }
+  if (supplierModel) {
+    conditions.push({ supplier_model: supplierModel });
   }
 
   const where = conditions.length === 1 ? conditions[0] : _.and(conditions);
