@@ -239,7 +239,8 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
     ? { ok: false, msg: error }
     : normalizeProductCodeInput(category, rawProductCodeNumber, {
       prefix: rawCodePrefix,
-      allowedPrefixes: productCodePrefixes
+      allowedPrefixes: productCodePrefixes,
+      strictPrefix: true
     });
 
   if (!error && !rawCodePrefix) {

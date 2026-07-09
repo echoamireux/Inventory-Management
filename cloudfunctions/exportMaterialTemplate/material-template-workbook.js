@@ -62,14 +62,19 @@ function defineConfigRanges(workbook, configSheet, spec) {
       definedName: spec.definedNames.filmUnits
     },
     {
+      key: spec.definedNames.chemicalCodePrefixes.name,
+      values: (spec.codePrefixOptionsByCategory && spec.codePrefixOptionsByCategory.chemical) || [],
+      definedName: spec.definedNames.chemicalCodePrefixes
+    },
+    {
+      key: spec.definedNames.filmCodePrefixes.name,
+      values: (spec.codePrefixOptionsByCategory && spec.codePrefixOptionsByCategory.film) || [],
+      definedName: spec.definedNames.filmCodePrefixes
+    },
+    {
       key: spec.definedNames.chemicalPackageTypes.name,
       values: spec.packageTypeOptions,
       definedName: spec.definedNames.chemicalPackageTypes
-    },
-    {
-      key: spec.definedNames.codePrefixes.name,
-      values: spec.codePrefixOptions || [],
-      definedName: spec.definedNames.codePrefixes
     }
   ];
 
@@ -133,7 +138,7 @@ function applyRangeValidations(sheet, spec) {
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '代码前缀无效',
-    error: '请从下拉列表中选择产品代码前缀。',
+    error: '请先选择类别，再从该类别的代码前缀下拉中选择。',
     formulae: [spec.validationFormulae.codePrefix]
   });
   sheet.dataValidations.add(spec.validationRanges.productCodeNumber, {

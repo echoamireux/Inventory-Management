@@ -110,9 +110,19 @@ function defineConfigRanges(workbook, configSheet, spec) {
       definedName: spec.definedNames.locationDetails
     },
     {
-      key: spec.definedNames.codePrefixes.name,
-      values: spec.codePrefixOptions || [],
-      definedName: spec.definedNames.codePrefixes
+      key: spec.definedNames.chemicalCodePrefixes.name,
+      values: (spec.codePrefixOptionsByCategory && spec.codePrefixOptionsByCategory.chemical) || [],
+      definedName: spec.definedNames.chemicalCodePrefixes
+    },
+    {
+      key: spec.definedNames.filmCodePrefixes.name,
+      values: (spec.codePrefixOptionsByCategory && spec.codePrefixOptionsByCategory.film) || [],
+      definedName: spec.definedNames.filmCodePrefixes
+    },
+    {
+      key: spec.definedNames.chemicalPackageTypes.name,
+      values: spec.packageTypeOptions || [],
+      definedName: spec.definedNames.chemicalPackageTypes
     }
   ];
 
@@ -165,11 +175,11 @@ function applyRangeValidations(sheet, spec) {
     allowBlank: false,
     showInputMessage: true,
     promptTitle: '填写提示',
-    prompt: '请从当前启用的产品代码前缀中选择。',
+    prompt: '请先选择类别，再从该类别当前启用的产品代码前缀中选择。',
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '代码前缀无效',
-    error: '请从下拉列表中选择产品代码前缀。',
+    error: '请先选择类别，再从该类别的代码前缀下拉中选择。',
     formulae: [spec.validationFormulae.codePrefix]
   });
 
@@ -208,6 +218,21 @@ function applyRangeValidations(sheet, spec) {
       prompt: '防爆柜等已配置明细坐标的库区，请选择 F1-F5 等系统坐标。',
       showErrorMessage: false,
       formulae: [spec.definedNames.locationDetails.name]
+    });
+  }
+
+  if (spec.validationRanges.packageType && spec.definedNames.chemicalPackageTypes) {
+    sheet.dataValidations.add(spec.validationRanges.packageType, {
+      type: 'list',
+      allowBlank: true,
+      showInputMessage: true,
+      promptTitle: '填写提示',
+      prompt: '仅化材选填；请从系统包装形式下拉中选择，膜材请留空。',
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: '包装形式无效',
+      error: '化材包装形式请从下拉中选择；膜材请留空。',
+      formulae: [spec.definedNames.chemicalPackageTypes.name]
     });
   }
 

@@ -52,7 +52,7 @@ test('inventory template headers keep label-first structure and consecutive film
     '类别*',
     '生产批号*',
     '存储区域*',
-    '详细坐标*',
+    '详细坐标',
     '净含量',
     '包装形式',
     '膜材厚度(μm)',
@@ -70,7 +70,12 @@ test('inventory template workbook keeps category-driven zone validation compatib
   const buffer = await buildInventoryTemplateWorkbookBuffer({
     chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线'],
-    codePrefixes: ['J', 'S', 'Y', 'M']
+    codePrefixes: [
+      { prefix: 'J', category: 'chemical', status: 'active' },
+      { prefix: 'S', category: 'chemical', status: 'active' },
+      { prefix: 'Y', category: 'chemical', status: 'active' },
+      { prefix: 'M', category: 'film', status: 'active' }
+    ]
   });
 
   const zip = await JSZip.loadAsync(buffer);
@@ -79,10 +84,13 @@ test('inventory template workbook keeps category-driven zone validation compatib
 
   assert.match(workbookXml, /name="化材_库区">Config!\$A\$2:\$A\$3</);
   assert.match(workbookXml, /name="膜材_库区">Config!\$B\$2:\$B\$3</);
-  assert.match(workbookXml, /name="代码前缀">Config!\$D\$2:\$D\$5</);
+  assert.match(workbookXml, /name="化材_前缀">Config!\$D\$2:\$D\$4</);
+  assert.match(workbookXml, /name="膜材_前缀">Config!\$E\$2(?:<\/definedName>|:\$E\$2<\/definedName>)/);
+  assert.match(workbookXml, /name="化材_包装形式">Config!\$F\$2:\$F\$6</);
 
-  assert.match(sheetXml, /<formula1>代码前缀<\/formula1>/);
+  assert.match(sheetXml, /<formula1>INDIRECT\(\$D4&amp;&quot;_前缀&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>INDIRECT\(\$D4&amp;&quot;_库区&quot;\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>化材_包装形式<\/formula1>/);
   assert.match(sheetXml, /<formula1>OR\(P4=&quot;&quot;,AND\(ISNUMBER\(P4\),P4&gt;=TODAY\(\)\)\)<\/formula1>/);
 });
 
@@ -90,7 +98,12 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
     chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线'],
-    codePrefixes: ['J', 'S', 'Y', 'M']
+    codePrefixes: [
+      { prefix: 'J', category: 'chemical', status: 'active' },
+      { prefix: 'S', category: 'chemical', status: 'active' },
+      { prefix: 'Y', category: 'chemical', status: 'active' },
+      { prefix: 'M', category: 'film', status: 'active' }
+    ]
   }));
 
   const dataSheet = workbook.getWorksheet('库存入库表');
@@ -106,6 +119,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.getRow(3).values[1], '必填');
   assert.equal(dataSheet.getRow(3).values[2], '必填');
   assert.equal(dataSheet.getRow(3).values[6], '必填');
+  assert.equal(dataSheet.getRow(3).values[7], '条件必填');
   assert.equal(dataSheet.getRow(3).values[8], '化材必填');
   assert.equal(dataSheet.getRow(3).values[10], '膜材条件必填');
   assert.equal(dataSheet.getRow(3).values[11], '膜材必填');
@@ -123,10 +137,13 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.match(String(helpSheet.getCell('A1').value || ''), /【重要：填写说明】/);
   assert.match(String(helpSheet.getCell('A8').value || ''), /字段说明/);
   assert.match(String(helpSheet.getCell('A9').value || ''), /标签编号\*/);
-  assert.match(String(helpSheet.getCell('A14').value || ''), /YYYY-MM-DD/);
-  assert.match(String(helpSheet.getCell('A15').value || ''), /默认单位由系统按主数据自动带出/);
-  assert.match(String(helpSheet.getCell('A18').value || ''), /膜材厚度/);
+  assert.match(helpText, /YYYY-MM-DD/);
+  assert.match(helpText, /默认单位由系统按主数据自动带出/);
+  assert.match(helpText, /膜材厚度/);
+  assert.match(helpText, /未配置明细坐标的库区可留空或填写现场坐标/);
   assert.match(helpText, /代码前缀\*：必填/);
+  assert.match(helpText, /当前化材代码前缀：J \/ S \/ Y/);
+  assert.match(helpText, /当前膜材代码前缀：M/);
   assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /原厂型号：正式物料选填，测试料必填/);
   assert.match(helpText, /样品说明\/备注：选填/);

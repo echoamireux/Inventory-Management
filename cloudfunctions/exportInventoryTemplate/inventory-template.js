@@ -18,7 +18,7 @@ const INVENTORY_TEMPLATE_HEADERS = [
   '类别*',
   '生产批号*',
   '存储区域*',
-  '详细坐标*',
+  '详细坐标',
   '净含量',
   '包装形式',
   '膜材厚度(μm)',
@@ -37,7 +37,7 @@ const TEMPLATE_INLINE_HINTS = [
   '必填',
   '必填',
   '必填',
-  '必填',
+  '条件必填',
   '化材必填',
   '化材选填',
   '膜材条件必填',
@@ -50,9 +50,40 @@ const TEMPLATE_INLINE_HINTS = [
   '二选一'
 ];
 const CATEGORY_OPTIONS = ['化材', '膜材'];
+const PACKAGE_TYPE_OPTIONS = ['瓶装', '桶装', '袋装', '卷装', '盒装'];
+const DEFAULT_CODE_PREFIX_OPTIONS = {
+  chemical: ['J', 'S', 'Y'],
+  film: ['M']
+};
 const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 80;
 const TEMPLATE_DATA_START_ROW = 4;
+
+function inferPrefixCategory(prefix) {
+  return prefix === 'M' ? 'film' : 'chemical';
+}
+
+function getCodePrefixOptionsByCategory(codePrefixes) {
+  const grouped = { chemical: [], film: [] };
+  const records = Array.isArray(codePrefixes) ? codePrefixes : [];
+
+  records.forEach((item) => {
+    const prefix = String(typeof item === 'string' ? item : item && item.prefix || '').trim().toUpperCase();
+    if (!/^[A-Z]{1,4}$/.test(prefix)) return;
+    if (item && typeof item === 'object' && item.status === 'disabled') return;
+    const category = item && typeof item === 'object' && item.category === 'film'
+      ? 'film'
+      : item && typeof item === 'object' && item.category === 'chemical'
+        ? 'chemical'
+        : inferPrefixCategory(prefix);
+    grouped[category].push(prefix);
+  });
+
+  return {
+    chemical: Array.from(new Set(grouped.chemical.length ? grouped.chemical : DEFAULT_CODE_PREFIX_OPTIONS.chemical)),
+    film: Array.from(new Set(grouped.film.length ? grouped.film : DEFAULT_CODE_PREFIX_OPTIONS.film))
+  };
+}
 
 function buildInventoryTemplateSpec({
   chemicalZones = [],
@@ -63,14 +94,14 @@ function buildInventoryTemplateSpec({
   const chemicalZoneEnd = chemicalZones.length + 1;
   const filmZoneEnd = filmZones.length + 1;
   const locationDetailEnd = locationDetails.length + 1;
-  const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
-    .map((item) => (typeof item === 'string' ? item : item && item.prefix))
-    .map(item => String(item || '').trim().toUpperCase())
-    .filter(item => /^[A-Z]{1,4}$/.test(item));
-  const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
-    ? normalizedCodePrefixes
-    : ['J', 'S', 'Y', 'M']));
-  const codePrefixEnd = codePrefixOptions.length + 1;
+  const codePrefixOptionsByCategory = getCodePrefixOptionsByCategory(codePrefixes);
+  const codePrefixOptions = Array.from(new Set([
+    ...codePrefixOptionsByCategory.chemical,
+    ...codePrefixOptionsByCategory.film
+  ]));
+  const chemicalCodePrefixEnd = codePrefixOptionsByCategory.chemical.length + 1;
+  const filmCodePrefixEnd = codePrefixOptionsByCategory.film.length + 1;
+  const packageTypeEnd = PACKAGE_TYPE_OPTIONS.length + 1;
 
   return {
     dataSheetName: DATA_SHEET_NAME,
@@ -91,6 +122,7 @@ function buildInventoryTemplateSpec({
       zone: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
       locationDetail: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
       netContent: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`,
+      packageType: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`,
       thicknessUm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
       batchWidthMm: `K${TEMPLATE_DATA_START_ROW}:K${TEMPLATE_MAX_ROW}`,
       lengthM: `L${TEMPLATE_DATA_START_ROW}:L${TEMPLATE_MAX_ROW}`,
@@ -98,7 +130,7 @@ function buildInventoryTemplateSpec({
       longTerm: `Q${TEMPLATE_DATA_START_ROW}:Q${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
-      codePrefix: '代码前缀',
+      codePrefix: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_前缀")`,
       zone: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_库区")`,
       expiryDate: `OR(P${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(P${TEMPLATE_DATA_START_ROW}),P${TEMPLATE_DATA_START_ROW}>=TODAY()))`
     },
@@ -115,9 +147,17 @@ function buildInventoryTemplateSpec({
         name: '详细坐标',
         range: `Config!$C$2:$C$${locationDetailEnd}`
       },
-      codePrefixes: {
-        name: '代码前缀',
-        range: `Config!$D$2:$D$${codePrefixEnd}`
+      chemicalCodePrefixes: {
+        name: '化材_前缀',
+        range: `Config!$D$2:$D$${chemicalCodePrefixEnd}`
+      },
+      filmCodePrefixes: {
+        name: '膜材_前缀',
+        range: `Config!$E$2:$E$${filmCodePrefixEnd}`
+      },
+      chemicalPackageTypes: {
+        name: '化材_包装形式',
+        range: `Config!$F$2:$F$${packageTypeEnd}`
       }
     },
     zoneOptions: {
@@ -126,6 +166,8 @@ function buildInventoryTemplateSpec({
       details: locationDetails.slice()
     },
     codePrefixOptions,
+    codePrefixOptionsByCategory,
+    packageTypeOptions: PACKAGE_TYPE_OPTIONS.slice(),
     helpLines: [
       '【重要：填写说明】',
       '',
@@ -136,10 +178,11 @@ function buildInventoryTemplateSpec({
       '',
       '▶ 字段说明',
       '标签编号*：必填。格式固定为 L + 6 位数字，例如 L000123。',
-      '代码前缀*：必填。请从下拉选择 J、JP、LAB 等当前启用前缀，只填写英文字母，不填写横杠。',
+      '代码前缀*：必填。请先选择类别，再从该类别当前启用的前缀下拉中选择，只填写英文字母，不填写横杠。',
       '产品编号*：必填。请填写 3 位数字，例如 001；系统会与代码前缀组合为完整产品代码，如 J-001、S-001。',
       '类别*：必填。只能选择“化材”或“膜材”。',
-      '生产批号* / 存储区域* / 详细坐标*：必填。存储区域必须从当前系统启用库区中选择；防爆柜等配置了明细坐标的库区，请选择 F1-F5 等系统坐标。',
+      '生产批号* / 存储区域*：必填。存储区域必须从当前系统启用库区中选择。',
+      '详细坐标：防爆柜等配置了明细坐标的库区必须选择 F1-F5 等系统坐标；未配置明细坐标的库区可留空或填写现场坐标。',
       '过期日期 / 长期有效：二选一；过期日期请按 YYYY-MM-DD 填写，且必须是合法日期并且不能早于当天。',
       '默认单位由系统按主数据自动带出，本模板无需填写单位。',
       '净含量：仅化材必填；膜材请留空。',
@@ -153,7 +196,9 @@ function buildInventoryTemplateSpec({
       `当前化材库区：${chemicalZones.join(' / ')}`,
       `当前膜材库区：${filmZones.join(' / ')}`,
       `当前详细坐标：${locationDetails.join(' / ')}`,
-      `当前产品代码前缀：${codePrefixOptions.join(' / ')}`
+      `当前化材代码前缀：${codePrefixOptionsByCategory.chemical.join(' / ')}`,
+      `当前膜材代码前缀：${codePrefixOptionsByCategory.film.join(' / ')}`,
+      `当前化材包装形式：${PACKAGE_TYPE_OPTIONS.join(' / ')}`
     ],
     exampleRows: [
       ['L000101', 'J', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', locationDetails[0] || 'F1', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
@@ -172,6 +217,7 @@ module.exports = {
   INVENTORY_TEMPLATE_HEADERS,
   TEMPLATE_INLINE_HINTS,
   CATEGORY_OPTIONS,
+  PACKAGE_TYPE_OPTIONS,
   TEMPLATE_MAX_ROW,
   TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
   TEMPLATE_DATA_START_ROW,

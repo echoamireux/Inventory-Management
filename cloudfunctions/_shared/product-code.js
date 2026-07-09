@@ -84,11 +84,24 @@ function getStandardValidationMessage(category, options = {}) {
     : `化材产品代码必须是 ${formatFullProductCodePrefixText(allowedPrefixes)} 加 ${PRODUCT_CODE_DIGITS} 位数字`;
 }
 
+function getSelectedPrefixValidationMessage(category, options = {}) {
+  const allowedPrefixes = getAllowedPrefixes(category, options);
+  return normalizeCategory(category) === 'film'
+    ? `膜材代码前缀必须选择 ${formatAllowedPrefixText(allowedPrefixes)}`
+    : `化材代码前缀必须选择 ${formatAllowedPrefixText(allowedPrefixes)}`;
+}
+
 function normalizeProductCodeInput(category, rawInput, prefixOrOptions) {
   const normalizedCategory = normalizeCategory(category);
   const options = resolveProductCodeOptions(prefixOrOptions);
   const allowedPrefixes = getAllowedPrefixes(normalizedCategory, options);
   const selectedPrefix = normalizePrefix(options.prefix);
+  if (options.strictPrefix && !allowedPrefixes.includes(selectedPrefix)) {
+    return {
+      ok: false,
+      msg: getSelectedPrefixValidationMessage(normalizedCategory, options)
+    };
+  }
   const fallbackPrefix = allowedPrefixes.includes(selectedPrefix)
     ? selectedPrefix
     : allowedPrefixes[0];
@@ -158,6 +171,7 @@ module.exports = {
   getDigitValidationMessage,
   getPrefixValidationMessage,
   getStandardValidationMessage,
+  getSelectedPrefixValidationMessage,
   normalizeProductCodeInput,
   validateStandardProductCode,
   findExactProductCodeMatch

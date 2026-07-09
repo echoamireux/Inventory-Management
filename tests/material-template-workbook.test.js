@@ -28,10 +28,11 @@ test('generated workbook writes defined names and validation formulas compatible
   assert.match(workbookXml, /name="膜材_子类">Config!\$B\$2:\$B\$3</);
   assert.match(workbookXml, /name="化材_单位">Config!\$C\$2:\$C\$5</);
   assert.match(workbookXml, /name="膜材_单位">Config!\$D\$2:\$D\$3</);
-  assert.match(workbookXml, /name="化材_包装形式">Config!\$E\$2:\$E\$6</);
-  assert.match(workbookXml, /name="代码前缀">Config!\$F\$2:\$F\$5</);
+  assert.match(workbookXml, /name="化材_前缀">Config!\$E\$2:\$E\$4</);
+  assert.match(workbookXml, /name="膜材_前缀">Config!\$F\$2(?:<\/definedName>|:\$F\$2<\/definedName>)/);
+  assert.match(workbookXml, /name="化材_包装形式">Config!\$G\$2:\$G\$6</);
 
-  assert.match(sheetXml, /<formula1>代码前缀<\/formula1>/);
+  assert.match(sheetXml, /<formula1>INDIRECT\(\$D3&amp;&quot;_前缀&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>INDIRECT\(\$D3&amp;&quot;_子类&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>INDIRECT\(\$D3&amp;&quot;_单位&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>化材_包装形式<\/formula1>/);
@@ -53,7 +54,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       standardWidthMm: 'I3:I3000'
     },
     validationFormulae: {
-      codePrefix: '代码前缀',
+      codePrefix: 'INDIRECT($D3&"_前缀")',
       subcategory: 'INDIRECT($D3&"_子类")',
       unit: 'INDIRECT($D3&"_单位")'
     },
@@ -71,8 +72,9 @@ test('help sheet keeps example columns aligned with the actual import table', as
       filmSubcategories: { name: '膜材_子类', range: 'Config!$B$2:$B$3' },
       chemicalUnits: { name: '化材_单位', range: 'Config!$C$2:$C$5' },
       filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' },
-      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' },
-      codePrefixes: { name: '代码前缀', range: 'Config!$F$2:$F$5' }
+      chemicalCodePrefixes: { name: '化材_前缀', range: 'Config!$E$2:$E$4' },
+      filmCodePrefixes: { name: '膜材_前缀', range: 'Config!$F$2:$F$2' },
+      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$G$2:$G$6' }
     },
     codePrefixOptions: ['J', 'S', 'Y', 'M'],
     helpLines: [
@@ -82,7 +84,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       '▶ 字段说明'
     ],
     exampleRows: [
-      ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否']
+      ['J', '001', '异丙醇', '化材', '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否']
     ]
   });
 
@@ -110,7 +112,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       standardWidthMm: 'I3:I3000'
     },
     validationFormulae: {
-      codePrefix: '代码前缀',
+      codePrefix: 'INDIRECT($D3&"_前缀")',
       subcategory: 'INDIRECT($D3&"_子类")',
       unit: 'INDIRECT($D3&"_单位")'
     },
@@ -128,8 +130,9 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       filmSubcategories: { name: '膜材_子类', range: 'Config!$B$2:$B$3' },
       chemicalUnits: { name: '化材_单位', range: 'Config!$C$2:$C$5' },
       filmUnits: { name: '膜材_单位', range: 'Config!$D$2:$D$3' },
-      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' },
-      codePrefixes: { name: '代码前缀', range: 'Config!$F$2:$F$5' }
+      chemicalCodePrefixes: { name: '化材_前缀', range: 'Config!$E$2:$E$4' },
+      filmCodePrefixes: { name: '膜材_前缀', range: 'Config!$F$2:$F$2' },
+      chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$G$2:$G$6' }
     },
     codePrefixOptions: ['J', 'S', 'Y', 'M'],
     helpLines: ['【重要：填写说明】'],
@@ -142,7 +145,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 2);
   assert.equal(sheet.getRow(2).height, 22);
-  assert.equal(sheet.dataValidations.model['A3:A3000'].formulae[0], '代码前缀');
+  assert.equal(sheet.dataValidations.model['A3:A3000'].formulae[0], 'INDIRECT($D3&"_前缀")');
   assert.equal(sheet.dataValidations.model['B3:B3000'].promptTitle, '填写提示');
   assert.match(sheet.dataValidations.model['B3:B3000'].prompt, /请输入 1-3 位数字/);
   assert.equal(sheet.dataValidations.model['G3:G3000'].formulae[0], '化材_包装形式');

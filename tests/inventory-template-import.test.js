@@ -131,7 +131,7 @@ test('inventory template inline hint row detection follows the governed stock-in
       '必填',
       '必填',
       '必填',
-      '必填',
+      '条件必填',
       '化材必填',
       '化材选填',
       '膜材条件必填',
@@ -199,7 +199,7 @@ test('inventory template import keeps the formal header row as the only hard gat
         '类别*',
         '生产批号*',
         '存储区域*',
-        '详细坐标*',
+        '详细坐标',
         '净含量',
         '包装形式',
         '膜材厚度(μm)',
@@ -214,7 +214,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     },
     {
       rowIndex: 3,
-      values: ['必填', '必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一']
+      values: ['必填', '必填', '必填', '必填', '必填', '必填', '条件必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一']
     }
   ]);
 
@@ -306,7 +306,7 @@ test('inventory template import keeps the formal header row as the only hard gat
     '类别*',
     '生产批号*',
     '存储区域*',
-    '详细坐标*',
+    '详细坐标',
     '净含量',
     '包装形式',
     '膜材厚度(μm)',
@@ -416,6 +416,30 @@ test('inventory import preview rejects hyphenated code prefixes in the new templ
   assert.equal(hyphenatedPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
   assert.equal(prefixedNumber.error, '产品代码必须为 1-3 位数字');
   assert.equal(tooLongPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
+});
+
+test('inventory import preview rejects prefixes that do not belong to the selected category', () => {
+  const context = buildContext({
+    productCodePrefixes: [
+      { prefix: 'J', category: 'chemical', status: 'active' },
+      { prefix: 'S', category: 'chemical', status: 'active' },
+      { prefix: 'M', category: 'film', status: 'active' }
+    ]
+  });
+
+  const filmWithChemicalPrefix = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000304', 'S', '001', '膜材', 'PET2601', '研发仓1', 'F1', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
+  }, context);
+  const chemicalWithFilmPrefix = buildInventoryImportPreviewRow({
+    rowIndex: 5,
+    values: ['L000305', 'M', '001', '化材', 'AC240305', '防爆柜01', 'F1', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, context);
+
+  assert.equal(filmWithChemicalPrefix.error, '膜材代码前缀必须选择 M');
+  assert.equal(filmWithChemicalPrefix.product_code, '');
+  assert.equal(chemicalWithFilmPrefix.error, '化材代码前缀必须选择 J、S');
+  assert.equal(chemicalWithFilmPrefix.product_code, '');
 });
 
 test('inventory import preview rejects unavailable preprint labels before submit', () => {

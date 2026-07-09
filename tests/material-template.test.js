@@ -44,7 +44,7 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
     thicknessUm: 'H3:H3000',
     standardWidthMm: 'I3:I3000'
   });
-  assert.equal(spec.validationFormulae.codePrefix, '代码前缀');
+  assert.equal(spec.validationFormulae.codePrefix, 'INDIRECT($D3&"_前缀")');
   assert.equal(
     spec.validationFormulae.subcategory,
     'INDIRECT($D3&"_子类")'
@@ -70,16 +70,24 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
       name: '膜材_单位',
       range: 'Config!$D$2:$D$3'
     },
+    chemicalCodePrefixes: {
+      name: '化材_前缀',
+      range: 'Config!$E$2:$E$4'
+    },
+    filmCodePrefixes: {
+      name: '膜材_前缀',
+      range: 'Config!$F$2:$F$2'
+    },
     chemicalPackageTypes: {
       name: '化材_包装形式',
-      range: 'Config!$E$2:$E$6'
-    },
-    codePrefixes: {
-      name: '代码前缀',
-      range: 'Config!$F$2:$F$5'
+      range: 'Config!$G$2:$G$6'
     }
   });
   assert.deepEqual(spec.codePrefixOptions, ['J', 'S', 'Y', 'M']);
+  assert.deepEqual(spec.codePrefixOptionsByCategory, {
+    chemical: ['J', 'S', 'Y'],
+    film: ['M']
+  });
 });
 
 test('active template subcategories only include active non-deprecated records in sorted order', () => {
@@ -140,7 +148,8 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /代码前缀\*：必填/);
   assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
-  assert.match(helpText, /当前产品代码前缀：J \/ S \/ Y \/ M/);
+  assert.match(helpText, /当前化材代码前缀：J \/ S \/ Y/);
+  assert.match(helpText, /当前膜材代码前缀：M/);
   assert.match(helpText, /当前化材包装形式：瓶装 \/ 桶装 \/ 袋装 \/ 卷装 \/ 盒装/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
@@ -164,7 +173,7 @@ test('template spec keeps representative example rows aligned with the new gover
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
-    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否'],
     ['M', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
 });

@@ -30,6 +30,36 @@ const UNIT_OPTIONS = {
   film: ['m', 'm²']
 };
 const PACKAGE_TYPE_OPTIONS = ['瓶装', '桶装', '袋装', '卷装', '盒装'];
+const DEFAULT_CODE_PREFIX_OPTIONS = {
+  chemical: ['J', 'S', 'Y'],
+  film: ['M']
+};
+
+function inferPrefixCategory(prefix) {
+  return prefix === 'M' ? 'film' : 'chemical';
+}
+
+function getCodePrefixOptionsByCategory(codePrefixes) {
+  const grouped = { chemical: [], film: [] };
+  const records = Array.isArray(codePrefixes) ? codePrefixes : [];
+
+  records.forEach((item) => {
+    const prefix = String(typeof item === 'string' ? item : item && item.prefix || '').trim().toUpperCase();
+    if (!/^[A-Z]{1,4}$/.test(prefix)) return;
+    if (item && typeof item === 'object' && item.status === 'disabled') return;
+    const category = item && typeof item === 'object' && item.category === 'film'
+      ? 'film'
+      : item && typeof item === 'object' && item.category === 'chemical'
+        ? 'chemical'
+        : inferPrefixCategory(prefix);
+    grouped[category].push(prefix);
+  });
+
+  return {
+    chemical: Array.from(new Set(grouped.chemical.length ? grouped.chemical : DEFAULT_CODE_PREFIX_OPTIONS.chemical)),
+    film: Array.from(new Set(grouped.film.length ? grouped.film : DEFAULT_CODE_PREFIX_OPTIONS.film))
+  };
+}
 const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 50;
 const TEMPLATE_DATA_START_ROW = 3;
@@ -97,14 +127,13 @@ function buildMaterialTemplateSpec({
   const chemicalUnitEnd = UNIT_OPTIONS.chemical.length + 1;
   const filmUnitEnd = UNIT_OPTIONS.film.length + 1;
   const packageTypeEnd = PACKAGE_TYPE_OPTIONS.length + 1;
-  const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
-    .map(item => (typeof item === 'string' ? item : item && item.prefix))
-    .map(item => String(item || '').trim().toUpperCase())
-    .filter(item => /^[A-Z]{1,4}$/.test(item));
-  const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
-    ? normalizedCodePrefixes
-    : ['J', 'S', 'Y', 'M']));
-  const codePrefixEnd = codePrefixOptions.length + 1;
+  const codePrefixOptionsByCategory = getCodePrefixOptionsByCategory(codePrefixes);
+  const codePrefixOptions = Array.from(new Set([
+    ...codePrefixOptionsByCategory.chemical,
+    ...codePrefixOptionsByCategory.film
+  ]));
+  const chemicalCodePrefixEnd = codePrefixOptionsByCategory.chemical.length + 1;
+  const filmCodePrefixEnd = codePrefixOptionsByCategory.film.length + 1;
   const chemicalExampleSubcategory = pickRepresentativeSubcategory(
     chemicalSubcategories,
     '溶剂'
@@ -135,7 +164,7 @@ function buildMaterialTemplateSpec({
       standardWidthMm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
-      codePrefix: '代码前缀',
+      codePrefix: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_前缀")`,
       subcategory: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_子类")`,
       unit: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_单位")`
     },
@@ -156,13 +185,17 @@ function buildMaterialTemplateSpec({
         name: '膜材_单位',
         range: `Config!$D$2:$D$${filmUnitEnd}`
       },
+      chemicalCodePrefixes: {
+        name: '化材_前缀',
+        range: `Config!$E$2:$E$${chemicalCodePrefixEnd}`
+      },
+      filmCodePrefixes: {
+        name: '膜材_前缀',
+        range: `Config!$F$2:$F$${filmCodePrefixEnd}`
+      },
       chemicalPackageTypes: {
         name: '化材_包装形式',
-        range: `Config!$E$2:$E$${packageTypeEnd}`
-      },
-      codePrefixes: {
-        name: '代码前缀',
-        range: `Config!$F$2:$F$${codePrefixEnd}`
+        range: `Config!$G$2:$G$${packageTypeEnd}`
       }
     },
     categoryOptions: CATEGORY_OPTIONS.slice(),
@@ -171,6 +204,7 @@ function buildMaterialTemplateSpec({
       film: UNIT_OPTIONS.film.slice()
     },
     codePrefixOptions,
+    codePrefixOptionsByCategory,
     packageTypeOptions: PACKAGE_TYPE_OPTIONS.slice(),
     subcategoryOptions: {
       chemical: chemicalSubcategories.slice(),
@@ -184,7 +218,7 @@ function buildMaterialTemplateSpec({
       '3. 模板填写完成后，请直接上传 .xlsx 文件回到系统导入。',
       '',
       '▶ 字段说明',
-      '代码前缀*：必填。请从下拉选择 J、JP、LAB 等当前启用前缀，只填写英文字母，不填写横杠。',
+      '代码前缀*：必填。请先选择类别，再从该类别当前启用的前缀下拉中选择，只填写英文字母，不填写横杠。',
       '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。',
       '物料名称*：必填。',
       '类别*：必填。只能选择“化材”或“膜材”。',
@@ -199,13 +233,14 @@ function buildMaterialTemplateSpec({
       '模板仅用于新建物料；若产品代码已存在，系统会跳过，不会更新现有主数据。',
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
-      `当前产品代码前缀：${codePrefixOptions.join(' / ')}`,
+      `当前化材代码前缀：${codePrefixOptionsByCategory.chemical.join(' / ')}`,
+      `当前膜材代码前缀：${codePrefixOptionsByCategory.film.join(' / ')}`,
       `当前化材子类别：${chemicalSubcategories.join(' / ')}`,
       `当前膜材子类别：${filmSubcategories.join(' / ')}`,
       `当前化材包装形式：${PACKAGE_TYPE_OPTIONS.join(' / ')}`
     ],
     exampleRows: [
-      ['J', '001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+      ['J', '001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否'],
       ['M', '002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
     ]
   };

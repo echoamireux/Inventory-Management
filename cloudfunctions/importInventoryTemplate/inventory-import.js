@@ -9,9 +9,9 @@ const {
 } = require('./test-material');
 const NEW_TEMPLATE_COLUMN_COUNT = 17;
 const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
-const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '代码前缀*', '产品编号*', '类别*', '生产批号*', '存储区域*', '详细坐标*', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
-const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
-const LEGACY_LOCATION_DETAIL_HEADER = '详细坐标';
+const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '代码前缀*', '产品编号*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
+const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '必填', '条件必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
+const LEGACY_LOCATION_DETAIL_HEADER = '详细坐标*';
 const LEGACY_LOCATION_DETAIL_HINT = '选填';
 const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请使用系统当前模板中的正式字段行';
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
@@ -106,10 +106,14 @@ const DEFAULT_ALLOWED_PREFIXES = {
 
 function getAllowedProductCodePrefixes(category, customPrefixes) {
   const normalizedCategory = category === 'film' ? 'film' : 'chemical';
-  const source = Array.isArray(customPrefixes) && customPrefixes.length
-    ? customPrefixes
-    : DEFAULT_ALLOWED_PREFIXES[normalizedCategory];
+  const hasCustomRecords = Array.isArray(customPrefixes) && customPrefixes.length;
+  const source = hasCustomRecords ? customPrefixes : DEFAULT_ALLOWED_PREFIXES[normalizedCategory];
   const normalized = source
+    .filter((item) => {
+      if (!hasCustomRecords || typeof item === 'string') return true;
+      const itemCategory = item && item.category === 'film' ? 'film' : 'chemical';
+      return itemCategory === normalizedCategory && item.status !== 'disabled';
+    })
     .map((item) => normalizeText(typeof item === 'string' ? item : item && item.prefix).toUpperCase())
     .filter(item => PRODUCT_CODE_PREFIX_PATTERN.test(item));
   return Array.from(new Set(normalized.length ? normalized : DEFAULT_ALLOWED_PREFIXES[normalizedCategory]));
@@ -132,8 +136,8 @@ function normalizeProductCodePrefixInput(category, rawPrefix, customPrefixes) {
     return {
       ok: false,
       msg: category === 'film'
-        ? `膜材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
-        : `化材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
+        ? `膜材代码前缀必须选择 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
+        : `化材代码前缀必须选择 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
     };
   }
   return { ok: true, prefix, allowedPrefixes };

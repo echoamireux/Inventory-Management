@@ -26,7 +26,7 @@ function chemicalRow({
   name = '异丙醇',
   subCategory = '溶剂',
   unit = 'L',
-  packageType = '铁桶',
+  packageType = '桶装',
   supplier = '国药',
   supplierModel = 'IPA-99',
   isTestMaterial = '否'
@@ -115,6 +115,26 @@ test('import validation rejects hyphenated prefixes and prefixed product numbers
   assert.equal(tooLongPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
 });
 
+test('import validation rejects prefixes that do not belong to the selected category', () => {
+  const filmWithChemicalPrefix = validateImportRow(
+    filmRow({ prefix: 'S', number: '001' }),
+    0,
+    subcategoriesByCategory,
+    productCodePrefixes
+  );
+  const chemicalWithFilmPrefix = validateImportRow(
+    chemicalRow({ prefix: 'M', number: '001' }),
+    1,
+    subcategoriesByCategory,
+    productCodePrefixes
+  );
+
+  assert.equal(filmWithChemicalPrefix.error, '膜材代码前缀必须选择 M');
+  assert.equal(filmWithChemicalPrefix.product_code, '');
+  assert.equal(chemicalWithFilmPrefix.error, '化材代码前缀必须选择 J、S、JP');
+  assert.equal(chemicalWithFilmPrefix.product_code, '');
+});
+
 test('import validation supports the new prefix-plus-number master-data template', () => {
   const result = validateImportRow(
     chemicalRow({ isTestMaterial: '是' }),
@@ -125,7 +145,7 @@ test('import validation supports the new prefix-plus-number master-data template
   assert.equal(result.error, null);
   assert.equal(result.product_code, 'J-001');
   assert.equal(result.default_unit, 'L');
-  assert.equal(result.package_type, '铁桶');
+  assert.equal(result.package_type, '桶装');
   assert.equal(result.supplier, '国药');
   assert.equal(result.supplier_model, 'IPA-99');
   assert.equal(result.is_test_material, true);
@@ -221,7 +241,7 @@ test('duplicate guard warns when identical rows share the same normalized produc
       category: 'chemical',
       sub_category: '溶剂',
       default_unit: 'L',
-      package_type: '铁桶',
+      package_type: '桶装',
       thickness_um: null,
       standard_width_mm: null,
       supplier: '国药',
@@ -237,7 +257,7 @@ test('duplicate guard warns when identical rows share the same normalized produc
       category: 'chemical',
       sub_category: '溶剂',
       default_unit: 'L',
-      package_type: '铁桶',
+      package_type: '桶装',
       thickness_um: null,
       standard_width_mm: null,
       supplier: '国药',
@@ -263,7 +283,7 @@ test('duplicate guard blocks same-category rows that reuse one product code with
       category: 'chemical',
       sub_category: '溶剂',
       default_unit: 'L',
-      package_type: '铁桶',
+      package_type: '桶装',
       thickness_um: null,
       standard_width_mm: null,
       supplier: '国药',
@@ -279,7 +299,7 @@ test('duplicate guard blocks same-category rows that reuse one product code with
       category: 'chemical',
       sub_category: '树脂',
       default_unit: 'kg',
-      package_type: '铁桶',
+      package_type: '桶装',
       thickness_um: null,
       standard_width_mm: null,
       supplier: '国药',
@@ -303,7 +323,7 @@ test('duplicate guard only warns when one numeric code appears under different c
       category: 'chemical',
       sub_category: '溶剂',
       default_unit: 'L',
-      package_type: '铁桶',
+      package_type: '桶装',
       thickness_um: null,
       standard_width_mm: null,
       supplier: '国药',
