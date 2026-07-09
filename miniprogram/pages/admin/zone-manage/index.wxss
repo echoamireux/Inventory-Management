@@ -8,34 +8,50 @@
 .zone-header {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  margin-bottom: 20rpx;
-  padding: 28rpx 24rpx;
-  border-radius: 24rpx;
+  margin-bottom: 14rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 18rpx;
   background: #ffffff;
   box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
 }
 
+.zone-header__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.zone-header__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.zone-header__action {
+  flex-shrink: 0;
+}
+
 .zone-toolbar__title {
-  font-size: 36rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: #111827;
 }
 
 .zone-toolbar__hint {
-  font-size: 24rpx;
-  line-height: 1.6;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  line-height: 1.35;
   color: #64748b;
 }
 
 .zone-hint {
-  margin-bottom: 24rpx;
-  padding: 20rpx 24rpx;
-  border-radius: 20rpx;
+  margin-bottom: 18rpx;
+  padding: 12rpx 18rpx;
+  border-radius: 14rpx;
   background: #eef4ff;
   color: #475569;
-  font-size: 24rpx;
-  line-height: 1.6;
+  font-size: 22rpx;
+  line-height: 1.45;
 }
 
 .zone-loading {
@@ -94,17 +110,29 @@
 }
 
 .zone-detail-section {
-  margin-top: 24rpx;
-  padding-top: 20rpx;
+  margin-top: 20rpx;
+  padding-top: 18rpx;
   border-top: 1rpx solid #e5e7eb;
 }
 
 .zone-detail-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.zone-detail-header__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.zone-detail-header__action {
+  flex-shrink: 0;
 }
 
 .zone-detail-title {
@@ -114,9 +142,8 @@
 }
 
 .zone-detail-hint {
-  margin-top: 6rpx;
   font-size: 22rpx;
-  line-height: 1.5;
+  line-height: 1.35;
   color: #94a3b8;
 }
 
@@ -127,7 +154,11 @@
 }
 
 .zone-detail-row {
-  padding: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+  padding: 14rpx 16rpx;
   border-radius: 14rpx;
   background: #f8fafc;
 }
@@ -136,11 +167,12 @@
   opacity: 0.68;
 }
 
-.zone-detail-row__main {
+.zone-detail-row__content {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10rpx;
-  margin-bottom: 12rpx;
 }
 
 .zone-detail-row__name {
@@ -152,8 +184,15 @@
 .zone-detail-row__actions {
   display: flex;
   align-items: center;
-  gap: 10rpx;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8rpx;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.zone-detail-action-button {
+  min-width: 76rpx !important;
+  padding: 0 10rpx !important;
 }
 
 .zone-detail-empty {
