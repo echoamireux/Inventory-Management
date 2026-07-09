@@ -200,9 +200,9 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /bindinput="onLabelCodeInput"/);
   assert.match(materialAddWxml, /bind:blur="onLabelCodeBlur"/);
   assert.doesNotMatch(materialAddWxml, /placeholder="扫码或输入，如 L000001"/);
-  assert.match(materialAddWxml, /bind:input="onInput"/);
-  assert.match(materialAddWxml, /bind:blur="onProductCodeBlur"/);
-  assert.match(materialAddWxml, /bind:confirm="onProductCodeConfirm"/);
+  assert.match(materialAddWxml, /bindinput="onInput"/);
+  assert.match(materialAddWxml, /bindblur="onProductCodeBlur"/);
+  assert.match(materialAddWxml, /bindconfirm="onProductCodeConfirm"/);
   assert.match(materialAddWxml, /confirm-type="done"/);
   assert.match(materialAddWxml, /label="原厂型号"[\s\S]*required="\{\{ form\.is_test_material \}\}"/);
   assert.match(materialAddWxml, /title="子类别"/);

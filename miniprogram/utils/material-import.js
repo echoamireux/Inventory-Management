@@ -59,9 +59,9 @@ function normalizeOptionalNumber(value) {
 
 function isTemplateInlineHintRow(row = []) {
   return String(row[0] || '').trim() === '必填'
-    && String(row[5] || '').includes('化材选填')
-    && String(row[6] || '').includes('膜材必填')
-    && String(row[7] || '').includes('膜材选填');
+    && String(row[6] || '').includes('化材选填')
+    && String(row[7] || '').includes('膜材必填')
+    && String(row[8] || '').includes('膜材选填');
 }
 
 function appendWarning(existingWarning = '', nextWarning = '') {
@@ -191,18 +191,41 @@ function decorateImportPreviewRows(rows = []) {
 }
 
 function validateImportRow(row, index, subcategoriesByCategory = {}) {
-  const rawProductCode = String(row[0] || '').trim();
-  const materialName = String(row[1] || '').trim();
-  const categoryText = String(row[2] || '').trim();
-  const subCategory = String(row[3] || '').trim();
-  const usesMasterTemplate = row.length >= 10;
-  let defaultUnit = String(row[4] || '').trim();
-  const packageType = String((usesMasterTemplate ? row[5] : '') || '').trim();
-  const thicknessUm = normalizeOptionalNumber(usesMasterTemplate ? row[6] : '');
-  const standardWidthMm = normalizeOptionalNumber(usesMasterTemplate ? row[7] : '');
-  const supplier = String((usesMasterTemplate ? row[8] : row[5]) || '').trim();
-  const supplierModel = String((usesMasterTemplate ? row[9] : row[6]) || '').trim();
-  const testMaterialFlag = normalizeTestMaterialFlag(usesMasterTemplate ? row[10] : '');
+  const oldTemplateLooksLikely = /^[A-Z]-\d{3}$/i.test(String(row[0] || '').trim())
+    && !!normalizeCategoryText(String(row[2] || '').trim());
+  if (oldTemplateLooksLikely) {
+    return {
+      rowIndex: index + 2,
+      product_code: '',
+      product_code_prefix: '',
+      product_code_number: '',
+      material_name: String(row[1] || '').trim(),
+      category: normalizeCategoryText(String(row[2] || '').trim()),
+      sub_category: String(row[3] || '').trim(),
+      default_unit: '',
+      package_type: '',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '',
+      supplier_model: '',
+      is_test_material: false,
+      warning: '',
+      error: '请使用最新版物料导入模板：产品代码已拆分为“代码前缀”和“产品编号”两列'
+    };
+  }
+
+  const rawCodePrefix = String(row[0] || '').trim();
+  const rawProductCodeNumber = String(row[1] || '').trim();
+  const materialName = String(row[2] || '').trim();
+  const categoryText = String(row[3] || '').trim();
+  const subCategory = String(row[4] || '').trim();
+  let defaultUnit = String(row[5] || '').trim();
+  const packageType = String(row[6] || '').trim();
+  const thicknessUm = normalizeOptionalNumber(row[7]);
+  const standardWidthMm = normalizeOptionalNumber(row[8]);
+  const supplier = String(row[9] || '').trim();
+  const supplierModel = String(row[10] || '').trim();
+  const testMaterialFlag = normalizeTestMaterialFlag(row[11]);
   let warning = '';
 
   let error = null;
@@ -214,7 +237,7 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
 
   const normalizedCode = error
     ? { ok: false, msg: error }
-    : normalizeProductCodeInput(category, rawProductCode);
+    : normalizeProductCodeInput(category, rawProductCodeNumber, rawCodePrefix);
 
   if (!error && !normalizedCode.ok) {
     error = normalizedCode.msg;
@@ -254,6 +277,7 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
   return {
     rowIndex: index + 2,
     product_code: normalizedCode.ok ? normalizedCode.product_code : '',
+    product_code_prefix: normalizedCode.ok ? normalizedCode.prefix : '',
     product_code_number: normalizedCode.ok ? normalizedCode.number : '',
     material_name: materialName,
     category,

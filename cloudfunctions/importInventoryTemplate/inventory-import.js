@@ -6,10 +6,10 @@ const {
   buildTestMaterialStockInValidation,
   resolveInventorySourceText
 } = require('./test-material');
-const NEW_TEMPLATE_COLUMN_COUNT = 16;
-const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
-const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '产品代码*', '类别*', '生产批号*', '存储区域*', '详细坐标*', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
-const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
+const NEW_TEMPLATE_COLUMN_COUNT = 17;
+const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
+const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '代码前缀*', '产品编号*', '类别*', '生产批号*', '存储区域*', '详细坐标*', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
+const INVENTORY_TEMPLATE_INLINE_HINT_ROW = ['必填', '必填', '必填', '必填', '必填', '必填', '必填', '化材必填', '化材选填', '膜材条件必填', '膜材必填', '膜材必填', '选填', '测试料必填', '选填', '二选一', '二选一'];
 const LEGACY_LOCATION_DETAIL_HEADER = '详细坐标';
 const LEGACY_LOCATION_DETAIL_HINT = '选填';
 const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请使用系统当前模板中的正式字段行';
@@ -98,24 +98,63 @@ function normalizeInventoryCategoryText(categoryText) {
   return '';
 }
 
-function getProductCodePrefix(category) {
-  return category === 'film' ? 'M-' : 'J-';
+const DEFAULT_ALLOWED_PREFIXES = {
+  chemical: ['J-', 'S-', 'Y-'],
+  film: ['M-']
+};
+
+function getAllowedProductCodePrefixes(category, customPrefixes) {
+  const normalizedCategory = category === 'film' ? 'film' : 'chemical';
+  const source = Array.isArray(customPrefixes) && customPrefixes.length
+    ? customPrefixes
+    : DEFAULT_ALLOWED_PREFIXES[normalizedCategory];
+  const normalized = source
+    .map((item) => normalizeText(typeof item === 'string' ? item : item && item.prefix).toUpperCase())
+    .filter(Boolean);
+  return Array.from(new Set(normalized.length ? normalized : DEFAULT_ALLOWED_PREFIXES[normalizedCategory]));
 }
 
-function normalizeProductCodeInput(category, rawInput) {
-  const prefix = getProductCodePrefix(category);
+function formatAllowedProductCodePrefixes(prefixes = []) {
+  return prefixes.join('、');
+}
+
+function normalizeProductCodePrefixInput(category, rawPrefix, customPrefixes) {
+  const allowedPrefixes = getAllowedProductCodePrefixes(category, customPrefixes);
+  const prefix = normalizeText(rawPrefix).toUpperCase();
+  if (!prefix) {
+    return { ok: false, msg: '代码前缀必填' };
+  }
+  if (!allowedPrefixes.includes(prefix)) {
+    return {
+      ok: false,
+      msg: category === 'film'
+        ? `膜材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
+        : `化材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(allowedPrefixes)}`
+    };
+  }
+  return { ok: true, prefix, allowedPrefixes };
+}
+
+function normalizeProductCodeInput(category, rawInput, rawPrefix = '', customPrefixes) {
+  const prefixCheck = normalizeProductCodePrefixInput(category, rawPrefix, customPrefixes);
+  if (!prefixCheck.ok) {
+    return prefixCheck;
+  }
+  const prefix = prefixCheck.prefix;
   const rawValue = normalizeText(rawInput).toUpperCase();
 
   if (!rawValue) {
-    return { ok: false, msg: '产品代码必填' };
+    return { ok: false, msg: '产品编号必填' };
   }
 
   let digits = rawValue;
-  if (rawValue.startsWith('J-') || rawValue.startsWith('M-')) {
+  if (/^[A-Z]-/u.test(rawValue)) {
     if (!rawValue.startsWith(prefix)) {
       return {
         ok: false,
-        msg: category === 'film' ? '膜材产品代码必须使用 M- 前缀' : '化材产品代码必须使用 J- 前缀'
+        msg: category === 'film'
+          ? `膜材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(prefixCheck.allowedPrefixes)}`
+          : `化材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(prefixCheck.allowedPrefixes)}`
       };
     }
     digits = rawValue.slice(2);
@@ -128,6 +167,7 @@ function normalizeProductCodeInput(category, rawInput) {
   const number = digits.padStart(PRODUCT_CODE_DIGITS, '0');
   return {
     ok: true,
+    prefix,
     number,
     product_code: `${prefix}${number}`
   };
@@ -535,7 +575,7 @@ function isInventoryTemplateGroupHeaderRow(row = []) {
 function isInventoryTemplateHeaderRow(row = []) {
   return INVENTORY_TEMPLATE_HEADER_ROW.every((value, index) => {
     const actual = normalizeText(row[index]);
-    if (index === 5 && actual === LEGACY_LOCATION_DETAIL_HEADER) {
+    if (index === 6 && actual === LEGACY_LOCATION_DETAIL_HEADER) {
       return true;
     }
     return actual === value;
@@ -545,7 +585,7 @@ function isInventoryTemplateHeaderRow(row = []) {
 function isInventoryTemplateInlineHintRow(row = []) {
   return INVENTORY_TEMPLATE_INLINE_HINT_ROW.every((value, index) => {
     const actual = normalizeText(row[index]);
-    if (index === 5 && actual === LEGACY_LOCATION_DETAIL_HINT) {
+    if (index === 6 && actual === LEGACY_LOCATION_DETAIL_HINT) {
       return true;
     }
     return actual === value;
@@ -693,11 +733,11 @@ function collectInventoryImportLookupKeys(rawRows = []) {
       uniqueCodes.add(uniqueCode);
     }
 
-    const category = normalizeInventoryCategoryText(row.values[2]);
+    const category = normalizeInventoryCategoryText(row.values[3]);
     if (!category) {
       return;
     }
-    const normalizedCode = normalizeProductCodeInput(category, row.values[1]);
+    const normalizedCode = normalizeProductCodeInput(category, row.values[2], row.values[1]);
     if (normalizedCode.ok) {
       productCodes.add(normalizedCode.product_code);
     }
@@ -850,19 +890,19 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   };
 
   const uniqueCode = normalizeLabelCodeInput(values[0]);
-  const category = normalizeInventoryCategoryText(values[2]);
-  const longTerm = parseLongTermValue(values[15]);
-  const expiryDate = normalizeDateInput(values[14]);
+  const category = normalizeInventoryCategoryText(values[3]);
+  const longTerm = parseLongTermValue(values[16]);
+  const expiryDate = normalizeDateInput(values[15]);
 
   row.unique_code = uniqueCode || values[0];
   row.category = category;
-  row.batch_number = values[3];
-  row.zone_name = values[4];
-  row.location_detail = values[5];
-  row.supplier = values[11];
-  row.supplier_model = values[12];
-  row.sample_note = values[13];
-  row.package_type = values[7];
+  row.batch_number = values[4];
+  row.zone_name = values[5];
+  row.location_detail = values[6];
+  row.supplier = values[12];
+  row.supplier_model = values[13];
+  row.sample_note = values[14];
+  row.package_type = values[8];
 
   if (!row.unique_code) {
     row.error = '标签编号必填';
@@ -887,11 +927,11 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
       && normalizeText(existingItem.status) === 'in_stock'
       && normalizeText(existingItem.category) === 'chemical'
     ) {
-      const codeCheck = normalizeProductCodeInput(category, values[1]);
+      const codeCheck = normalizeProductCodeInput(category, values[2], values[1]);
       if (
         codeCheck.ok
         && normalizeText(existingItem.product_code) === normalizeText(codeCheck.product_code)
-        && normalizeText(existingItem.batch_number) === normalizeText(values[3])
+        && normalizeText(existingItem.batch_number) === normalizeText(values[4])
       ) {
         // 化材 refill 流程：标记为补料入库
         row.submit_action = 'refill';
@@ -920,7 +960,7 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     return row;
   }
 
-  const normalizedCode = normalizeProductCodeInput(category, values[1]);
+  const normalizedCode = normalizeProductCodeInput(category, values[2], values[1]);
   if (!normalizedCode.ok) {
     row.error = normalizedCode.msg;
     return row;
@@ -1023,7 +1063,7 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.quantity_unit = normalizedUnit.unit;
 
   if (category === 'chemical') {
-    row.net_content = normalizePositiveNumber(values[6]);
+    row.net_content = normalizePositiveNumber(values[7]);
     if (row.net_content == null) {
       row.error = '化材必须填写净含量';
       return row;
@@ -1036,9 +1076,9 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     return row;
   }
 
-  row.thickness_um = normalizePositiveNumber(values[8]);
-  row.batch_width_mm = normalizePositiveNumber(values[9]);
-  row.length_m = normalizePositiveNumber(values[10]);
+  row.thickness_um = normalizePositiveNumber(values[9]);
+  row.batch_width_mm = normalizePositiveNumber(values[10]);
+  row.length_m = normalizePositiveNumber(values[11]);
 
   try {
     alignFilmSpecsWithPreprint(row, preprintLabelsByUniqueCode.get(row.unique_code));

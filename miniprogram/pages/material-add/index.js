@@ -2,7 +2,6 @@
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
 const {
-  CATEGORY_PREFIX,
   PACKAGE_TYPES,
   DEFAULT_FORM
 } = require('../../utils/constants');
@@ -45,10 +44,26 @@ const {
   findExactProductCodeMatch
 } = require('../../utils/product-code');
 const {
+  listProductCodePrefixes,
+  buildProductCodePrefixPickerColumns
+} = require('../../utils/product-code-prefix-service');
+const {
   getMaterialSubmitValidationMessage,
   getCategorySpecificValidationMessage
 } = require('../../utils/stock-form');
 const { normalizeFilmUnit } = require('../../utils/film');
+
+const DEFAULT_PREFIX_OPTIONS = [
+  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
+  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
+  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
+  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+];
+
+function extractCodePrefix(value) {
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]-)/);
+  return match ? match[1] : '';
+}
 
 function resolvePickerDateValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -120,6 +135,10 @@ Page({
 
     // 联想建议
     suggestions: [],
+    codePrefix: 'J-',
+    codePrefixRecords: [],
+    codePrefixOptions: [],
+    showCodePrefixSheet: false,
 
     // 数据
     subCategoryRecords: [],
@@ -148,10 +167,12 @@ Page({
     labelCodeNotice: ''
   },
 
-  onLoad(options) {
+  async onLoad(options) {
       const app = getApp();
       let routeLabelCode = '';
       let routeLabelFromPreprint = false;
+      let initialTab = this.data.activeTab;
+      let initialProductCode = '';
 
       if (options) {
           if (options.id) {
@@ -166,14 +187,25 @@ Page({
               routeLabelFromPreprint = options.from === 'preprint';
           }
           if (options.product_code) {
-              this.setData({ 'form.product_code': options.product_code });
+              initialProductCode = decodeURIComponent(options.product_code);
           }
           if (options.tab) {
+              initialTab = options.tab;
               this.setData({
                   activeTab: options.tab,
                   'form.unit': getDefaultUnit(options.tab)
               });
           }
+      }
+
+      await this.loadPrefixOptions(initialTab, extractCodePrefix(initialProductCode));
+      if (initialProductCode) {
+          const normalizedCode = normalizeProductCodeInput(initialTab, initialProductCode, this.getProductCodeOptions());
+          this.setData({
+              'form.product_code': normalizedCode.ok
+                ? normalizedCode.number
+                : sanitizeProductCodeNumberInput(initialProductCode)
+          });
       }
 
       registerZoneManagementAccess(app, (canManageZones) => {
@@ -226,7 +258,11 @@ Page({
         return;
       }
 
-      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.form.product_code);
+      const normalizedCode = normalizeProductCodeInput(
+        this.data.activeTab,
+        this.data.form.product_code,
+        this.getProductCodeOptions()
+      );
       if (!normalizedCode.ok) {
         Toast.fail(normalizedCode.msg || '产品代码无效');
         return;
@@ -323,9 +359,10 @@ Page({
       });
   },
 
-  onTabChange(e) {
+  async onTabChange(e) {
     const tab = e.detail.name;
     this.invalidateProductCodeLookup();
+    await this.loadPrefixOptions(tab);
 
     this.setData({
         activeTab: tab,
@@ -391,9 +428,77 @@ Page({
       this.setData({ unitActions: getUnitActions(tab) });
   },
 
-  // Helper to get prefix - 使用常量
-  getPrefix(tab) {
-      return CATEGORY_PREFIX[tab] || 'J-';
+  async loadPrefixOptions(category = this.data.activeTab, preferredPrefix = '') {
+      const normalizedCategory = category === 'film' ? 'film' : 'chemical';
+      let records = [];
+      try {
+          records = await listProductCodePrefixes(false, normalizedCategory);
+      } catch (err) {
+          console.warn('加载产品代码前缀失败，使用默认前缀', err);
+          records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+      }
+      if (!records.length) {
+          records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+      }
+      const options = buildProductCodePrefixPickerColumns(records, normalizedCategory);
+      const selectedPrefix = options.some(item => item.prefix === preferredPrefix)
+          ? preferredPrefix
+          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M-' : 'J-');
+
+      this.setData({
+          codePrefixRecords: records,
+          codePrefixOptions: options,
+          codePrefix: selectedPrefix
+      });
+      return selectedPrefix;
+  },
+
+  getPrefix() {
+      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M-' : 'J-');
+  },
+
+  getProductCodeOptions(prefix = this.data.codePrefix) {
+      return {
+          prefix,
+          allowedPrefixes: this.data.codePrefixRecords
+      };
+  },
+
+  getFullProductCode(rawValue = this.data.form.product_code) {
+      const normalizedCode = normalizeProductCodeInput(
+          this.data.activeTab,
+          rawValue,
+          this.getProductCodeOptions()
+      );
+      return normalizedCode.ok ? normalizedCode.product_code : String(rawValue || '');
+  },
+
+  showCodePrefixSheet() {
+      if (this.data.form.preprint_label_id) {
+          return;
+      }
+      this.setData({ showCodePrefixSheet: true });
+  },
+
+  onCodePrefixClose() {
+      this.setData({ showCodePrefixSheet: false });
+  },
+
+  async onCodePrefixSelect(e) {
+      const item = e.detail || {};
+      const prefix = item.prefix || item.value || this.data.codePrefix;
+      this.invalidateProductCodeLookup();
+      this.setData({
+          codePrefix: prefix,
+          showCodePrefixSheet: false,
+          suggestions: [],
+          isUnknownCode: false,
+          isArchived: false,
+          archiveReason: ''
+      });
+      if (this.data.form.product_code) {
+          await this.confirmProductCodeLookup({ detail: this.data.form.product_code });
+      }
   },
 
   buildProductCodeResetUpdates(nextProductCode = '') {
@@ -501,7 +606,11 @@ Page({
       return;
     }
 
-    const normalizedCode = normalizeProductCodeInput(this.data.activeTab, rawValue);
+    const normalizedCode = normalizeProductCodeInput(
+      this.data.activeTab,
+      rawValue,
+      this.getProductCodeOptions()
+    );
     if (!normalizedCode.ok) {
       this.invalidateProductCodeLookup();
       this.setData({
@@ -666,7 +775,11 @@ Page({
     const { showDialog = false } = options;
     const normalizedLabelCode = normalizeLabelCodeInput(uniqueCode);
     const currentCategory = this.data.activeTab;
-    const normalizedCode = normalizeProductCodeInput(currentCategory, this.data.form.product_code);
+    const normalizedCode = normalizeProductCodeInput(
+      currentCategory,
+      this.data.form.product_code,
+      this.getProductCodeOptions()
+    );
     const currentBatchNumber = String(this.data.form.batch_number || '').trim();
 
     if (!normalizedLabelCode || !isValidLabelCode(normalizedLabelCode)) {
@@ -906,7 +1019,7 @@ Page({
       }
 
       const { showToast = true } = options;
-      const prefix = this.getPrefix(this.data.activeTab);
+      const prefix = this.getPrefix();
       const newForm = syncFormWithMaterialMaster(this.data.form, this.data.activeTab, item, prefix);
 
       this.setData({
@@ -1045,7 +1158,13 @@ Page({
       }
 
       const nextTab = record.category === 'film' ? 'film' : 'chemical';
-      const normalizedCode = normalizeProductCodeInput(nextTab, record.product_code);
+      const recordPrefix = extractCodePrefix(record.product_code);
+      await this.loadPrefixOptions(nextTab, recordPrefix);
+      const normalizedCode = normalizeProductCodeInput(
+        nextTab,
+        record.product_code,
+        this.getProductCodeOptions(recordPrefix || this.data.codePrefix)
+      );
       if (!normalizedCode.ok) {
           throw new Error(normalizedCode.msg || '预生成标签产品代码无效');
       }
@@ -1067,7 +1186,8 @@ Page({
           'form.unique_code': record.unique_code,
           'form.preprint_label_id': record._id || '',
           'form.label_code_digits': extractLabelCodeDigits(record.unique_code),
-          'form.product_code': normalizedCode.product_code.replace(this.getPrefix(nextTab), ''),
+          codePrefix: normalizedCode.prefix,
+          'form.product_code': normalizedCode.number,
           'form.supplier': record.supplier || material.supplier || '',
           'form.supplier_model': record.supplier_model || material.supplier_model || '',
           'form.sample_note': record.sample_note || '',
@@ -1229,7 +1349,7 @@ Page({
 
   // SKU 校验
   validateSKU(code, type) {
-      return validateStandardProductCode(type, code).ok;
+      return validateStandardProductCode(type, code, this.getProductCodeOptions()).ok;
   },
 
   async onSubmit() {
@@ -1259,7 +1379,7 @@ Page({
     if (!form.product_code) return Toast.fail('请填写产品代码');
     if (!form.name) return Toast.fail('请填写物料名称');
 
-    const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+    const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code, this.getProductCodeOptions());
     if (!normalizedCode.ok) {
         return Toast.fail(normalizedCode.msg);
     }
@@ -1392,10 +1512,10 @@ Page({
   async onNextOne() {
       const { form, activeTab } = this.data;
       let syncedItem = null;
-      const prefix = this.getPrefix(activeTab);
+      const prefix = this.getPrefix();
 
       if (form.product_code) {
-          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code, this.getProductCodeOptions());
           if (normalizedCode.ok) {
               try {
                   syncedItem = await this.fetchMaterialSuggestionByCode(normalizedCode.product_code);
@@ -1514,7 +1634,7 @@ Page({
       this.setData({ requestLoading: true });
 
       try {
-          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code);
+          const normalizedCode = normalizeProductCodeInput(activeTab, form.product_code, this.getProductCodeOptions());
           if (!normalizedCode.ok) {
               throw new Error(normalizedCode.msg);
           }

@@ -6,6 +6,9 @@ const {
 const {
   buildInventoryTemplateWorkbook
 } = require('./inventory-template-workbook');
+const {
+  ensureBuiltinProductCodePrefixes
+} = require('./product-code-prefixes');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -139,6 +142,15 @@ async function loadLocationDetailNames() {
   return names;
 }
 
+async function loadProductCodePrefixes() {
+  try {
+    const records = await ensureBuiltinProductCodePrefixes(db);
+    return records.filter(item => (item.status || 'active') === 'active');
+  } catch (_error) {
+    return ['J-', 'S-', 'Y-', 'M-'];
+  }
+}
+
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext();
 
@@ -154,10 +166,12 @@ exports.main = async () => {
 
     const zones = await loadZoneNamesByCategory();
     const locationDetails = await loadLocationDetailNames();
+    const codePrefixes = await loadProductCodePrefixes();
     const spec = buildInventoryTemplateSpec({
       chemicalZones: zones.chemical,
       filmZones: zones.film,
-      locationDetails
+      locationDetails,
+      codePrefixes
     });
     const workbook = await buildInventoryTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();

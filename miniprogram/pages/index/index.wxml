@@ -88,6 +88,7 @@
         <van-cell title="审批中心" icon="todo-list-o" is-link url="/pages/admin/approval-center/index" wx:if="{{ isAdmin }}" />
         <van-cell title="物料管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
         <van-cell title="项目编码管理" icon="notes-o" is-link url="/pages/admin/project-code-manage/index" wx:if="{{ isAdmin }}" />
+        <van-cell title="产品代码前缀管理" icon="label-o" is-link url="/pages/admin/product-code-prefix-manage/index" wx:if="{{ isAdmin }}" />
         <van-cell title="人员与权限" icon="manager-o" is-link url="/pages/super-admin/user-manage/index" wx:if="{{ isSuperAdmin }}" />
       </van-cell-group>
     </view>

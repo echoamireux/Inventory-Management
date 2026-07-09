@@ -14,21 +14,61 @@ const subcategoriesByCategory = {
   film: ['基材-PET', '基材-BOPP', '保护膜']
 };
 
+function chemicalRow({
+  prefix = 'J-',
+  number = '001',
+  name = '异丙醇',
+  subCategory = '溶剂',
+  unit = 'L',
+  packageType = '铁桶',
+  supplier = '国药',
+  supplierModel = 'IPA-99',
+  isTestMaterial = '否'
+} = {}) {
+  return [prefix, number, name, '化材', subCategory, unit, packageType, '', '', supplier, supplierModel, isTestMaterial];
+}
+
+function filmRow({
+  prefix = 'M-',
+  number = '002',
+  name = 'PET保护膜',
+  subCategory = '保护膜',
+  unit = 'm',
+  thickness = '25',
+  width = '1240',
+  supplier = '东丽',
+  supplierModel = 'T100',
+  isTestMaterial = '否'
+} = {}) {
+  return [prefix, number, name, '膜材', subCategory, unit, '', thickness, width, supplier, supplierModel, isTestMaterial];
+}
+
 test('import validation normalizes flexible product code input into the standard three-digit format', () => {
   const result = validateImportRow(
-    ['J-1', '乙酸乙酯', '化材', '溶剂', 'kg', '塑料桶', '', '', '供应商A', '型号A'],
+    chemicalRow({ prefix: 'S-', number: '1', name: '乙酸乙酯', unit: 'kg', packageType: '塑料桶', supplier: '供应商A', supplierModel: '型号A' }),
     0,
     subcategoriesByCategory
   );
 
   assert.equal(result.error, null);
-  assert.equal(result.product_code, 'J-001');
+  assert.equal(result.product_code, 'S-001');
+  assert.equal(result.product_code_prefix, 'S-');
   assert.equal(result.product_code_number, '001');
+});
+
+test('import validation rejects old single product-code column templates', () => {
+  const result = validateImportRow(
+    ['J-001', '乙酸乙酯', '化材', '溶剂', 'kg', '塑料桶', '', '', '供应商A', '型号A', '否'],
+    0,
+    subcategoriesByCategory
+  );
+
+  assert.equal(result.error, '请使用最新版物料导入模板：产品代码已拆分为“代码前缀”和“产品编号”两列');
 });
 
 test('import validation rejects deprecated "其他" semantics and requires managed subcategories', () => {
   const result = validateImportRow(
-    ['001', '测试膜材', '膜材', '其他', 'm', '', '25', '1200', '', ''],
+    filmRow({ name: '测试膜材', subCategory: '其他', width: '1200' }),
     0,
     subcategoriesByCategory
   );
@@ -38,7 +78,7 @@ test('import validation rejects deprecated "其他" semantics and requires manag
 
 test('import validation rejects malformed product codes even when category and other fields look valid', () => {
   const result = validateImportRow(
-    ['1234', '丙酮', '化材', '溶剂', 'kg', '', '', '', '', ''],
+    chemicalRow({ number: '1234', name: '丙酮', unit: 'kg', packageType: '' }),
     0,
     subcategoriesByCategory
   );
@@ -46,9 +86,9 @@ test('import validation rejects malformed product codes even when category and o
   assert.equal(result.error, '产品代码必须为 1-3 位数字');
 });
 
-test('import validation supports the new 11-column master-data template with test-material flag', () => {
+test('import validation supports the new prefix-plus-number master-data template', () => {
   const result = validateImportRow(
-    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '是'],
+    chemicalRow({ isTestMaterial: '是' }),
     0,
     subcategoriesByCategory
   );
@@ -65,12 +105,12 @@ test('import validation supports the new 11-column master-data template with tes
 
 test('import validation treats blank test-material flag as formal material and rejects unclear values', () => {
   const blank = validateImportRow(
-    ['003', '正式胶水', '化材', '主胶', 'kg', '', '', '', '', '', ''],
+    chemicalRow({ number: '003', name: '正式胶水', subCategory: '主胶', unit: 'kg', packageType: '', supplier: '', supplierModel: '', isTestMaterial: '' }),
     0,
     subcategoriesByCategory
   );
   const invalid = validateImportRow(
-    ['004', '不确定样品', '化材', '溶剂', 'kg', '', '', '', '', '', '可能'],
+    chemicalRow({ number: '004', name: '不确定样品', unit: 'kg', packageType: '', supplier: '', supplierModel: '', isTestMaterial: '可能' }),
     1,
     subcategoriesByCategory
   );
@@ -82,12 +122,12 @@ test('import validation treats blank test-material flag as formal material and r
 
 test('import validation requires film thickness and default width in the master-data template', () => {
   const missingThickness = validateImportRow(
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '', '1240', '东丽', 'T100'],
+    filmRow({ thickness: '', width: '1240' }),
     0,
     subcategoriesByCategory
   );
   const missingWidth = validateImportRow(
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '', '东丽', 'T100'],
+    filmRow({ width: '' }),
     0,
     subcategoriesByCategory
   );
@@ -99,7 +139,7 @@ test('import validation requires film thickness and default width in the master-
 
 test('import validation surfaces a gentle warning when film default width is omitted', () => {
   const result = validateImportRow(
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '', '东丽', 'T100'],
+    filmRow({ width: '' }),
     0,
     subcategoriesByCategory
   );
@@ -110,12 +150,12 @@ test('import validation surfaces a gentle warning when film default width is omi
 
 test('import validation ignores film-only columns for chemicals and chemical-only columns for films', () => {
   const chemical = validateImportRow(
-    ['001', '异丙醇', '化材', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99'],
+    ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99', '否'],
     0,
     subcategoriesByCategory
   );
   const film = validateImportRow(
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '铁桶', '25', '1240', '东丽', 'T100'],
+    filmRow({ width: '1240' }),
     0,
     subcategoriesByCategory
   );
@@ -133,7 +173,7 @@ test('import validation ignores film-only columns for chemicals and chemical-onl
 
 test('template inline hint row detection follows the current concise hint wording', () => {
   assert.equal(
-    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']),
+    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']),
     true
   );
   assert.equal(

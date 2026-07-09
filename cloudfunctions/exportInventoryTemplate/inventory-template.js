@@ -13,7 +13,8 @@ const INVENTORY_TEMPLATE_GROUP_HEADERS = [
 ];
 const INVENTORY_TEMPLATE_HEADERS = [
   '标签编号*',
-  '产品代码*',
+  '代码前缀*',
+  '产品编号*',
   '类别*',
   '生产批号*',
   '存储区域*',
@@ -30,6 +31,7 @@ const INVENTORY_TEMPLATE_HEADERS = [
   '长期有效'
 ];
 const TEMPLATE_INLINE_HINTS = [
+  '必填',
   '必填',
   '必填',
   '必填',
@@ -55,11 +57,19 @@ const TEMPLATE_DATA_START_ROW = 4;
 function buildInventoryTemplateSpec({
   chemicalZones = [],
   filmZones = [],
-  locationDetails = []
+  locationDetails = [],
+  codePrefixes = ['J-', 'S-', 'Y-', 'M-']
 } = {}) {
   const chemicalZoneEnd = chemicalZones.length + 1;
   const filmZoneEnd = filmZones.length + 1;
   const locationDetailEnd = locationDetails.length + 1;
+  const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
+    .map((item) => (typeof item === 'string' ? item : item && item.prefix))
+    .filter(Boolean);
+  const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
+    ? normalizedCodePrefixes
+    : ['J-', 'S-', 'Y-', 'M-']));
+  const codePrefixEnd = codePrefixOptions.length + 1;
 
   return {
     dataSheetName: DATA_SHEET_NAME,
@@ -74,20 +84,22 @@ function buildInventoryTemplateSpec({
     previewStyledRowCount: TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
     validationRanges: {
       labelCode: `A${TEMPLATE_DATA_START_ROW}:A${TEMPLATE_MAX_ROW}`,
-      productCode: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`,
-      category: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
-      zone: `E${TEMPLATE_DATA_START_ROW}:E${TEMPLATE_MAX_ROW}`,
-      locationDetail: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
-      netContent: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
-      thicknessUm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`,
-      batchWidthMm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
-      lengthM: `K${TEMPLATE_DATA_START_ROW}:K${TEMPLATE_MAX_ROW}`,
-      expiryDate: `O${TEMPLATE_DATA_START_ROW}:O${TEMPLATE_MAX_ROW}`,
-      longTerm: `P${TEMPLATE_DATA_START_ROW}:P${TEMPLATE_MAX_ROW}`
+      codePrefix: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`,
+      productCode: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
+      category: `D${TEMPLATE_DATA_START_ROW}:D${TEMPLATE_MAX_ROW}`,
+      zone: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
+      locationDetail: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
+      netContent: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`,
+      thicknessUm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
+      batchWidthMm: `K${TEMPLATE_DATA_START_ROW}:K${TEMPLATE_MAX_ROW}`,
+      lengthM: `L${TEMPLATE_DATA_START_ROW}:L${TEMPLATE_MAX_ROW}`,
+      expiryDate: `P${TEMPLATE_DATA_START_ROW}:P${TEMPLATE_MAX_ROW}`,
+      longTerm: `Q${TEMPLATE_DATA_START_ROW}:Q${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
-      zone: `INDIRECT($C${TEMPLATE_DATA_START_ROW}&"_库区")`,
-      expiryDate: `OR(O${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(O${TEMPLATE_DATA_START_ROW}),O${TEMPLATE_DATA_START_ROW}>=TODAY()))`
+      codePrefix: '代码前缀',
+      zone: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_库区")`,
+      expiryDate: `OR(P${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(P${TEMPLATE_DATA_START_ROW}),P${TEMPLATE_DATA_START_ROW}>=TODAY()))`
     },
     definedNames: {
       chemicalZones: {
@@ -101,6 +113,10 @@ function buildInventoryTemplateSpec({
       locationDetails: {
         name: '详细坐标',
         range: `Config!$C$2:$C$${locationDetailEnd}`
+      },
+      codePrefixes: {
+        name: '代码前缀',
+        range: `Config!$D$2:$D$${codePrefixEnd}`
       }
     },
     zoneOptions: {
@@ -108,6 +124,7 @@ function buildInventoryTemplateSpec({
       film: filmZones.slice(),
       details: locationDetails.slice()
     },
+    codePrefixOptions,
     helpLines: [
       '【重要：填写说明】',
       '',
@@ -118,7 +135,8 @@ function buildInventoryTemplateSpec({
       '',
       '▶ 字段说明',
       '标签编号*：必填。格式固定为 L + 6 位数字，例如 L000123。',
-      '产品代码*：必填。请填写 3 位数字，例如 001；系统会按类别归一化为标准产品代码。',
+      '代码前缀*：必填。请从下拉选择 J-、S-、Y-、M- 等当前启用前缀。',
+      '产品编号*：必填。请填写 3 位数字，例如 001；系统会与代码前缀组合为完整产品代码，如 J-001、S-001。',
       '类别*：必填。只能选择“化材”或“膜材”。',
       '生产批号* / 存储区域* / 详细坐标*：必填。存储区域必须从当前系统启用库区中选择；防爆柜等配置了明细坐标的库区，请选择 F1-F5 等系统坐标。',
       '过期日期 / 长期有效：二选一；过期日期请按 YYYY-MM-DD 填写，且必须是合法日期并且不能早于当天。',
@@ -133,11 +151,12 @@ function buildInventoryTemplateSpec({
       '',
       `当前化材库区：${chemicalZones.join(' / ')}`,
       `当前膜材库区：${filmZones.join(' / ')}`,
-      `当前详细坐标：${locationDetails.join(' / ')}`
+      `当前详细坐标：${locationDetails.join(' / ')}`,
+      `当前产品代码前缀：${codePrefixOptions.join(' / ')}`
     ],
     exampleRows: [
-      ['L000101', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', locationDetails[0] || 'F1', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
-      ['L000201', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', locationDetails[1] || 'F2', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
+      ['L000101', 'J-', '001', '化材', 'AC240301', chemicalZones[0] || '防爆柜01', locationDetails[0] || 'F1', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', ''],
+      ['L000201', 'M-', '001', '膜材', 'PET2601', filmZones[0] || '研发仓1', locationDetails[1] || 'F2', '', '', '50', '1080', '100', '东丽', 'T100', '', '', '是']
     ]
   };
 }

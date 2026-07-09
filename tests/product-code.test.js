@@ -20,16 +20,31 @@ for (const [label, impl] of [
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', '1'), {
       ok: true,
       number: '001',
+      prefix: 'J-',
       product_code: 'J-001'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'J-01'), {
       ok: true,
       number: '001',
+      prefix: 'J-',
       product_code: 'J-001'
+    });
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', '1', 'S-'), {
+      ok: true,
+      number: '001',
+      prefix: 'S-',
+      product_code: 'S-001'
+    });
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'Y-1'), {
+      ok: true,
+      number: '001',
+      prefix: 'Y-',
+      product_code: 'Y-001'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('film', 'M-1'), {
       ok: true,
       number: '001',
+      prefix: 'M-',
       product_code: 'M-001'
     });
   });
@@ -41,11 +56,42 @@ for (const [label, impl] of [
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'M-001'), {
       ok: false,
-      msg: '化材产品代码必须使用 J- 前缀'
+      msg: '化材产品代码前缀必须为 J-、S-、Y-'
     });
     assert.deepEqual(impl.validateStandardProductCode('film', 'M-01'), {
       ok: false,
       msg: '膜材产品代码必须是 M- 加 3 位数字'
+    });
+  });
+
+  test(`${label}: custom active prefixes can be passed into validation`, () => {
+    const allowedPrefixes = [
+      { prefix: 'A-', category: 'chemical', status: 'active' },
+      { prefix: 'M-', category: 'film', status: 'active' }
+    ];
+
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', '7', {
+      prefix: 'A-',
+      allowedPrefixes
+    }), {
+      ok: true,
+      number: '007',
+      prefix: 'A-',
+      product_code: 'A-007'
+    });
+    assert.deepEqual(impl.validateStandardProductCode('chemical', 'A-007', {
+      allowedPrefixes
+    }), {
+      ok: true,
+      number: '007',
+      prefix: 'A-',
+      product_code: 'A-007'
+    });
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'S-007', {
+      allowedPrefixes
+    }), {
+      ok: false,
+      msg: '化材产品代码前缀必须为 A-'
     });
   });
 }
@@ -59,7 +105,7 @@ test('single stock-in product-code lookup only runs after blur or confirm instea
   assert.match(pageJs, /onProductCodeBlur/);
   assert.match(pageJs, /onProductCodeConfirm/);
   assert.match(pageJs, /confirmProductCodeLookup/);
-  assert.match(pageJs, /normalizeProductCodeInput\(this\.data\.activeTab, rawValue\)/);
+  assert.match(pageJs, /normalizeProductCodeInput\(\s*this\.data\.activeTab,\s*rawValue,\s*this\.getProductCodeOptions\(\)\s*\)/);
   assert.match(pageJs, /await this\.searchSuggestions\((lookupCode|normalizedCode\.product_code)\)/);
   assert.doesNotMatch(pageJs, /suggestionTimer:\s*setTimeout\(\s*\(\)\s*=>\s*\{\s*this\.searchSuggestions/);
 });
@@ -139,7 +185,9 @@ test('batch entry supports blur or confirm driven exact product-code retrieval i
 
   assert.match(pageJs, /onMaterialCodeBlur/);
   assert.match(pageJs, /onMaterialCodeConfirm/);
+  assert.match(pageJs, /codePrefixOptions/);
   assert.match(pageJs, /await this\.fetchMaterialByCode\(normalizedCode\.product_code\)/);
+  assert.match(pageWxml, /codePrefixOptions/);
   assert.match(pageWxml, /bindblur="onMaterialCodeBlur"/);
   assert.match(pageWxml, /bindconfirm="onMaterialCodeConfirm"/);
 });

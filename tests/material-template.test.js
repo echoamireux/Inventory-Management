@@ -11,17 +11,23 @@ const {
   buildMaterialTemplateSpec
 } = require('../cloudfunctions/_shared/material-template');
 
-test('template spec keeps the governed workbook structure and eleven-column headers', () => {
+test('template spec keeps the governed workbook structure and prefix-plus-number headers', () => {
   const spec = buildMaterialTemplateSpec({
     chemicalSubcategories: ['主胶', '树脂', '溶剂'],
-    filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜']
+    filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜'],
+    codePrefixes: [
+      { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active', sort_order: 10 },
+      { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active', sort_order: 20 },
+      { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active', sort_order: 30 },
+      { prefix: 'M-', category: 'film', name: '膜材', status: 'active', sort_order: 40 }
+    ]
   });
 
   assert.equal(spec.dataSheetName, DATA_SHEET_NAME);
   assert.equal(spec.configSheetName, CONFIG_SHEET_NAME);
   assert.equal(spec.helpSheetName, HELP_SHEET_NAME);
   assert.deepEqual(spec.headers, TEMPLATE_HEADERS);
-  assert.equal(spec.headers.length, 11);
+  assert.equal(spec.headers.length, 12);
   assert.deepEqual(spec.unitOptions, {
     chemical: ['kg', 'g', 'L', 'mL'],
     film: ['m', 'm²']
@@ -29,21 +35,23 @@ test('template spec keeps the governed workbook structure and eleven-column head
   assert.deepEqual(spec.packageTypeOptions, ['瓶装', '桶装', '袋装', '卷装', '盒装']);
   assert.equal(spec.previewStyledRowCount, 50);
   assert.deepEqual(spec.validationRanges, {
-    productCode: 'A3:A3000',
-    category: 'C3:C3000',
-    subcategory: 'D3:D3000',
-    unit: 'E3:E3000',
-    packageType: 'F3:F3000',
-    thicknessUm: 'G3:G3000',
-    standardWidthMm: 'H3:H3000'
+    codePrefix: 'A3:A3000',
+    productCodeNumber: 'B3:B3000',
+    category: 'D3:D3000',
+    subcategory: 'E3:E3000',
+    unit: 'F3:F3000',
+    packageType: 'G3:G3000',
+    thicknessUm: 'H3:H3000',
+    standardWidthMm: 'I3:I3000'
   });
+  assert.equal(spec.validationFormulae.codePrefix, '代码前缀');
   assert.equal(
     spec.validationFormulae.subcategory,
-    'INDIRECT($C3&"_子类")'
+    'INDIRECT($D3&"_子类")'
   );
   assert.equal(
     spec.validationFormulae.unit,
-    'INDIRECT($C3&"_单位")'
+    'INDIRECT($D3&"_单位")'
   );
   assert.deepEqual(spec.definedNames, {
     chemicalSubcategories: {
@@ -65,8 +73,13 @@ test('template spec keeps the governed workbook structure and eleven-column head
     chemicalPackageTypes: {
       name: '化材_包装形式',
       range: 'Config!$E$2:$E$6'
+    },
+    codePrefixes: {
+      name: '代码前缀',
+      range: 'Config!$F$2:$F$5'
     }
   });
+  assert.deepEqual(spec.codePrefixOptions, ['J-', 'S-', 'Y-', 'M-']);
 });
 
 test('active template subcategories only include active non-deprecated records in sorted order', () => {
@@ -110,7 +123,13 @@ test('active template subcategories only include active non-deprecated records i
 test('template spec keeps representative example rows aligned with the new governed subcategories', () => {
   const spec = buildMaterialTemplateSpec({
     chemicalSubcategories: ['主胶', '树脂', '溶剂'],
-    filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜']
+    filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜'],
+    codePrefixes: [
+      { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active', sort_order: 10 },
+      { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active', sort_order: 20 },
+      { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active', sort_order: 30 },
+      { prefix: 'M-', category: 'film', name: '膜材', status: 'active', sort_order: 40 }
+    ]
   });
   const helpText = spec.helpLines.join('\n');
 
@@ -118,8 +137,10 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /当前膜材子类别：基材-PET \/ 基材-BOPP \/ 保护膜/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
-  assert.match(helpText, /产品代码\*：必填/);
+  assert.match(helpText, /代码前缀\*：必填/);
+  assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
+  assert.match(helpText, /当前产品代码前缀：J- \/ S- \/ Y- \/ M-/);
   assert.match(helpText, /当前化材包装形式：瓶装 \/ 桶装 \/ 袋装 \/ 卷装 \/ 盒装/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
@@ -128,6 +149,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.doesNotMatch(helpText, /供应商、原厂型号：选填/);
   assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
   assert.deepEqual(spec.inlineHints, [
+    '必填',
     '必填',
     '必填',
     '必填',
@@ -142,8 +164,8 @@ test('template spec keeps representative example rows aligned with the new gover
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
-    ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
-    ['002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
+    ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+    ['M-', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
 });
 

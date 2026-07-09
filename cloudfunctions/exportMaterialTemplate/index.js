@@ -5,6 +5,10 @@ const {
   sortSubcategoryRecords
 } = require('./material-subcategories');
 const {
+  ensureBuiltinProductCodePrefixes,
+  sortProductCodePrefixRecords
+} = require('./product-code-prefixes');
+const {
   TEMPLATE_HEADERS,
   DATA_SHEET_NAME,
   CONFIG_SHEET_NAME,
@@ -61,9 +65,13 @@ exports.main = async (event, context) => {
       };
     }
 
-    const allSubcategories = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
+    const [allSubcategories, allPrefixes] = await Promise.all([
+      ensureBuiltinSubcategories(db).then(sortSubcategoryRecords),
+      ensureBuiltinProductCodePrefixes(db).then(sortProductCodePrefixRecords)
+    ]);
     const chemicalSubcategories = getActiveTemplateSubcategoryNames(allSubcategories, 'chemical');
     const filmSubcategories = getActiveTemplateSubcategoryNames(allSubcategories, 'film');
+    const codePrefixes = allPrefixes.filter(item => item.status === 'active');
     const validation = validateTemplateSubcategoryState({
       chemicalSubcategories,
       filmSubcategories
@@ -78,7 +86,8 @@ exports.main = async (event, context) => {
 
     const spec = buildMaterialTemplateSpec({
       chemicalSubcategories,
-      filmSubcategories
+      filmSubcategories,
+      codePrefixes
     });
     const workbook = await buildTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();

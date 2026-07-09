@@ -47,7 +47,8 @@ test('inventory template export surfaces a deploy hint when the cloud function i
 test('inventory template headers keep label-first structure and consecutive film spec columns', () => {
   assert.deepEqual(INVENTORY_TEMPLATE_HEADERS, [
     '标签编号*',
-    '产品代码*',
+    '代码前缀*',
+    '产品编号*',
     '类别*',
     '生产批号*',
     '存储区域*',
@@ -68,7 +69,8 @@ test('inventory template headers keep label-first structure and consecutive film
 test('inventory template workbook keeps category-driven zone validation compatible with WPS and Excel', async () => {
   const buffer = await buildInventoryTemplateWorkbookBuffer({
     chemicalZones: ['防爆柜01', '防爆柜02'],
-    filmZones: ['研发仓1', '实验线']
+    filmZones: ['研发仓1', '实验线'],
+    codePrefixes: ['J-', 'S-', 'Y-', 'M-']
   });
 
   const zip = await JSZip.loadAsync(buffer);
@@ -77,49 +79,55 @@ test('inventory template workbook keeps category-driven zone validation compatib
 
   assert.match(workbookXml, /name="化材_库区">Config!\$A\$2:\$A\$3</);
   assert.match(workbookXml, /name="膜材_库区">Config!\$B\$2:\$B\$3</);
+  assert.match(workbookXml, /name="代码前缀">Config!\$D\$2:\$D\$5</);
 
-  assert.match(sheetXml, /<formula1>INDIRECT\(\$C4&amp;&quot;_库区&quot;\)<\/formula1>/);
-  assert.match(sheetXml, /<formula1>OR\(O4=&quot;&quot;,AND\(ISNUMBER\(O4\),O4&gt;=TODAY\(\)\)\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>代码前缀<\/formula1>/);
+  assert.match(sheetXml, /<formula1>INDIRECT\(\$D4&amp;&quot;_库区&quot;\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>OR\(P4=&quot;&quot;,AND\(ISNUMBER\(P4\),P4&gt;=TODAY\(\)\)\)<\/formula1>/);
 });
 
 test('inventory template workbook uses three-tier headers and governed hints aligned with the template columns', async () => {
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
     chemicalZones: ['防爆柜01', '防爆柜02'],
-    filmZones: ['研发仓1', '实验线']
+    filmZones: ['研发仓1', '实验线'],
+    codePrefixes: ['J-', 'S-', 'Y-', 'M-']
   }));
 
   const dataSheet = workbook.getWorksheet('库存入库表');
   const helpSheet = workbook.getWorksheet('【必看】填写指导与示例');
 
   assert.equal(dataSheet.getCell('A1').value, '基础信息');
-  assert.equal(dataSheet.getCell('E1').value, '库位信息');
-  assert.equal(dataSheet.getCell('G1').value, '化材信息');
-  assert.equal(dataSheet.getCell('I1').value, '膜材信息');
-  assert.equal(dataSheet.getCell('L1').value, '来源信息');
-  assert.equal(dataSheet.getCell('O1').value, '时效信息');
+  assert.equal(dataSheet.getCell('F1').value, '库位信息');
+  assert.equal(dataSheet.getCell('H1').value, '化材信息');
+  assert.equal(dataSheet.getCell('J1').value, '膜材信息');
+  assert.equal(dataSheet.getCell('M1').value, '来源信息');
+  assert.equal(dataSheet.getCell('P1').value, '时效信息');
   assert.deepEqual(dataSheet.getRow(2).values.slice(1), INVENTORY_TEMPLATE_HEADERS);
   assert.equal(dataSheet.getRow(3).values[1], '必填');
-  assert.equal(dataSheet.getRow(3).values[5], '必填');
-  assert.equal(dataSheet.getRow(3).values[7], '化材必填');
-  assert.equal(dataSheet.getRow(3).values[9], '膜材条件必填');
-  assert.equal(dataSheet.getRow(3).values[10], '膜材必填');
+  assert.equal(dataSheet.getRow(3).values[2], '必填');
+  assert.equal(dataSheet.getRow(3).values[6], '必填');
+  assert.equal(dataSheet.getRow(3).values[8], '化材必填');
+  assert.equal(dataSheet.getRow(3).values[10], '膜材条件必填');
   assert.equal(dataSheet.getRow(3).values[11], '膜材必填');
-  assert.equal(dataSheet.getRow(3).values[13], '测试料必填');
-  assert.equal(dataSheet.getRow(3).values[14], '选填');
-  assert.equal(dataSheet.getRow(3).values[15], '二选一');
+  assert.equal(dataSheet.getRow(3).values[12], '膜材必填');
+  assert.equal(dataSheet.getRow(3).values[14], '测试料必填');
+  assert.equal(dataSheet.getRow(3).values[15], '选填');
   assert.equal(dataSheet.getRow(3).values[16], '二选一');
+  assert.equal(dataSheet.getRow(3).values[17], '二选一');
   assert.equal(dataSheet.views[0].state, 'frozen');
   assert.equal(dataSheet.views[0].ySplit, 3);
-  assert.equal(dataSheet.getColumn(15).numFmt, 'yyyy-mm-dd');
+  assert.equal(dataSheet.getColumn(16).numFmt, 'yyyy-mm-dd');
 
   assert.ok(helpSheet);
   const helpText = String(helpSheet.getColumn(1).values.join('\n'));
   assert.match(String(helpSheet.getCell('A1').value || ''), /【重要：填写说明】/);
   assert.match(String(helpSheet.getCell('A8').value || ''), /字段说明/);
   assert.match(String(helpSheet.getCell('A9').value || ''), /标签编号\*/);
-  assert.match(String(helpSheet.getCell('A13').value || ''), /YYYY-MM-DD/);
-  assert.match(String(helpSheet.getCell('A14').value || ''), /默认单位由系统按主数据自动带出/);
-  assert.match(String(helpSheet.getCell('A17').value || ''), /膜材厚度/);
+  assert.match(String(helpSheet.getCell('A14').value || ''), /YYYY-MM-DD/);
+  assert.match(String(helpSheet.getCell('A15').value || ''), /默认单位由系统按主数据自动带出/);
+  assert.match(String(helpSheet.getCell('A18').value || ''), /膜材厚度/);
+  assert.match(helpText, /代码前缀\*：必填/);
+  assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /原厂型号：正式物料选填，测试料必填/);
   assert.match(helpText, /样品说明\/备注：选填/);
   assert.doesNotMatch(helpText, /CSV/);

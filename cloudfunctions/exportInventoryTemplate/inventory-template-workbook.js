@@ -15,7 +15,8 @@ const {
 
 const TEMPLATE_COLUMNS = [
   { key: 'unique_code', width: 14 },
-  { key: 'product_code', width: 14 },
+  { key: 'code_prefix', width: 12 },
+  { key: 'product_code_number', width: 14 },
   { key: 'category', width: 10 },
   { key: 'batch_number', width: 18 },
   { key: 'zone_name', width: 18 },
@@ -107,6 +108,11 @@ function defineConfigRanges(workbook, configSheet, spec) {
       key: spec.definedNames.locationDetails.name,
       values: spec.zoneOptions.details || [],
       definedName: spec.definedNames.locationDetails
+    },
+    {
+      key: spec.definedNames.codePrefixes.name,
+      values: spec.codePrefixOptions || [],
+      definedName: spec.definedNames.codePrefixes
     }
   ];
 
@@ -151,7 +157,20 @@ function applyRangeValidations(sheet, spec) {
     errorStyle: 'stop',
     errorTitle: '产品代码无效',
     error: '产品代码必须填写 3 位数字，例如 001。',
-    formulae: ['AND(ISNUMBER(VALUE(B4)),LEN(B4)=3)']
+    formulae: ['AND(ISNUMBER(VALUE(C4)),LEN(C4)=3)']
+  });
+
+  sheet.dataValidations.add(spec.validationRanges.codePrefix, {
+    type: 'list',
+    allowBlank: false,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '请从当前启用的产品代码前缀中选择。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '代码前缀无效',
+    error: '请从下拉列表中选择产品代码前缀。',
+    formulae: [spec.validationFormulae.codePrefix]
   });
 
   sheet.dataValidations.add(spec.validationRanges.category, {
@@ -247,7 +266,7 @@ function setRowValues(row, values = []) {
 }
 
 function setGroupHeaderValues(row, values = []) {
-  const anchors = [1, 5, 7, 9, 12, 15];
+  const anchors = [1, 6, 8, 10, 13, 16];
   values.forEach((value, index) => {
     const columnIndex = anchors[index];
     if (columnIndex) {
@@ -257,12 +276,12 @@ function setGroupHeaderValues(row, values = []) {
 }
 
 function applyGroupHeaderMerges(sheet) {
-  sheet.mergeCells('A1:D1');
-  sheet.mergeCells('E1:F1');
-  sheet.mergeCells('G1:H1');
-  sheet.mergeCells('I1:K1');
-  sheet.mergeCells('L1:N1');
-  sheet.mergeCells('O1:P1');
+  sheet.mergeCells('A1:E1');
+  sheet.mergeCells('F1:G1');
+  sheet.mergeCells('H1:I1');
+  sheet.mergeCells('J1:L1');
+  sheet.mergeCells('M1:O1');
+  sheet.mergeCells('P1:Q1');
 }
 
 async function buildInventoryTemplateWorkbook(specInput) {
@@ -277,7 +296,8 @@ async function buildInventoryTemplateWorkbook(specInput) {
 
   sheet.getColumn(1).numFmt = '@';
   sheet.getColumn(2).numFmt = '@';
-  sheet.getColumn(15).numFmt = 'yyyy-mm-dd';
+  sheet.getColumn(3).numFmt = '@';
+  sheet.getColumn(16).numFmt = 'yyyy-mm-dd';
 
   setGroupHeaderValues(sheet.getRow(1), spec.groupHeaders);
   applyGroupHeaderMerges(sheet);
@@ -300,7 +320,7 @@ async function buildInventoryTemplateWorkbook(specInput) {
 
   spec.helpLines.forEach((line, index) => {
     const rowNumber = index + 1;
-    helpSheet.mergeCells(`A${rowNumber}:P${rowNumber}`);
+    helpSheet.mergeCells(`A${rowNumber}:Q${rowNumber}`);
     const cell = helpSheet.getRow(rowNumber).getCell(1);
     cell.value = line;
     cell.font = line && (line.startsWith('【') || line.startsWith('▶'))

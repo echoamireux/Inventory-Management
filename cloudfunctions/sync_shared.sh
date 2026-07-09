@@ -33,6 +33,7 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/addWarehouseZone/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/editInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageMaterial/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/manageProductCodePrefix/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportInventoryTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
@@ -89,6 +90,13 @@ cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/materi
 echo "   -> Updating product-code.js..."
 cp cloudfunctions/_shared/product-code.js cloudfunctions/manageMaterial/product-code.js
 cp cloudfunctions/_shared/product-code.js cloudfunctions/approveMaterialRequest/product-code.js
+
+echo "   -> Updating product-code-prefixes.js..."
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/manageProductCodePrefix/product-code-prefixes.js
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/manageMaterial/product-code-prefixes.js
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/approveMaterialRequest/product-code-prefixes.js
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/exportMaterialTemplate/product-code-prefixes.js
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/exportInventoryTemplate/product-code-prefixes.js
 
 echo "   -> Updating search.js..."
 cp cloudfunctions/_shared/search.js cloudfunctions/getInventoryGrouped/search.js

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "产品代码前缀管理",
+  "usingComponents": {
+    "van-button": "@vant/weapp/button/index",
+    "van-field": "@vant/weapp/field/index",
+    "van-loading": "@vant/weapp/loading/index",
+    "van-popup": "@vant/weapp/popup/index",
+    "van-tag": "@vant/weapp/tag/index"
+  }
+}

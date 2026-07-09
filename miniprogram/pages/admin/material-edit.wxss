@@ -41,11 +41,24 @@
   align-items: center;
 }
 
-.code-prefix {
-  font-size: 16px;
-  font-weight: 500;
-  color: #323233;
-  margin-right: 4px;
+.code-prefix-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #1d4ed8;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.code-prefix-picker--disabled {
+  color: #9ca3af;
+  background: #f3f4f6;
 }
 
 .code-number-input {

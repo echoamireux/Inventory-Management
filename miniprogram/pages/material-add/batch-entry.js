@@ -2,8 +2,7 @@
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
 const {
-  SEARCH_DEBOUNCE_MS,
-  CATEGORY_PREFIX
+  SEARCH_DEBOUNCE_MS
 } = require('../../utils/constants');
 const {
   buildLocationZoneActions,
@@ -34,6 +33,22 @@ const {
   sanitizeProductCodeNumberInput,
   normalizeProductCodeInput
 } = require('../../utils/product-code');
+const {
+  listProductCodePrefixes,
+  buildProductCodePrefixPickerColumns
+} = require('../../utils/product-code-prefix-service');
+
+const DEFAULT_PREFIX_OPTIONS = [
+  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
+  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
+  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
+  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+];
+
+function extractCodePrefix(value) {
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]-)/);
+  return match ? match[1] : '';
+}
 
 function resolvePickerDateValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -60,6 +75,10 @@ Page({
     activeTab: 'chemical',
     list: [],
     materialCodeInput: '',
+    codePrefix: 'J-',
+    codePrefixRecords: [],
+    codePrefixOptions: [],
+    showCodePrefixSheet: false,
     materialSuggestions: [],
     suggestionTimer: null,
     selectedMaterial: null,
@@ -108,6 +127,7 @@ Page({
         activeTab,
         canManageZones: canManageZones(user)
       }, () => {
+        this.loadPrefixOptions(activeTab);
         this.loadZones();
       });
     };
@@ -133,8 +153,56 @@ Page({
     }
   },
 
+  async loadPrefixOptions(category = this.data.activeTab, preferredPrefix = '') {
+      const normalizedCategory = category === 'film' ? 'film' : 'chemical';
+      let records = [];
+      try {
+          records = await listProductCodePrefixes(false, normalizedCategory);
+      } catch (err) {
+          console.warn('加载产品代码前缀失败，使用默认前缀', err);
+          records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+      }
+      if (!records.length) {
+          records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+      }
+      const options = buildProductCodePrefixPickerColumns(records, normalizedCategory);
+      const selectedPrefix = options.some(item => item.prefix === preferredPrefix)
+          ? preferredPrefix
+          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M-' : 'J-');
+      this.setData({
+          codePrefixRecords: records,
+          codePrefixOptions: options,
+          codePrefix: selectedPrefix
+      });
+      return selectedPrefix;
+  },
+
   getPrefix() {
-      return CATEGORY_PREFIX[this.data.activeTab] || 'J-';
+      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M-' : 'J-');
+  },
+
+  getProductCodeOptions(prefix = this.data.codePrefix) {
+      return {
+          prefix,
+          allowedPrefixes: this.data.codePrefixRecords
+      };
+  },
+
+  showCodePrefixSheet() {
+      this.setData({ showCodePrefixSheet: true });
+  },
+
+  onCodePrefixClose() {
+      this.setData({ showCodePrefixSheet: false });
+  },
+
+  onCodePrefixSelect(e) {
+      const item = e.detail || {};
+      this.updateBatchViewState({
+          codePrefix: item.prefix || item.value || this.data.codePrefix,
+          showCodePrefixSheet: false,
+          materialSuggestions: []
+      });
   },
 
   buildEmptyStateDescription(selectedMaterial = this.data.selectedMaterial) {
@@ -406,7 +474,8 @@ Page({
               && defaultBatchWidthMm
               && String(selectedMaterialSummary.standardWidthMm) !== String(defaultBatchWidthMm)
           ),
-          materialCodeInput: String(material.product_code || '').replace(this.getPrefix(), ''),
+          codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
+          materialCodeInput: String(material.product_code || '').replace(extractCodePrefix(material.product_code) || this.getPrefix(), ''),
           materialSuggestions: []
       });
 
@@ -432,7 +501,7 @@ Page({
           return;
       }
 
-      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, value);
+      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, value, this.getProductCodeOptions());
       if (!normalizedCode.ok) {
           this.updateBatchViewState({ materialSuggestions: [] });
           return;
@@ -461,7 +530,7 @@ Page({
 
   async tryApplyExactMaterialCode(options = {}) {
       const { silent = true } = options;
-      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput);
+      const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput, this.getProductCodeOptions());
       if (!normalizedCode.ok) {
           return false;
       }
@@ -492,7 +561,7 @@ Page({
   async onSearchMaterial() {
       const applied = await this.tryApplyExactMaterialCode({ silent: false });
       if (!applied) {
-          const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput);
+          const normalizedCode = normalizeProductCodeInput(this.data.activeTab, this.data.materialCodeInput, this.getProductCodeOptions());
           if (!normalizedCode.ok) {
               this.showBusinessError(normalizedCode.msg, '产品代码错误');
           }
@@ -531,7 +600,8 @@ Page({
               currentBatchWidthMm: defaultBatchWidthMm,
               filmBatchSpecsConfirmed: !isFilm,
               usesCustomBatchWidth: false,
-              materialCodeInput: String(material.product_code || '').replace(this.getPrefix(), ''),
+              codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
+              materialCodeInput: String(material.product_code || '').replace(extractCodePrefix(material.product_code) || this.getPrefix(), ''),
               materialSuggestions: []
           });
       };

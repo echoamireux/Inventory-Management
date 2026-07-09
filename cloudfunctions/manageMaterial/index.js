@@ -14,6 +14,10 @@ const {
   resolveSubcategoryDisplay,
   resolveSubcategorySelection
 } = require('./material-subcategories');
+const {
+  ensureBuiltinProductCodePrefixes,
+  filterProductCodePrefixRecordsByCategory
+} = require('./product-code-prefixes');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -32,6 +36,15 @@ async function loadSubcategoryContext(category = '') {
     records,
     map: buildSubcategoryMap(records)
   };
+}
+
+async function loadProductCodePrefixOptions(category = '') {
+  try {
+    const allRecords = await ensureBuiltinProductCodePrefixes(db);
+    return filterProductCodePrefixRecordsByCategory(allRecords, category, { includeDisabled: false });
+  } catch (_error) {
+    return [];
+  }
 }
 
 async function resolveMaterialSubcategory(data, category) {
@@ -451,7 +464,10 @@ async function createMaterial(data, openid) {
     return { success: false, msg: '缺少必填字段' };
   }
 
-  const normalizedCode = validateStandardProductCode(category, product_code);
+  const prefixOptions = await loadProductCodePrefixOptions(category);
+  const normalizedCode = validateStandardProductCode(category, product_code, {
+    allowedPrefixes: prefixOptions
+  });
   if (!normalizedCode.ok) {
     return { success: false, msg: normalizedCode.msg };
   }
@@ -531,7 +547,10 @@ async function updateMaterial(data, openid) {
   const nextCategory = updateData.category || oldData.category;
 
   if (updateData.product_code) {
-    const normalizedCode = validateStandardProductCode(nextCategory, updateData.product_code);
+    const prefixOptions = await loadProductCodePrefixOptions(nextCategory);
+    const normalizedCode = validateStandardProductCode(nextCategory, updateData.product_code, {
+      allowedPrefixes: prefixOptions
+    });
     if (!normalizedCode.ok) {
       return { success: false, msg: normalizedCode.msg };
     }
@@ -771,6 +790,10 @@ async function batchCreateMaterials(data, openid) {
     chemical: await loadSubcategoryContext('chemical'),
     film: await loadSubcategoryContext('film')
   };
+  const productCodePrefixContexts = {
+    chemical: await loadProductCodePrefixOptions('chemical'),
+    film: await loadProductCodePrefixOptions('film')
+  };
   const preparedItems = [];
 
   for (const item of items) {
@@ -780,7 +803,10 @@ async function batchCreateMaterials(data, openid) {
     }
 
     const { product_code, material_name, category, default_unit } = item;
-    const normalizedCode = validateStandardProductCode(category, product_code);
+    const normalizedCategory = category === 'film' ? 'film' : 'chemical';
+    const normalizedCode = validateStandardProductCode(category, product_code, {
+      allowedPrefixes: productCodePrefixContexts[normalizedCategory]
+    });
     if (!normalizedCode.ok) {
       tracker.recordError(item.rowIndex, product_code, normalizedCode.msg);
       continue;

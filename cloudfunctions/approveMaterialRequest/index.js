@@ -11,6 +11,10 @@ const {
 const { normalizeUnitInput } = require('./material-units');
 const { normalizeTestMaterialFlag } = require('./test-material');
 const { validateStandardProductCode } = require('./product-code');
+const {
+  ensureBuiltinProductCodePrefixes,
+  filterProductCodePrefixRecordsByCategory
+} = require('./product-code-prefixes');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -93,6 +97,15 @@ async function resolveRequestSubcategory(request) {
   }, records, map);
 }
 
+async function loadProductCodePrefixOptions(category = '') {
+  try {
+    const allRecords = await ensureBuiltinProductCodePrefixes(db);
+    return filterProductCodePrefixRecordsByCategory(allRecords, category, { includeDisabled: false });
+  } catch (_error) {
+    return [];
+  }
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const {
@@ -151,7 +164,10 @@ exports.main = async (event, context) => {
 
     if (action === 'approve') {
         const category = request.category === 'film' ? 'film' : 'chemical';
-        const normalizedCode = validateStandardProductCode(category, request.product_code);
+        const prefixOptions = await loadProductCodePrefixOptions(category);
+        const normalizedCode = validateStandardProductCode(category, request.product_code, {
+            allowedPrefixes: prefixOptions
+        });
         if (!normalizedCode.ok) {
             return { success: false, msg: normalizedCode.msg };
         }

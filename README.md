@@ -74,6 +74,7 @@
 系统当前的正式导入模板来源，是管理员在系统内动态导出的最新 `.xlsx` 模板：
 
 - 模板由 `exportMaterialTemplate` 云函数按当前子类别、单位和说明动态生成
+- 产品代码在模板中拆分为“代码前缀”和“产品编号”，导入后仍以完整 `J-001`、`S-001`、`Y-001`、`M-001` 作为唯一身份
 - 管理员填写后保持为 `.xlsx` 再回到系统上传导入
 - 系统导出的模板是唯一正式模板来源
 
@@ -190,8 +191,12 @@
   主数据列表、编辑、归档、恢复等
 - `addMaterialRequest` / `approveMaterialRequest`
   建档申请与审批
+- `manageProductCodePrefix`
+  产品代码前缀维护，例如化材 `J-`、`S-`、`Y-` 与膜材 `M-`
 - `exportMaterialTemplate`
   动态导出最新导入模板
+- `exportInventoryTemplate` / `importInventoryTemplate`
+  动态导出库存入库模板与批量库存导入
 - `exportData`
   导出报表
 - `manageSubcategory`
@@ -306,6 +311,8 @@ module.exports = {
 - `batchAddInventory`
 - `importInventoryTemplate`
 - `manageMaterial`
+- `approveMaterialRequest`
+- `manageProductCodePrefix`
 - `exportMaterialTemplate`
 - `exportInventoryTemplate`
 - `exportLabelData`
@@ -329,6 +336,8 @@ module.exports = {
 | `users` | `users._openid` | 唯一索引，升序 | 防止重复注册，保证一个微信用户只对应一条人员记录 |
 | `inventory` | `inventory.unique_code` | 唯一索引，升序 | 确保标签编号全库唯一，支持扫码查询 |
 | `materials` | `materials.product_code` | 唯一索引，升序 | 确保标准物料代码全库唯一 |
+| `product_code_prefixes` | `product_code_prefixes.prefix` | 唯一索引，升序 | 确保产品代码前缀不重复，例如 `J-` 和 `S-` 作为不同前缀维护 |
+| `product_code_prefixes` | `product_code_prefixes.category + status + sort_order` | 复合索引，升序 + 升序 + 升序 | 支持前缀管理页和模板导出按类别加载启用前缀 |
 | `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
 | `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
@@ -352,7 +361,7 @@ module.exports = {
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`preprinted_labels.unique_code` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`product_code_prefixes.prefix`、`preprinted_labels.unique_code` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：

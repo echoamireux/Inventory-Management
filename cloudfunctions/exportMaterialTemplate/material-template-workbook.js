@@ -8,17 +8,18 @@ const {
 } = require('./material-template');
 
 const IMPORT_TEMPLATE_COLUMNS = [
-  { header: TEMPLATE_HEADERS[0], key: 'product_code', width: 14 },
-  { header: TEMPLATE_HEADERS[1], key: 'material_name', width: 30 },
-  { header: TEMPLATE_HEADERS[2], key: 'category', width: 10 },
-  { header: TEMPLATE_HEADERS[3], key: 'sub_category', width: 22 },
-  { header: TEMPLATE_HEADERS[4], key: 'default_unit', width: 12 },
-  { header: TEMPLATE_HEADERS[5], key: 'package_type', width: 18 },
-  { header: TEMPLATE_HEADERS[6], key: 'thickness_um', width: 18 },
-  { header: TEMPLATE_HEADERS[7], key: 'standard_width_mm', width: 18 },
-  { header: TEMPLATE_HEADERS[8], key: 'supplier', width: 20 },
-  { header: TEMPLATE_HEADERS[9], key: 'supplier_model', width: 25 },
-  { header: TEMPLATE_HEADERS[10], key: 'is_test_material', width: 14 }
+  { header: TEMPLATE_HEADERS[0], key: 'code_prefix', width: 12 },
+  { header: TEMPLATE_HEADERS[1], key: 'product_code_number', width: 12 },
+  { header: TEMPLATE_HEADERS[2], key: 'material_name', width: 30 },
+  { header: TEMPLATE_HEADERS[3], key: 'category', width: 10 },
+  { header: TEMPLATE_HEADERS[4], key: 'sub_category', width: 22 },
+  { header: TEMPLATE_HEADERS[5], key: 'default_unit', width: 12 },
+  { header: TEMPLATE_HEADERS[6], key: 'package_type', width: 18 },
+  { header: TEMPLATE_HEADERS[7], key: 'thickness_um', width: 18 },
+  { header: TEMPLATE_HEADERS[8], key: 'standard_width_mm', width: 18 },
+  { header: TEMPLATE_HEADERS[9], key: 'supplier', width: 20 },
+  { header: TEMPLATE_HEADERS[10], key: 'supplier_model', width: 25 },
+  { header: TEMPLATE_HEADERS[11], key: 'is_test_material', width: 14 }
 ];
 
 function buildHeaderFill() {
@@ -64,6 +65,11 @@ function defineConfigRanges(workbook, configSheet, spec) {
       key: spec.definedNames.chemicalPackageTypes.name,
       values: spec.packageTypeOptions,
       definedName: spec.definedNames.chemicalPackageTypes
+    },
+    {
+      key: spec.definedNames.codePrefixes.name,
+      values: spec.codePrefixOptions || [],
+      definedName: spec.definedNames.codePrefixes
     }
   ];
 
@@ -117,18 +123,30 @@ function applyPreviewRowStyle(sheet, rowIndex, columnCount) {
 }
 
 function applyRangeValidations(sheet, spec) {
-  const productCodeAnchor = (spec.validationRanges.productCode.match(/\d+/) || ['2'])[0];
-  sheet.dataValidations.add(spec.validationRanges.productCode, {
+  const productCodeAnchor = (spec.validationRanges.productCodeNumber.match(/\d+/) || ['3'])[0];
+  sheet.dataValidations.add(spec.validationRanges.codePrefix, {
+    type: 'list',
+    allowBlank: false,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '请选择当前启用的产品代码前缀。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '代码前缀无效',
+    error: '请从下拉列表中选择产品代码前缀。',
+    formulae: [spec.validationFormulae.codePrefix]
+  });
+  sheet.dataValidations.add(spec.validationRanges.productCodeNumber, {
     type: 'custom',
     allowBlank: false,
     showInputMessage: true,
     promptTitle: '填写提示',
-    prompt: '请输入 3 位数字，如 001。',
+    prompt: '请输入 1-3 位数字，例如 1 或 001。',
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '无效的代码格式',
-    error: '必须且只能输入 3 位纯数字，不足请用 0 补齐，例如 001。',
-    formulae: [`AND(ISNUMBER(VALUE(A${productCodeAnchor})),LEN(A${productCodeAnchor})=3)`]
+    error: '产品编号必须为 1-3 位纯数字。',
+    formulae: [`AND(ISNUMBER(VALUE(B${productCodeAnchor})),LEN(B${productCodeAnchor})>=1,LEN(B${productCodeAnchor})<=3)`]
   });
   sheet.dataValidations.add(spec.validationRanges.category, {
     type: 'list',
@@ -203,7 +221,7 @@ function applyRangeValidations(sheet, spec) {
     errorTitle: '默认幅宽无效',
     error: '若填写默认幅宽，请输入大于 0 的数值。'
   });
-  sheet.dataValidations.add(`K${spec.maxRow ? 3 : 3}:K${spec.maxRow || 3000}`, {
+  sheet.dataValidations.add(`L${spec.maxRow ? 3 : 3}:L${spec.maxRow || 3000}`, {
     type: 'list',
     allowBlank: true,
     showInputMessage: true,
@@ -235,6 +253,7 @@ async function buildTemplateWorkbook(specInput) {
   });
   decorateInlineHintRow(inlineHintRow);
   sheet.getColumn(1).numFmt = '@';
+  sheet.getColumn(2).numFmt = '@';
   sheet.views = [{ state: 'frozen', ySplit: 2 }];
 
   defineConfigRanges(workbook, configSheet, spec);
@@ -246,7 +265,7 @@ async function buildTemplateWorkbook(specInput) {
 
   spec.helpLines.forEach((line, index) => {
     const rowNumber = index + 1;
-    helpSheet.mergeCells(`A${rowNumber}:K${rowNumber}`);
+    helpSheet.mergeCells(`A${rowNumber}:L${rowNumber}`);
     const cell = helpSheet.getRow(rowNumber).getCell(1);
     cell.value = line;
     cell.font = line && (line.startsWith('【') || line.startsWith('▶'))

@@ -37,7 +37,10 @@
       <view class="code-picker-block">
         <view class="code-picker-label">产品代码</view>
         <view class="code-picker-row">
-          <view class="code-prefix-chip">{{ activeTab === 'film' ? 'M-' : 'J-' }}</view>
+          <view class="code-prefix-chip" bindtap="showCodePrefixSheet">
+            <text>{{ codePrefix }}</text>
+            <van-icon name="arrow-down" custom-class="code-prefix-arrow" />
+          </view>
           <input
             class="code-number-input"
             type="number"
@@ -258,6 +261,13 @@
     actions="{{ locationDetailActions }}"
     bind:close="onLocationDetailClose"
     bind:select="onLocationDetailSelect"
+  />
+
+  <van-action-sheet
+    show="{{ showCodePrefixSheet }}"
+    actions="{{ codePrefixOptions }}"
+    bind:close="onCodePrefixClose"
+    bind:select="onCodePrefixSelect"
   />
 
   <van-toast id="van-toast" />

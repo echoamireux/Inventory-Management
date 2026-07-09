@@ -19,6 +19,17 @@ const {
   normalizeProductCodeInput,
   validateStandardProductCode
 } = require('../../utils/product-code');
+const {
+  listProductCodePrefixes,
+  buildProductCodePrefixPickerColumns
+} = require('../../utils/product-code-prefix-service');
+
+const DEFAULT_PREFIX_OPTIONS = [
+  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
+  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
+  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
+  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+];
 
 Page({
   data: {
@@ -41,6 +52,9 @@ Page({
     },
     // 产品代码前缀
     codePrefix: '',
+    codePrefixRecords: [],
+    codePrefixOptions: [],
+    showCodePrefixPicker: false,
 
     // 重复检查状态
     checkingDuplicate: false,
@@ -86,9 +100,16 @@ Page({
 
     const inferredCategory = rawCategory || (String(rawProductCode).startsWith('M-') ? 'film' : 'chemical');
     const categoryIndex = inferredCategory === 'film' ? 1 : 0;
-    const codePrefix = inferredCategory === 'film' ? 'M-' : 'J-';
+    const rawPrefixMatch = String(rawProductCode || '').trim().toUpperCase().match(/^([A-Z]-)/);
+    const codePrefix = await this.loadPrefixOptionsForCategory(
+      inferredCategory,
+      rawPrefixMatch ? rawPrefixMatch[1] : ''
+    );
     const normalizedCode = rawProductCode
-      ? normalizeProductCodeInput(inferredCategory, rawProductCode)
+      ? normalizeProductCodeInput(inferredCategory, rawProductCode, {
+        prefix: codePrefix,
+        allowedPrefixes: this.data.codePrefixRecords
+      })
       : null;
     const codeNumber = normalizedCode && normalizedCode.ok
       ? normalizedCode.number
@@ -111,6 +132,34 @@ Page({
     if (normalizedCode && normalizedCode.ok) {
       this.checkDuplicate(normalizedCode.product_code);
     }
+  },
+
+  async loadPrefixOptionsForCategory(category, preferredPrefix = '') {
+    const normalizedCategory = category === 'film' ? 'film' : 'chemical';
+    let records = [];
+    try {
+      records = await listProductCodePrefixes(false, normalizedCategory);
+    } catch (err) {
+      console.warn('加载产品代码前缀失败，使用默认前缀', err);
+      records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+    }
+    if (!records.length) {
+      records = DEFAULT_PREFIX_OPTIONS.filter(item => item.category === normalizedCategory);
+    }
+
+    const options = buildProductCodePrefixPickerColumns(records, normalizedCategory);
+    const prefixes = options.map(item => item.prefix);
+    const selectedPrefix = prefixes.includes(preferredPrefix)
+      ? preferredPrefix
+      : prefixes[0] || (normalizedCategory === 'film' ? 'M-' : 'J-');
+
+    this.setData({
+      codePrefixRecords: records,
+      codePrefixOptions: options,
+      codePrefix: selectedPrefix
+    });
+
+    return selectedPrefix;
   },
 
   async onLoad(options) {
@@ -204,6 +253,11 @@ Page({
       if (res.result.success) {
         const data = res.result.data;
         const categoryIndex = data.category === 'film' ? 1 : 0;
+        const codeMatch = String(data.product_code || '').trim().toUpperCase().match(/^([A-Z]-)(\d{1,})$/);
+        const codePrefix = await this.loadPrefixOptionsForCategory(
+          data.category,
+          codeMatch ? codeMatch[1] : ''
+        );
 
         await this.updateOptionsForCategory(data.category, {
           subcategory_key: data.subcategory_key,
@@ -224,22 +278,7 @@ Page({
         const materialSpecs = data.specs || {};
 
         // Parse product code
-        let codePrefix = '';
-        let codeNumber = '';
-        if (data.product_code) {
-             if (data.product_code.startsWith('J-')) {
-                 codePrefix = 'J-';
-                 codeNumber = data.product_code.substring(2);
-             } else if (data.product_code.startsWith('M-')) {
-                 codePrefix = 'M-';
-                 codeNumber = data.product_code.substring(2);
-             } else {
-                 codeNumber = data.product_code;
-             }
-        } else {
-             // Fallback based on category
-             codePrefix = data.category === 'film' ? 'M-' : 'J-';
-        }
+        const codeNumber = codeMatch ? codeMatch[2] : String(data.product_code || '').replace(/^[A-Z]-/i, '');
 
         this.setData({
           form: {
@@ -274,7 +313,7 @@ Page({
               : ''
           },
           categoryIndex,
-          codePrefix: codePrefix, // Set prefix
+          codePrefix,
           subCategoryIndex: subCategoryIndex >= 0 ? subCategoryIndex : 0,
           unitIndex: unitState.selectedIndex,
           packageTypeIndex: packageTypeIndex >= 0 ? packageTypeIndex : 0,
@@ -311,7 +350,11 @@ Page({
     const { codePrefix } = this.data;
     const normalizedCode = normalizeProductCodeInput(
       this.data.form.category || 'chemical',
-      `${codePrefix}${number}`
+      number,
+      {
+        prefix: codePrefix,
+        allowedPrefixes: this.data.codePrefixRecords
+      }
     );
 
     this.setData({
@@ -377,10 +420,10 @@ Page({
     this.setData({ showCategoryPicker: true });
   },
 
-  onCategoryConfirm(e) {
+  async onCategoryConfirm(e) {
     const index = e.detail.index;
     const category = index === 0 ? 'chemical' : 'film';
-    const codePrefix = index === 0 ? 'J-' : 'M-';
+    const codePrefix = await this.loadPrefixOptionsForCategory(category);
 
     // 重置产品代码
     const number = this.data.form.product_code_number;
@@ -409,7 +452,10 @@ Page({
 
     // 如果已有数字，重新检查重复
     if (number) {
-      const normalizedCode = normalizeProductCodeInput(category, `${codePrefix}${number}`);
+      const normalizedCode = normalizeProductCodeInput(category, number, {
+        prefix: codePrefix,
+        allowedPrefixes: this.data.codePrefixRecords
+      });
       if (normalizedCode.ok) {
         this.checkDuplicate(normalizedCode.product_code);
       }
@@ -418,6 +464,40 @@ Page({
 
   onCategoryCancel() {
     this.setData({ showCategoryPicker: false });
+  },
+
+  onShowCodePrefixPicker() {
+    if (!this.data.form.category || this.data.categoryIndex === null) {
+      Toast.fail('请先选择类别');
+      return;
+    }
+    this.setData({ showCodePrefixPicker: true });
+  },
+
+  onCodePrefixConfirm(e) {
+    const selected = e.detail && e.detail.value ? e.detail.value : this.data.codePrefixOptions[e.detail.index];
+    const codePrefix = selected && selected.prefix ? selected.prefix : (selected && selected.value) || this.data.codePrefix;
+    const number = this.data.form.product_code_number;
+    const normalizedCode = normalizeProductCodeInput(this.data.form.category, number, {
+      prefix: codePrefix,
+      allowedPrefixes: this.data.codePrefixRecords
+    });
+
+    this.setData({
+      codePrefix,
+      showCodePrefixPicker: false,
+      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}${number}`,
+      duplicateStatus: '',
+      existingMaterial: null
+    });
+
+    if (number && normalizedCode.ok) {
+      this.checkDuplicate(normalizedCode.product_code);
+    }
+  },
+
+  onCodePrefixCancel() {
+    this.setData({ showCodePrefixPicker: false });
   },
 
   // === 子类别选择 ===
@@ -528,7 +608,9 @@ Page({
       Toast.fail('请选择有效子类别');
       return;
     }
-    const normalizedCode = validateStandardProductCode(form.category, form.product_code);
+    const normalizedCode = validateStandardProductCode(form.category, form.product_code, {
+      allowedPrefixes: this.data.codePrefixRecords
+    });
     if (!normalizedCode.ok) {
       Toast.fail(normalizedCode.msg);
       return;

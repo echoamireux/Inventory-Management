@@ -31,6 +31,7 @@ const {
 const INVENTORY_TEMPLATE_EXPECTED_ROWS = [
   [
     INVENTORY_TEMPLATE_GROUP_HEADERS[0], '', '', '',
+    '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[1], '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[2], '',
     INVENTORY_TEMPLATE_GROUP_HEADERS[3], '', '',
@@ -66,13 +67,14 @@ test('shared import parser reads inventory template xlsx data rows from the gove
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);
   sheet.getCell('A4').value = 'L000301';
-  sheet.getCell('B4').value = '001';
-  sheet.getCell('C4').value = '化材';
-  sheet.getCell('D4').value = 'AC240301';
-  sheet.getCell('E4').value = '防爆柜01';
-  sheet.getCell('F4').value = 'A01';
-  sheet.getCell('G4').value = 2;
-  sheet.getCell('O4').value = new Date('2027-03-25T00:00:00.000Z');
+  sheet.getCell('B4').value = 'J-';
+  sheet.getCell('C4').value = '001';
+  sheet.getCell('D4').value = '化材';
+  sheet.getCell('E4').value = 'AC240301';
+  sheet.getCell('F4').value = '防爆柜01';
+  sheet.getCell('G4').value = 'A01';
+  sheet.getCell('H4').value = 2;
+  sheet.getCell('P4').value = new Date('2027-03-25T00:00:00.000Z');
 
   const buffer = await workbook.xlsx.writeBuffer();
   const rows = parseImportTemplateFileBuffer(buffer, {
@@ -84,7 +86,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
 
   assert.equal(rows[3].rowIndex, 4);
   assert.deepEqual(rows[3].values, [
-    'L000301', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '', '2027-03-25', ''
+    'L000301', 'J-', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '', '2027-03-25', ''
   ]);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'inventory_import',
@@ -165,12 +167,13 @@ test('shared import parser reads material template xlsx data rows from the gover
     filmSubcategories: ['保护膜']
   }));
   const sheet = workbook.getWorksheet(MATERIAL_SHEET_NAME);
-  sheet.getCell('A3').value = '001';
-  sheet.getCell('B3').value = '异丙醇';
-  sheet.getCell('C3').value = '化材';
-  sheet.getCell('D3').value = '溶剂';
-  sheet.getCell('E3').value = 'L';
-  sheet.getCell('F3').value = '铁桶';
+  sheet.getCell('A3').value = 'J-';
+  sheet.getCell('B3').value = '001';
+  sheet.getCell('C3').value = '异丙醇';
+  sheet.getCell('D3').value = '化材';
+  sheet.getCell('E3').value = '溶剂';
+  sheet.getCell('F3').value = 'L';
+  sheet.getCell('G3').value = '铁桶';
 
   const buffer = await workbook.xlsx.writeBuffer();
   const rows = parseImportTemplateFileBuffer(buffer, {
@@ -184,7 +187,7 @@ test('shared import parser reads material template xlsx data rows from the gover
   });
 
   assert.equal(rows[2].rowIndex, 3);
-  assert.deepEqual(rows[2].values, ['001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
+  assert.deepEqual(rows[2].values, ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'material_import',
     schemaVersion: 'material-import-v2',

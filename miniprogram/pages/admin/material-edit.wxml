@@ -21,7 +21,14 @@
         placeholder="{{ categoryIndex === null ? '请先选择类别' : '输入数字部分' }}"
       >
         <view slot="input" class="code-input-wrapper" style="width: 100%;">
-          <text class="code-prefix" wx:if="{{ codePrefix }}">{{ codePrefix }}</text>
+          <view
+            class="code-prefix-picker {{ categoryIndex === null ? 'code-prefix-picker--disabled' : '' }}"
+            wx:if="{{ codePrefix }}"
+            bindtap="onShowCodePrefixPicker"
+          >
+            {{ codePrefix }}
+            <van-icon name="arrow-down" size="12px" />
+          </view>
           <input
             class="code-number-input"
             type="number"
@@ -178,6 +185,20 @@
       show-toolbar
       bind:confirm="onCategoryConfirm"
       bind:cancel="onCategoryCancel"
+    />
+  </van-popup>
+
+  <van-popup
+    show="{{ showCodePrefixPicker }}"
+    position="bottom"
+    round
+    bind:close="onCodePrefixCancel"
+  >
+    <van-picker
+      columns="{{ codePrefixOptions }}"
+      show-toolbar
+      bind:confirm="onCodePrefixConfirm"
+      bind:cancel="onCodePrefixCancel"
     />
   </van-popup>
 

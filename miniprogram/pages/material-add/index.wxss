@@ -254,22 +254,58 @@
   border-radius: var(--radius-sm);
 }
 
-/* 产品代码前缀 */
-.product-code-field .van-field__body {
-  display: flex !important;
+.product-code-row {
+  display: flex;
+  align-items: center;
+  min-height: 96rpx;
+  padding: 0 32rpx;
+  background: #fff;
+}
+
+.product-code-label {
+  width: 168rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 16rpx;
+  box-sizing: border-box;
+}
+
+.product-code-input-shell {
+  flex: 1;
+  min-width: 0;
+  min-height: 72rpx;
+  display: flex;
   align-items: center;
 }
 
-.product-code-field .van-field__body::before {
-  margin-right: 0px;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  font-weight: 400;
-  line-height: 24px;
+.product-code-prefix-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  height: 52rpx;
+  margin-right: 16rpx;
+  padding: 0 18rpx;
+  border-radius: 12rpx;
+  background: #eef2ff;
+  color: #1d4ed8;
+  font-size: 28rpx;
+  font-weight: 700;
 }
 
-.product-code-field.chemical .van-field__body::before { content: "J-"; }
-.product-code-field.film .van-field__body::before { content: "M-"; }
+.product-code-prefix-chip--locked {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.product-code-number-input {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  font-size: 28rpx;
+  color: var(--color-text-primary);
+}
 
 /* 标签加粗 */
 .field-label-bold {
