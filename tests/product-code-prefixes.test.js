@@ -63,8 +63,8 @@ test('frontend prefix picker presents plain prefix letters without descriptions'
   ], 'chemical');
 
   assert.deepEqual(columns, [
-    { text: 'J', value: 'J', prefix: 'J', category: 'chemical' },
-    { text: 'S', value: 'S', prefix: 'S', category: 'chemical' }
+    { name: 'J', text: 'J', value: 'J', prefix: 'J', category: 'chemical' },
+    { name: 'S', text: 'S', value: 'S', prefix: 'S', category: 'chemical' }
   ]);
 });
 
