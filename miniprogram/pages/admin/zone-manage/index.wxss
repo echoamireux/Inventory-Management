@@ -129,6 +129,7 @@
   display: flex;
   align-items: center;
   gap: 12rpx;
+  overflow: hidden;
 }
 
 .zone-detail-header__action {
@@ -136,15 +137,22 @@
 }
 
 .zone-detail-title {
+  flex-shrink: 0;
   font-size: 26rpx;
   font-weight: 600;
   color: #374151;
+  white-space: nowrap;
 }
 
 .zone-detail-hint {
+  flex: 1;
+  min-width: 0;
   font-size: 22rpx;
   line-height: 1.35;
   color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .zone-detail-list {
@@ -155,9 +163,9 @@
 
 .zone-detail-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14rpx;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10rpx;
   padding: 14rpx 16rpx;
   border-radius: 14rpx;
   background: #f8fafc;
@@ -168,7 +176,7 @@
 }
 
 .zone-detail-row__content {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -182,17 +190,17 @@
 }
 
 .zone-detail-row__actions {
-  display: flex;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  justify-content: flex-end;
   gap: 8rpx;
-  flex-shrink: 0;
-  flex-wrap: nowrap;
 }
 
 .zone-detail-action-button {
-  min-width: 76rpx !important;
-  padding: 0 10rpx !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 6rpx !important;
 }
 
 .zone-detail-empty {
