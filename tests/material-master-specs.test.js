@@ -8,6 +8,13 @@ function read(relPath) {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
 }
 
+function walkFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = path.join(dir, entry.name);
+    return entry.isDirectory() ? walkFiles(fullPath) : [fullPath];
+  });
+}
+
 function loadModuleWithMocks(modulePath, mocks) {
   const resolvedModulePath = require.resolve(modulePath);
   delete require.cache[resolvedModulePath];
@@ -530,6 +537,35 @@ test('global Vant dialog buttons are centered with flex layout', () => {
   assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?display:\s*flex/);
   assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?justify-content:\s*center/);
+});
+
+test('shared components rely on apply-shared styles instead of importing app.wxss', () => {
+  [
+    'miniprogram/components/popup-header/index',
+    'miniprogram/components/withdraw-dialog/index',
+    'miniprogram/components/item-card/index'
+  ].forEach((basePath) => {
+    const wxss = read(`${basePath}.wxss`);
+    const json = read(`${basePath}.json`);
+
+    assert.doesNotMatch(wxss, /@import\s+["']\.\.\/\.\.\/app\.wxss["']/);
+    assert.match(json, /"styleIsolation"\s*:\s*"apply-shared"/);
+  });
+});
+
+test('pages using Vant Toast mount a toast host', () => {
+  const root = path.join(__dirname, '..');
+  const missingHosts = walkFiles(path.join(root, 'miniprogram/pages'))
+    .filter(filePath => filePath.endsWith('.js'))
+    .filter((filePath) => {
+      const js = fs.readFileSync(filePath, 'utf8');
+      return js.includes('@vant/weapp/toast/toast');
+    })
+    .map(filePath => filePath.replace(/\.js$/, '.wxml'))
+    .filter(filePath => !fs.existsSync(filePath) || !fs.readFileSync(filePath, 'utf8').includes('id="van-toast"'))
+    .map(filePath => path.relative(root, filePath));
+
+  assert.deepEqual(missingHosts, []);
 });
 
 test('read-only inventory cloud functions require active users on the backend', () => {

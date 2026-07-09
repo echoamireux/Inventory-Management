@@ -1,9 +1,6 @@
 /* components/withdraw-dialog/index.wxss */
 /* 注意：通用样式已移至 app.wxss，此文件仅保留组件特有样式 */
 
-/* 导入全局样式（微信小程序组件需显式导入） */
-@import "../../app.wxss";
-
 /* 组件特有样式 - 仅保留极少量定制 */
 .badge-gray {
   background: var(--color-border-light);
@@ -34,4 +31,3 @@
   color: #6B7280;
   line-height: 1.4;
 }
-

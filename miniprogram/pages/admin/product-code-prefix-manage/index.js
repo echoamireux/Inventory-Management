@@ -6,6 +6,9 @@ const {
   reorderProductCodePrefixes
 } = require('../../../utils/product-code-prefix-service');
 
+const PREFIX_PATTERN = /^[A-Z]{1,4}$/;
+const PREFIX_FORMAT_ERROR = '前缀只能填写 1-4 位大写英文字母';
+
 function getInputValue(e) {
   if (e && e.detail && e.detail.value !== undefined) {
     return e.detail.value;
@@ -21,6 +24,12 @@ function normalizePrefixInput(value) {
   return raw;
 }
 
+function getPrefixError(prefix) {
+  if (!prefix) return '请输入前缀';
+  if (!PREFIX_PATTERN.test(prefix)) return PREFIX_FORMAT_ERROR;
+  return '';
+}
+
 Page({
   data: {
     prefixes: [],
@@ -28,6 +37,7 @@ Page({
     loadError: '',
     formVisible: false,
     formSubmitting: false,
+    formPrefixError: '',
     form: {
       prefix: '',
       category: 'chemical'
@@ -74,6 +84,7 @@ Page({
   onCreatePrefix() {
     this.setData({
       formVisible: true,
+      formPrefixError: '',
       form: {
         prefix: '',
         category: 'chemical'
@@ -83,12 +94,14 @@ Page({
 
   onCloseForm() {
     if (this.data.formSubmitting) return;
-    this.setData({ formVisible: false });
+    this.setData({ formVisible: false, formPrefixError: '' });
   },
 
   onPrefixInput(e) {
+    const prefix = normalizePrefixInput(getInputValue(e));
     this.setData({
-      'form.prefix': normalizePrefixInput(getInputValue(e))
+      'form.prefix': prefix,
+      formPrefixError: prefix && !PREFIX_PATTERN.test(prefix) ? PREFIX_FORMAT_ERROR : ''
     });
   },
 
@@ -103,13 +116,18 @@ Page({
   async onSubmitForm() {
     const prefix = normalizePrefixInput(this.data.form.prefix);
     const category = this.data.form.category === 'film' ? 'film' : 'chemical';
+    const prefixError = getPrefixError(prefix);
 
-    if (!/^[A-Z]{1,4}$/.test(prefix)) {
-      Toast.fail('前缀填写 1-4 位大写英文字母');
+    if (prefixError) {
+      this.setData({
+        'form.prefix': prefix,
+        formPrefixError: prefixError
+      });
+      Toast.fail(prefixError);
       return;
     }
 
-    this.setData({ formSubmitting: true });
+    this.setData({ formSubmitting: true, formPrefixError: '' });
     wx.showLoading({ title: '创建中...' });
     try {
       await createProductCodePrefix(prefix, category);

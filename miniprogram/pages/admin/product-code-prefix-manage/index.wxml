@@ -70,8 +70,10 @@
         value="{{ form.prefix }}"
         placeholder="JP"
         required
+        type="text"
         maxlength="4"
         input-align="left"
+        error-message="{{ formPrefixError }}"
         bind:input="onPrefixInput"
         bind:change="onPrefixInput"
       />
@@ -100,4 +102,6 @@
       </view>
     </view>
   </van-popup>
+
+  <van-toast id="van-toast" />
 </view>

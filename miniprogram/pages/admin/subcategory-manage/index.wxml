@@ -38,4 +38,6 @@
       </view>
     </block>
   </view>
+
+  <van-toast id="van-toast" />
 </view>

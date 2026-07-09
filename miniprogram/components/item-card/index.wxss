@@ -1,4 +1,2 @@
 /* components/item-card/index.wxss */
-@import "../../app.wxss";
-
-/* 组件无额外样式，使用全局样式 */
+/* 组件无额外样式，通过 apply-shared 使用全局样式 */

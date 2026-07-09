@@ -122,6 +122,16 @@ test('product code prefix management is registered and reachable for admins', ()
   assert.match(cloudIndex, /ensureBuiltinProductCodePrefixes/);
 });
 
+test('product code prefix form surfaces invalid prefix feedback inside the popup', () => {
+  const pageWxml = read('miniprogram/pages/admin/product-code-prefix-manage/index.wxml');
+  const pageJs = read('miniprogram/pages/admin/product-code-prefix-manage/index.js');
+
+  assert.match(pageWxml, /<van-toast\s+id="van-toast"/);
+  assert.match(pageWxml, /error-message="\{\{ formPrefixError \}\}"/);
+  assert.match(pageJs, /formPrefixError/);
+  assert.match(pageJs, /前缀只能填写 1-4 位大写英文字母/);
+});
+
 test('dynamic product code prefixes feed templates and backend material validation', () => {
   const exportMaterialTemplate = read('cloudfunctions/exportMaterialTemplate/index.js');
   const exportInventoryTemplate = read('cloudfunctions/exportInventoryTemplate/index.js');
