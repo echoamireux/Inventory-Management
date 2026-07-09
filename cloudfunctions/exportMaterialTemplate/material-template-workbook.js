@@ -134,7 +134,7 @@ function applyRangeValidations(sheet, spec) {
     allowBlank: false,
     showInputMessage: true,
     promptTitle: '填写提示',
-    prompt: '请选择当前启用的产品代码前缀。',
+    prompt: '请先填写 D 列类别，再从该类别可用前缀下拉中选择。',
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '代码前缀无效',

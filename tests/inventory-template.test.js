@@ -131,6 +131,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.views[0].state, 'frozen');
   assert.equal(dataSheet.views[0].ySplit, 3);
   assert.equal(dataSheet.getColumn(16).numFmt, 'yyyy-mm-dd');
+  assert.match(dataSheet.dataValidations.model['B4:B3000'].prompt, /请先填写 D 列类别/);
 
   assert.ok(helpSheet);
   const helpText = String(helpSheet.getColumn(1).values.join('\n'));

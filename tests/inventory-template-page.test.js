@@ -77,11 +77,14 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /resolveImportTemplateErrorMessage/);
   assert.match(pageJs, /extension:\s*\['xlsx'\]/);
   assert.match(pageJs, /sheetName:\s*'物料导入表'/);
+  assert.match(pageJs, /\['代码前缀', '产品编号', '物料名称', '类别'/);
   assert.match(pageJs, /validateImportRow/);
   assert.match(pageJs, /applyImportDuplicateGuards/);
   assert.match(pageJs, /decorateImportPreviewRows/);
   assert.match(pageJs, /manageMaterial/);
   assert.match(pageJs, /batchCreate/);
+  assert.match(pageJs, /代码前缀\*：必填。请先填写类别，再选择该类别可用前缀/);
+  assert.match(pageJs, /\['J', '001', '异丙醇', '化材'/);
   assert.doesNotMatch(pageJs, /'测试料必填'/);
   assert.match(pageJs, /原厂型号：选填；测试料真实原厂型号请在库存入库或标签预打印时填写/);
   assert.match(pageJs, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);

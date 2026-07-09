@@ -146,6 +146,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.equal(sheet.views[0].ySplit, 2);
   assert.equal(sheet.getRow(2).height, 22);
   assert.equal(sheet.dataValidations.model['A3:A3000'].formulae[0], 'INDIRECT($D3&"_前缀")');
+  assert.match(sheet.dataValidations.model['A3:A3000'].prompt, /请先填写 D 列类别/);
   assert.equal(sheet.dataValidations.model['B3:B3000'].promptTitle, '填写提示');
   assert.match(sheet.dataValidations.model['B3:B3000'].prompt, /请输入 1-3 位数字/);
   assert.equal(sheet.dataValidations.model['G3:G3000'].formulae[0], '化材_包装形式');
