@@ -16,12 +16,17 @@ test('zone manage page uses compact toolbar and detail row layouts', () => {
   assert.match(wxml, /class="zone-header__action"/);
   assert.match(wxml, /class="zone-detail-header__main"/);
   assert.match(wxml, /class="zone-detail-row__content"/);
+  assert.match(wxml, />入库\/移库必选</);
+  assert.doesNotMatch(wxml, /\{\{\s*title\s*\}\}/);
+  assert.doesNotMatch(wxml, /有明细坐标时入库\/移库必选/);
   assert.doesNotMatch(wxml, /<van-button[^>]*round block[^>]*bind:click="onCreateZone"/);
 
   assert.match(wxss, /\.zone-header__main\s*\{[\s\S]*justify-content:\s*space-between/);
   assert.match(wxss, /\.zone-header__action\s*\{[\s\S]*flex-shrink:\s*0/);
   assert.match(wxss, /\.zone-detail-header\s*\{[\s\S]*align-items:\s*center/);
   assert.match(wxss, /\.zone-detail-title\s*\{[\s\S]*white-space:\s*nowrap/);
+  assert.match(wxss, /\.zone-detail-hint\s*\{[\s\S]*white-space:\s*nowrap/);
+  assert.doesNotMatch(wxss, /\.zone-detail-hint\s*\{[\s\S]*text-overflow:\s*ellipsis/);
   assert.match(wxss, /\.zone-detail-row\s*\{[\s\S]*display:\s*flex[\s\S]*flex-direction:\s*column/);
   assert.match(wxss, /\.zone-detail-row__actions\s*\{[\s\S]*display:\s*grid[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
   assert.doesNotMatch(wxss, /\.zone-detail-row__actions\s*\{[\s\S]*flex-wrap:\s*nowrap/);

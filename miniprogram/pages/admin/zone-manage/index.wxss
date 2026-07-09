@@ -31,17 +31,14 @@
   flex-shrink: 0;
 }
 
-.zone-toolbar__title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #111827;
+.zone-toolbar__hint {
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #475569;
 }
 
-.zone-toolbar__hint {
-  margin-top: 4rpx;
-  font-size: 22rpx;
-  line-height: 1.35;
-  color: #64748b;
+.zone-header-button {
+  width: 180rpx !important;
 }
 
 .zone-hint {
@@ -145,14 +142,18 @@
 }
 
 .zone-detail-hint {
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  background: #f1f5f9;
   font-size: 22rpx;
   line-height: 1.35;
-  color: #94a3b8;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #64748b;
   white-space: nowrap;
+}
+
+.zone-detail-add-button {
+  width: 120rpx !important;
 }
 
 .zone-detail-list {

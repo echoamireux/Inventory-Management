@@ -2,11 +2,10 @@
   <view class="zone-header">
     <view class="zone-header__main">
       <view class="zone-header__copy">
-        <view class="zone-toolbar__title">{{ title }}</view>
-        <view class="zone-toolbar__hint">统一维护默认库区、共享库区和详细坐标。</view>
+        <view class="zone-toolbar__hint">默认库区、共享库区和详细坐标统一维护。</view>
       </view>
       <view class="zone-header__action">
-        <van-button type="primary" plain size="small" bind:click="onCreateZone">新建库区</van-button>
+        <van-button custom-class="zone-header-button" type="primary" plain size="small" bind:click="onCreateZone">新建库区</van-button>
       </view>
     </view>
   </view>
@@ -43,10 +42,10 @@
           <view class="zone-detail-header">
             <view class="zone-detail-header__main">
               <text class="zone-detail-title">详细坐标</text>
-              <text class="zone-detail-hint">有明细坐标时入库/移库必选</text>
+              <text class="zone-detail-hint">入库/移库必选</text>
             </view>
             <view class="zone-detail-header__action">
-              <van-button size="mini" plain type="primary" bind:click="onCreateDetail" data-index="{{ zoneIndex }}">新增</van-button>
+              <van-button custom-class="zone-detail-add-button" size="mini" plain type="primary" bind:click="onCreateDetail" data-index="{{ zoneIndex }}">新增</van-button>
             </view>
           </view>
           <view wx:if="{{ zone.details.length > 0 }}" class="zone-detail-list">
