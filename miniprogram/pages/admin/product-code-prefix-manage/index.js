@@ -18,9 +18,6 @@ function getInputValue(e) {
 
 function normalizePrefixInput(value) {
   const raw = String(value || '').replace(/\s+/g, '').toUpperCase();
-  if (/^[A-Z]$/.test(raw)) {
-    return raw;
-  }
   return raw;
 }
 
@@ -107,8 +104,8 @@ Page({
     const prefix = normalizePrefixInput(this.data.form.prefix);
     const category = this.data.form.category === 'film' ? 'film' : 'chemical';
 
-    if (!/^[A-Z]$/.test(prefix)) {
-      Toast.fail('前缀填写单个大写字母');
+    if (!/^[A-Z]{1,4}$/.test(prefix)) {
+      Toast.fail('前缀填写 1-4 位大写英文字母');
       return;
     }
 

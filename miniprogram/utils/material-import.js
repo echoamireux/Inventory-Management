@@ -190,8 +190,8 @@ function decorateImportPreviewRows(rows = []) {
   });
 }
 
-function validateImportRow(row, index, subcategoriesByCategory = {}) {
-  const oldTemplateLooksLikely = /^[A-Z]-\d{3}$/i.test(String(row[0] || '').trim())
+function validateImportRow(row, index, subcategoriesByCategory = {}, productCodePrefixes = []) {
+  const oldTemplateLooksLikely = /^[A-Z]{1,4}-\d{3}$/i.test(String(row[0] || '').trim())
     && !!normalizeCategoryText(String(row[2] || '').trim());
   if (oldTemplateLooksLikely) {
     return {
@@ -237,12 +237,15 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
 
   const normalizedCode = error
     ? { ok: false, msg: error }
-    : normalizeProductCodeInput(category, rawProductCodeNumber, rawCodePrefix);
+    : normalizeProductCodeInput(category, rawProductCodeNumber, {
+      prefix: rawCodePrefix,
+      allowedPrefixes: productCodePrefixes
+    });
 
   if (!error && !rawCodePrefix) {
     error = '代码前缀必填';
-  } else if (!error && !/^[A-Z]$/i.test(rawCodePrefix)) {
-    error = '代码前缀只能填写单个大写字母，例如 J、S、Y、M';
+  } else if (!error && !/^[A-Z]{1,4}$/i.test(rawCodePrefix)) {
+    error = '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB';
   }
 
   if (!error && !normalizedCode.ok) {

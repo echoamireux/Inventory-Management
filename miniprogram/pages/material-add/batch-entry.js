@@ -46,12 +46,12 @@ const DEFAULT_PREFIX_OPTIONS = [
 ];
 
 function extractCodePrefix(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^([A-Z])-/);
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]{1,4})-/);
   return match ? match[1] : '';
 }
 
 function extractCodeNumber(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^[A-Z]-(\d{1,3})$/);
+  const match = String(value || '').trim().toUpperCase().match(/^[A-Z]{1,4}-(\d{1,3})$/);
   return match ? match[1] : '';
 }
 

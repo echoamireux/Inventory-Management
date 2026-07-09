@@ -1,4 +1,5 @@
 const PRODUCT_CODE_DIGITS = 3;
+const PRODUCT_CODE_PREFIX_PATTERN = /^[A-Z]{1,4}$/;
 
 const CATEGORY_PREFIX = {
   chemical: 'J',
@@ -37,7 +38,7 @@ function getAllowedPrefixes(category, options = {}) {
       category: normalizeCategory(item && item.category),
       status: item && item.status ? item.status : 'active'
     }))
-    .filter(item => /^[A-Z]$/.test(item.prefix) && item.category === normalizedCategory && item.status !== 'disabled')
+    .filter(item => PRODUCT_CODE_PREFIX_PATTERN.test(item.prefix) && item.category === normalizedCategory && item.status !== 'disabled')
     .map(item => item.prefix);
   const unique = Array.from(new Set(prefixes));
   return unique.length > 0 ? unique : [getProductCodePrefix(normalizedCategory)];
@@ -118,7 +119,7 @@ function validateStandardProductCode(category, productCode, prefixOrOptions) {
   const options = resolveProductCodeOptions(prefixOrOptions);
   const allowedPrefixes = getAllowedPrefixes(normalizedCategory, options);
   const value = String(productCode || '').trim().toUpperCase();
-  const matcher = value.match(/^([A-Z])-(\d{3})$/);
+  const matcher = value.match(/^([A-Z]{1,4})-(\d{3})$/);
 
   if (!matcher || !allowedPrefixes.includes(normalizePrefix(matcher[1]))) {
     return {
@@ -148,6 +149,7 @@ function findExactProductCodeMatch(list = [], productCode = '') {
 
 module.exports = {
   PRODUCT_CODE_DIGITS,
+  PRODUCT_CODE_PREFIX_PATTERN,
   CATEGORY_PREFIX,
   DEFAULT_ALLOWED_PREFIXES,
   sanitizeProductCodeNumberInput,

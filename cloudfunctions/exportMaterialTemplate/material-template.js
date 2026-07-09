@@ -100,7 +100,7 @@ function buildMaterialTemplateSpec({
   const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
     .map(item => (typeof item === 'string' ? item : item && item.prefix))
     .map(item => String(item || '').trim().toUpperCase())
-    .filter(item => /^[A-Z]$/.test(item));
+    .filter(item => /^[A-Z]{1,4}$/.test(item));
   const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
     ? normalizedCodePrefixes
     : ['J', 'S', 'Y', 'M']));
@@ -184,7 +184,7 @@ function buildMaterialTemplateSpec({
       '3. 模板填写完成后，请直接上传 .xlsx 文件回到系统导入。',
       '',
       '▶ 字段说明',
-      '代码前缀*：必填。请从下拉选择 J、S、Y、M 等当前启用前缀，只填写字母，不填写横杠。',
+      '代码前缀*：必填。请从下拉选择 J、JP、LAB 等当前启用前缀，只填写英文字母，不填写横杠。',
       '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。',
       '物料名称*：必填。',
       '类别*：必填。只能选择“化材”或“膜材”。',

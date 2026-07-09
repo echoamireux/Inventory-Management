@@ -1028,7 +1028,7 @@ async function checkMaterialStatus(data) {
 
   // 构造可能的前缀组合
   const codes = [product_code];
-  if (!/^[A-Z]-/u.test(product_code)) {
+  if (!/^[A-Z]{1,4}-/u.test(product_code)) {
     const prefixRecords = await ensureBuiltinProductCodePrefixes(db);
     const prefixes = Array.from(new Set(
       prefixRecords

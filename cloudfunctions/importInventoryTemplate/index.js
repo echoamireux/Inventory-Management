@@ -19,6 +19,9 @@ const {
   buildInventoryImportPayload,
   assertInventoryTemplateImportLimit
 } = require('./inventory-import');
+const {
+  ensureBuiltinProductCodePrefixes
+} = require('./product-code-prefixes');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -80,6 +83,17 @@ async function loadActiveLocationDetailRecords() {
   }
 
   return rows;
+}
+
+async function loadActiveProductCodePrefixes() {
+  const records = await ensureBuiltinProductCodePrefixes(db);
+  return (records || [])
+    .filter(item => item.status === 'active')
+    .map(item => ({
+      prefix: item.prefix,
+      category: item.category,
+      status: item.status
+    }));
 }
 
 async function loadMaterialsByCodes(productCodes = []) {
@@ -352,7 +366,8 @@ async function previewRows(rawRows = [], templateMeta = null) {
     return buildEmptyInventoryTemplatePreviewResult();
   }
 
-  const lookupKeys = collectInventoryImportLookupKeys(rows);
+  const productCodePrefixes = await loadActiveProductCodePrefixes();
+  const lookupKeys = collectInventoryImportLookupKeys(rows, { productCodePrefixes });
   const [
     materialsByCode,
     existingInventoryByUniqueCode,
@@ -378,7 +393,8 @@ async function previewRows(rawRows = [], templateMeta = null) {
     duplicateUniqueCodes: buildDuplicateUniqueCodeSet(rows),
     zoneMapsByCategory: buildZoneMapsByCategory(zoneRecords),
     locationDetailMapByZone: buildLocationDetailMapByZone(locationDetailRecords),
-    currentInventoryByProductCode
+    currentInventoryByProductCode,
+    productCodePrefixes
   })));
 
   return {

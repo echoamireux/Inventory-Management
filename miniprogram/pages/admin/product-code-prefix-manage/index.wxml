@@ -62,18 +62,20 @@
         新建产品代码前缀
       </view>
       <view class="project-form-panel__hint">
-        前缀只填写单个大写字母。系统会在完整产品代码中自动加入横杠。
+        前缀填写 1-4 位大写英文字母。系统会在完整产品代码中自动加入横杠。
       </view>
 
       <van-field
         label="前缀"
         value="{{ form.prefix }}"
-        placeholder="S"
+        placeholder="JP"
         required
+        maxlength="4"
         input-align="left"
+        bind:input="onPrefixInput"
         bind:change="onPrefixInput"
       />
-      <view class="project-form-panel__example">示例：S、Y</view>
+      <view class="project-form-panel__example">示例：J、JP、LAB</view>
 
       <view class="prefix-category">
         <van-button

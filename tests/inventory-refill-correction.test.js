@@ -388,7 +388,6 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
     quantity: { val: 5, unit: 'kg' },
     dynamic_attrs: { weight_kg: 5 }
   };
-
   const cloudStub = {
     init() {},
     getWXContext() {
@@ -837,6 +836,7 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
     quantity: { val: 5, unit: 'kg' },
     dynamic_attrs: { weight_kg: 5 }
   };
+  const productCodePrefixes = [];
 
   const mod = loadModuleWithMocks('../cloudfunctions/importInventoryTemplate/index.js', {
     'wx-server-sdk': {
@@ -931,6 +931,32 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
                     async get() {
                       return { data: [] };
                     }
+                  };
+                }
+              };
+            }
+
+            if (name === 'product_code_prefixes') {
+              return {
+                skip() {
+                  return this;
+                },
+                limit() {
+                  return this;
+                },
+                async get() {
+                  return { data: productCodePrefixes };
+                },
+                async add({ data }) {
+                  productCodePrefixes.push({
+                    _id: `prefix-${productCodePrefixes.length}`,
+                    ...data
+                  });
+                  return { _id: `prefix-${productCodePrefixes.length}` };
+                },
+                doc() {
+                  return {
+                    async update() {}
                   };
                 }
               };

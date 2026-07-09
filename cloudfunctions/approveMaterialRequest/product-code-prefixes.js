@@ -29,13 +29,12 @@ const BUILTIN_PRODUCT_CODE_PREFIX_SEEDS = [
   }
 ];
 
+const PRODUCT_CODE_PREFIX_PATTERN = /^[A-Z]{1,4}$/u;
+
 function normalizeProductCodePrefix(value) {
   const raw = String(value || '').trim().replace(/\s+/g, '').toUpperCase();
   if (!raw) {
     return '';
-  }
-  if (/^[A-Z]$/u.test(raw)) {
-    return raw;
   }
   return raw;
 }
@@ -66,7 +65,7 @@ function normalizeProductCodePrefixRecord(record = {}) {
 function sortProductCodePrefixRecords(records = []) {
   return (Array.isArray(records) ? records : [])
     .map(normalizeProductCodePrefixRecord)
-    .filter(item => /^[A-Z]$/u.test(item.prefix))
+    .filter(item => PRODUCT_CODE_PREFIX_PATTERN.test(item.prefix))
     .sort((left, right) => {
       const orderDiff = (Number(left.sort_order) || 0) - (Number(right.sort_order) || 0);
       if (orderDiff !== 0) return orderDiff;
@@ -189,6 +188,7 @@ async function ensureBuiltinProductCodePrefixes(db) {
 
 module.exports = {
   BUILTIN_PRODUCT_CODE_PREFIX_SEEDS,
+  PRODUCT_CODE_PREFIX_PATTERN,
   normalizeProductCodePrefix,
   normalizePrefixCategory,
   normalizeStatus,

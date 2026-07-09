@@ -66,7 +66,7 @@ function buildInventoryTemplateSpec({
   const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
     .map((item) => (typeof item === 'string' ? item : item && item.prefix))
     .map(item => String(item || '').trim().toUpperCase())
-    .filter(item => /^[A-Z]$/.test(item));
+    .filter(item => /^[A-Z]{1,4}$/.test(item));
   const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
     ? normalizedCodePrefixes
     : ['J', 'S', 'Y', 'M']));
@@ -136,7 +136,7 @@ function buildInventoryTemplateSpec({
       '',
       '▶ 字段说明',
       '标签编号*：必填。格式固定为 L + 6 位数字，例如 L000123。',
-      '代码前缀*：必填。请从下拉选择 J、S、Y、M 等当前启用前缀，只填写字母，不填写横杠。',
+      '代码前缀*：必填。请从下拉选择 J、JP、LAB 等当前启用前缀，只填写英文字母，不填写横杠。',
       '产品编号*：必填。请填写 3 位数字，例如 001；系统会与代码前缀组合为完整产品代码，如 J-001、S-001。',
       '类别*：必填。只能选择“化材”或“膜材”。',
       '生产批号* / 存储区域* / 详细坐标*：必填。存储区域必须从当前系统启用库区中选择；防爆柜等配置了明细坐标的库区，请选择 F1-F5 等系统坐标。',

@@ -1,4 +1,5 @@
 const PRODUCT_CODE_DIGITS = 3;
+const PRODUCT_CODE_PREFIX_PATTERN = /^[A-Z]{1,4}$/u;
 const CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL'];
 const FILM_UNITS = ['m', 'm²'];
 const {
@@ -110,7 +111,7 @@ function getAllowedProductCodePrefixes(category, customPrefixes) {
     : DEFAULT_ALLOWED_PREFIXES[normalizedCategory];
   const normalized = source
     .map((item) => normalizeText(typeof item === 'string' ? item : item && item.prefix).toUpperCase())
-    .filter(item => /^[A-Z]$/u.test(item));
+    .filter(item => PRODUCT_CODE_PREFIX_PATTERN.test(item));
   return Array.from(new Set(normalized.length ? normalized : DEFAULT_ALLOWED_PREFIXES[normalizedCategory]));
 }
 
@@ -124,8 +125,8 @@ function normalizeProductCodePrefixInput(category, rawPrefix, customPrefixes) {
   if (!prefix) {
     return { ok: false, msg: '代码前缀必填' };
   }
-  if (!/^[A-Z]$/u.test(prefix)) {
-    return { ok: false, msg: '代码前缀只能填写单个大写字母，例如 J、S、Y、M' };
+  if (!PRODUCT_CODE_PREFIX_PATTERN.test(prefix)) {
+    return { ok: false, msg: '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB' };
   }
   if (!allowedPrefixes.includes(prefix)) {
     return {
@@ -706,7 +707,7 @@ function buildEmptyInventoryTemplatePreviewResult() {
   };
 }
 
-function collectInventoryImportLookupKeys(rawRows = []) {
+function collectInventoryImportLookupKeys(rawRows = [], context = {}) {
   const productCodes = new Set();
   const uniqueCodes = new Set();
 
@@ -729,7 +730,12 @@ function collectInventoryImportLookupKeys(rawRows = []) {
     if (!category) {
       return;
     }
-    const normalizedCode = normalizeProductCodeInput(category, row.values[2], row.values[1]);
+    const normalizedCode = normalizeProductCodeInput(
+      category,
+      row.values[2],
+      row.values[1],
+      context.productCodePrefixes
+    );
     if (normalizedCode.ok) {
       productCodes.add(normalizedCode.product_code);
     }
@@ -919,7 +925,12 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
       && normalizeText(existingItem.status) === 'in_stock'
       && normalizeText(existingItem.category) === 'chemical'
     ) {
-      const codeCheck = normalizeProductCodeInput(category, values[2], values[1]);
+      const codeCheck = normalizeProductCodeInput(
+        category,
+        values[2],
+        values[1],
+        context.productCodePrefixes
+      );
       if (
         codeCheck.ok
         && normalizeText(existingItem.product_code) === normalizeText(codeCheck.product_code)
@@ -952,7 +963,12 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     return row;
   }
 
-  const normalizedCode = normalizeProductCodeInput(category, values[2], values[1]);
+  const normalizedCode = normalizeProductCodeInput(
+    category,
+    values[2],
+    values[1],
+    context.productCodePrefixes
+  );
   if (!normalizedCode.ok) {
     row.error = normalizedCode.msg;
     return row;

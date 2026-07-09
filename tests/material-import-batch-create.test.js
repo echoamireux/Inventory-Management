@@ -111,7 +111,7 @@ test('material import batchCreate keeps create-only semantics while writing gove
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`
@@ -309,7 +309,7 @@ test('material import batchCreate allows film creation without default width whi
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`
@@ -460,7 +460,7 @@ test('material import batchCreate rejects film rows that omit thickness even if 
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`
@@ -621,7 +621,7 @@ test('material import batchCreate blocks same-code rows in one file when their g
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`
@@ -813,7 +813,7 @@ test('material import batchCreate ignores film-only fields on chemical rows and 
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`

@@ -101,7 +101,7 @@ Page({
 
     const inferredCategory = rawCategory || (String(rawProductCode).startsWith('M-') ? 'film' : 'chemical');
     const categoryIndex = inferredCategory === 'film' ? 1 : 0;
-    const rawPrefixMatch = String(rawProductCode || '').trim().toUpperCase().match(/^([A-Z])-/);
+    const rawPrefixMatch = String(rawProductCode || '').trim().toUpperCase().match(/^([A-Z]{1,4})-/);
     const codePrefix = await this.loadPrefixOptionsForCategory(
       inferredCategory,
       rawPrefixMatch ? rawPrefixMatch[1] : ''
@@ -255,7 +255,7 @@ Page({
       if (res.result.success) {
         const data = res.result.data;
         const categoryIndex = data.category === 'film' ? 1 : 0;
-        const codeMatch = String(data.product_code || '').trim().toUpperCase().match(/^([A-Z])-(\d{1,})$/);
+        const codeMatch = String(data.product_code || '').trim().toUpperCase().match(/^([A-Z]{1,4})-(\d{1,})$/);
         const codePrefix = await this.loadPrefixOptionsForCategory(
           data.category,
           codeMatch ? codeMatch[1] : ''
@@ -280,7 +280,7 @@ Page({
         const materialSpecs = data.specs || {};
 
         // Parse product code
-        const codeNumber = codeMatch ? codeMatch[2] : String(data.product_code || '').replace(/^[A-Z]-/i, '');
+        const codeNumber = codeMatch ? codeMatch[2] : String(data.product_code || '').replace(/^[A-Z]{1,4}-/i, '');
 
         this.setData({
           form: {

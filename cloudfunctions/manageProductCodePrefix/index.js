@@ -61,8 +61,8 @@ async function createPrefix(event, openid) {
 
   const prefix = normalizeProductCodePrefix(event && event.prefix);
   const category = normalizePrefixCategory(event && event.category);
-  if (!/^[A-Z]$/u.test(prefix)) {
-    return { success: false, msg: '前缀必须为单个大写字母，例如 S' };
+  if (!/^[A-Z]{1,4}$/u.test(prefix)) {
+    return { success: false, msg: '前缀必须为 1-4 位大写英文字母，例如 J、JP、LAB' };
   }
   if (await findPrefix(prefix)) {
     return { success: false, msg: '产品代码前缀已存在' };

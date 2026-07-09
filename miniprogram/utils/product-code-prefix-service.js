@@ -37,7 +37,7 @@ function buildProductCodePrefixPickerColumns(records = [], category = '') {
   return (records || [])
     .filter(item => !category || item.category === category)
     .filter(item => item.status !== 'disabled')
-    .filter(item => /^[A-Z]$/.test(String(item.prefix || '')))
+    .filter(item => /^[A-Z]{1,4}$/.test(String(item.prefix || '')))
     .map(item => ({
       name: item.prefix,
       text: item.prefix,

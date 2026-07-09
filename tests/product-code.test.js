@@ -61,6 +61,7 @@ for (const [label, impl] of [
   test(`${label}: custom active prefixes can be passed into validation`, () => {
     const allowedPrefixes = [
       { prefix: 'A', category: 'chemical', status: 'active' },
+      { prefix: 'LAB', category: 'chemical', status: 'active' },
       { prefix: 'M', category: 'film', status: 'active' }
     ];
 
@@ -80,6 +81,23 @@ for (const [label, impl] of [
       number: '007',
       prefix: 'A',
       product_code: 'A-007'
+    });
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', '7', {
+      prefix: 'LAB',
+      allowedPrefixes
+    }), {
+      ok: true,
+      number: '007',
+      prefix: 'LAB',
+      product_code: 'LAB-007'
+    });
+    assert.deepEqual(impl.validateStandardProductCode('chemical', 'LAB-007', {
+      allowedPrefixes
+    }), {
+      ok: true,
+      number: '007',
+      prefix: 'LAB',
+      product_code: 'LAB-007'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'S-007', {
       allowedPrefixes

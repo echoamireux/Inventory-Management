@@ -2,6 +2,7 @@
 import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
 const { listSubcategoryRecords } = require('../../../utils/subcategory-service');
+const { listProductCodePrefixes } = require('../../../utils/product-code-prefix-service');
 const {
   isTemplateInlineHintRow,
   applyImportDuplicateGuards,
@@ -45,7 +46,8 @@ Page({
     subcategoriesByCategory: {
       chemical: [],
       film: []
-    }
+    },
+    productCodePrefixes: []
   },
 
   async onLoad() {
@@ -60,7 +62,10 @@ Page({
       return;
     }
 
-    await this.loadSubcategoryOptions();
+    await Promise.all([
+      this.loadSubcategoryOptions(),
+      this.loadProductCodePrefixes()
+    ]);
   },
 
   async loadSubcategoryOptions() {
@@ -79,6 +84,16 @@ Page({
     } catch (err) {
       console.error('加载子类别失败', err);
       Toast.fail(err.message || '加载子类别失败');
+    }
+  },
+
+  async loadProductCodePrefixes() {
+    try {
+      const productCodePrefixes = await listProductCodePrefixes(false);
+      this.setData({ productCodePrefixes });
+    } catch (err) {
+      console.error('加载产品代码前缀失败', err);
+      Toast.fail(err.message || '加载产品代码前缀失败');
     }
   },
 
@@ -164,7 +179,7 @@ Page({
       ['5. 填写完成后请直接保存并上传 .xlsx 文件', '', '', '', '', '', '', '', '', ''],
       ['', '', '', '', '', '', '', '', '', '', ''],
       ['▶ 字段说明：（* 表示必填）', '', '', '', '', '', '', '', '', ''],
-      ['代码前缀*：必填，例如 J、S、Y、M，只填写字母，不填写横杠', '', '', '', '', '', '', '', '', ''],
+      ['代码前缀*：必填，例如 J、JP、LAB，只填写 1-4 位英文字母，不填写横杠', '', '', '', '', '', '', '', '', ''],
       ['产品编号*：必填，填写 1-3 位数字（如 1 或 001）；系统会与代码前缀组合为完整产品代码', '', '', '', '', '', '', '', '', ''],
       ['物料名称*：必填', '', '', '', '', '', '', '', '', ''],
       ['类别*：必填，只能填 "化材" 或 "膜材"', '', '', '', '', '', '', '', '', ''],
@@ -297,7 +312,7 @@ Page({
 
   // 校验单行数据
   validateRow(row, index) {
-    return validateImportRow(row, index, this.data.subcategoriesByCategory);
+    return validateImportRow(row, index, this.data.subcategoriesByCategory, this.data.productCodePrefixes);
   },
 
   // 确认导入

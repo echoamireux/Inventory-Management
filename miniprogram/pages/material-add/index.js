@@ -61,7 +61,7 @@ const DEFAULT_PREFIX_OPTIONS = [
 ];
 
 function extractCodePrefix(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^([A-Z])-/);
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]{1,4})-/);
   return match ? match[1] : '';
 }
 

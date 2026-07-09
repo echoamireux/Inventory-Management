@@ -119,7 +119,7 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
     './product-code': {
       validateStandardProductCode(category, code) {
         const prefix = category === 'film' ? 'M' : 'J';
-        const number = String(code).replace(/^[A-Z]-/i, '').padStart(3, '0');
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
         return {
           ok: true,
           product_code: `${prefix}-${number}`

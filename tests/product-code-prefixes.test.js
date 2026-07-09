@@ -32,20 +32,24 @@ test('builtin product code prefixes cover chemical J/S/Y and film M', () => {
 
 test('product code prefix helpers normalize and filter active category prefixes', () => {
   assert.equal(normalizeProductCodePrefix('s'), 'S');
+  assert.equal(normalizeProductCodePrefix('jp'), 'JP');
   assert.equal(normalizeProductCodePrefix('Y'), 'Y');
-  assert.equal(/^[A-Z]$/.test(normalizeProductCodePrefix('Y-')), false);
+  assert.equal(/^[A-Z]{1,4}$/.test(normalizeProductCodePrefix('Y-')), false);
+  assert.equal(/^[A-Z]{1,4}$/.test(normalizeProductCodePrefix('ABCDE')), false);
   assert.equal(normalizeProductCodePrefix(''), '');
 
   const records = sortProductCodePrefixRecords([
+    { prefix: 'JP', category: 'chemical', sort_order: 30 },
     { prefix: 'S', category: 'chemical', sort_order: 20 },
     { prefix: 'M', category: 'film', sort_order: 10 },
-    { prefix: 'J', category: 'chemical', status: 'disabled', sort_order: 10 }
+    { prefix: 'J', category: 'chemical', status: 'disabled', sort_order: 10 },
+    { prefix: 'ABCDE', category: 'chemical', sort_order: 40 }
   ]);
 
-  assert.deepEqual(records.map(item => item.prefix), ['J', 'M', 'S']);
+  assert.deepEqual(records.map(item => item.prefix), ['J', 'M', 'S', 'JP']);
   assert.deepEqual(
     filterProductCodePrefixRecordsByCategory(records, 'chemical', { includeDisabled: false }).map(item => item.prefix),
-    ['S']
+    ['S', 'JP']
   );
   assert.deepEqual(buildProductCodePrefixActions(records, 'film'), [
     { name: 'M', value: 'M', prefix: 'M', category: 'film' }
@@ -58,13 +62,13 @@ test('frontend prefix picker presents plain prefix letters without descriptions'
 
   const columns = buildProductCodePrefixPickerColumns([
     { prefix: 'J', category: 'chemical', status: 'active' },
-    { prefix: 'S', category: 'chemical', status: 'active' },
+    { prefix: 'JP', category: 'chemical', status: 'active' },
     { prefix: 'M', category: 'film', status: 'active' }
   ], 'chemical');
 
   assert.deepEqual(columns, [
     { name: 'J', text: 'J', value: 'J', prefix: 'J', category: 'chemical' },
-    { name: 'S', text: 'S', value: 'S', prefix: 'S', category: 'chemical' }
+    { name: 'JP', text: 'JP', value: 'JP', prefix: 'JP', category: 'chemical' }
   ]);
 });
 

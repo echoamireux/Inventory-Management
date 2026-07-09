@@ -13,6 +13,12 @@ const subcategoriesByCategory = {
   chemical: ['主胶', '树脂', '溶剂'],
   film: ['基材-PET', '基材-BOPP', '保护膜']
 };
+const productCodePrefixes = [
+  { prefix: 'J', category: 'chemical', status: 'active' },
+  { prefix: 'S', category: 'chemical', status: 'active' },
+  { prefix: 'JP', category: 'chemical', status: 'active' },
+  { prefix: 'M', category: 'film', status: 'active' }
+];
 
 function chemicalRow({
   prefix = 'J',
@@ -45,14 +51,15 @@ function filmRow({
 
 test('import validation normalizes flexible product code input into the standard three-digit format', () => {
   const result = validateImportRow(
-    chemicalRow({ prefix: 'S', number: '1', name: '乙酸乙酯', unit: 'kg', packageType: '塑料桶', supplier: '供应商A', supplierModel: '型号A' }),
+    chemicalRow({ prefix: 'JP', number: '1', name: '乙酸乙酯', unit: 'kg', packageType: '塑料桶', supplier: '供应商A', supplierModel: '型号A' }),
     0,
-    subcategoriesByCategory
+    subcategoriesByCategory,
+    productCodePrefixes
   );
 
   assert.equal(result.error, null);
-  assert.equal(result.product_code, 'S-001');
-  assert.equal(result.product_code_prefix, 'S');
+  assert.equal(result.product_code, 'JP-001');
+  assert.equal(result.product_code_prefix, 'JP');
   assert.equal(result.product_code_number, '001');
 });
 
@@ -97,9 +104,15 @@ test('import validation rejects hyphenated prefixes and prefixed product numbers
     1,
     subcategoriesByCategory
   );
+  const tooLongPrefix = validateImportRow(
+    chemicalRow({ prefix: 'ABCDE', number: '001' }),
+    2,
+    subcategoriesByCategory
+  );
 
-  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写单个大写字母，例如 J、S、Y、M');
+  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
   assert.equal(prefixedNumber.error, '产品代码必须为 1-3 位数字');
+  assert.equal(tooLongPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
 });
 
 test('import validation supports the new prefix-plus-number master-data template', () => {

@@ -97,6 +97,7 @@ cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/manageMaterial
 cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/approveMaterialRequest/product-code-prefixes.js
 cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/exportMaterialTemplate/product-code-prefixes.js
 cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/exportInventoryTemplate/product-code-prefixes.js
+cp cloudfunctions/_shared/product-code-prefixes.js cloudfunctions/importInventoryTemplate/product-code-prefixes.js
 
 echo "   -> Updating search.js..."
 cp cloudfunctions/_shared/search.js cloudfunctions/getInventoryGrouped/search.js

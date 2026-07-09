@@ -370,6 +370,35 @@ test('inventory import preview resolves governed chemical rows against current m
   assert.equal(preview.quantity_summary, '2 kg');
 });
 
+test('inventory import preview accepts active multi-letter product code prefixes from context', () => {
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000304', 'JP', '001', '化材', 'AC240304', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, buildContext({
+    productCodePrefixes: [
+      { prefix: 'J', category: 'chemical', status: 'active' },
+      { prefix: 'JP', category: 'chemical', status: 'active' },
+      { prefix: 'M', category: 'film', status: 'active' }
+    ],
+    materialsByCode: new Map([
+      ['JP-001', {
+        _id: 'mat-jp-001',
+        product_code: 'JP-001',
+        category: 'chemical',
+        material_name: '进口溶剂',
+        sub_category: '溶剂',
+        default_unit: 'kg',
+        supplier: '',
+        supplier_model: ''
+      }]
+    ])
+  }));
+
+  assert.equal(preview.error, '');
+  assert.equal(preview.product_code, 'JP-001');
+  assert.equal(preview.material_name, '进口溶剂');
+});
+
 test('inventory import preview rejects hyphenated code prefixes in the new template', () => {
   const hyphenatedPrefix = buildInventoryImportPreviewRow({
     rowIndex: 4,
@@ -379,9 +408,14 @@ test('inventory import preview rejects hyphenated code prefixes in the new templ
     rowIndex: 5,
     values: ['L000302', 'J', 'J-001', '化材', 'AC240302', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext());
+  const tooLongPrefix = buildInventoryImportPreviewRow({
+    rowIndex: 6,
+    values: ['L000303', 'ABCDE', '001', '化材', 'AC240303', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, buildContext());
 
-  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写单个大写字母，例如 J、S、Y、M');
+  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
   assert.equal(prefixedNumber.error, '产品代码必须为 1-3 位数字');
+  assert.equal(tooLongPrefix.error, '代码前缀只能填写 1-4 位大写英文字母，例如 J、JP、LAB');
 });
 
 test('inventory import preview rejects unavailable preprint labels before submit', () => {
