@@ -12,10 +12,10 @@ test('generated workbook writes defined names and validation formulas compatible
     chemicalSubcategories: ['主胶', '树脂'],
     filmSubcategories: ['基材-PET', '保护膜'],
     codePrefixes: [
-      { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active', sort_order: 10 },
-      { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active', sort_order: 20 },
-      { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active', sort_order: 30 },
-      { prefix: 'M-', category: 'film', name: '膜材', status: 'active', sort_order: 40 }
+      { prefix: 'J', category: 'chemical', status: 'active', sort_order: 10 },
+      { prefix: 'S', category: 'chemical', status: 'active', sort_order: 20 },
+      { prefix: 'Y', category: 'chemical', status: 'active', sort_order: 30 },
+      { prefix: 'M', category: 'film', status: 'active', sort_order: 40 }
     ]
   });
 
@@ -74,7 +74,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' },
       codePrefixes: { name: '代码前缀', range: 'Config!$F$2:$F$5' }
     },
-    codePrefixOptions: ['J-', 'S-', 'Y-', 'M-'],
+    codePrefixOptions: ['J', 'S', 'Y', 'M'],
     helpLines: [
       '【重要：填写说明】',
       '',
@@ -82,7 +82,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       '▶ 字段说明'
     ],
     exampleRows: [
-      ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否']
+      ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否']
     ]
   });
 
@@ -131,7 +131,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       chemicalPackageTypes: { name: '化材_包装形式', range: 'Config!$E$2:$E$6' },
       codePrefixes: { name: '代码前缀', range: 'Config!$F$2:$F$5' }
     },
-    codePrefixOptions: ['J-', 'S-', 'Y-', 'M-'],
+    codePrefixOptions: ['J', 'S', 'Y', 'M'],
     helpLines: ['【重要：填写说明】'],
     exampleRows: []
   });

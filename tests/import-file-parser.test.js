@@ -67,7 +67,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
   }));
   const sheet = workbook.getWorksheet(INVENTORY_SHEET_NAME);
   sheet.getCell('A4').value = 'L000301';
-  sheet.getCell('B4').value = 'J-';
+  sheet.getCell('B4').value = 'J';
   sheet.getCell('C4').value = '001';
   sheet.getCell('D4').value = '化材';
   sheet.getCell('E4').value = 'AC240301';
@@ -86,7 +86,7 @@ test('shared import parser reads inventory template xlsx data rows from the gove
 
   assert.equal(rows[3].rowIndex, 4);
   assert.deepEqual(rows[3].values, [
-    'L000301', 'J-', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '', '2027-03-25', ''
+    'L000301', 'J', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '', '', '', '', '', '', '', '2027-03-25', ''
   ]);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'inventory_import',
@@ -167,7 +167,7 @@ test('shared import parser reads material template xlsx data rows from the gover
     filmSubcategories: ['保护膜']
   }));
   const sheet = workbook.getWorksheet(MATERIAL_SHEET_NAME);
-  sheet.getCell('A3').value = 'J-';
+  sheet.getCell('A3').value = 'J';
   sheet.getCell('B3').value = '001';
   sheet.getCell('C3').value = '异丙醇';
   sheet.getCell('D3').value = '化材';
@@ -187,7 +187,7 @@ test('shared import parser reads material template xlsx data rows from the gover
   });
 
   assert.equal(rows[2].rowIndex, 3);
-  assert.deepEqual(rows[2].values, ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
+  assert.deepEqual(rows[2].values, ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'material_import',
     schemaVersion: 'material-import-v2',

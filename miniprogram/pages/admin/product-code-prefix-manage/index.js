@@ -2,7 +2,6 @@ import Toast from '@vant/weapp/toast/toast';
 const {
   listProductCodePrefixes,
   createProductCodePrefix,
-  updateProductCodePrefix,
   setProductCodePrefixStatus,
   reorderProductCodePrefixes
 } = require('../../../utils/product-code-prefix-service');
@@ -20,7 +19,7 @@ function getInputValue(e) {
 function normalizePrefixInput(value) {
   const raw = String(value || '').replace(/\s+/g, '').toUpperCase();
   if (/^[A-Z]$/.test(raw)) {
-    return `${raw}-`;
+    return raw;
   }
   return raw;
 }
@@ -31,13 +30,10 @@ Page({
     loading: false,
     loadError: '',
     formVisible: false,
-    formMode: 'create',
-    editingPrefix: '',
     formSubmitting: false,
     form: {
       prefix: '',
-      category: 'chemical',
-      name: ''
+      category: 'chemical'
     }
   },
 
@@ -81,28 +77,9 @@ Page({
   onCreatePrefix() {
     this.setData({
       formVisible: true,
-      formMode: 'create',
-      editingPrefix: '',
       form: {
         prefix: '',
-        category: 'chemical',
-        name: ''
-      }
-    });
-  },
-
-  onRenamePrefix(e) {
-    const record = this.data.prefixes[e.currentTarget.dataset.index];
-    if (!record || !record.prefix) return;
-
-    this.setData({
-      formVisible: true,
-      formMode: 'rename',
-      editingPrefix: record.prefix,
-      form: {
-        prefix: record.prefix,
-        category: record.category || 'chemical',
-        name: record.name || ''
+        category: 'chemical'
       }
     });
   },
@@ -118,12 +95,6 @@ Page({
     });
   },
 
-  onNameInput(e) {
-    this.setData({
-      'form.name': String(getInputValue(e) || '')
-    });
-  },
-
   onSelectChemical() {
     this.setData({ 'form.category': 'chemical' });
   },
@@ -133,36 +104,23 @@ Page({
   },
 
   async onSubmitForm() {
-    const mode = this.data.formMode;
-    const prefix = mode === 'rename'
-      ? normalizePrefixInput(this.data.editingPrefix)
-      : normalizePrefixInput(this.data.form.prefix);
+    const prefix = normalizePrefixInput(this.data.form.prefix);
     const category = this.data.form.category === 'film' ? 'film' : 'chemical';
-    const name = String(this.data.form.name || '').trim();
 
-    if (!/^[A-Z]-$/.test(prefix)) {
-      Toast.fail('前缀格式如 S-');
-      return;
-    }
-    if (!name) {
-      Toast.fail('请输入前缀名称');
+    if (!/^[A-Z]$/.test(prefix)) {
+      Toast.fail('前缀填写单个大写字母');
       return;
     }
 
     this.setData({ formSubmitting: true });
-    wx.showLoading({ title: mode === 'create' ? '创建中...' : '保存中...' });
+    wx.showLoading({ title: '创建中...' });
     try {
-      if (mode === 'create') {
-        await createProductCodePrefix(prefix, category, name);
-        Toast.success('创建成功');
-      } else {
-        await updateProductCodePrefix(prefix, name);
-        Toast.success('已保存');
-      }
+      await createProductCodePrefix(prefix, category);
+      Toast.success('创建成功');
       this.setData({ formVisible: false });
       await this.loadPrefixes();
     } catch (err) {
-      Toast.fail(err.message || (mode === 'create' ? '创建失败' : '保存失败'));
+      Toast.fail(err.message || '创建失败');
     } finally {
       wx.hideLoading();
       this.setData({ formSubmitting: false });

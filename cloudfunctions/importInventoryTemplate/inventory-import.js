@@ -99,8 +99,8 @@ function normalizeInventoryCategoryText(categoryText) {
 }
 
 const DEFAULT_ALLOWED_PREFIXES = {
-  chemical: ['J-', 'S-', 'Y-'],
-  film: ['M-']
+  chemical: ['J', 'S', 'Y'],
+  film: ['M']
 };
 
 function getAllowedProductCodePrefixes(category, customPrefixes) {
@@ -110,7 +110,7 @@ function getAllowedProductCodePrefixes(category, customPrefixes) {
     : DEFAULT_ALLOWED_PREFIXES[normalizedCategory];
   const normalized = source
     .map((item) => normalizeText(typeof item === 'string' ? item : item && item.prefix).toUpperCase())
-    .filter(Boolean);
+    .filter(item => /^[A-Z]$/u.test(item));
   return Array.from(new Set(normalized.length ? normalized : DEFAULT_ALLOWED_PREFIXES[normalizedCategory]));
 }
 
@@ -123,6 +123,9 @@ function normalizeProductCodePrefixInput(category, rawPrefix, customPrefixes) {
   const prefix = normalizeText(rawPrefix).toUpperCase();
   if (!prefix) {
     return { ok: false, msg: '代码前缀必填' };
+  }
+  if (!/^[A-Z]$/u.test(prefix)) {
+    return { ok: false, msg: '代码前缀只能填写单个大写字母，例如 J、S、Y、M' };
   }
   if (!allowedPrefixes.includes(prefix)) {
     return {
@@ -148,17 +151,6 @@ function normalizeProductCodeInput(category, rawInput, rawPrefix = '', customPre
   }
 
   let digits = rawValue;
-  if (/^[A-Z]-/u.test(rawValue)) {
-    if (!rawValue.startsWith(prefix)) {
-      return {
-        ok: false,
-        msg: category === 'film'
-          ? `膜材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(prefixCheck.allowedPrefixes)}`
-          : `化材产品代码前缀必须为 ${formatAllowedProductCodePrefixes(prefixCheck.allowedPrefixes)}`
-      };
-    }
-    digits = rawValue.slice(2);
-  }
 
   if (!new RegExp(`^\\d{1,${PRODUCT_CODE_DIGITS}}$`, 'u').test(digits)) {
     return { ok: false, msg: `产品代码必须为 1-${PRODUCT_CODE_DIGITS} 位数字` };
@@ -169,7 +161,7 @@ function normalizeProductCodeInput(category, rawInput, rawPrefix = '', customPre
     ok: true,
     prefix,
     number,
-    product_code: `${prefix}${number}`
+    product_code: `${prefix}-${number}`
   };
 }
 

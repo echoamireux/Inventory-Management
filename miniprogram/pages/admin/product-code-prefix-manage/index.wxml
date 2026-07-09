@@ -8,7 +8,7 @@
   </view>
 
   <view class="zone-hint">
-    前缀本身是物料身份的一部分，已创建后不支持修改；如需调整显示，请修改前缀名称。
+    前缀本身是物料身份的一部分，已创建后不支持修改；完整产品代码由系统自动组合，例如 J + 001 = J-001。
   </view>
 
   <view wx:if="{{ loading }}" class="zone-loading">
@@ -23,7 +23,7 @@
 
   <view wx:elif="{{ prefixes.length === 0 }}" class="project-state">
     <view class="project-state__title">暂无产品代码前缀</view>
-    <view class="project-state__text">请确认云函数已部署，系统会自动初始化 J-、S-、Y-、M-。</view>
+    <view class="project-state__text">请确认云函数已部署，系统会自动初始化 J、S、Y、M。</view>
     <van-button size="small" type="primary" plain round bind:click="onReloadPrefixes">重新加载</van-button>
   </view>
 
@@ -32,7 +32,6 @@
       <view class="zone-card {{ item.status === 'disabled' ? 'zone-card--disabled' : '' }}">
         <view class="zone-card__main">
           <view class="project-code">{{ item.prefix }}</view>
-          <view class="zone-card__name">{{ item.name }}</view>
           <view class="zone-card__meta">
             <van-tag plain type="primary" wx:if="{{ item.category === 'chemical' }}">化材</van-tag>
             <van-tag plain type="success" wx:else>膜材</van-tag>
@@ -41,7 +40,6 @@
           </view>
         </view>
         <view class="zone-card__actions">
-          <van-button size="mini" plain type="primary" bind:click="onRenamePrefix" data-index="{{ index }}">改名</van-button>
           <van-button size="mini" plain bind:click="onTogglePrefix" data-index="{{ index }}">
             {{ item.status === 'disabled' ? '启用' : '停用' }}
           </van-button>
@@ -61,24 +59,23 @@
   >
     <view class="project-form-panel">
       <view class="project-form-panel__title">
-        {{ formMode === 'create' ? '新建产品代码前缀' : '修改前缀名称' }}
+        新建产品代码前缀
       </view>
       <view class="project-form-panel__hint">
-        前缀用于组成 J-001、S-001 这类完整产品代码。前缀创建后不可改，只能停用或调整名称。
+        前缀只填写单个大写字母。系统会在完整产品代码中自动加入横杠。
       </view>
 
       <van-field
         label="前缀"
         value="{{ form.prefix }}"
-        placeholder="S-"
+        placeholder="S"
         required
-        readonly="{{ formMode === 'rename' }}"
         input-align="left"
         bind:change="onPrefixInput"
       />
-      <view class="project-form-panel__example">示例：S-、Y-</view>
+      <view class="project-form-panel__example">示例：S、Y</view>
 
-      <view wx:if="{{ formMode === 'create' }}" class="prefix-category">
+      <view class="prefix-category">
         <van-button
           size="small"
           round
@@ -93,20 +90,10 @@
         >膜材</van-button>
       </view>
 
-      <van-field
-        label="名称"
-        value="{{ form.name }}"
-        placeholder="例如 S类化材"
-        required
-        clearable
-        input-align="left"
-        bind:change="onNameInput"
-      />
-
       <view class="project-form-panel__actions">
         <van-button plain round block bind:click="onCloseForm" disabled="{{ formSubmitting }}">取消</van-button>
         <van-button type="primary" round block loading="{{ formSubmitting }}" bind:click="onSubmitForm">
-          {{ formMode === 'create' ? '创建前缀' : '保存名称' }}
+          创建前缀
         </van-button>
       </view>
     </view>

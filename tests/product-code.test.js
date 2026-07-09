@@ -20,32 +20,26 @@ for (const [label, impl] of [
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', '1'), {
       ok: true,
       number: '001',
-      prefix: 'J-',
+      prefix: 'J',
       product_code: 'J-001'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'J-01'), {
-      ok: true,
-      number: '001',
-      prefix: 'J-',
-      product_code: 'J-001'
+      ok: false,
+      msg: '产品代码必须为 1-3 位数字'
     });
-    assert.deepEqual(impl.normalizeProductCodeInput('chemical', '1', 'S-'), {
+    assert.deepEqual(impl.normalizeProductCodeInput('chemical', '1', 'S'), {
       ok: true,
       number: '001',
-      prefix: 'S-',
+      prefix: 'S',
       product_code: 'S-001'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'Y-1'), {
-      ok: true,
-      number: '001',
-      prefix: 'Y-',
-      product_code: 'Y-001'
+      ok: false,
+      msg: '产品代码必须为 1-3 位数字'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('film', 'M-1'), {
-      ok: true,
-      number: '001',
-      prefix: 'M-',
-      product_code: 'M-001'
+      ok: false,
+      msg: '产品代码必须为 1-3 位数字'
     });
   });
 
@@ -56,7 +50,7 @@ for (const [label, impl] of [
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'M-001'), {
       ok: false,
-      msg: '化材产品代码前缀必须为 J-、S-、Y-'
+      msg: '产品代码必须为 1-3 位数字'
     });
     assert.deepEqual(impl.validateStandardProductCode('film', 'M-01'), {
       ok: false,
@@ -66,17 +60,17 @@ for (const [label, impl] of [
 
   test(`${label}: custom active prefixes can be passed into validation`, () => {
     const allowedPrefixes = [
-      { prefix: 'A-', category: 'chemical', status: 'active' },
-      { prefix: 'M-', category: 'film', status: 'active' }
+      { prefix: 'A', category: 'chemical', status: 'active' },
+      { prefix: 'M', category: 'film', status: 'active' }
     ];
 
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', '7', {
-      prefix: 'A-',
+      prefix: 'A',
       allowedPrefixes
     }), {
       ok: true,
       number: '007',
-      prefix: 'A-',
+      prefix: 'A',
       product_code: 'A-007'
     });
     assert.deepEqual(impl.validateStandardProductCode('chemical', 'A-007', {
@@ -84,14 +78,14 @@ for (const [label, impl] of [
     }), {
       ok: true,
       number: '007',
-      prefix: 'A-',
+      prefix: 'A',
       product_code: 'A-007'
     });
     assert.deepEqual(impl.normalizeProductCodeInput('chemical', 'S-007', {
       allowedPrefixes
     }), {
       ok: false,
-      msg: '化材产品代码前缀必须为 A-'
+      msg: '产品代码必须为 1-3 位数字'
     });
   });
 }
@@ -190,4 +184,23 @@ test('batch entry supports blur or confirm driven exact product-code retrieval i
   assert.match(pageWxml, /codePrefixOptions/);
   assert.match(pageWxml, /bindblur="onMaterialCodeBlur"/);
   assert.match(pageWxml, /bindconfirm="onMaterialCodeConfirm"/);
+});
+
+test('product-code entry UIs hide the prefix selector when only one prefix is available', () => {
+  const singleAddWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
+    'utf8'
+  );
+  const batchEntryWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.wxml'),
+    'utf8'
+  );
+  const materialEditWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/admin/material-edit.wxml'),
+    'utf8'
+  );
+
+  assert.match(singleAddWxml, /wx:if="\{\{ showCodePrefixSelector \}\}"/);
+  assert.match(batchEntryWxml, /wx:if="\{\{ showCodePrefixSelector \}\}"/);
+  assert.match(materialEditWxml, /wx:if="\{\{ showCodePrefixSelector \}\}"/);
 });

@@ -54,14 +54,14 @@ const {
 const { normalizeFilmUnit } = require('../../utils/film');
 
 const DEFAULT_PREFIX_OPTIONS = [
-  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
-  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
-  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
-  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+  { prefix: 'J', category: 'chemical', status: 'active' },
+  { prefix: 'S', category: 'chemical', status: 'active' },
+  { prefix: 'Y', category: 'chemical', status: 'active' },
+  { prefix: 'M', category: 'film', status: 'active' }
 ];
 
 function extractCodePrefix(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]-)/);
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z])-/);
   return match ? match[1] : '';
 }
 
@@ -135,10 +135,11 @@ Page({
 
     // 联想建议
     suggestions: [],
-    codePrefix: 'J-',
+    codePrefix: 'J',
     codePrefixRecords: [],
     codePrefixOptions: [],
     showCodePrefixSheet: false,
+    showCodePrefixSelector: false,
 
     // 数据
     subCategoryRecords: [],
@@ -443,18 +444,19 @@ Page({
       const options = buildProductCodePrefixPickerColumns(records, normalizedCategory);
       const selectedPrefix = options.some(item => item.prefix === preferredPrefix)
           ? preferredPrefix
-          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M-' : 'J-');
+          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M' : 'J');
 
       this.setData({
           codePrefixRecords: records,
           codePrefixOptions: options,
-          codePrefix: selectedPrefix
+          codePrefix: selectedPrefix,
+          showCodePrefixSelector: options.length > 1
       });
       return selectedPrefix;
   },
 
   getPrefix() {
-      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M-' : 'J-');
+      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M' : 'J');
   },
 
   getProductCodeOptions(prefix = this.data.codePrefix) {
@@ -474,7 +476,7 @@ Page({
   },
 
   showCodePrefixSheet() {
-      if (this.data.form.preprint_label_id) {
+      if (this.data.form.preprint_label_id || !this.data.showCodePrefixSelector) {
           return;
       }
       this.setData({ showCodePrefixSheet: true });
@@ -1160,7 +1162,7 @@ Page({
       const nextTab = record.category === 'film' ? 'film' : 'chemical';
       const recordPrefix = extractCodePrefix(record.product_code);
       await this.loadPrefixOptions(nextTab, recordPrefix);
-      const normalizedCode = normalizeProductCodeInput(
+      const normalizedCode = validateStandardProductCode(
         nextTab,
         record.product_code,
         this.getProductCodeOptions(recordPrefix || this.data.codePrefix)

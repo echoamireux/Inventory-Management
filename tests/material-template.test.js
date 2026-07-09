@@ -16,10 +16,10 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
     chemicalSubcategories: ['主胶', '树脂', '溶剂'],
     filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜'],
     codePrefixes: [
-      { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active', sort_order: 10 },
-      { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active', sort_order: 20 },
-      { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active', sort_order: 30 },
-      { prefix: 'M-', category: 'film', name: '膜材', status: 'active', sort_order: 40 }
+      { prefix: 'J', category: 'chemical', status: 'active', sort_order: 10 },
+      { prefix: 'S', category: 'chemical', status: 'active', sort_order: 20 },
+      { prefix: 'Y', category: 'chemical', status: 'active', sort_order: 30 },
+      { prefix: 'M', category: 'film', status: 'active', sort_order: 40 }
     ]
   });
 
@@ -79,7 +79,7 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
       range: 'Config!$F$2:$F$5'
     }
   });
-  assert.deepEqual(spec.codePrefixOptions, ['J-', 'S-', 'Y-', 'M-']);
+  assert.deepEqual(spec.codePrefixOptions, ['J', 'S', 'Y', 'M']);
 });
 
 test('active template subcategories only include active non-deprecated records in sorted order', () => {
@@ -125,10 +125,10 @@ test('template spec keeps representative example rows aligned with the new gover
     chemicalSubcategories: ['主胶', '树脂', '溶剂'],
     filmSubcategories: ['基材-PET', '基材-BOPP', '保护膜'],
     codePrefixes: [
-      { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active', sort_order: 10 },
-      { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active', sort_order: 20 },
-      { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active', sort_order: 30 },
-      { prefix: 'M-', category: 'film', name: '膜材', status: 'active', sort_order: 40 }
+      { prefix: 'J', category: 'chemical', status: 'active', sort_order: 10 },
+      { prefix: 'S', category: 'chemical', status: 'active', sort_order: 20 },
+      { prefix: 'Y', category: 'chemical', status: 'active', sort_order: 30 },
+      { prefix: 'M', category: 'film', status: 'active', sort_order: 40 }
     ]
   });
   const helpText = spec.helpLines.join('\n');
@@ -140,7 +140,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /代码前缀\*：必填/);
   assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
-  assert.match(helpText, /当前产品代码前缀：J- \/ S- \/ Y- \/ M-/);
+  assert.match(helpText, /当前产品代码前缀：J \/ S \/ Y \/ M/);
   assert.match(helpText, /当前化材包装形式：瓶装 \/ 桶装 \/ 袋装 \/ 卷装 \/ 盒装/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
@@ -164,8 +164,8 @@ test('template spec keeps representative example rows aligned with the new gover
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
-    ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
-    ['M-', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
+    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+    ['M', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
 });
 

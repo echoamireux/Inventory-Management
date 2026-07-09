@@ -37,7 +37,7 @@
       <view class="code-picker-block">
         <view class="code-picker-label">产品代码</view>
         <view class="code-picker-row">
-          <view class="code-prefix-chip" bindtap="showCodePrefixSheet">
+          <view wx:if="{{ showCodePrefixSelector }}" class="code-prefix-chip" bindtap="showCodePrefixSheet">
             <text>{{ codePrefix }}</text>
             <van-icon name="arrow-down" custom-class="code-prefix-arrow" />
           </view>

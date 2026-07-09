@@ -90,7 +90,7 @@ function validateTemplateSubcategoryState({
 function buildMaterialTemplateSpec({
   chemicalSubcategories = [],
   filmSubcategories = [],
-  codePrefixes = ['J-', 'S-', 'Y-', 'M-']
+  codePrefixes = ['J', 'S', 'Y', 'M']
 } = {}) {
   const chemicalSubcategoryEnd = chemicalSubcategories.length + 1;
   const filmSubcategoryEnd = filmSubcategories.length + 1;
@@ -100,10 +100,10 @@ function buildMaterialTemplateSpec({
   const normalizedCodePrefixes = (Array.isArray(codePrefixes) ? codePrefixes : [])
     .map(item => (typeof item === 'string' ? item : item && item.prefix))
     .map(item => String(item || '').trim().toUpperCase())
-    .filter(Boolean);
+    .filter(item => /^[A-Z]$/.test(item));
   const codePrefixOptions = Array.from(new Set(normalizedCodePrefixes.length
     ? normalizedCodePrefixes
-    : ['J-', 'S-', 'Y-', 'M-']));
+    : ['J', 'S', 'Y', 'M']));
   const codePrefixEnd = codePrefixOptions.length + 1;
   const chemicalExampleSubcategory = pickRepresentativeSubcategory(
     chemicalSubcategories,
@@ -184,7 +184,7 @@ function buildMaterialTemplateSpec({
       '3. 模板填写完成后，请直接上传 .xlsx 文件回到系统导入。',
       '',
       '▶ 字段说明',
-      '代码前缀*：必填。请从下拉选择 J-、S-、Y-、M- 等当前启用前缀。',
+      '代码前缀*：必填。请从下拉选择 J、S、Y、M 等当前启用前缀，只填写字母，不填写横杠。',
       '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。',
       '物料名称*：必填。',
       '类别*：必填。只能选择“化材”或“膜材”。',
@@ -205,8 +205,8 @@ function buildMaterialTemplateSpec({
       `当前化材包装形式：${PACKAGE_TYPE_OPTIONS.join(' / ')}`
     ],
     exampleRows: [
-      ['J-', '001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
-      ['M-', '002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
+      ['J', '001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '铁桶', '', '', '国药', 'IPA-99', '否'],
+      ['M', '002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
     ]
   };
 }

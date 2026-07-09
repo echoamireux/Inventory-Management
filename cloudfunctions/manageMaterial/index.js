@@ -1028,9 +1028,17 @@ async function checkMaterialStatus(data) {
 
   // 构造可能的前缀组合
   const codes = [product_code];
-  if (!product_code.startsWith('J-') && !product_code.startsWith('M-')) {
-    codes.push(`J-${product_code}`);
-    codes.push(`M-${product_code}`);
+  if (!/^[A-Z]-/u.test(product_code)) {
+    const prefixRecords = await ensureBuiltinProductCodePrefixes(db);
+    const prefixes = Array.from(new Set(
+      prefixRecords
+        .filter(item => item.status !== 'disabled')
+        .map(item => item.prefix)
+        .filter(Boolean)
+    ));
+    prefixes.forEach((prefix) => {
+      codes.push(`${prefix}-${product_code}`);
+    });
   }
 
   // 使用 in 查询匹配任意一种情况

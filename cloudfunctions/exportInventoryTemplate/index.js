@@ -147,7 +147,7 @@ async function loadProductCodePrefixes() {
     const records = await ensureBuiltinProductCodePrefixes(db);
     return records.filter(item => (item.status || 'active') === 'active');
   } catch (_error) {
-    return ['J-', 'S-', 'Y-', 'M-'];
+    return ['J', 'S', 'Y', 'M'];
   }
 }
 

@@ -61,12 +61,8 @@ async function createPrefix(event, openid) {
 
   const prefix = normalizeProductCodePrefix(event && event.prefix);
   const category = normalizePrefixCategory(event && event.category);
-  const name = String((event && event.name) || '').trim();
-  if (!/^[A-Z]-$/u.test(prefix)) {
-    return { success: false, msg: '前缀必须为单个大写字母加横杠，例如 S-' };
-  }
-  if (!name) {
-    return { success: false, msg: '请输入前缀名称' };
+  if (!/^[A-Z]$/u.test(prefix)) {
+    return { success: false, msg: '前缀必须为单个大写字母，例如 S' };
   }
   if (await findPrefix(prefix)) {
     return { success: false, msg: '产品代码前缀已存在' };
@@ -78,7 +74,6 @@ async function createPrefix(event, openid) {
     data: {
       prefix,
       category,
-      name,
       status: 'active',
       is_builtin: false,
       sort_order: maxOrder + 10,
@@ -93,37 +88,6 @@ async function createPrefix(event, openid) {
     id: res._id,
     prefix
   };
-}
-
-async function updatePrefix(event, openid) {
-  const operator = await loadOperator(openid);
-  const authResult = assertAdminMutationAccess(operator, '仅管理员可维护产品代码前缀');
-  if (!authResult.ok) {
-    return { success: false, msg: authResult.msg };
-  }
-
-  const prefix = normalizeProductCodePrefix(event && event.prefix);
-  const name = String((event && event.name) || '').trim();
-  if (!prefix) {
-    return { success: false, msg: '缺少产品代码前缀' };
-  }
-  if (!name) {
-    return { success: false, msg: '请输入前缀名称' };
-  }
-
-  const record = await findPrefix(prefix);
-  if (!record || !record._id) {
-    return { success: false, msg: '产品代码前缀不存在' };
-  }
-
-  await db.collection('product_code_prefixes').doc(record._id).update({
-    data: {
-      name,
-      updated_at: db.serverDate()
-    }
-  });
-
-  return { success: true, msg: '保存成功' };
 }
 
 async function assertCategoryHasActiveAfter(prefixRecord, nextStatus) {
@@ -220,9 +184,6 @@ exports.main = async (event) => {
     }
     if (action === 'create') {
       return await createPrefix(event || {}, OPENID);
-    }
-    if (action === 'update') {
-      return await updatePrefix(event || {}, OPENID);
     }
     if (action === 'setStatus') {
       return await setPrefixStatus(event || {}, OPENID);

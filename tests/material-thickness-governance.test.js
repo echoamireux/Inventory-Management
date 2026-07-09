@@ -75,7 +75,7 @@ test('material master sync maps standard material_name into the stock-in form na
     supplier_model: 'SA-810',
     sub_category: '测试料',
     unit: 'kg'
-  }, 'J-');
+  }, 'J');
 
   assert.equal(nextForm.product_code, '999');
   assert.equal(nextForm.name, '测试料');
@@ -94,7 +94,7 @@ test('material master sync uses default_unit returned by material detail queries
     material_name: 'UV减粘胶',
     default_unit: 'mL',
     sub_category: '胶黏剂'
-  }, 'J-');
+  }, 'J');
 
   assert.equal(chemicalForm.unit, 'mL');
 
@@ -110,7 +110,7 @@ test('material master sync uses default_unit returned by material detail queries
       thickness_um: 50,
       standard_width_mm: 1080
     }
-  }, 'M-');
+  }, 'M');
 
   assert.equal(filmForm.unit, 'm²');
   assert.equal(filmForm.thickness_um, '50');

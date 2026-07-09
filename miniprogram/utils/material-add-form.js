@@ -45,8 +45,11 @@ function stripProductCodePrefix(productCode, prefix) {
     return '';
   }
 
-  if (prefix && value.startsWith(prefix)) {
-    return value.slice(prefix.length);
+  if (prefix) {
+    const normalizedPrefix = String(prefix).trim().toUpperCase().replace(/-$/u, '');
+    if (normalizedPrefix && value.toUpperCase().startsWith(`${normalizedPrefix}-`)) {
+      return value.slice(normalizedPrefix.length + 1);
+    }
   }
 
   const parts = value.split('-');

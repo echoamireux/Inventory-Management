@@ -70,7 +70,7 @@ test('inventory template workbook keeps category-driven zone validation compatib
   const buffer = await buildInventoryTemplateWorkbookBuffer({
     chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线'],
-    codePrefixes: ['J-', 'S-', 'Y-', 'M-']
+    codePrefixes: ['J', 'S', 'Y', 'M']
   });
 
   const zip = await JSZip.loadAsync(buffer);
@@ -90,7 +90,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   const workbook = await buildInventoryTemplateWorkbook(buildInventoryTemplateSpec({
     chemicalZones: ['防爆柜01', '防爆柜02'],
     filmZones: ['研发仓1', '实验线'],
-    codePrefixes: ['J-', 'S-', 'Y-', 'M-']
+    codePrefixes: ['J', 'S', 'Y', 'M']
   }));
 
   const dataSheet = workbook.getWorksheet('库存入库表');

@@ -1,32 +1,28 @@
 const BUILTIN_PRODUCT_CODE_PREFIX_SEEDS = [
   {
-    prefix: 'J-',
+    prefix: 'J',
     category: 'chemical',
-    name: 'J类化材',
     is_builtin: true,
     status: 'active',
     sort_order: 10
   },
   {
-    prefix: 'S-',
+    prefix: 'S',
     category: 'chemical',
-    name: 'S类化材',
     is_builtin: true,
     status: 'active',
     sort_order: 20
   },
   {
-    prefix: 'Y-',
+    prefix: 'Y',
     category: 'chemical',
-    name: 'Y类化材',
     is_builtin: true,
     status: 'active',
     sort_order: 30
   },
   {
-    prefix: 'M-',
+    prefix: 'M',
     category: 'film',
-    name: '膜材',
     is_builtin: true,
     status: 'active',
     sort_order: 110
@@ -39,9 +35,6 @@ function normalizeProductCodePrefix(value) {
     return '';
   }
   if (/^[A-Z]$/u.test(raw)) {
-    return `${raw}-`;
-  }
-  if (/^[A-Z]-$/u.test(raw)) {
     return raw;
   }
   return raw;
@@ -55,11 +48,6 @@ function normalizeStatus(status) {
   return status === 'disabled' ? 'disabled' : 'active';
 }
 
-function normalizePrefixName(name, prefix = '') {
-  const normalized = String(name || '').trim();
-  return normalized || prefix;
-}
-
 function normalizeProductCodePrefixRecord(record = {}) {
   const prefix = normalizeProductCodePrefix(record.prefix || record.code_prefix || record.value);
   const category = normalizePrefixCategory(record.category || record.scope);
@@ -68,7 +56,7 @@ function normalizeProductCodePrefixRecord(record = {}) {
     _id: record._id,
     prefix,
     category,
-    name: normalizePrefixName(record.name, prefix),
+    name: String(record.name || '').trim(),
     is_builtin: !!record.is_builtin,
     status: normalizeStatus(record.status),
     sort_order: Number(record.sort_order !== undefined ? record.sort_order : record.order) || 0
@@ -78,7 +66,7 @@ function normalizeProductCodePrefixRecord(record = {}) {
 function sortProductCodePrefixRecords(records = []) {
   return (Array.isArray(records) ? records : [])
     .map(normalizeProductCodePrefixRecord)
-    .filter(item => item.prefix)
+    .filter(item => /^[A-Z]$/u.test(item.prefix))
     .sort((left, right) => {
       const orderDiff = (Number(left.sort_order) || 0) - (Number(right.sort_order) || 0);
       if (orderDiff !== 0) return orderDiff;
@@ -100,11 +88,20 @@ function filterProductCodePrefixRecordsByCategory(records = [], category = 'chem
 function buildProductCodePrefixActions(records = [], category = 'chemical') {
   return filterProductCodePrefixRecordsByCategory(records, category, { includeDisabled: false })
     .map(item => ({
-      name: item.name ? `${item.prefix} ${item.name}` : item.prefix,
+      name: item.prefix,
       value: item.prefix,
       prefix: item.prefix,
       category: item.category
     }));
+}
+
+function isCollectionExistsError(error) {
+  const message = String((error && error.errMsg) || error.message || '').toLowerCase();
+  return message.includes('exists') ||
+    message.includes('已存在') ||
+    message.includes('resourceexist') ||
+    message.includes('table exist') ||
+    message.includes('database_collection_already_exist');
 }
 
 async function ensureCollection(db) {
@@ -115,12 +112,7 @@ async function ensureCollection(db) {
   try {
     await db.createCollection('product_code_prefixes');
   } catch (error) {
-    const message = String((error && error.errMsg) || error.message || '');
-    if (
-      message.includes('exists') ||
-      message.includes('已存在') ||
-      message.includes('DATABASE_COLLECTION_ALREADY_EXISTS')
-    ) {
+    if (isCollectionExistsError(error)) {
       return;
     }
     throw error;
@@ -167,7 +159,6 @@ async function ensureBuiltinProductCodePrefixes(db) {
       const needsRefresh =
         existing.category !== seed.category ||
         existing.is_builtin !== true ||
-        !existing.name ||
         existing.sort_order <= 0;
 
       if (needsRefresh) {
@@ -176,9 +167,6 @@ async function ensureBuiltinProductCodePrefixes(db) {
           is_builtin: true,
           updated_at: db.serverDate()
         };
-        if (!existing.name) {
-          data.name = seed.name;
-        }
         if (existing.sort_order <= 0) {
           data.sort_order = seed.sort_order;
         }

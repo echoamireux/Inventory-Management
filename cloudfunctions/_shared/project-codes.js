@@ -99,10 +99,17 @@ async function ensureCollection(db) {
   try {
     await db.createCollection('project_codes');
   } catch (error) {
-    const message = String((error && error.errMsg) || error.message || '');
-    if (message.includes('exists') || message.includes('已存在') || message.includes('DATABASE_COLLECTION_ALREADY_EXISTS')) {
+    const message = String((error && error.errMsg) || error.message || '').toLowerCase();
+    if (
+      message.includes('exists') ||
+      message.includes('已存在') ||
+      message.includes('resourceexist') ||
+      message.includes('table exist') ||
+      message.includes('database_collection_already_exist')
+    ) {
       return;
     }
+    throw error;
   }
 }
 

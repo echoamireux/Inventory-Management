@@ -20,8 +20,8 @@ const CATEGORY_LABELS = {
 
 // 分类前缀
 const CATEGORY_PREFIX = {
-  chemical: 'J-',
-  film: 'M-'
+  chemical: 'J',
+  film: 'M'
 };
 
 // ========== 化材分类 ==========

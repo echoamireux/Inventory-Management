@@ -39,14 +39,19 @@ const {
 } = require('../../utils/product-code-prefix-service');
 
 const DEFAULT_PREFIX_OPTIONS = [
-  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
-  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
-  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
-  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+  { prefix: 'J', category: 'chemical', status: 'active' },
+  { prefix: 'S', category: 'chemical', status: 'active' },
+  { prefix: 'Y', category: 'chemical', status: 'active' },
+  { prefix: 'M', category: 'film', status: 'active' }
 ];
 
 function extractCodePrefix(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^([A-Z]-)/);
+  const match = String(value || '').trim().toUpperCase().match(/^([A-Z])-/);
+  return match ? match[1] : '';
+}
+
+function extractCodeNumber(value) {
+  const match = String(value || '').trim().toUpperCase().match(/^[A-Z]-(\d{1,3})$/);
   return match ? match[1] : '';
 }
 
@@ -75,10 +80,11 @@ Page({
     activeTab: 'chemical',
     list: [],
     materialCodeInput: '',
-    codePrefix: 'J-',
+    codePrefix: 'J',
     codePrefixRecords: [],
     codePrefixOptions: [],
     showCodePrefixSheet: false,
+    showCodePrefixSelector: false,
     materialSuggestions: [],
     suggestionTimer: null,
     selectedMaterial: null,
@@ -168,17 +174,18 @@ Page({
       const options = buildProductCodePrefixPickerColumns(records, normalizedCategory);
       const selectedPrefix = options.some(item => item.prefix === preferredPrefix)
           ? preferredPrefix
-          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M-' : 'J-');
+          : (options[0] && options[0].prefix) || (normalizedCategory === 'film' ? 'M' : 'J');
       this.setData({
           codePrefixRecords: records,
           codePrefixOptions: options,
-          codePrefix: selectedPrefix
+          codePrefix: selectedPrefix,
+          showCodePrefixSelector: options.length > 1
       });
       return selectedPrefix;
   },
 
   getPrefix() {
-      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M-' : 'J-');
+      return this.data.codePrefix || (this.data.activeTab === 'film' ? 'M' : 'J');
   },
 
   getProductCodeOptions(prefix = this.data.codePrefix) {
@@ -189,6 +196,9 @@ Page({
   },
 
   showCodePrefixSheet() {
+      if (!this.data.showCodePrefixSelector) {
+          return;
+      }
       this.setData({ showCodePrefixSheet: true });
   },
 
@@ -475,7 +485,7 @@ Page({
               && String(selectedMaterialSummary.standardWidthMm) !== String(defaultBatchWidthMm)
           ),
           codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
-          materialCodeInput: String(material.product_code || '').replace(extractCodePrefix(material.product_code) || this.getPrefix(), ''),
+          materialCodeInput: extractCodeNumber(material.product_code),
           materialSuggestions: []
       });
 
@@ -601,7 +611,7 @@ Page({
               filmBatchSpecsConfirmed: !isFilm,
               usesCustomBatchWidth: false,
               codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
-              materialCodeInput: String(material.product_code || '').replace(extractCodePrefix(material.product_code) || this.getPrefix(), ''),
+              materialCodeInput: extractCodeNumber(material.product_code),
               materialSuggestions: []
           });
       };

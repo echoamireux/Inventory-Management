@@ -21,12 +21,8 @@ async function listProductCodePrefixes(includeDisabled = false, category = '') {
   return result.list || [];
 }
 
-async function createProductCodePrefix(prefix, category, name) {
-  return callProductCodePrefix('create', { prefix, category, name });
-}
-
-async function updateProductCodePrefix(prefix, name) {
-  return callProductCodePrefix('update', { prefix, name });
+async function createProductCodePrefix(prefix, category) {
+  return callProductCodePrefix('create', { prefix, category });
 }
 
 async function setProductCodePrefixStatus(prefix, status) {
@@ -41,8 +37,9 @@ function buildProductCodePrefixPickerColumns(records = [], category = '') {
   return (records || [])
     .filter(item => !category || item.category === category)
     .filter(item => item.status !== 'disabled')
+    .filter(item => /^[A-Z]$/.test(String(item.prefix || '')))
     .map(item => ({
-      text: item.name ? `${item.prefix} ${item.name}` : item.prefix,
+      text: item.prefix,
       value: item.prefix,
       prefix: item.prefix,
       category: item.category
@@ -52,7 +49,6 @@ function buildProductCodePrefixPickerColumns(records = [], category = '') {
 module.exports = {
   listProductCodePrefixes,
   createProductCodePrefix,
-  updateProductCodePrefix,
   setProductCodePrefixStatus,
   reorderProductCodePrefixes,
   buildProductCodePrefixPickerColumns

@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const {
   BUILTIN_PRODUCT_CODE_PREFIX_SEEDS,
+  ensureBuiltinProductCodePrefixes,
   normalizeProductCodePrefix,
   normalizeProductCodePrefixRecord,
   sortProductCodePrefixRecords,
@@ -20,34 +21,88 @@ test('builtin product code prefixes cover chemical J/S/Y and film M', () => {
   assert.deepEqual(
     BUILTIN_PRODUCT_CODE_PREFIX_SEEDS.map(item => [item.prefix, item.category, item.status]),
     [
-      ['J-', 'chemical', 'active'],
-      ['S-', 'chemical', 'active'],
-      ['Y-', 'chemical', 'active'],
-      ['M-', 'film', 'active']
+      ['J', 'chemical', 'active'],
+      ['S', 'chemical', 'active'],
+      ['Y', 'chemical', 'active'],
+      ['M', 'film', 'active']
     ]
   );
+  assert.equal(BUILTIN_PRODUCT_CODE_PREFIX_SEEDS.some(item => item.name), false);
 });
 
 test('product code prefix helpers normalize and filter active category prefixes', () => {
-  assert.equal(normalizeProductCodePrefix('s'), 'S-');
-  assert.equal(normalizeProductCodePrefix('Y-'), 'Y-');
+  assert.equal(normalizeProductCodePrefix('s'), 'S');
+  assert.equal(normalizeProductCodePrefix('Y'), 'Y');
+  assert.equal(/^[A-Z]$/.test(normalizeProductCodePrefix('Y-')), false);
   assert.equal(normalizeProductCodePrefix(''), '');
 
   const records = sortProductCodePrefixRecords([
-    { prefix: 'S', category: 'chemical', name: 'S类化材', sort_order: 20 },
-    { prefix: 'M-', category: 'film', name: '膜材', sort_order: 10 },
-    { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'disabled', sort_order: 10 }
+    { prefix: 'S', category: 'chemical', sort_order: 20 },
+    { prefix: 'M', category: 'film', sort_order: 10 },
+    { prefix: 'J', category: 'chemical', status: 'disabled', sort_order: 10 }
   ]);
 
-  assert.deepEqual(records.map(item => item.prefix), ['J-', 'M-', 'S-']);
+  assert.deepEqual(records.map(item => item.prefix), ['J', 'M', 'S']);
   assert.deepEqual(
     filterProductCodePrefixRecordsByCategory(records, 'chemical', { includeDisabled: false }).map(item => item.prefix),
-    ['S-']
+    ['S']
   );
   assert.deepEqual(buildProductCodePrefixActions(records, 'film'), [
-    { name: 'M- 膜材', value: 'M-', prefix: 'M-', category: 'film' }
+    { name: 'M', value: 'M', prefix: 'M', category: 'film' }
   ]);
-  assert.equal(normalizeProductCodePrefixRecord({ prefix: 'y', category: 'chemical' }).prefix, 'Y-');
+  assert.equal(normalizeProductCodePrefixRecord({ prefix: 'y', category: 'chemical' }).prefix, 'Y');
+});
+
+test('frontend prefix picker presents plain prefix letters without descriptions', () => {
+  const { buildProductCodePrefixPickerColumns } = require('../miniprogram/utils/product-code-prefix-service');
+
+  const columns = buildProductCodePrefixPickerColumns([
+    { prefix: 'J', category: 'chemical', status: 'active' },
+    { prefix: 'S', category: 'chemical', status: 'active' },
+    { prefix: 'M', category: 'film', status: 'active' }
+  ], 'chemical');
+
+  assert.deepEqual(columns, [
+    { text: 'J', value: 'J', prefix: 'J', category: 'chemical' },
+    { text: 'S', value: 'S', prefix: 'S', category: 'chemical' }
+  ]);
+});
+
+test('product code prefix collection ensure treats cloud already-exists errors as idempotent', async () => {
+  const existingErrors = [
+    { errMsg: 'createCollection:fail [ResourceUnavailable.ResourceExist] Table exist' },
+    { errMsg: 'DATABASE_COLLECTION_ALREADY_EXIST' },
+    { message: 'DATABASE_COLLECTION_ALREADY_EXISTS' }
+  ];
+
+  for (const error of existingErrors) {
+    const added = [];
+    const db = {
+      async createCollection() {
+        throw error;
+      },
+      serverDate() {
+        return new Date('2026-01-01T00:00:00Z');
+      },
+      collection() {
+        return {
+          skip() { return this; },
+          limit() { return this; },
+          async get() { return { data: added }; },
+          async add({ data }) {
+            added.push({ _id: `prefix-${added.length}`, ...data });
+            return { _id: `prefix-${added.length}` };
+          },
+          doc() {
+            return { async update() {} };
+          }
+        };
+      }
+    };
+
+    await assert.doesNotReject(() => ensureBuiltinProductCodePrefixes(db));
+    assert.deepEqual(added.map(item => item.prefix), ['J', 'S', 'Y', 'M']);
+  }
 });
 
 test('product code prefix management is registered and reachable for admins', () => {

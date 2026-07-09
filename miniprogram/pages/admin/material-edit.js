@@ -25,10 +25,10 @@ const {
 } = require('../../utils/product-code-prefix-service');
 
 const DEFAULT_PREFIX_OPTIONS = [
-  { prefix: 'J-', category: 'chemical', name: 'J类化材', status: 'active' },
-  { prefix: 'S-', category: 'chemical', name: 'S类化材', status: 'active' },
-  { prefix: 'Y-', category: 'chemical', name: 'Y类化材', status: 'active' },
-  { prefix: 'M-', category: 'film', name: '膜材', status: 'active' }
+  { prefix: 'J', category: 'chemical', status: 'active' },
+  { prefix: 'S', category: 'chemical', status: 'active' },
+  { prefix: 'Y', category: 'chemical', status: 'active' },
+  { prefix: 'M', category: 'film', status: 'active' }
 ];
 
 Page({
@@ -54,6 +54,7 @@ Page({
     codePrefix: '',
     codePrefixRecords: [],
     codePrefixOptions: [],
+    showCodePrefixSelector: false,
     showCodePrefixPicker: false,
 
     // 重复检查状态
@@ -100,13 +101,13 @@ Page({
 
     const inferredCategory = rawCategory || (String(rawProductCode).startsWith('M-') ? 'film' : 'chemical');
     const categoryIndex = inferredCategory === 'film' ? 1 : 0;
-    const rawPrefixMatch = String(rawProductCode || '').trim().toUpperCase().match(/^([A-Z]-)/);
+    const rawPrefixMatch = String(rawProductCode || '').trim().toUpperCase().match(/^([A-Z])-/);
     const codePrefix = await this.loadPrefixOptionsForCategory(
       inferredCategory,
       rawPrefixMatch ? rawPrefixMatch[1] : ''
     );
     const normalizedCode = rawProductCode
-      ? normalizeProductCodeInput(inferredCategory, rawProductCode, {
+      ? validateStandardProductCode(inferredCategory, rawProductCode, {
         prefix: codePrefix,
         allowedPrefixes: this.data.codePrefixRecords
       })
@@ -151,12 +152,13 @@ Page({
     const prefixes = options.map(item => item.prefix);
     const selectedPrefix = prefixes.includes(preferredPrefix)
       ? preferredPrefix
-      : prefixes[0] || (normalizedCategory === 'film' ? 'M-' : 'J-');
+      : prefixes[0] || (normalizedCategory === 'film' ? 'M' : 'J');
 
     this.setData({
       codePrefixRecords: records,
       codePrefixOptions: options,
-      codePrefix: selectedPrefix
+      codePrefix: selectedPrefix,
+      showCodePrefixSelector: options.length > 1
     });
 
     return selectedPrefix;
@@ -253,7 +255,7 @@ Page({
       if (res.result.success) {
         const data = res.result.data;
         const categoryIndex = data.category === 'film' ? 1 : 0;
-        const codeMatch = String(data.product_code || '').trim().toUpperCase().match(/^([A-Z]-)(\d{1,})$/);
+        const codeMatch = String(data.product_code || '').trim().toUpperCase().match(/^([A-Z])-(\d{1,})$/);
         const codePrefix = await this.loadPrefixOptionsForCategory(
           data.category,
           codeMatch ? codeMatch[1] : ''
@@ -359,7 +361,7 @@ Page({
 
     this.setData({
       'form.product_code_number': number,
-      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}${number}`
+      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}-${number}`
     });
 
     // 防抖检查重复
@@ -437,7 +439,7 @@ Page({
       'form.package_type': category === 'chemical' ? this.data.form.package_type : '',
       'form.thickness_um': category === 'film' ? this.data.form.thickness_um : '',
       'form.width_mm': category === 'film' ? this.data.form.width_mm : '',
-      'form.product_code': codePrefix + number,
+      'form.product_code': number ? `${codePrefix}-${number}` : '',
       codePrefix: codePrefix,
       subCategoryIndex: 0,
       unitIndex: 0,
@@ -471,6 +473,9 @@ Page({
       Toast.fail('请先选择类别');
       return;
     }
+    if (!this.data.showCodePrefixSelector) {
+      return;
+    }
     this.setData({ showCodePrefixPicker: true });
   },
 
@@ -486,7 +491,7 @@ Page({
     this.setData({
       codePrefix,
       showCodePrefixPicker: false,
-      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}${number}`,
+      'form.product_code': normalizedCode.ok ? normalizedCode.product_code : `${codePrefix}-${number}`,
       duplicateStatus: '',
       existingMaterial: null
     });

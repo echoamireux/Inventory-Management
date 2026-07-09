@@ -23,7 +23,7 @@
         <view slot="input" class="code-input-wrapper" style="width: 100%;">
           <view
             class="code-prefix-picker {{ categoryIndex === null ? 'code-prefix-picker--disabled' : '' }}"
-            wx:if="{{ codePrefix }}"
+            wx:if="{{ showCodePrefixSelector }}"
             bindtap="onShowCodePrefixPicker"
           >
             {{ codePrefix }}

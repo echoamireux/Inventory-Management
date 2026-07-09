@@ -343,7 +343,7 @@ test('inventory template import keeps the formal header row as the only hard gat
 test('inventory import preview resolves governed chemical rows against current master data and active zones', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000301', 'J-', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+    values: ['L000301', 'J', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -370,10 +370,24 @@ test('inventory import preview resolves governed chemical rows against current m
   assert.equal(preview.quantity_summary, '2 kg');
 });
 
+test('inventory import preview rejects hyphenated code prefixes in the new template', () => {
+  const hyphenatedPrefix = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000301', 'J-', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, buildContext());
+  const prefixedNumber = buildInventoryImportPreviewRow({
+    rowIndex: 5,
+    values: ['L000302', 'J', 'J-001', '化材', 'AC240302', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+  }, buildContext());
+
+  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写单个大写字母，例如 J、S、Y、M');
+  assert.equal(prefixedNumber.error, '产品代码必须为 1-3 位数字');
+});
+
 test('inventory import preview rejects unavailable preprint labels before submit', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000302', 'J-', '001', '化材', 'AC240302', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+    values: ['L000302', 'J', '001', '化材', 'AC240302', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -403,7 +417,7 @@ test('inventory import preview rejects unavailable preprint labels before submit
 test('inventory import preview keeps missing-material feedback at row level', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000399', 'J-', '211', '化材', 'AC260325', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+    values: ['L000399', 'J', '211', '化材', 'AC260325', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext());
 
   assert.equal(preview.product_code, 'J-211');
@@ -413,7 +427,7 @@ test('inventory import preview keeps missing-material feedback at row level', ()
 test('inventory import preview treats an eligible duplicate chemical label as refill instead of an error', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000401', 'J-', '001', '化材', 'AC240401', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+    values: ['L000401', 'J', '001', '化材', 'AC240401', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -448,7 +462,7 @@ test('inventory import preview treats an eligible duplicate chemical label as re
 test('inventory import preview keeps duplicate film labels blocked even when the batch matches', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000402', 'M-', '001', '膜材', 'PET240401', '研发仓1', 'B02', '', '', '25', '1080', '100', '', '', '', '2026-10-01', '']
+    values: ['L000402', 'M', '001', '膜材', 'PET240401', '研发仓1', 'B02', '', '', '25', '1080', '100', '', '', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -489,7 +503,7 @@ test('inventory import preview keeps duplicate film labels blocked even when the
 test('inventory import preview warns when a chemical row looks duplicated against current in-stock inventory', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000302', 'J-', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
+    values: ['L000302', 'J', '001', '化材', 'AC240301', '防爆柜01', 'A01', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-001', {
@@ -523,7 +537,7 @@ test('inventory import preview warns when a chemical row looks duplicated agains
 test('inventory import preview requires supplier model but keeps supplier and sample note optional for test materials', () => {
   const missingModel = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000901', 'J-', '999', '化材', 'TEST-001', '防爆柜01', 'A01', '2', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
+    values: ['L000901', 'J', '999', '化材', 'TEST-001', '防爆柜01', 'A01', '2', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-999', {
@@ -540,7 +554,7 @@ test('inventory import preview requires supplier model but keeps supplier and sa
 
   const optionalSourceAndNote = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000902', 'J-', '999', '化材', 'TEST-002', '防爆柜01', 'A02', '1', '小瓶', '', '', '', '', 'TM-02', '', '2026-10-01', '']
+    values: ['L000902', 'J', '999', '化材', 'TEST-002', '防爆柜01', 'A02', '1', '小瓶', '', '', '', '', 'TM-02', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-999', {
@@ -588,7 +602,7 @@ test('inventory import preview aligns test-material supplier model with preprint
 
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000904', 'J-', '999', '化材', 'TEST-004', '防爆柜01', 'A04', '0.5', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
+    values: ['L000904', 'J', '999', '化材', 'TEST-004', '防爆柜01', 'A04', '0.5', '小瓶', '', '', '', '', '', '', '2026-10-01', '']
   }, context);
 
   assert.equal(preview.error, '');
@@ -607,7 +621,7 @@ test('inventory import preview rejects test-material supplier model conflicts wi
   };
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000905', 'J-', '999', '化材', 'TEST-005', '防爆柜01', 'A05', '0.5', '小瓶', '', '', '', '', 'OTHER-MODEL', '', '2026-10-01', '']
+    values: ['L000905', 'J', '999', '化材', 'TEST-005', '防爆柜01', 'A05', '0.5', '小瓶', '', '', '', '', 'OTHER-MODEL', '', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([['J-999', material]]),
     preprintLabelsByUniqueCode: new Map([
@@ -640,7 +654,7 @@ test('inventory import preview and payload keep test-material identifiers as inv
   };
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,
-    values: ['L000903', 'J-', '999', '化材', 'TEST-003', '防爆柜01', 'A03', '0.5', '小瓶', '', '', '', '送样供应商', 'SAMPLE-X', '透明小样，客户A评估', '2026-10-01', '']
+    values: ['L000903', 'J', '999', '化材', 'TEST-003', '防爆柜01', 'A03', '0.5', '小瓶', '', '', '', '送样供应商', 'SAMPLE-X', '透明小样，客户A评估', '2026-10-01', '']
   }, buildContext({
     materialsByCode: new Map([['J-999', material]])
   }));
@@ -703,7 +717,7 @@ test('inventory import payload aligns test-material supplier model with preprint
 test('inventory import preview derives film quantity summary and backfill reminders from manual stock-in rules', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000401', 'M-', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
+    values: ['L000401', 'M', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -728,7 +742,7 @@ test('inventory import preview derives film quantity summary and backfill remind
 test('inventory import preview warns on multi-hit film duplicates and ignores non in-stock or near-miss records', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 5,
-    values: ['L000402', 'M-', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
+    values: ['L000402', 'M', '001', '膜材', 'PET2601', '研发仓1', 'F01', '', '', '50', '1080', '100', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-001', {
@@ -818,7 +832,7 @@ test('inventory import preview warns on multi-hit film duplicates and ignores no
 test('inventory import preview rejects duplicate labels, archived materials, and missing governed film thickness', () => {
   const duplicate = buildInventoryImportPreviewRow({
     rowIndex: 7,
-    values: ['L000101', 'J-', '001', '化材', 'AC240302', '防爆柜01', '', '1', '', '', '', '', '', '', '', '2026-10-02', '']
+    values: ['L000101', 'J', '001', '化材', 'AC240302', '防爆柜01', '', '1', '', '', '', '', '', '', '', '2026-10-02', '']
   }, buildContext({
     existingUniqueCodes: new Set(['L000101']),
     materialsByCode: new Map([
@@ -835,7 +849,7 @@ test('inventory import preview rejects duplicate labels, archived materials, and
 
   const archived = buildInventoryImportPreviewRow({
     rowIndex: 8,
-    values: ['L000601', 'J-', '099', '化材', 'OLD2401', '防爆柜04', '', '1', '', '', '', '', '', '', '', '2026-10-03', '']
+    values: ['L000601', 'J', '099', '化材', 'OLD2401', '防爆柜04', '', '1', '', '', '', '', '', '', '', '2026-10-03', '']
   }, buildContext({
     materialsByCode: new Map([
       ['J-099', {
@@ -852,7 +866,7 @@ test('inventory import preview rejects duplicate labels, archived materials, and
 
   const missingThickness = buildInventoryImportPreviewRow({
     rowIndex: 9,
-    values: ['L000701', 'M-', '002', '膜材', 'PET2602', '实验线', '', '', '', '', '1200', '80', '', '', '', '', '是']
+    values: ['L000701', 'M', '002', '膜材', 'PET2602', '实验线', '', '', '', '', '1200', '80', '', '', '', '', '是']
   }, buildContext({
     materialsByCode: new Map([
       ['M-002', {

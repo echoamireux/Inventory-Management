@@ -239,6 +239,12 @@ function validateImportRow(row, index, subcategoriesByCategory = {}) {
     ? { ok: false, msg: error }
     : normalizeProductCodeInput(category, rawProductCodeNumber, rawCodePrefix);
 
+  if (!error && !rawCodePrefix) {
+    error = '代码前缀必填';
+  } else if (!error && !/^[A-Z]$/i.test(rawCodePrefix)) {
+    error = '代码前缀只能填写单个大写字母，例如 J、S、Y、M';
+  }
+
   if (!error && !normalizedCode.ok) {
     error = normalizedCode.msg;
   } else if (!materialName) {

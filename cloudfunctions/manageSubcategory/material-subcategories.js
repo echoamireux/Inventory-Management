@@ -169,14 +169,17 @@ async function ensureCollection(db) {
   try {
     await db.createCollection('material_subcategories');
   } catch (error) {
-    const message = String((error && error.errMsg) || error.message || '');
+    const message = String((error && error.errMsg) || error.message || '').toLowerCase();
     if (
       message.includes('exists') ||
       message.includes('已存在') ||
-      message.includes('DATABASE_COLLECTION_ALREADY_EXISTS')
+      message.includes('resourceexist') ||
+      message.includes('table exist') ||
+      message.includes('database_collection_already_exist')
     ) {
       return;
     }
+    throw error;
   }
 }
 

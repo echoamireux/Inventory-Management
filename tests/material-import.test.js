@@ -15,7 +15,7 @@ const subcategoriesByCategory = {
 };
 
 function chemicalRow({
-  prefix = 'J-',
+  prefix = 'J',
   number = '001',
   name = '异丙醇',
   subCategory = '溶剂',
@@ -29,7 +29,7 @@ function chemicalRow({
 }
 
 function filmRow({
-  prefix = 'M-',
+  prefix = 'M',
   number = '002',
   name = 'PET保护膜',
   subCategory = '保护膜',
@@ -45,14 +45,14 @@ function filmRow({
 
 test('import validation normalizes flexible product code input into the standard three-digit format', () => {
   const result = validateImportRow(
-    chemicalRow({ prefix: 'S-', number: '1', name: '乙酸乙酯', unit: 'kg', packageType: '塑料桶', supplier: '供应商A', supplierModel: '型号A' }),
+    chemicalRow({ prefix: 'S', number: '1', name: '乙酸乙酯', unit: 'kg', packageType: '塑料桶', supplier: '供应商A', supplierModel: '型号A' }),
     0,
     subcategoriesByCategory
   );
 
   assert.equal(result.error, null);
   assert.equal(result.product_code, 'S-001');
-  assert.equal(result.product_code_prefix, 'S-');
+  assert.equal(result.product_code_prefix, 'S');
   assert.equal(result.product_code_number, '001');
 });
 
@@ -84,6 +84,22 @@ test('import validation rejects malformed product codes even when category and o
   );
 
   assert.equal(result.error, '产品代码必须为 1-3 位数字');
+});
+
+test('import validation rejects hyphenated prefixes and prefixed product numbers in the new template', () => {
+  const hyphenatedPrefix = validateImportRow(
+    chemicalRow({ prefix: 'J-', number: '001' }),
+    0,
+    subcategoriesByCategory
+  );
+  const prefixedNumber = validateImportRow(
+    chemicalRow({ prefix: 'J', number: 'J-001' }),
+    1,
+    subcategoriesByCategory
+  );
+
+  assert.equal(hyphenatedPrefix.error, '代码前缀只能填写单个大写字母，例如 J、S、Y、M');
+  assert.equal(prefixedNumber.error, '产品代码必须为 1-3 位数字');
 });
 
 test('import validation supports the new prefix-plus-number master-data template', () => {
@@ -150,7 +166,7 @@ test('import validation surfaces a gentle warning when film default width is omi
 
 test('import validation ignores film-only columns for chemicals and chemical-only columns for films', () => {
   const chemical = validateImportRow(
-    ['J-', '001', '异丙醇', '化材', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99', '否'],
+    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99', '否'],
     0,
     subcategoriesByCategory
   );

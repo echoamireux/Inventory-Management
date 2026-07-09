@@ -1,15 +1,15 @@
 const PRODUCT_CODE_DIGITS = 3;
 
 const CATEGORY_PREFIX = {
-  chemical: 'J-',
-  film: 'M-'
+  chemical: 'J',
+  film: 'M'
 };
 
 const DEFAULT_ALLOWED_PREFIXES = [
-  { prefix: 'J-', category: 'chemical', status: 'active' },
-  { prefix: 'S-', category: 'chemical', status: 'active' },
-  { prefix: 'Y-', category: 'chemical', status: 'active' },
-  { prefix: 'M-', category: 'film', status: 'active' }
+  { prefix: 'J', category: 'chemical', status: 'active' },
+  { prefix: 'S', category: 'chemical', status: 'active' },
+  { prefix: 'Y', category: 'chemical', status: 'active' },
+  { prefix: 'M', category: 'film', status: 'active' }
 ];
 
 function normalizeCategory(category) {
@@ -19,7 +19,6 @@ function normalizeCategory(category) {
 function normalizePrefix(prefix) {
   const raw = String(prefix || '').trim().replace(/\s+/g, '').toUpperCase();
   if (!raw) return '';
-  if (/^[A-Z]$/.test(raw)) return `${raw}-`;
   return raw;
 }
 
@@ -38,7 +37,7 @@ function getAllowedPrefixes(category, options = {}) {
       category: normalizeCategory(item && item.category),
       status: item && item.status ? item.status : 'active'
     }))
-    .filter(item => item.prefix && item.category === normalizedCategory && item.status !== 'disabled')
+    .filter(item => /^[A-Z]$/.test(item.prefix) && item.category === normalizedCategory && item.status !== 'disabled')
     .map(item => item.prefix);
   const unique = Array.from(new Set(prefixes));
   return unique.length > 0 ? unique : [getProductCodePrefix(normalizedCategory)];
@@ -56,6 +55,10 @@ function resolveProductCodeOptions(prefixOrOptions) {
 
 function formatAllowedPrefixText(prefixes = []) {
   return prefixes.join('、');
+}
+
+function formatFullProductCodePrefixText(prefixes = []) {
+  return prefixes.map(prefix => `${prefix}-`).join('、');
 }
 
 function sanitizeProductCodeNumberInput(value) {
@@ -76,8 +79,8 @@ function getPrefixValidationMessage(category) {
 function getStandardValidationMessage(category, options = {}) {
   const allowedPrefixes = getAllowedPrefixes(category, options);
   return normalizeCategory(category) === 'film'
-    ? `膜材产品代码必须是 ${formatAllowedPrefixText(allowedPrefixes)} 加 ${PRODUCT_CODE_DIGITS} 位数字`
-    : `化材产品代码必须是 ${formatAllowedPrefixText(allowedPrefixes)} 加 ${PRODUCT_CODE_DIGITS} 位数字`;
+    ? `膜材产品代码必须是 ${formatFullProductCodePrefixText(allowedPrefixes)} 加 ${PRODUCT_CODE_DIGITS} 位数字`
+    : `化材产品代码必须是 ${formatFullProductCodePrefixText(allowedPrefixes)} 加 ${PRODUCT_CODE_DIGITS} 位数字`;
 }
 
 function normalizeProductCodeInput(category, rawInput, prefixOrOptions) {
@@ -96,19 +99,6 @@ function normalizeProductCodeInput(category, rawInput, prefixOrOptions) {
 
   let digits = rawValue;
   let prefix = fallbackPrefix;
-  const prefixedMatch = rawValue.match(/^([A-Z]-)(.*)$/);
-  if (prefixedMatch) {
-    prefix = normalizePrefix(prefixedMatch[1]);
-    if (!allowedPrefixes.includes(prefix)) {
-      return {
-        ok: false,
-        msg: normalizedCategory === 'film'
-          ? `膜材产品代码前缀必须为 ${formatAllowedPrefixText(allowedPrefixes)}`
-          : `化材产品代码前缀必须为 ${formatAllowedPrefixText(allowedPrefixes)}`
-      };
-    }
-    digits = prefixedMatch[2];
-  }
 
   if (!/^\d{1,3}$/.test(digits)) {
     return { ok: false, msg: getDigitValidationMessage() };
@@ -119,7 +109,7 @@ function normalizeProductCodeInput(category, rawInput, prefixOrOptions) {
     ok: true,
     number,
     prefix,
-    product_code: `${prefix}${number}`
+    product_code: `${prefix}-${number}`
   };
 }
 
@@ -128,7 +118,7 @@ function validateStandardProductCode(category, productCode, prefixOrOptions) {
   const options = resolveProductCodeOptions(prefixOrOptions);
   const allowedPrefixes = getAllowedPrefixes(normalizedCategory, options);
   const value = String(productCode || '').trim().toUpperCase();
-  const matcher = value.match(/^([A-Z]-)(\d{3})$/);
+  const matcher = value.match(/^([A-Z])-(\d{3})$/);
 
   if (!matcher || !allowedPrefixes.includes(normalizePrefix(matcher[1]))) {
     return {
@@ -141,7 +131,7 @@ function validateStandardProductCode(category, productCode, prefixOrOptions) {
     ok: true,
     number: matcher[2],
     prefix: normalizePrefix(matcher[1]),
-    product_code: value
+    product_code: `${normalizePrefix(matcher[1])}-${matcher[2]}`
   };
 }
 
