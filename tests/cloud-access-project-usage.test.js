@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
+const vm = require('node:vm');
 
 const repoRoot = path.join(__dirname, '..');
 
@@ -31,6 +32,47 @@ function loadModuleWithMocks(modulePath, mocks) {
   } finally {
     Module._load = originalLoad;
   }
+}
+
+function loadMiniProgramPage(relPath) {
+  let pageConfig;
+  const toastCalls = [];
+  const source = read(relPath).replace(
+    "import Toast from '@vant/weapp/toast/toast';",
+    "const Toast = require('@vant/weapp/toast/toast');"
+  );
+  const context = {
+    console,
+    Date,
+    Promise,
+    clearTimeout,
+    setTimeout,
+    Page(config) {
+      pageConfig = config;
+    },
+    require(request) {
+      if (request === '@vant/weapp/toast/toast') {
+        return {
+          fail(message) {
+            toastCalls.push(message);
+          }
+        };
+      }
+      if (request === '../../utils/project-code-service') {
+        return { listProjectCodes: async () => [], buildProjectCodePickerColumns: () => [] };
+      }
+      if (request === '../../utils/download-file') {
+        return { resolveOpenDocumentPath: async () => '' };
+      }
+      throw new Error(`Unexpected module request: ${request}`);
+    },
+    wx: {
+      openDocument() {}
+    }
+  };
+
+  vm.runInNewContext(source, context, { filename: relPath });
+  return { pageConfig, toastCalls };
 }
 
 const FRONTEND_CORE_FILES = [
@@ -70,7 +112,7 @@ test('project usage report page is registered and reachable from the home page',
   assert.match(homeWxml, /url="\/pages\/project-usage\/index"/);
 });
 
-test('project usage filter uses structured project selector and non-overflowing actions', () => {
+test('project usage filter uses structured selectors and non-overflowing actions', () => {
   const pageWxml = read('miniprogram/pages/project-usage/index.wxml');
   const pageWxss = read('miniprogram/pages/project-usage/index.wxss');
   const projectSelectorBlock = pageWxss.match(/\.project-selector\s*\{[\s\S]*?\n\}/)?.[0] || '';
@@ -93,11 +135,84 @@ test('project usage filter uses structured project selector and non-overflowing 
   assert.ok(pageJson.usingComponents['van-icon']);
   assert.equal(pageJson.usingComponents['van-cell'], undefined);
 
-  assert.match(pageWxml, /class="filter-actions-primary"[\s\S]*清空筛选[\s\S]*应用日期/);
-  assert.match(pageWxml, /class="filter-actions-export"[\s\S]*导出 Excel/);
+  assert.match(pageWxml, /class="date-range-selector/);
+  assert.match(pageWxml, /bindtap="onShowDateCalendar"/);
+  assert.match(pageWxml, /日期范围[\s\S]*dateRangeText/);
+  assert.match(pageWxml, /class="filter-actions"[\s\S]*清空筛选[\s\S]*导出 Excel/);
+  assert.doesNotMatch(pageWxml, /应用日期/);
   assert.doesNotMatch(pageWxss, /grid-template-columns:\s*1fr 1fr 1\.2fr/);
-  assert.match(pageWxss, /\.filter-actions-primary[\s\S]*grid-template-columns:\s*1fr 1fr/);
-  assert.match(pageWxss, /\.filter-actions-export[\s\S]*width:\s*100%/);
+  assert.match(pageWxss, /\.filter-actions\s*\{[\s\S]*grid-template-columns:\s*1fr 1fr/);
+});
+
+test('project usage date range uses a read-only calendar and applies on confirmation', () => {
+  const pageWxml = read('miniprogram/pages/project-usage/index.wxml');
+  const pageJs = read('miniprogram/pages/project-usage/index.js');
+  const pageJson = JSON.parse(read('miniprogram/pages/project-usage/index.json'));
+
+  assert.equal(pageJson.usingComponents['van-calendar'], '@vant/weapp/calendar/index');
+  assert.equal(pageJson.usingComponents['van-field'], undefined);
+  assert.match(pageWxml, /<van-calendar/);
+  assert.match(pageWxml, /type="range"/);
+  assert.match(pageWxml, /show="{{ showDateCalendar }}"/);
+  assert.match(pageWxml, /min-date="{{ minDate }}"/);
+  assert.match(pageWxml, /max-date="{{ maxDate }}"/);
+  assert.match(pageWxml, /default-date="{{ calendarDefaultDate }}"/);
+  assert.match(pageWxml, /allow-same-day/);
+  assert.match(pageWxml, /bind:confirm="onDateCalendarConfirm"/);
+  assert.match(pageWxml, /bind:close="onDateCalendarClose"/);
+  assert.doesNotMatch(pageWxml, /bind:change="on(Start|End)DateChange"/);
+  assert.doesNotMatch(pageWxml, /placeholder="YYYY-MM-DD"/);
+
+  assert.match(pageJs, /minDate:\s*new Date\(2020, 0, 1\)\.getTime\(\)/);
+  assert.match(pageJs, /onShowDateCalendar\(\)/);
+  assert.match(pageJs, /onDateCalendarClose\(\)/);
+  assert.match(pageJs, /onDateCalendarConfirm\(e\)[\s\S]*startDate[\s\S]*endDate[\s\S]*loadReport\(true\)/);
+  assert.doesNotMatch(pageJs, /onStartDateChange\(e\)/);
+  assert.doesNotMatch(pageJs, /onEndDateChange\(e\)/);
+  assert.doesNotMatch(pageJs, /onApplyDateFilter\(\)/);
+});
+
+test('project usage date calendar confirms, cancels, and clears without stale filters', () => {
+  const { pageConfig, toastCalls } = loadMiniProgramPage('miniprogram/pages/project-usage/index.js');
+  const reportCalls = [];
+  const page = {
+    data: { ...pageConfig.data },
+    setData(next) {
+      Object.assign(this.data, next);
+    },
+    loadReport(reset) {
+      reportCalls.push(reset);
+    }
+  };
+
+  page.data.maxDate = 0;
+  pageConfig.onShowDateCalendar.call(page);
+  const today = new Date();
+  const todayTimestamp = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  assert.equal(page.data.showDateCalendar, true);
+  assert.equal(page.data.maxDate, todayTimestamp);
+
+  pageConfig.onDateCalendarConfirm.call(page, {
+    detail: [new Date(2026, 6, 1), new Date(2026, 6, 10)]
+  });
+  assert.equal(page.data.startDate, '2026-07-01');
+  assert.equal(page.data.endDate, '2026-07-10');
+  assert.equal(page.data.dateRangeText, '2026-07-01 至 2026-07-10');
+  assert.equal(page.data.showDateCalendar, false);
+  assert.deepEqual(reportCalls, [true]);
+
+  page.data.showDateCalendar = true;
+  pageConfig.onDateCalendarClose.call(page);
+  assert.equal(page.data.showDateCalendar, false);
+  assert.equal(page.data.startDate, '2026-07-01');
+  assert.deepEqual(reportCalls, [true]);
+
+  pageConfig.onClearFilters.call(page);
+  assert.equal(page.data.startDate, '');
+  assert.equal(page.data.endDate, '');
+  assert.equal(page.data.dateRangeText, '全部日期');
+  assert.deepEqual(reportCalls, [true, true]);
+  assert.deepEqual(toastCalls, []);
 });
 
 test('project usage cloud functions and deployable dependencies exist', () => {

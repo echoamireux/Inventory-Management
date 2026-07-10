@@ -76,53 +76,56 @@
   font-size: 28rpx;
 }
 
-.date-filter-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16rpx;
-  padding: 0 28rpx;
-}
-
-.date-filter-field {
-  min-width: 0;
-  padding: 16rpx 18rpx 10rpx;
-  border: 1px solid #eef2f7;
-  border-radius: 14rpx;
+.date-range-selector {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  min-height: 88rpx;
+  padding: 10rpx 28rpx 18rpx;
+  border-bottom: 1px solid #eef2f7;
   background: #ffffff;
 }
 
-.date-filter-label {
-  color: #64748b;
-  font-size: 22rpx;
+.date-range-selector--active {
+  background: #f8fafc;
+}
+
+.date-range-selector__label {
+  flex: none;
+  width: 132rpx;
+  color: #475569;
+  font-size: 24rpx;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
-.date-filter-input {
-  margin-top: 6rpx;
-  padding: 0 !important;
-  background: transparent !important;
+.date-range-selector__value {
+  min-width: 0;
+  flex: 1;
+  color: #64748b;
+  font-size: 26rpx;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.date-filter-input .van-field__body,
-.date-filter-input .van-cell {
-  padding: 0 !important;
+.date-range-selector--selected .date-range-selector__value {
+  color: #111827;
+  font-weight: 600;
+}
+
+.date-range-selector__icon {
+  flex: none;
+  color: #64748b;
+  font-size: 30rpx;
 }
 
 .filter-actions {
   display: grid;
-  gap: 14rpx;
-  padding: 20rpx 28rpx 0;
-}
-
-.filter-actions-primary {
-  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16rpx;
-}
-
-.filter-actions-export {
-  width: 100%;
+  padding: 20rpx 28rpx 0;
 }
 
 .project-usage-summary-bar {

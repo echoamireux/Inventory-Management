@@ -17,6 +17,28 @@ function formatDate(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function getTodayTimestamp() {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+}
+
+function parseLocalDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildCalendarDefaultDate(startDate, endDate) {
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (start && end) {
+    return [start.getTime(), end.getTime()];
+  }
+  const today = getTodayTimestamp();
+  return [today, today];
+}
+
 function formatDateTime(value) {
   if (!value) return '--';
   const date = value instanceof Date ? value : new Date(value);
@@ -72,6 +94,11 @@ Page({
     keyword: '',
     startDate: '',
     endDate: '',
+    dateRangeText: '全部日期',
+    showDateCalendar: false,
+    minDate: new Date(2020, 0, 1).getTime(),
+    maxDate: getTodayTimestamp(),
+    calendarDefaultDate: buildCalendarDefaultDate('', ''),
     showProjectPicker: false,
     loading: false,
     exporting: false,
@@ -257,15 +284,39 @@ Page({
     this.loadReport(true);
   },
 
-  onStartDateChange(e) {
-    this.setData({ startDate: resolveSearchValue(e && e.detail), page: 1, isEnd: false });
+  onShowDateCalendar() {
+    this.setData({
+      showDateCalendar: true,
+      maxDate: getTodayTimestamp(),
+      calendarDefaultDate: buildCalendarDefaultDate(this.data.startDate, this.data.endDate)
+    });
   },
 
-  onEndDateChange(e) {
-    this.setData({ endDate: resolveSearchValue(e && e.detail), page: 1, isEnd: false });
+  onDateCalendarClose() {
+    this.setData({ showDateCalendar: false });
   },
 
-  onApplyDateFilter() {
+  onDateCalendarConfirm(e) {
+    const range = e && e.detail;
+    if (!Array.isArray(range) || range.length !== 2) {
+      Toast.fail('请选择完整日期范围');
+      return;
+    }
+    const startDate = formatDate(range[0]);
+    const endDate = formatDate(range[1]);
+    if (!startDate || !endDate) {
+      Toast.fail('日期范围无效');
+      return;
+    }
+    this.setData({
+      startDate,
+      endDate,
+      dateRangeText: `${startDate} 至 ${endDate}`,
+      calendarDefaultDate: buildCalendarDefaultDate(startDate, endDate),
+      showDateCalendar: false,
+      page: 1,
+      isEnd: false
+    });
     this.loadReport(true);
   },
 
@@ -277,6 +328,9 @@ Page({
       selectedProjectName: '',
       startDate: '',
       endDate: '',
+      dateRangeText: '全部日期',
+      calendarDefaultDate: buildCalendarDefaultDate('', ''),
+      showDateCalendar: false,
       page: 1,
       isEnd: false
     });

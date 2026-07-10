@@ -22,39 +22,19 @@
       <van-icon name="arrow" custom-class="project-selector__arrow" />
     </view>
 
-    <view class="date-filter-row">
-      <view class="date-filter-field">
-        <view class="date-filter-label">开始日期</view>
-        <van-field
-          value="{{ startDate }}"
-          placeholder="YYYY-MM-DD"
-          border="false"
-          input-align="left"
-          custom-class="date-filter-input"
-          bind:change="onStartDateChange"
-        />
-      </view>
-      <view class="date-filter-field">
-        <view class="date-filter-label">结束日期</view>
-        <van-field
-          value="{{ endDate }}"
-          placeholder="YYYY-MM-DD"
-          border="false"
-          input-align="left"
-          custom-class="date-filter-input"
-          bind:change="onEndDateChange"
-        />
-      </view>
+    <view
+      class="date-range-selector {{ startDate && endDate ? 'date-range-selector--selected' : '' }}"
+      hover-class="date-range-selector--active"
+      bindtap="onShowDateCalendar"
+    >
+      <view class="date-range-selector__label">日期范围</view>
+      <view class="date-range-selector__value">{{ dateRangeText }}</view>
+      <van-icon name="calendar-o" custom-class="date-range-selector__icon" />
     </view>
 
     <view class="filter-actions">
-      <view class="filter-actions-primary">
-        <van-button size="small" plain round block bind:click="onClearFilters">清空筛选</van-button>
-        <van-button size="small" type="primary" round block bind:click="onApplyDateFilter">应用日期</van-button>
-      </view>
-      <view class="filter-actions-export">
-        <van-button size="small" type="info" plain round block loading="{{ exporting }}" bind:click="onExportReport">导出 Excel</van-button>
-      </view>
+      <van-button size="small" plain round block bind:click="onClearFilters">清空筛选</van-button>
+      <van-button size="small" type="info" plain round block loading="{{ exporting }}" bind:click="onExportReport">导出 Excel</van-button>
     </view>
   </view>
 
@@ -144,6 +124,20 @@
       bind:cancel="onProjectPickerCancel"
     />
   </van-popup>
+
+  <van-calendar
+    show="{{ showDateCalendar }}"
+    type="range"
+    title="选择日期范围"
+    color="#2C68FF"
+    min-date="{{ minDate }}"
+    max-date="{{ maxDate }}"
+    default-date="{{ calendarDefaultDate }}"
+    allow-same-day
+    first-day-of-week="1"
+    bind:confirm="onDateCalendarConfirm"
+    bind:close="onDateCalendarClose"
+  />
 
   <van-toast id="van-toast" />
 </view>
