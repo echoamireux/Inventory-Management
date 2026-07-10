@@ -198,7 +198,7 @@ exports.main = async (event, context) => {
               action: '修正幅宽',
               spec_change_unit: quantityUnit,
               description: `幅宽由 [${oldWidthMm || '--'} mm] 修正为 [${nextWidthMm} mm]${reasonText}`,
-              operator: event.operator_name || 'System',
+              operator: (operator && operator.name) || 'System',
               operator_id: OPENID,
               _openid: OPENID,
               timestamp: db.serverDate()
@@ -237,7 +237,7 @@ exports.main = async (event, context) => {
               action: '盘点调整',
               spec_change_unit: stocktakePayload.logUnit,
               description: `盘点调整：当前数量由 [${roundNumber(oldBaseQuantity, 3)} ${stocktakePayload.logUnit}] 调整为 [${roundNumber(nextBaseQuantity, 3)} ${stocktakePayload.logUnit}]，差额 ${delta} ${stocktakePayload.logUnit}${reasonText}`,
-              operator: event.operator_name || 'System',
+              operator: (operator && operator.name) || 'System',
               operator_id: OPENID,
               _openid: OPENID,
               timestamp: db.serverDate()
@@ -278,7 +278,7 @@ exports.main = async (event, context) => {
             quantity_change: 0,
             action: '移库',
             description: `位置由 [${oldLocation}] 变更为 [${newLocation}]`,
-            operator: event.operator_name || 'System',
+            operator: (operator && operator.name) || 'System',
             operator_id: OPENID,
             _openid: OPENID,
             timestamp: db.serverDate()

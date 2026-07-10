@@ -225,9 +225,15 @@ exports.main = async (event, context) => {
       */
 
       const materialRecord = materialQuery.data[0];
+      if (materialRecord.status !== 'active') {
+        throw new Error(`产品代码 ${base.product_code} 未启用，不能入库`);
+      }
       const category = materialRecord.category || base.category;
       const materialSpecs = materialRecord.specs || {};
-      const defaultUnit = String(materialRecord.default_unit || inventory.quantity_unit || '').trim();
+      const defaultUnit = String(materialRecord.default_unit || '').trim();
+      if (!defaultUnit) {
+        throw new Error(`产品代码 ${base.product_code} 缺少主数据默认单位，请先联系管理员维护`);
+      }
       const productCode = materialRecord.product_code || base.product_code || '';
       const materialName = materialRecord.material_name || base.name;
       const isTest = isTestMaterial(materialRecord, base);
@@ -236,7 +242,10 @@ exports.main = async (event, context) => {
         const canRefill = isChemicalRefillEligible(existingInventory, {
           category,
           product_code: productCode,
-          batch_number: inventory.batch_number
+          batch_number: inventory.batch_number,
+          supplier_model: base.supplier_model,
+          is_test_material: isTest,
+          quantity: { unit: defaultUnit }
         });
 
         if (!canRefill) {

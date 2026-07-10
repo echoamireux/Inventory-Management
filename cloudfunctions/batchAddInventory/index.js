@@ -107,6 +107,20 @@ exports.main = async (event, context) => {
       .where({ _id: _.in(materialIds) })
       .get();
     const materialMap = new Map((materialRes.data || []).map(item => [item._id, item]));
+    const inactiveMaterial = Array.from(materialMap.values()).find(item => item.status !== 'active');
+    if (inactiveMaterial) {
+      return {
+        success: false,
+        msg: `产品代码 ${inactiveMaterial.product_code || ''} 未启用，不能入库`
+      };
+    }
+    const missingUnitMaterial = Array.from(materialMap.values()).find(item => !String(item.default_unit || '').trim());
+    if (missingUnitMaterial) {
+      return {
+        success: false,
+        msg: `产品代码 ${missingUnitMaterial.product_code || ''} 缺少主数据默认单位，不能入库`
+      };
+    }
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
     const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
     const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
@@ -137,7 +151,6 @@ exports.main = async (event, context) => {
           create_time: db.serverDate(),
           update_time: db.serverDate()
         });
-
         if (prepared.masterSpecBackfill && Object.keys(prepared.masterSpecBackfill).length > 0) {
           const materialUpdateData = {
             updated_by: OPENID,
@@ -169,7 +182,10 @@ exports.main = async (event, context) => {
             && isChemicalRefillEligible(existingItem, {
               category: inventoryData.category,
               product_code: inventoryData.product_code,
-              batch_number: inventoryData.batch_number
+              batch_number: inventoryData.batch_number,
+              supplier_model: inventoryData.supplier_model,
+              is_test_material: inventoryData.is_test_material,
+              quantity: inventoryData.quantity
             })
           ) {
             const addQty = (inventoryData.quantity && inventoryData.quantity.val) || 0;

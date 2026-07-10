@@ -92,7 +92,8 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
                     product_code: 'J-001',
                     category: 'chemical',
                     material_name: '丙酮',
-                    default_unit: 'kg'
+                    default_unit: 'kg',
+                    status: 'active'
                   }]
                 };
               }
@@ -253,7 +254,8 @@ test('single stock-in rejects voided preprint labels even when manually submitte
                     product_code: 'J-001',
                     category: 'chemical',
                     material_name: '丙酮',
-                    default_unit: 'kg'
+                    default_unit: 'kg',
+                    status: 'active'
                   }]
                 };
               }
@@ -375,7 +377,8 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
     product_code: 'J-001',
     category: 'chemical',
     material_name: '丙酮',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
 
   const existingInventory = {
@@ -824,7 +827,8 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
     category: 'chemical',
     material_name: '丙酮',
     sub_category: '溶剂',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
   const existingInventory = {
     _id: 'inv-template-refill',
@@ -1009,7 +1013,8 @@ test('inventory template submit supports mixed create and refill rows in one req
     category: 'chemical',
     material_name: '丙酮',
     sub_category: '溶剂',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
   const existingInventory = {
     _id: 'inv-template-refill-2',
@@ -1244,7 +1249,8 @@ test('inventory template submit consumes matching unused preprint labels when cr
     category: 'chemical',
     material_name: '丙酮',
     sub_category: '溶剂',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
   const preprintLabel = {
     _id: 'preprint-template-1',
@@ -1448,7 +1454,8 @@ test('inventory template submit rejects voided preprint labels even when the row
     category: 'chemical',
     material_name: '丙酮',
     sub_category: '溶剂',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
   const preprintLabel = {
     _id: 'preprint-template-voided',
@@ -1636,7 +1643,8 @@ test('inventory template submit rejects invalid refill quantities even if the fr
     category: 'chemical',
     material_name: '丙酮',
     sub_category: '溶剂',
-    default_unit: 'kg'
+    default_unit: 'kg',
+    status: 'active'
   };
   const existingInventory = {
     _id: 'inv-template-refill-3',

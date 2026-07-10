@@ -235,13 +235,28 @@ test('updateInventory retries transient transaction conflicts and then completes
       if (name === 'inventory') {
         return {
           where(query) {
-            assert.deepEqual(query, { unique_code: 'L000001' });
+            assert.deepEqual(query, { unique_code: 'L000001', status: 'in_stock' });
             return {
               limit() {
                 return this;
               },
               async get() {
                 return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'project_codes') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ project_code: 'OR2026RD02001', project_name: '服务端项目名', status: 'active' }] };
               }
             };
           }
@@ -370,6 +385,21 @@ test('updateInventory does not retry business validation errors from the transac
         };
       }
 
+      if (name === 'project_codes') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ project_code: 'OR2026RD02001', project_name: '服务端项目名', status: 'active' }] };
+              }
+            };
+          }
+        };
+      }
+
       throw new Error(`unexpected collection outside transaction: ${name}`);
     },
     async runTransaction(handler) {
@@ -469,6 +499,21 @@ test('updateInventory stops retrying transient transaction conflicts after three
               },
               async get() {
                 return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'project_codes') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: [{ project_code: 'OR2026RD02001', project_name: '服务端项目名', status: 'active' }] };
               }
             };
           }

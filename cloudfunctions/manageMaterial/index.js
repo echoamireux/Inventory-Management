@@ -574,6 +574,19 @@ async function updateMaterial(data, openid) {
   if (!normalizedUnit.ok) {
     return { success: false, msg: normalizedUnit.msg };
   }
+  const unitChanged = normalizedUnit.unit !== String(oldData.default_unit || '').trim();
+  if (unitChanged) {
+    const inventoryRes = await db.collection('inventory')
+      .where({ material_id: id })
+      .limit(1)
+      .get();
+    if (inventoryRes.data && inventoryRes.data.length > 0) {
+      return {
+        success: false,
+        msg: '该物料已产生库存记录，默认单位已锁定，不能修改'
+      };
+    }
+  }
   const resolvedSubcategory = await resolveMaterialSubcategory({
     subcategory_key: updateData.subcategory_key || oldData.subcategory_key,
     sub_category: Object.prototype.hasOwnProperty.call(updateData, 'sub_category')
@@ -726,15 +739,28 @@ async function archiveMaterial(data, openid) {
     return { success: false, msg: '缺少物料ID' };
   }
 
-  const oldRes = await db.collection('materials').doc(id).get();
-  const oldData = oldRes.data;
-
-  await db.collection('materials').doc(id).update({
-    data: {
-      status: 'archived',
-      updated_by: openid,
-      updated_at: db.serverDate()
+  const oldData = await db.runTransaction(async (transaction) => {
+    const oldRes = await transaction.collection('materials').doc(id).get();
+    if (!oldRes.data) {
+      throw new Error('物料不存在');
     }
+
+    const inventoryRes = await transaction.collection('inventory').where({
+      material_id: id,
+      status: 'in_stock'
+    }).limit(1).get();
+    if (inventoryRes.data && inventoryRes.data.length > 0) {
+      throw new Error('该物料存在在库记录，不能归档');
+    }
+
+    await transaction.collection('materials').doc(id).update({
+      data: {
+        status: 'archived',
+        updated_by: openid,
+        updated_at: db.serverDate()
+      }
+    });
+    return oldRes.data;
   });
 
   // 记录日志

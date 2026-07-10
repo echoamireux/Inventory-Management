@@ -68,6 +68,7 @@ cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/addMaterial/inven
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/approveInventoryCorrectionRequest/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/batchAddInventory/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/importInventoryTemplate/inventory-quantity.js
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/updateInventory/inventory-quantity.js
 
 echo "   -> Updating material-map.js and export-order.js..."
 cp cloudfunctions/_shared/material-map.js cloudfunctions/getInventoryGrouped/material-map.js

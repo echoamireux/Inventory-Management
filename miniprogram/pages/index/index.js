@@ -434,6 +434,7 @@ Page({
       } else if (withdrawMode === 'batch') {
         payload.product_code = withdrawItem.product_code;
         payload.batch_no = withdrawItem.batch_number;
+        payload.supplier_model = withdrawItem.supplier_model;
       } else {
         payload.unique_code = withdrawItem.unique_code;
       }

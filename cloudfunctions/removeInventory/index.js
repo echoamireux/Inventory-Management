@@ -7,37 +7,17 @@ cloud.init({
 
 const db = cloud.database();
 
-async function loadInventoryIdsByMaterialId(materialId, pageSize = 100) {
-  if (!materialId) {
-    return [];
-  }
-
-  const ids = [];
-  let skip = 0;
-
-  while (true) {
-    const res = await db.collection('inventory')
-      .where({ material_id: materialId })
-      .skip(skip)
-      .limit(pageSize)
-      .get();
-    const batch = res.data || [];
-    ids.push(...batch.map(item => item._id).filter(Boolean));
-    if (batch.length < pageSize) {
-      break;
-    }
-    skip += pageSize;
-  }
-
-  return ids;
-}
-
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { material_id, inventory_id, operator_name } = event;
+  const { material_id, inventory_id } = event;
 
-  if (!material_id && !inventory_id) {
-    return { success: false, msg: 'Missing material_id and inventory_id' };
+  if (!inventory_id) {
+    return {
+      success: false,
+      msg: material_id
+        ? '不再支持整物料删除，请通过盘点审批按库存标签纠错'
+        : '仅支持按库存标签执行纠错'
+    };
   }
 
   try {
@@ -47,10 +27,6 @@ exports.main = async (event, context) => {
       throw new Error(preAuthResult.msg);
     }
 
-    const inventoryIdsForMaterial = material_id && !inventory_id
-      ? await loadInventoryIdsByMaterialId(material_id)
-      : [];
-
     const transactionResult = await db.runTransaction(async transaction => {
       const userRes = await transaction.collection('users').where({ _openid: OPENID }).get();
       const currentUser = userRes.data[0];
@@ -59,54 +35,31 @@ exports.main = async (event, context) => {
         throw new Error(authResult.msg);
       }
 
-      let materialName = 'Unknown Material';
-      let affectedInventoryCount = 0;
-
-      if (material_id) {
-        const materialRes = await transaction.collection('materials').doc(material_id).get();
-        if (materialRes.data) {
-          materialName = materialRes.data.material_name || materialRes.data.name || materialName;
-          await transaction.collection('materials').doc(material_id).update({
-            data: { status: 'deleted', update_time: db.serverDate() }
-          });
-        }
+      const invRes = await transaction.collection('inventory').doc(inventory_id).get();
+      if (!invRes.data) {
+        throw new Error('库存标签不存在');
       }
+      const inventory = invRes.data;
+      const resolvedMaterialId = inventory.material_id || material_id || 'N/A';
+      const materialName = inventory.material_name || 'Unknown Material';
 
-      if (inventory_id) {
-        if (materialName === 'Unknown Material') {
-          const invRes = await transaction.collection('inventory').doc(inventory_id).get();
-          if (invRes.data) {
-            materialName = invRes.data.material_name || materialName;
-          }
-        }
-        await transaction.collection('inventory').doc(inventory_id).update({
-          data: { status: 'deleted', update_time: db.serverDate() }
-        });
-        affectedInventoryCount = 1;
-      } else if (material_id) {
-        for (const id of inventoryIdsForMaterial) {
-          await transaction.collection('inventory').doc(id).update({
-            data: { status: 'deleted', update_time: db.serverDate() }
-          });
-        }
-        affectedInventoryCount = inventoryIdsForMaterial.length;
-      }
+      await transaction.collection('inventory').doc(inventory_id).update({
+        data: { status: 'deleted', update_time: db.serverDate() }
+      });
 
       await transaction.collection('inventory_log').add({
         data: {
           type: 'delete',
-          material_id: material_id || 'N/A',
-          inventory_id: inventory_id || 'N/A',
+          material_id: resolvedMaterialId,
+          inventory_id,
           material_name: materialName,
           quantity_change: 0,
-          operator: operator_name || 'Admin',
+          operator: currentUser.name || 'Admin',
           operator_id: OPENID,
           _openid: OPENID,
-          affected_inventory_count: affectedInventoryCount,
+          affected_inventory_count: 1,
           timestamp: db.serverDate(),
-          description: material_id
-            ? `管理员删除物料，影响库存标签 ${affectedInventoryCount} 个`
-            : '管理员删除库存标签'
+          description: '管理员按库存标签执行纠错删除'
         }
       });
 

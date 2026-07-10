@@ -110,7 +110,11 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   const specs = material && material.specs ? material.specs : {};
   const materialName = (material && (material.material_name || material.name)) || '';
   const quantityVal = Number(quantity.val);
-  const quantityUnit = String(quantity.unit || material.default_unit || '').trim();
+  const requestedQuantityUnit = String(quantity.unit || '').trim();
+  const masterQuantityUnit = String((material && material.default_unit) || '').trim();
+  const quantityUnit = material && material.category === 'chemical'
+    ? (masterQuantityUnit || requestedQuantityUnit)
+    : (requestedQuantityUnit || masterQuantityUnit);
   const uniqueCode = normalizeLabelCodeInput((rawItem && rawItem.unique_code) || '');
   const batchNumber = String((rawItem && rawItem.batch_number) || '').trim();
   const location = String((rawItem && rawItem.location) || '').trim();
@@ -121,6 +125,9 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
 
   if (!material || !material._id) {
     throw new Error(`${rowLabel}对应的物料主数据不存在`);
+  }
+  if (material.status && material.status !== 'active') {
+    throw new Error(`${rowLabel}对应的物料主数据未启用，不能入库`);
   }
   if (!materialName || !material.product_code || !material.category) {
     throw new Error(`${rowLabel}对应的物料主数据不完整`);

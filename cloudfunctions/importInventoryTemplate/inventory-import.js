@@ -562,7 +562,8 @@ function alignFilmSpecsWithPreprint(row, preprintLabel, rowLabel = '') {
 }
 
 function isArchivedMaterial(material = {}) {
-  return ['archived', 'deleted'].includes(normalizeText(material.status));
+  const status = normalizeText(material.status);
+  return !!status && status !== 'active';
 }
 
 function isInventoryTemplateGroupHeaderRow(row = []) {
@@ -1206,6 +1207,9 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   if (!material || !material._id) {
     throw new Error(`${rowLabel}对应的物料主数据不存在`);
   }
+  if (material.status && material.status !== 'active') {
+    throw new Error(`${rowLabel}对应的物料主数据未启用，不能入库`);
+  }
   if (!uniqueCode || !isValidLabelCode(uniqueCode)) {
     throw new Error(`${rowLabel}标签编号格式不正确，应为 L + 6位数字`);
   }
@@ -1328,7 +1332,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
       throw new Error(`${rowLabel}化材缺少净含量`);
     }
     inventoryData.quantity.val = quantityVal;
-    inventoryData.quantity.unit = sourceItem.quantity_unit;
+    inventoryData.quantity.unit = normalizedUnit.unit;
     inventoryData.dynamic_attrs = {
       weight_kg: quantityVal
     };

@@ -465,6 +465,9 @@ async function submitRows(items = [], openid, operatorName) {
       }
 
       const material = materialsByCode.get(String(item.product_code || '').trim());
+      if (!material || material.status !== 'active') {
+        throw new Error(`产品代码 ${item.product_code || ''} 未启用，不能入库`);
+      }
       const existingInventory = existingInventoryByUniqueCode.get(uniqueCode);
       const submitAction = String(item.submit_action || 'create').trim() || 'create';
 

@@ -43,8 +43,7 @@ exports.main = async (event, context) => {
       return { success: false, msg: authResult.msg };
     }
 
-    const dbCmd = db.command;
-    let match = {};
+    let match = { status: 'in_stock' };
 
     // 1. Filter Logic
     if (category) {
@@ -85,6 +84,9 @@ exports.main = async (event, context) => {
           .end();
 
       dataList = dataList.concat(result.list);
+      if (dataList.length > 10000) {
+        throw new Error('当前在库记录超过 10000 条，请缩小类别或关键词范围后再导出');
+      }
       if (result.list.length < pageSize) break;
       skip += pageSize;
     }
@@ -113,17 +115,18 @@ exports.main = async (event, context) => {
       rows
     });
     const buffer = await workbook.xlsx.writeBuffer();
-    const fileName = `exports/${buildInventoryExportFileName(exportedAt)}`;
+    const businessFileName = buildInventoryExportFileName(exportedAt);
+    const cloudPath = `exports/${OPENID}/inventory/current.xlsx`;
 
     const uploadRes = await cloud.uploadFile({
-      cloudPath: fileName,
+      cloudPath,
       fileContent: buffer,
     });
 
     return {
       success: true,
       fileID: uploadRes.fileID,
-      fileName: buildInventoryExportFileName(exportedAt),
+      fileName: businessFileName,
       msg: '生成成功'
     };
 

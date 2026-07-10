@@ -10,6 +10,7 @@ const { assertActiveUserAccess } = require('./auth');
 const {
   shouldBlockTestMaterialProductOnlyWithdrawal
 } = require('./test-material-withdrawal');
+const { assertConsistentChemicalUnits } = require('./inventory-quantity');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -30,20 +31,26 @@ async function loadOperator(openid) {
   return res.data && res.data.length > 0 ? res.data[0] : null;
 }
 
-async function loadWithdrawCandidates({ unique_code, product_code, batch_no }) {
+async function loadWithdrawCandidates({ unique_code, product_code, batch_no, supplier_model }) {
   if (unique_code) {
     const res = await db.collection('inventory')
-      .where({ unique_code })
+      .where({ unique_code, status: 'in_stock' })
       .limit(1)
       .get();
     return sortInventoryAllocationCandidates(res.data || []);
   }
 
   if (product_code && batch_no) {
-    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
+    const where = {
       product_code,
       batch_number: batch_no,
       status: 'in_stock'
+    };
+    if (supplier_model) {
+      where.supplier_model = supplier_model;
+    }
+    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
+      ...where
     }));
   }
 
@@ -110,7 +117,7 @@ async function loadMaterialByProductCode(productCode) {
   try {
     const res = await db.collection('materials')
       .where({ product_code: normalizedCode })
-      .field({ is_test_material: true })
+      .field({ is_test_material: true, status: true })
       .limit(1)
       .get();
     return res.data && res.data[0] ? res.data[0] : null;
@@ -128,7 +135,15 @@ async function reloadTransactionCandidates(transaction, candidateIds = []) {
       items.push(res.data);
     }
   }
-  return sortInventoryAllocationCandidates(items);
+  return sortInventoryAllocationCandidates(items.filter(item => item.status === 'in_stock'));
+}
+
+async function loadActiveProject(projectCode) {
+  const res = await db.collection('project_codes').where({
+    project_code: projectCode,
+    status: 'active'
+  }).limit(1).get();
+  return res.data && res.data[0] ? res.data[0] : null;
 }
 
 function sanitizeText(value) {
@@ -158,11 +173,11 @@ exports.main = async (event, context) => {
     unique_code,
     product_code,
     batch_no,
+    supplier_model,
     withdraw_amount,
     quantity,
     type,
     project_code,
-    project_name,
     withdraw_note
   } = event;
 
@@ -173,8 +188,9 @@ exports.main = async (event, context) => {
     };
   }
 
-  if (!withdraw_amount || Number(withdraw_amount) <= 0) {
-    return { success: false, msg: 'Invalid amount' };
+  const totalNeed = Number(withdraw_amount);
+  if (!Number.isFinite(totalNeed) || totalNeed <= 0) {
+    return { success: false, msg: '领用数量必须为有效正数' };
   }
 
   try {
@@ -184,23 +200,32 @@ exports.main = async (event, context) => {
       return { success: false, msg: authResult.msg };
     }
 
-    const totalNeed = Number(withdraw_amount);
-    const projectCode = sanitizeText(project_code);
-    const projectName = sanitizeText(project_name);
+    const projectCode = sanitizeText(project_code).toUpperCase();
     const withdrawNote = sanitizeText(withdraw_note);
     if (!projectCode) {
       return { success: false, msg: '请选择项目编码' };
+    }
+    const project = await loadActiveProject(projectCode);
+    if (!project) {
+      return { success: false, msg: '项目编码不存在或已停用，请刷新后重新选择' };
+    }
+    const projectName = sanitizeText(project.project_name);
+
+    const materialForSelection = (!unique_code && product_code)
+      ? await loadMaterialByProductCode(product_code)
+      : null;
+    const supplierModel = sanitizeText(supplier_model);
+    if (batch_no && materialForSelection && materialForSelection.is_test_material && !supplierModel) {
+      return { success: false, msg: '测试料按批次领用时必须选择原厂型号' };
     }
 
     const candidateItems = await loadWithdrawCandidates({
       unique_code,
       product_code,
-      batch_no
+      batch_no,
+      supplier_model: materialForSelection && materialForSelection.is_test_material ? supplierModel : ''
     });
     const candidateIds = candidateItems.map(item => item._id);
-    const materialForSelection = (!unique_code && product_code && !batch_no)
-      ? await loadMaterialByProductCode(product_code)
-      : null;
     const testMaterialGuard = shouldBlockTestMaterialProductOnlyWithdrawal({
       unique_code,
       product_code,
@@ -211,6 +236,7 @@ exports.main = async (event, context) => {
     if (testMaterialGuard.blocked) {
       return { success: false, msg: testMaterialGuard.msg };
     }
+    assertConsistentChemicalUnits(candidateItems);
     const preferredFilmUnit = await loadPreferredFilmUnit(candidateItems);
 
     const runWithdrawalTransaction = () => db.runTransaction(async transaction => {
@@ -218,6 +244,7 @@ exports.main = async (event, context) => {
       if (itemsToProcess.length === 0) {
         throw new Error('No available inventory found for this selection.');
       }
+      assertConsistentChemicalUnits(itemsToProcess);
 
       let remainingNeed = totalNeed;
       const logs = [];
