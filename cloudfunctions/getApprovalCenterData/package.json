@@ -4,6 +4,6 @@
   "description": "Read approval center lists through admin-only cloud function",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "3.0.4"
   }
 }

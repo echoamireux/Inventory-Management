@@ -171,7 +171,7 @@
 
 当前仓库中与核心业务直接相关的主要云函数包括：
 
-- `login` / `userLogin` / `registerUser`
+- `userLogin` / `registerUser`
   登录与注册
 - `getDashboardStats`
   首页统计与预警
@@ -300,7 +300,7 @@ module.exports = {
 
 建议首次接手项目时至少重新部署以下函数：
 
-- `login`
+- `userLogin`
 - `registerUser`
 - `getDashboardStats`
 - `getInventoryGrouped`
@@ -326,6 +326,12 @@ module.exports = {
 - `getLogs`
 - `getApprovalCenterData`
 - `adminUpdateUserStatus`
+- `approveInventoryCorrectionRequest`
+- `submitInventoryCorrectionRequest`
+
+旧的 `login` 和 `initMDMCollection` 已从仓库移除。部署前请在云开发控制台同步删除云端 `login`，并删除云端 `initMDMCollection`，避免废弃入口继续被误调用。
+
+首次部署本版本前，先在云数据库创建 `preprint_jobs` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
 
 ### 6. 生产索引配置建议
 
@@ -341,12 +347,21 @@ module.exports = {
 | `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
 | `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
+| `preprinted_labels` | `preprinted_labels.job_id + operator_id + job_index` | 复合索引，升序 + 升序 + 升序 | 支持按任务稳定恢复完整标签顺序 |
+| `preprint_jobs` | `preprint_jobs.operator_id + created_at desc` | 复合索引，升序 + 降序 | 支持本人最近预打印任务倒序加载 |
+| `users` | `users.status + create_time desc` | 复合索引，升序 + 降序 | 支持人员审批分页 |
+| `material_requests` | `material_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持物料审批分页 |
+| `inventory_correction_requests` | `inventory_correction_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持库存纠错审批分页 |
+| `project_codes` | `project_codes.project_code` | 唯一索引，升序 | 确保项目编码唯一 |
+| `material_subcategories` | `material_subcategories.subcategory_key` | 唯一索引，升序 | 确保子类别稳定 ID 唯一 |
+| `warehouse_zones` | `warehouse_zones.zone_key` | 唯一索引，升序 | 确保库区稳定 ID 唯一 |
 | `warehouse_location_details` | `warehouse_location_details.detail_key` | 唯一索引，升序 | 确保每个详细坐标稳定 ID 唯一，支持 F1-F5 改名后库存展示跟随最新名称 |
 | `warehouse_location_details` | `warehouse_location_details.zone_key + sort_order` | 复合索引，升序 + 升序 | 支持库区管理页按库区加载和排序详细坐标 |
 | `inventory` | `inventory.product_code + status` | 复合索引，升序 + 升序 | 支持按产品代码查询在库库存和领料候选 |
 | `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model` | 复合索引，升序 + 升序 + 升序 | 支持测试料共用 `999` 时按原厂型号拆分查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model + batch_number` | 复合索引，升序 + 升序 + 升序 + 升序 | 支持测试料按产品代码、原厂型号和批号展开标签明细 |
+| `inventory` | `inventory.material_id + status` | 复合索引，升序 + 升序 | 支持主数据归档和单位锁定前检查库存记录 |
 | `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
 | `inventory_log` | `inventory_log.type + project_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按项目和时间导出 |
 | `inventory_log` | `inventory_log.type + product_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按物料反查 |
@@ -369,6 +384,33 @@ module.exports = {
 - 唯一索引创建前必须确认集合中没有重复值，否则索引会创建失败。
 - 索引构建期间不要批量导入大量数据。
 - 索引创建完成后，建议重新测试库存查询、扫码领料、日志查看和库存导出。
+
+### 7. 集合权限
+
+正式环境的核心集合必须配置为“仅云函数可读写”，小程序端不直接读写数据库。至少包括：
+
+- `users`、`materials`、`inventory`、`inventory_log`
+- `material_requests`、`inventory_correction_requests`
+- `preprinted_labels`、`preprint_jobs`、`system_counters`
+- `project_codes`、`material_subcategories`、`product_code_prefixes`
+- `warehouse_zones`、`warehouse_location_details`
+
+在云开发控制台逐个检查集合权限；如果仍保留“所有用户可读”或“小程序端可写”，视为投产阻断项。
+
+### 8. 依赖锁定
+
+根目录和每个可部署云函数均提交 `package-lock.json`。依赖固定为 `@vant/weapp 1.11.7`、`wx-server-sdk 3.0.4`、`exceljs 4.4.0`，部署时选择“云端安装依赖”，不要删除锁文件后重新解析浮动版本。
+
+### 9. 投产阻断检查
+
+以下项目未完成时不要上传正式版小程序：
+
+1. 已创建 `preprint_jobs`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
+2. 本节要求的唯一索引和复合索引均已构建成功。
+3. 核心集合权限均已收紧为仅云函数可读写。
+4. 旧云端 `login`、`initMDMCollection` 已删除。
+5. 本次涉及的库存写入、标签、审批、项目报表、主数据与查询云函数均已重新部署。
+6. 已在开发版完成扫码入库、标签失败重导、审批分页、库存导出和项目报表日期边界回归。
 
 ## 库区与详细坐标规则
 

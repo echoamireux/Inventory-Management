@@ -4,7 +4,7 @@
   "description": "Export project usage report workbook",
   "main": "index.js",
   "dependencies": {
-    "exceljs": "^4.4.0",
-    "wx-server-sdk": "latest"
+    "exceljs": "4.4.0",
+    "wx-server-sdk": "3.0.4"
   }
 }

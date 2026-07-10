@@ -4,6 +4,6 @@
   "description": "Read inventory records through cloud function access control",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "3.0.4"
   }
 }

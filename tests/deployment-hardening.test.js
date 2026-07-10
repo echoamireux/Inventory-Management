@@ -1,0 +1,78 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const repoRoot = path.join(__dirname, '..');
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function listCloudFunctionDirectories() {
+  return fs.readdirSync(path.join(repoRoot, 'cloudfunctions'), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && !entry.name.startsWith('_'))
+    .map(entry => entry.name)
+    .filter(name => fs.existsSync(path.join(repoRoot, 'cloudfunctions', name, 'package.json')))
+    .sort();
+}
+
+test('production dependencies are exact and every deployable package has a lockfile', () => {
+  const rootPackage = JSON.parse(read('package.json'));
+  assert.equal(rootPackage.dependencies['@vant/weapp'], '1.11.7');
+  assert.equal(fs.existsSync(path.join(repoRoot, 'package-lock.json')), true);
+
+  for (const functionName of listCloudFunctionDirectories()) {
+    const functionDir = path.join(repoRoot, 'cloudfunctions', functionName);
+    const pkg = JSON.parse(fs.readFileSync(path.join(functionDir, 'package.json'), 'utf8'));
+    if (pkg.dependencies && pkg.dependencies['wx-server-sdk']) {
+      assert.equal(pkg.dependencies['wx-server-sdk'], '3.0.4', `${functionName} wx-server-sdk must be pinned`);
+    }
+    if (pkg.dependencies && pkg.dependencies.exceljs) {
+      assert.equal(pkg.dependencies.exceljs, '4.4.0', `${functionName} exceljs must be pinned`);
+    }
+    assert.equal(
+      fs.existsSync(path.join(functionDir, 'package-lock.json')),
+      true,
+      `${functionName} must commit package-lock.json`
+    );
+  }
+
+  const gitignore = read('.gitignore');
+  assert.doesNotMatch(gitignore, /^package-lock\.json$/m);
+  assert.doesNotMatch(gitignore, /^cloudfunctions\/\*\*\/package-lock\.json$/m);
+});
+
+test('unused direct database wrapper and retired cloud functions are removed', () => {
+  assert.equal(fs.existsSync(path.join(repoRoot, 'miniprogram/utils/db.js')), false);
+  assert.doesNotMatch(read('miniprogram/pages/register/index.js'), /utils\/db/);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/login')), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/initMDMCollection')), false);
+});
+
+test('reports and dynamic templates overwrite operator-scoped stable cloud paths', () => {
+  assert.match(read('cloudfunctions/exportData/index.js'), /exports\/\$\{OPENID\}\/inventory\/current\.xlsx/);
+  assert.match(read('cloudfunctions/exportProjectUsageReport/index.js'), /exports\/\$\{OPENID\}\/project-usage\/current\.xlsx/);
+  assert.match(read('cloudfunctions/exportMaterialTemplate/index.js'), /templates\/\$\{OPENID\}\/material-import\/current\.xlsx/);
+  assert.match(read('cloudfunctions/exportInventoryTemplate/index.js'), /templates\/\$\{OPENID\}\/inventory-import\/current\.xlsx/);
+});
+
+test('README documents production permissions, required indexes and retired cloud cleanup', () => {
+  const readme = read('README.md');
+  for (const requiredText of [
+    '仅云函数可读写',
+    'preprint_jobs.operator_id + created_at desc',
+    'preprinted_labels.job_id + operator_id + job_index',
+    'users.status + create_time desc',
+    'material_requests.status + created_at desc',
+    'inventory_correction_requests.status + created_at desc',
+    'project_codes.project_code',
+    'material_subcategories.subcategory_key',
+    'warehouse_zones.zone_key',
+    'inventory.material_id + status',
+    '删除云端 `login`',
+    '删除云端 `initMDMCollection`'
+  ]) {
+    assert.match(readme, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});

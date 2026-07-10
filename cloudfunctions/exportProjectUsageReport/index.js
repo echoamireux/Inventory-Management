@@ -432,7 +432,7 @@ exports.main = async (event = {}) => {
     const buffer = await workbook.xlsx.writeBuffer();
     const fileName = buildProjectUsageExportFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
-      cloudPath: `exports/${fileName}`,
+      cloudPath: `exports/${OPENID}/project-usage/current.xlsx`,
       fileContent: buffer
     });
 

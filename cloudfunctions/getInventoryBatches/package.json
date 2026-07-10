@@ -4,7 +4,7 @@
   "description": "Get inventory items grouped by batch number",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "3.0.4"
   },
   "author": "Antigravity"
 }

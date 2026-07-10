@@ -4,7 +4,7 @@
   "description": "Laboratory Inventory Management System",
   "main": "miniprogram/app.js",
   "dependencies": {
-    "@vant/weapp": "^1.11.2"
+    "@vant/weapp": "1.11.7"
   },
   "devDependencies": {},
   "scripts": {

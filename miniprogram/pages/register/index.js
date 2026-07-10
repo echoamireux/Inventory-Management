@@ -1,5 +1,3 @@
-const db = require('../../utils/db');
-
 Page({
   data: {
     name: '',

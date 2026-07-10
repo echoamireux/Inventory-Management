@@ -4,7 +4,7 @@
   "description": "Search inventory and materials",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "3.0.4"
   },
   "author": "Antigravity"
 }

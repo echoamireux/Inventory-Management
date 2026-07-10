@@ -92,10 +92,9 @@ exports.main = async (event, context) => {
     const workbook = await buildTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();
     const exportedAt = new Date();
-    const timestamp = exportedAt.getTime();
     const fileName = buildMaterialTemplateFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
-      cloudPath: `templates/material-import-template_${timestamp}.xlsx`,
+      cloudPath: `templates/${OPENID}/material-import/current.xlsx`,
       fileContent: Buffer.from(fileBuffer)
     });
 

@@ -176,10 +176,9 @@ exports.main = async () => {
     const workbook = await buildInventoryTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();
     const exportedAt = new Date();
-    const timestamp = exportedAt.getTime();
     const fileName = buildInventoryTemplateFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
-      cloudPath: `templates/inventory-import-template_${timestamp}.xlsx`,
+      cloudPath: `templates/${OPENID}/inventory-import/current.xlsx`,
       fileContent: Buffer.from(fileBuffer)
     });
 
