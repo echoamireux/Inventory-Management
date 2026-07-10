@@ -22,6 +22,10 @@ const {
 const {
   ensureBuiltinProductCodePrefixes
 } = require('./product-code-prefixes');
+const {
+  assertPreprintJobConsumable,
+  loadPreprintJobForLabel
+} = require('./preprint-jobs');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -435,6 +439,7 @@ async function submitRows(items = [], openid, operatorName) {
     const ids = [];
     let created = 0;
     let refilled = 0;
+    const preprintJobUsageCounts = new Map();
 
     for (const item of normalizedItems) {
       const uniqueCode = normalizeLabelCodeInput(item.unique_code);
@@ -523,6 +528,8 @@ async function submitRows(items = [], openid, operatorName) {
 
       const preprintLabel = await loadPreprintLabelByUniqueCode(transaction, uniqueCode);
       assertPreprintLabelUsable(preprintLabel, item, material);
+      const preprintJob = await loadPreprintJobForLabel(transaction, preprintLabel);
+      assertPreprintJobConsumable(preprintJob);
       const payload = buildInventoryImportPayload(item, material, { preprintLabel });
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {
@@ -559,6 +566,12 @@ async function submitRows(items = [], openid, operatorName) {
             update_time: db.serverDate()
           }
         });
+        if (preprintJob) {
+          preprintJobUsageCounts.set(
+            preprintJob.job_id,
+            (preprintJobUsageCounts.get(preprintJob.job_id) || 0) + 1
+          );
+        }
       }
 
       await transaction.collection('inventory_log').add({
@@ -573,6 +586,15 @@ async function submitRows(items = [], openid, operatorName) {
 
       ids.push(addRes._id);
       created += 1;
+    }
+
+    for (const [jobId, usedCount] of preprintJobUsageCounts.entries()) {
+      await transaction.collection('preprint_jobs').doc(jobId).update({
+        data: {
+          used_count: _.inc(usedCount),
+          updated_at: db.serverDate()
+        }
+      });
     }
 
     return {

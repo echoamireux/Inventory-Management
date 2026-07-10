@@ -28,6 +28,10 @@ const {
   buildInventoryLocationPayload
 } = require('./warehouse-zones');
 const { assertActiveUserAccess } = require('./auth');
+const {
+  assertPreprintJobConsumable,
+  loadPreprintJobForLabel
+} = require('./preprint-jobs');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -294,6 +298,7 @@ exports.main = async (event, context) => {
       }
 
       let preprintLabel = null;
+      let preprintJob = null;
       if (preprintLabelId) {
         const preprintRes = await transaction.collection('preprinted_labels').doc(preprintLabelId).get();
         preprintLabel = preprintRes.data || null;
@@ -321,6 +326,8 @@ exports.main = async (event, context) => {
         if (preprintLabel.category && preprintLabel.category !== category) {
           throw new Error('预生成标签类型与当前物料不一致');
         }
+        preprintJob = await loadPreprintJobForLabel(transaction, preprintLabel);
+        assertPreprintJobConsumable(preprintJob);
       }
 
       assertPreprintSourceConsistency(preprintLabel, base);
@@ -472,6 +479,14 @@ exports.main = async (event, context) => {
             update_time: db.serverDate()
           }
         });
+        if (preprintJob) {
+          await transaction.collection('preprint_jobs').doc(preprintJob.job_id).update({
+            data: {
+              used_count: _.inc(1),
+              updated_at: db.serverDate()
+            }
+          });
+        }
       }
 
       // 5. 写入 inventory_log 集合 (原 logs 集合)

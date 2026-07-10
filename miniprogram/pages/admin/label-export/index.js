@@ -573,21 +573,17 @@ Page({
     if (this.data.voidingPreprint) {
       return;
     }
-    const records = this.data.preprintForm.lastRecords || [];
-    const ids = records
-      .filter(item => item.status === 'unused')
-      .map(item => item._id)
-      .filter(Boolean);
-    if (!ids.length) {
+    const jobId = this.data.preprintForm.lastJobId;
+    if (!jobId) {
       Toast.fail('本批没有可作废的未入库标签');
       return;
     }
 
-    const ok = await this.voidPreprintIds(ids);
+    const ok = await this.voidPreprintJob(jobId);
     if (ok) {
-      const nextRecords = records.map(item => ids.includes(item._id)
-        ? { ...item, status: 'voided' }
-        : item);
+      const nextRecords = (this.data.preprintForm.lastRecords || []).map(item => (
+        item.status === 'unused' ? { ...item, status: 'voided' } : item
+      ));
       this.setData({
         'preprintForm.requestId': buildRequestId(),
         'preprintForm.lastSnapshot': '',
@@ -626,11 +622,37 @@ Page({
   onRestorePreprintJob(e) {
     const job = e.currentTarget.dataset.item || {};
     const records = job.records || [];
+    const formSnapshot = job.form_snapshot || {};
+    const material = decorateMaterial({
+      _id: job.material_id,
+      product_code: job.product_code,
+      material_name: job.material_name,
+      category: job.category,
+      subcategory_key: job.subcategory_key || '',
+      sub_category: job.sub_category || '',
+      is_test_material: !!job.is_test_material,
+      specs: job.material_specs || {},
+      supplier_model: formSnapshot.supplier_model || ''
+    });
+    const restoredForm = {
+      ...this.data.preprintForm,
+      materialSearchVal: `${material.display_code} ${material.display_name}`,
+      selectedMaterial: material,
+      count: job.count || records.length || 1,
+      supplier_model: formSnapshot.supplier_model || '',
+      thickness_um: normalizePositiveSpec(formSnapshot.thickness_um),
+      width_mm: normalizePositiveSpec(formSnapshot.width_mm),
+      filmThicknessLocked: !!(!material.is_test_material && material.film_thickness_um),
+      filmWidthLocked: !!(!material.is_test_material && material.film_width_mm),
+      supplier: formSnapshot.supplier || '',
+      sample_note: formSnapshot.sample_note || '',
+      requestId: job.request_id || buildRequestId(),
+      lastJobId: job.job_id || '',
+      lastRecords: records
+    };
+    restoredForm.lastSnapshot = buildPreprintFormSnapshot(restoredForm, job.template_type || this.data.templateType);
     this.setData({
-      'preprintForm.requestId': job.request_id || buildRequestId(),
-      'preprintForm.lastSnapshot': '',
-      'preprintForm.lastJobId': job.job_id || '',
-      'preprintForm.lastRecords': records
+      preprintForm: restoredForm
     });
     Toast.success('已恢复查看本批标签');
   },
@@ -666,19 +688,15 @@ Page({
 
   async onVoidRecentPreprintJob(e) {
     const job = e.currentTarget.dataset.item || {};
-    const ids = (job.records || [])
-      .filter(item => item.status === 'unused')
-      .map(item => item._id)
-      .filter(Boolean);
-    if (!ids.length) {
+    if (!job.job_id) {
       Toast.fail('本批没有可作废的未入库标签');
       return;
     }
-    const ok = await this.voidPreprintIds(ids);
+    const ok = await this.voidPreprintJob(job.job_id);
     if (ok && job.job_id === this.data.preprintForm.lastJobId) {
-      const nextRecords = (this.data.preprintForm.lastRecords || []).map(item => ids.includes(item._id)
-        ? { ...item, status: 'voided' }
-        : item);
+      const nextRecords = (this.data.preprintForm.lastRecords || []).map(item => (
+        item.status === 'unused' ? { ...item, status: 'voided' } : item
+      ));
       this.setData({
         'preprintForm.requestId': buildRequestId(),
         'preprintForm.lastSnapshot': '',
@@ -688,8 +706,8 @@ Page({
     }
   },
 
-  async voidPreprintIds(ids = []) {
-    if (!ids.length) {
+  async voidPreprintJob(jobId) {
+    if (!jobId) {
       Toast.fail('本批没有可作废的未入库标签');
       return false;
     }
@@ -702,7 +720,7 @@ Page({
         data: {
           action: 'voidPreprintLabels',
           data: {
-            ids
+            jobId
           }
         }
       });

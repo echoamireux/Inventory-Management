@@ -19,6 +19,10 @@ const {
   buildLocationDetailMapByZone,
   buildInventoryLocationPayload
 } = require('./warehouse-zones');
+const {
+  assertPreprintJobConsumable,
+  loadPreprintJobForLabel
+} = require('./preprint-jobs');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -144,6 +148,7 @@ exports.main = async (event, context) => {
 
     return await db.runTransaction(async transaction => {
       const ids = [];
+      const preprintJobUsageCounts = new Map();
 
       for (let i = 0; i < preparedItems.length; i += 1) {
         const prepared = preparedItems[i];
@@ -221,6 +226,7 @@ exports.main = async (event, context) => {
 
         const preprintLabelId = String(prepared.rawItem && prepared.rawItem.preprint_label_id || '').trim();
         let preprintLabel = null;
+        let preprintJob = null;
         if (preprintLabelId) {
           const preprintRes = await transaction.collection('preprinted_labels').doc(preprintLabelId).get();
           preprintLabel = preprintRes.data || null;
@@ -250,6 +256,8 @@ exports.main = async (event, context) => {
             throw new Error(`第${i + 1}条预生成标签类型与当前物料不一致`);
           }
           assertPreprintSourceConsistency(preprintLabel, inventoryData, `第${i + 1}条`);
+          preprintJob = await loadPreprintJobForLabel(transaction, preprintLabel);
+          assertPreprintJobConsumable(preprintJob);
         }
 
         const addRes = await transaction.collection('inventory').add({
@@ -265,6 +273,12 @@ exports.main = async (event, context) => {
               update_time: db.serverDate()
             }
           });
+          if (preprintJob) {
+            preprintJobUsageCounts.set(
+              preprintJob.job_id,
+              (preprintJobUsageCounts.get(preprintJob.job_id) || 0) + 1
+            );
+          }
         }
 
         await transaction.collection('inventory_log').add({
@@ -278,6 +292,15 @@ exports.main = async (event, context) => {
         });
 
         ids.push(addRes._id);
+      }
+
+      for (const [jobId, usedCount] of preprintJobUsageCounts.entries()) {
+        await transaction.collection('preprint_jobs').doc(jobId).update({
+          data: {
+            used_count: _.inc(usedCount),
+            updated_at: db.serverDate()
+          }
+        });
       }
 
       return {

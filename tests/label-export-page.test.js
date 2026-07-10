@@ -125,9 +125,9 @@ test('label export cloud function separates list and export actions and only all
   assert.match(file, /templateType/);
   assert.match(file, /selectedIds/);
   assert.match(file, /searchVal/);
-  assert.match(file, /qr_content/);
-  assert.match(file, /function markPreprintRecordsExported[\s\S]*exported:\s*true/);
-  assert.match(file, /async function exportPreprintJob[\s\S]*markPreprintRecordsExported\(records\)/);
+  assert.match(`${file}\n${read('cloudfunctions/exportLabelData/preprint-labels.js')}`, /qr_content/);
+  assert.match(file, /updatePreprintJobExportState/);
+  assert.match(file, /async function exportPreprintJob[\s\S]*updatePreprintJobExportState\([^)]*'exported'/);
 });
 
 test('preprint page uses backend create-and-export action so exported batches are tracked', () => {

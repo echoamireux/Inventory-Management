@@ -70,6 +70,12 @@ cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/batchAddInventory
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/importInventoryTemplate/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/updateInventory/inventory-quantity.js
 
+echo "   -> Updating preprint-jobs.js..."
+cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/exportLabelData/preprint-jobs.js
+cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/addMaterial/preprint-jobs.js
+cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/batchAddInventory/preprint-jobs.js
+cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/importInventoryTemplate/preprint-jobs.js
+
 echo "   -> Updating material-map.js and export-order.js..."
 cp cloudfunctions/_shared/material-map.js cloudfunctions/getInventoryGrouped/material-map.js
 cp cloudfunctions/_shared/export-order.js cloudfunctions/exportData/export-order.js

@@ -232,11 +232,13 @@
             <text wx:if="{{ item.supplier_model }}">原厂型号 {{ item.supplier_model }}</text>
             <text>{{ item.start_code }}{{ item.end_code && item.end_code !== item.start_code ? (' - ' + item.end_code) : '' }}</text>
             <text>未入库 {{ item.unused_count }} / 已入库 {{ item.used_count }}</text>
+            <text wx:if="{{ item.status === 'creating' }}">生成未完成</text>
+            <text wx:elif="{{ item.export_status === 'failed' }}">Excel 导出失败</text>
           </view>
           <view class="recent-preprint-actions">
-            <view class="recent-preprint-action" bindtap="onRestorePreprintJob" data-item="{{ item }}">恢复查看</view>
-            <view class="recent-preprint-action" bindtap="onExportRecentPreprintJob" data-item="{{ item }}">重新导出 Excel</view>
-            <view class="recent-preprint-action is-danger" bindtap="onVoidRecentPreprintJob" data-item="{{ item }}">作废未入库标签</view>
+            <view class="recent-preprint-action" bindtap="onRestorePreprintJob" data-item="{{ item }}">{{ item.status === 'creating' ? '恢复生成' : '恢复查看' }}</view>
+            <view wx:if="{{ item.status === 'ready' }}" class="recent-preprint-action" bindtap="onExportRecentPreprintJob" data-item="{{ item }}">重新导出 Excel</view>
+            <view wx:if="{{ item.used_count === 0 }}" class="recent-preprint-action is-danger" bindtap="onVoidRecentPreprintJob" data-item="{{ item }}">作废未入库标签</view>
           </view>
         </view>
       </block>
