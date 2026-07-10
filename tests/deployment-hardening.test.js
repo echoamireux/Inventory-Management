@@ -55,6 +55,7 @@ test('reports and dynamic templates overwrite operator-scoped stable cloud paths
   assert.match(read('cloudfunctions/exportProjectUsageReport/index.js'), /exports\/\$\{OPENID\}\/project-usage\/current\.xlsx/);
   assert.match(read('cloudfunctions/exportMaterialTemplate/index.js'), /templates\/\$\{OPENID\}\/material-import\/current\.xlsx/);
   assert.match(read('cloudfunctions/exportInventoryTemplate/index.js'), /templates\/\$\{OPENID\}\/inventory-import\/current\.xlsx/);
+  assert.match(read('cloudfunctions/exportLabelData/index.js'), /label-exports\/\$\{operatorOpenid\}\/reprint\/\$\{templateType\}\/current\.xlsx/);
 });
 
 test('README documents production permissions, required indexes and retired cloud cleanup', () => {
@@ -70,9 +71,14 @@ test('README documents production permissions, required indexes and retired clou
     'material_subcategories.subcategory_key',
     'warehouse_zones.zone_key',
     'inventory.material_id + status',
+    '`material_log`',
+    '`removeInventory`',
+    '`editInventory`',
     '删除云端 `login`',
     '删除云端 `initMDMCollection`'
   ]) {
     assert.match(readme, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+
+  assert.match(readme, /project_codes\.project_code[\s\S]*material_subcategories\.subcategory_key[\s\S]*warehouse_zones\.zone_key[\s\S]*勾选“唯一索引”/);
 });

@@ -469,28 +469,50 @@ async function submitRows(items = [], openid, operatorName) {
         item.location_text = item.location;
       }
 
-      const material = materialsByCode.get(String(item.product_code || '').trim());
-      if (!material || material.status !== 'active') {
+      const materialSnapshot = materialsByCode.get(String(item.product_code || '').trim());
+      if (!materialSnapshot || materialSnapshot.status !== 'active') {
         throw new Error(`产品代码 ${item.product_code || ''} 未启用，不能入库`);
       }
-      const existingInventory = existingInventoryByUniqueCode.get(uniqueCode);
+      const existingInventorySnapshot = existingInventoryByUniqueCode.get(uniqueCode);
       const submitAction = String(item.submit_action || 'create').trim() || 'create';
 
+      let refillQuantity = null;
       if (submitAction === 'refill') {
-        if (!existingInventory) {
-          throw new Error(`标签编号 ${uniqueCode} 对应原库存不存在，请刷新预览后重试`);
-        }
-
-        if (!isChemicalRefillEligible(existingInventory, item)) {
-          throw new Error(`标签编号 ${uniqueCode} 当前不满足补料条件，请刷新预览后重试`);
-        }
-
-        const refillQuantity = Number(item.net_content);
+        refillQuantity = Number(item.net_content);
         if (!Number.isFinite(refillQuantity) || refillQuantity <= 0) {
           throw new Error(`标签编号 ${uniqueCode} 的补料数量必须为有效正数`);
         }
-        const refillUpdate = buildChemicalRefillUpdate(existingInventory, refillQuantity);
-        await transaction.collection('inventory').doc(existingInventory._id).update({
+      }
+
+      const materialRes = await transaction.collection('materials').doc(materialSnapshot._id).get();
+      const material = materialRes.data;
+      if (
+        !material
+        || material.status !== 'active'
+        || String(material.product_code || '').trim() !== String(item.product_code || '').trim()
+      ) {
+        throw new Error(`产品代码 ${item.product_code || ''} 未启用或主数据已变化，请刷新后重试`);
+      }
+
+      if (submitAction === 'refill') {
+        if (!existingInventorySnapshot) {
+          throw new Error(`标签编号 ${uniqueCode} 对应原库存不存在，请刷新预览后重试`);
+        }
+
+        const currentInventoryRes = await transaction.collection('inventory')
+          .doc(existingInventorySnapshot._id)
+          .get();
+        const currentInventory = currentInventoryRes.data;
+        if (!currentInventory || normalizeLabelCodeInput(currentInventory.unique_code) !== uniqueCode) {
+          throw new Error(`标签编号 ${uniqueCode} 对应原库存不存在，请刷新预览后重试`);
+        }
+
+        if (!isChemicalRefillEligible(currentInventory, item)) {
+          throw new Error(`标签编号 ${uniqueCode} 当前不满足补料条件，请刷新预览后重试`);
+        }
+
+        const refillUpdate = buildChemicalRefillUpdate(currentInventory, refillQuantity);
+        await transaction.collection('inventory').doc(currentInventory._id).update({
           data: {
             ...refillUpdate.updateData,
             update_time: db.serverDate()
@@ -500,15 +522,15 @@ async function submitRows(items = [], openid, operatorName) {
         await transaction.collection('inventory_log').add({
           data: {
             type: 'refill',
-            inventory_id: existingInventory._id,
+            inventory_id: currentInventory._id,
             material_id: material && material._id,
             material_name: String(material && (material.material_name || material.name) || item.material_name || '').trim(),
             category: item.category === 'film' ? 'film' : 'chemical',
             product_code: String(item.product_code || '').trim(),
             unique_code: uniqueCode,
             quantity_change: refillQuantity,
-            spec_change_unit: (existingInventory.quantity && existingInventory.quantity.unit) || item.quantity_unit || '',
-            unit: (existingInventory.quantity && existingInventory.quantity.unit) || item.quantity_unit || '',
+            spec_change_unit: (currentInventory.quantity && currentInventory.quantity.unit) || item.quantity_unit || '',
+            unit: (currentInventory.quantity && currentInventory.quantity.unit) || item.quantity_unit || '',
             description: '补料入库',
             operator: operatorName || 'System',
             operator_id: openid,
@@ -517,12 +539,12 @@ async function submitRows(items = [], openid, operatorName) {
           }
         });
 
-        ids.push(existingInventory._id);
+        ids.push(currentInventory._id);
         refilled += 1;
         continue;
       }
 
-      if (existingInventory) {
+      if (existingInventorySnapshot) {
         throw new Error(`标签编号 ${uniqueCode} 已存在，请刷新预览后重试`);
       }
 

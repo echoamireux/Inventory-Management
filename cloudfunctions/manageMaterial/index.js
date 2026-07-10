@@ -26,6 +26,37 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
+const MATERIAL_EDITABLE_FIELDS = new Set([
+  'product_code',
+  'material_name',
+  'category',
+  'subcategory_key',
+  'sub_category',
+  'supplier',
+  'supplier_model',
+  'default_unit',
+  'is_test_material',
+  'package_type',
+  'thickness_um',
+  'width_mm',
+  'standard_width_mm'
+]);
+
+function pickEditableMaterialFields(data = {}) {
+  return Object.keys(data).reduce((result, key) => {
+    if (MATERIAL_EDITABLE_FIELDS.has(key)) {
+      result[key] = data[key];
+    }
+    return result;
+  }, {});
+}
+
+function hasMaterialIdentityChanged(current = {}, next = {}) {
+  return String(current.product_code || '').trim() !== String(next.product_code || '').trim()
+    || String(current.category || '').trim() !== String(next.category || '').trim()
+    || !!current.is_test_material !== !!next.is_test_material;
+}
+
 async function loadSubcategoryContext(category = '') {
   const allRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
   const records = category
@@ -531,7 +562,8 @@ async function createMaterial(data, openid) {
  * 更新物料信息
  */
 async function updateMaterial(data, openid) {
-  const { id, ...updateData } = data;
+  const { id } = data;
+  const updateData = pickEditableMaterialFields(data);
   const authResult = await assertManageMaterialAdminMutation(openid);
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
@@ -544,6 +576,9 @@ async function updateMaterial(data, openid) {
   // 获取原数据用于日志
   const oldRes = await db.collection('materials').doc(id).get();
   const oldData = oldRes.data;
+  if (!oldData) {
+    return { success: false, msg: '物料不存在' };
+  }
   const nextCategory = updateData.category || oldData.category;
 
   if (updateData.product_code) {
@@ -573,19 +608,6 @@ async function updateMaterial(data, openid) {
   const normalizedUnit = normalizeUnitInput(nextCategory, nextUnit);
   if (!normalizedUnit.ok) {
     return { success: false, msg: normalizedUnit.msg };
-  }
-  const unitChanged = normalizedUnit.unit !== String(oldData.default_unit || '').trim();
-  if (unitChanged) {
-    const inventoryRes = await db.collection('inventory')
-      .where({ material_id: id })
-      .limit(1)
-      .get();
-    if (inventoryRes.data && inventoryRes.data.length > 0) {
-      return {
-        success: false,
-        msg: '该物料已产生库存记录，默认单位已锁定，不能修改'
-      };
-    }
   }
   const resolvedSubcategory = await resolveMaterialSubcategory({
     subcategory_key: updateData.subcategory_key || oldData.subcategory_key,
@@ -619,7 +641,36 @@ async function updateMaterial(data, openid) {
   updateData.updated_by = openid;
   updateData.updated_at = db.serverDate();
 
-  await db.collection('materials').doc(id).update({ data: updateData });
+  let committedOldData = oldData;
+  await db.runTransaction(async (transaction) => {
+    const materialRef = transaction.collection('materials').doc(id);
+    const currentRes = await materialRef.get();
+    const currentData = currentRes.data;
+    if (!currentData) {
+      throw new Error('物料不存在');
+    }
+
+    const identityChanged = hasMaterialIdentityChanged(currentData, {
+      ...currentData,
+      ...updateData
+    });
+    const unitChanged = normalizedUnit.unit !== String(currentData.default_unit || '').trim();
+    if (identityChanged || unitChanged) {
+      const inventoryRes = await transaction.collection('inventory')
+        .where({ material_id: id })
+        .limit(1)
+        .get();
+      if (inventoryRes.data && inventoryRes.data.length > 0) {
+        if (identityChanged) {
+          throw new Error('该物料已产生库存记录，产品代码、类别和测试料属性等身份字段已锁定，不能修改');
+        }
+        throw new Error('该物料已产生库存记录，默认单位已锁定，不能修改');
+      }
+    }
+
+    await materialRef.update({ data: updateData });
+    committedOldData = currentData;
+  });
 
   // 记录日志
   await logMaterialChange({
@@ -627,7 +678,7 @@ async function updateMaterial(data, openid) {
     product_code: updateData.product_code || oldData.product_code,
     action: 'update',
     operator: openid,
-    old_data: oldData,
+    old_data: committedOldData,
     new_data: updateData
   });
 
@@ -957,50 +1008,79 @@ async function batchDeleteMaterials(data, openid) {
     return { success: false, msg: '请选择要删除的物料' };
   }
 
-  let deletedCount = 0;
-  let archivedCount = 0;
-  const now = db.serverDate();
+  const normalizedIds = Array.from(new Set(ids.map(id => String(id || '').trim()).filter(Boolean)));
 
-  for (const id of ids) {
-    try {
-      // 1. 获取物料信息
-      const material = await db.collection('materials').doc(id).get();
-      if (!material.data) continue;
+  try {
+    const outcome = await db.runTransaction(async (transaction) => {
+      const prepared = [];
 
-      const { product_code } = material.data;
+      for (const id of normalizedIds) {
+        const materialRef = transaction.collection('materials').doc(id);
+        const materialRes = await materialRef.get();
+        if (!materialRes.data) {
+          throw new Error('物料不存在');
+        }
 
-      // 2. 检查是否有库存记录 (Inventory)
-      const invCount = await db.collection('inventory')
-        .where({ product_code })
-        .count();
+        const currentInventoryRes = await transaction.collection('inventory')
+          .where({ material_id: id, status: 'in_stock' })
+          .limit(1)
+          .get();
+        if (currentInventoryRes.data && currentInventoryRes.data.length > 0) {
+          throw new Error(`物料 ${materialRes.data.product_code || id} 存在在库记录，不能归档`);
+        }
 
-      if (invCount.total > 0) {
-        // A. 有库存记录 -> 执行归档 (软删除)
-        await db.collection('materials').doc(id).update({
-          data: {
-            status: 'archived',
-            archive_reason: archive_reason || '批量删除归档',
-            updated_by: openid,
-            updated_at: now
-          }
+        const historyRes = await transaction.collection('inventory')
+          .where({ material_id: id })
+          .limit(1)
+          .get();
+        prepared.push({
+          id,
+          materialRef,
+          hasHistory: !!(historyRes.data && historyRes.data.length > 0)
         });
-        archivedCount++;
-      } else {
-        // B. 无库存记录 -> 执行物理删除
-        await db.collection('materials').doc(id).remove();
-        deletedCount++;
       }
-    } catch (err) {
-      console.error(`处理物料 ${id} 失败:`, err);
-    }
-  }
 
-  return {
-    success: true,
-    deleted: deletedCount,
-    archived: archivedCount,
-    msg: `成功删除 ${deletedCount} 条，归档 ${archivedCount} 条`
-  };
+      let deleted = 0;
+      let archived = 0;
+      for (const item of prepared) {
+        if (item.hasHistory) {
+          await item.materialRef.update({
+            data: {
+              status: 'archived',
+              archive_reason: archive_reason || '批量删除归档',
+              updated_by: openid,
+              updated_at: db.serverDate()
+            }
+          });
+          archived += 1;
+        } else {
+          await item.materialRef.remove();
+          deleted += 1;
+        }
+      }
+
+      return { deleted, archived };
+    });
+
+    return {
+      success: true,
+      deleted: outcome.deleted,
+      archived: outcome.archived,
+      failed: 0,
+      errors: [],
+      msg: `成功删除 ${outcome.deleted} 条，归档 ${outcome.archived} 条`
+    };
+  } catch (err) {
+    console.error('批量删除/归档物料失败:', err);
+    return {
+      success: false,
+      deleted: 0,
+      archived: 0,
+      failed: normalizedIds.length,
+      errors: [{ msg: err.message || '处理失败' }],
+      msg: err.message || '批量删除或归档失败'
+    };
+  }
 }
 
 /**

@@ -122,7 +122,7 @@
 - `admin`
   在普通用户基础上，可审批、维护主数据、导入、维护库区与子类别、查看审计日志
 - `super_admin`
-  在管理员基础上，可调整用户角色
+  在管理员基础上，可调整用户角色、禁用或恢复正式账号，并负责超级管理员交接
 
 前端角色判断主要用于页面体验；敏感操作以后端权限校验为准。
 
@@ -189,6 +189,8 @@
   单条物料入库
 - `manageMaterial`
   主数据列表、编辑、归档、恢复等
+- `editInventory` / `removeInventory`
+  单标签库存纠错、删除约束与审计链路
 - `addMaterialRequest` / `approveMaterialRequest`
   建档申请与审批
 - `manageProductCodePrefix`
@@ -206,7 +208,7 @@
 - `getLogs`
   日志查询
 - `adminUpdateUserStatus`
-  管理员审批用户状态
+  管理员审批用户状态；超级管理员调整角色、禁用或恢复正式账号
 
 ## 技术栈
 
@@ -311,6 +313,8 @@ module.exports = {
 - `batchAddInventory`
 - `importInventoryTemplate`
 - `manageMaterial`
+- `editInventory`
+- `removeInventory`
 - `approveMaterialRequest`
 - `manageProductCodePrefix`
 - `exportMaterialTemplate`
@@ -376,7 +380,7 @@ module.exports = {
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`product_code_prefixes.prefix`、`preprinted_labels.unique_code` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`product_code_prefixes.prefix`、`preprinted_labels.unique_code`、`project_codes.project_code`、`material_subcategories.subcategory_key`、`warehouse_zones.zone_key` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：
@@ -389,7 +393,7 @@ module.exports = {
 
 正式环境的核心集合必须配置为“仅云函数可读写”，小程序端不直接读写数据库。至少包括：
 
-- `users`、`materials`、`inventory`、`inventory_log`
+- `users`、`materials`、`inventory`、`inventory_log`、`material_log`
 - `material_requests`、`inventory_correction_requests`
 - `preprinted_labels`、`preprint_jobs`、`system_counters`
 - `project_codes`、`material_subcategories`、`product_code_prefixes`

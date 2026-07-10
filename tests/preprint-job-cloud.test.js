@@ -19,7 +19,7 @@ function loadModuleWithMocks(modulePath, mocks) {
   }
 }
 
-function createMemoryDatabase({ failLabelSetOnce = false } = {}) {
+function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } = {}) {
   const collections = new Map([
     ['users', new Map([['user-1', { _openid: 'openid-1', name: '测试操作员', role: 'user', status: 'active' }]])],
     ['materials', new Map([['mat-1', {
@@ -38,7 +38,8 @@ function createMemoryDatabase({ failLabelSetOnce = false } = {}) {
   ]);
   let transactionQueue = Promise.resolve();
   let labelSetCount = 0;
-  let shouldFailLabelSet = failLabelSetOnce;
+  let shouldFailLabelSet = failLabelSetOnce || failLabelSetAt > 0;
+  const failingLabelSetIndex = failLabelSetAt > 0 ? failLabelSetAt : 3;
 
   function clone(value) {
     return value == null ? value : structuredClone(value);
@@ -124,7 +125,7 @@ function createMemoryDatabase({ failLabelSetOnce = false } = {}) {
           async set({ data }) {
             if (name === 'preprinted_labels') {
               labelSetCount += 1;
-              if (shouldFailLabelSet && labelSetCount === 3) {
+              if (shouldFailLabelSet && labelSetCount === failingLabelSetIndex) {
                 shouldFailLabelSet = false;
                 throw new Error('模拟标签分片写入中断');
               }
@@ -253,6 +254,110 @@ test('preprint job resumes partial label writes and keeps request idempotency', 
   });
   assert.equal(reexport.success, false);
   assert.match(reexport.msg, /已作废/);
+});
+
+test('preprint recovery never overwrites a label whose state already changed', async () => {
+  const memory = createMemoryDatabase({ failLabelSetOnce: true });
+  const mod = loadExportLabelData(memory);
+  const payload = {
+    requestId: 'request-state-race',
+    templateType: 'chemical',
+    materialId: 'mat-1',
+    count: 5,
+    form: { supplier_model: 'MODEL-RACE' }
+  };
+
+  const originalError = console.error;
+  try {
+    console.error = () => {};
+    await mod.main({ action: 'createPreprintJob', data: payload });
+  } finally {
+    console.error = originalError;
+  }
+
+  const [recordId, record] = Array.from(memory.collections.get('preprinted_labels').entries())[0];
+  memory.collections.get('preprinted_labels').set(recordId, {
+    ...record,
+    status: 'used',
+    inventory_id: 'inv-raced'
+  });
+
+  const recovered = await mod.main({ action: 'createPreprintJob', data: payload });
+
+  assert.equal(recovered.success, false);
+  assert.match(recovered.msg, /状态已变化|不能覆盖/);
+  assert.equal(memory.collections.get('preprinted_labels').get(recordId).status, 'used');
+  assert.equal(memory.collections.get('preprinted_labels').get(recordId).inventory_id, 'inv-raced');
+});
+
+test('a reserved job can be fully voided even when generation stopped before the first label write', async () => {
+  const memory = createMemoryDatabase({ failLabelSetAt: 1 });
+  const mod = loadExportLabelData(memory);
+  const payload = {
+    requestId: 'request-zero-label-void',
+    templateType: 'chemical',
+    materialId: 'mat-1',
+    count: 4,
+    form: { supplier_model: 'MODEL-VOID' }
+  };
+
+  const originalError = console.error;
+  try {
+    console.error = () => {};
+    await mod.main({ action: 'createPreprintJob', data: payload });
+  } finally {
+    console.error = originalError;
+  }
+
+  const job = Array.from(memory.collections.get('preprint_jobs').values())[0];
+  assert.equal(job.status, 'creating');
+  memory.collections.get('preprinted_labels').clear();
+  assert.equal(memory.collections.get('preprinted_labels').size, 0);
+
+  const result = await mod.main({
+    action: 'voidPreprintLabels',
+    data: { jobId: job.job_id }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.count, 4);
+  assert.equal(job.status, 'voided');
+  assert.equal(memory.collections.get('preprinted_labels').size, 4);
+  assert.equal(
+    Array.from(memory.collections.get('preprinted_labels').values()).every(item => item.status === 'voided'),
+    true
+  );
+});
+
+test('recent preprint jobs scan past voided batches to fill the requested list', async () => {
+  const memory = createMemoryDatabase();
+  const jobs = memory.collections.get('preprint_jobs');
+  for (let index = 0; index < 25; index += 1) {
+    jobs.set(`voided-${index}`, {
+      job_id: `voided-${index}`,
+      operator_id: 'openid-1',
+      status: 'voided',
+      created_at: new Date(`2026-07-10T${String(23 - Math.min(index, 23)).padStart(2, '0')}:00:00.000Z`)
+    });
+  }
+  jobs.set('ready-older', {
+    job_id: 'ready-older',
+    operator_id: 'openid-1',
+    status: 'ready',
+    count: 0,
+    label_codes: [],
+    created_at: new Date('2026-07-08T08:00:00.000Z')
+  });
+  const mod = loadExportLabelData(memory);
+
+  const result = await mod.main({
+    action: 'listRecentPreprintJobs',
+    data: { pageSize: 1 }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.list.length, 1);
+  assert.equal(result.list[0].job_id, 'ready-older');
 });
 
 test('preprint job completes the supported 200-label maximum outside the reservation transaction', async () => {

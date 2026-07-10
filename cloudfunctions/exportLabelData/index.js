@@ -413,14 +413,41 @@ async function reservePreprintJob({
 async function writePreprintJobLabels(job = {}) {
   const records = buildPreprintJobRecords(job);
   for (const recordChunk of chunkPreprintItems(records, 20)) {
-    await Promise.all(recordChunk.map((record) => {
-      const { _id, ...recordData } = record;
-      return db.collection('preprinted_labels').doc(_id).set({
-        data: Object.assign({}, recordData, {
-          create_time: record.create_time || db.serverDate(),
-          update_time: db.serverDate()
-        })
-      });
+    await runPreprintTransactionWithRetry(() => db.runTransaction(async (transaction) => {
+      const currentJob = await getDocumentData(
+        transaction.collection('preprint_jobs').doc(job.job_id)
+      );
+      if (!currentJob || currentJob.operator_id !== job.operator_id) {
+        throw new Error('预生成标签任务不存在');
+      }
+      if (currentJob.status === 'ready') {
+        return;
+      }
+      if (currentJob.status !== 'creating') {
+        throw new Error('预生成标签任务状态已变化，不能继续写入标签');
+      }
+
+      for (const record of recordChunk) {
+        const { _id, ...recordData } = record;
+        const recordRef = transaction.collection('preprinted_labels').doc(_id);
+        const existingRecord = await getDocumentData(recordRef);
+        if (existingRecord) {
+          const sameReservation = existingRecord.job_id === job.job_id
+            && existingRecord.operator_id === job.operator_id
+            && existingRecord.unique_code === record.unique_code;
+          if (!sameReservation || existingRecord.status !== 'unused') {
+            throw new Error(`标签 ${record.unique_code} 状态已变化，恢复任务不能覆盖`);
+          }
+          continue;
+        }
+
+        await recordRef.set({
+          data: Object.assign({}, recordData, {
+            create_time: record.create_time || db.serverDate(),
+            update_time: db.serverDate()
+          })
+        });
+      }
     }));
   }
   return records;
@@ -659,14 +686,23 @@ async function listRecentPreprintJobs(data = {}, operatorOpenid = '') {
       ? _.in(CHEMICAL_TEMPLATE_TYPES)
       : templateType;
   }
-  const result = await db.collection('preprint_jobs')
-    .where(where)
-    .orderBy('created_at', 'desc')
-    .limit(Math.max(pageSize * 4, 20))
-    .get();
-  const jobs = (result.data || [])
-    .filter(job => job.status !== 'voided')
-    .slice(0, pageSize);
+  const jobs = [];
+  const scanSize = 20;
+  let skip = 0;
+  while (jobs.length < pageSize) {
+    const result = await db.collection('preprint_jobs')
+      .where(where)
+      .orderBy('created_at', 'desc')
+      .skip(skip)
+      .limit(scanSize)
+      .get();
+    const batch = result.data || [];
+    jobs.push(...batch.filter(job => job.status !== 'voided').slice(0, pageSize - jobs.length));
+    if (batch.length < scanSize) {
+      break;
+    }
+    skip += scanSize;
+  }
   const list = await Promise.all(jobs.map(async (job) => {
     const records = await getPreprintRecordsByJob(job.job_id, operatorOpenid, job.template_type);
     const statusCounts = records.reduce((counts, record) => {
@@ -750,6 +786,84 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '') {
     } catch (error) {
       return { success: false, msg: error.message };
     }
+
+    const expectedRecords = buildPreprintJobRecords(job);
+    for (const recordChunk of chunkPreprintItems(expectedRecords, 20)) {
+      await runPreprintTransactionWithRetry(() => db.runTransaction(async (transaction) => {
+        const currentJob = await getDocumentData(
+          transaction.collection('preprint_jobs').doc(jobId)
+        );
+        if (!currentJob) {
+          throw new Error('预生成标签批次不存在');
+        }
+        assertPreprintJobVoidable(currentJob, operatorOpenid);
+        if (currentJob.status === 'voided') {
+          return;
+        }
+        if (currentJob.status !== 'voiding') {
+          throw new Error('预生成标签批次状态已变化，不能继续作废');
+        }
+
+        for (const record of recordChunk) {
+          const { _id, ...recordData } = record;
+          const recordRef = transaction.collection('preprinted_labels').doc(_id);
+          const currentRecord = await getDocumentData(recordRef);
+          if (currentRecord) {
+            if (currentRecord.operator_id !== operatorOpenid || currentRecord.job_id !== jobId) {
+              throw new Error('原批次状态已变化，请刷新最近批次后重试');
+            }
+            if (currentRecord.status === 'used') {
+              throw new Error('该批次已有标签入库，不能整体作废');
+            }
+            if (currentRecord.status === 'unused') {
+              await recordRef.update({
+                data: {
+                  status: 'voided',
+                  voided_by: operatorOpenid,
+                  voided_time: db.serverDate(),
+                  update_time: db.serverDate()
+                }
+              });
+            }
+            continue;
+          }
+
+          await recordRef.set({
+            data: Object.assign({}, recordData, {
+              status: 'voided',
+              voided_by: operatorOpenid,
+              voided_time: db.serverDate(),
+              create_time: record.create_time || db.serverDate(),
+              update_time: db.serverDate()
+            })
+          });
+        }
+      }));
+    }
+
+    await runPreprintTransactionWithRetry(() => db.runTransaction(async (transaction) => {
+      const jobRef = transaction.collection('preprint_jobs').doc(jobId);
+      const currentJob = await getDocumentData(jobRef);
+      if (!currentJob) {
+        throw new Error('预生成标签批次不存在');
+      }
+      assertPreprintJobVoidable(currentJob, operatorOpenid);
+      await jobRef.update({
+        data: {
+          status: 'voided',
+          export_status: currentJob.export_status,
+          voided_by: operatorOpenid,
+          voided_at: db.serverDate(),
+          updated_at: db.serverDate()
+        }
+      });
+    }));
+
+    return {
+      success: true,
+      count: expectedRecords.length,
+      msg: '已作废'
+    };
   }
 
   const records = await getPreprintRecordsByJob(jobId, operatorOpenid);
@@ -782,26 +896,6 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '') {
           });
         }
       }
-    }));
-  }
-
-  if (job) {
-    await runPreprintTransactionWithRetry(() => db.runTransaction(async (transaction) => {
-      const jobRef = transaction.collection('preprint_jobs').doc(jobId);
-      const currentJob = await getDocumentData(jobRef);
-      if (!currentJob) {
-        throw new Error('预生成标签批次不存在');
-      }
-      assertPreprintJobVoidable(currentJob, operatorOpenid);
-      await jobRef.update({
-        data: {
-          status: 'voided',
-          export_status: currentJob.export_status,
-          voided_by: operatorOpenid,
-          voided_at: db.serverDate(),
-          updated_at: db.serverDate()
-        }
-      });
     }));
   }
 
@@ -903,7 +997,7 @@ async function listLabelItems(data = {}) {
   };
 }
 
-async function exportLabelWorkbook(data = {}) {
+async function exportLabelWorkbook(data = {}, operatorOpenid = '') {
   const templateType = normalizeTemplateType(data.templateType);
   const selectedIds = Array.isArray(data.selectedIds)
     ? data.selectedIds.map(id => String(id || '').trim()).filter(Boolean)
@@ -960,7 +1054,7 @@ async function exportLabelWorkbook(data = {}) {
     startLabelCode: rows[0] && rows[0]['标签编号']
   });
   const uploadRes = await cloud.uploadFile({
-    cloudPath: `label-exports/${Date.now()}_${fileName}`,
+    cloudPath: `label-exports/${operatorOpenid}/reprint/${templateType}/current.xlsx`,
     fileContent: Buffer.from(buffer)
   });
 
@@ -991,7 +1085,7 @@ exports.main = async (event, context) => {
     }
 
     if (action === 'export') {
-      return await exportLabelWorkbook(event.data || {});
+      return await exportLabelWorkbook(event.data || {}, OPENID);
     }
 
     if (action === 'createPreprintJob') {

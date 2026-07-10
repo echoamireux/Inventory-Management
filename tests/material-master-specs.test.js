@@ -161,12 +161,13 @@ test('material add top action bar uses a centered single-button layout for manag
   assert.match(pageWxss, /\.top-action-bar--dual \.top-action-bar__item \+ \.top-action-bar__item\s*\{/);
 });
 
-test('admin update user status cloud function still gates target roles through the managed-role whitelist', () => {
+test('admin update user status keeps the managed-role whitelist and explicitly supports super-admin handover', () => {
   const file = read('cloudfunctions/adminUpdateUserStatus/index.js');
 
   assert.match(file, /assertSuperAdminMutationAccess/);
   assert.match(file, /isAllowedManagedRole\(role\)/);
-  assert.match(file, /仅允许设置为 user 或 admin/);
+  assert.match(file, /!isAllowedManagedRole\(role\)\s*&&\s*role !== 'super_admin'/);
+  assert.match(file, /仅允许设置为 user、admin 或 super_admin/);
 });
 
 test('legacy stock-in-out and material-detail pages are no longer exposed as active app routes', () => {

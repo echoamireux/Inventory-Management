@@ -30,6 +30,15 @@ function loadModuleWithMocks(modulePath, mocks) {
 function createUserDb(users) {
   const state = users.map(item => ({ ...item }));
 
+  function matchesWhere(item, where = {}) {
+    return Object.entries(where).every(([key, value]) => {
+      if (value && Array.isArray(value.$in)) {
+        return value.$in.includes(item[key]);
+      }
+      return item[key] === value;
+    });
+  }
+
   function collection(name) {
     assert.equal(name, 'users');
     return {
@@ -49,8 +58,7 @@ function createUserDb(users) {
             return query;
           },
           async get() {
-            const matches = state
-              .filter(item => Object.entries(where).every(([key, value]) => item[key] === value));
+            const matches = state.filter(item => matchesWhere(item, where));
             return {
               data: matches
                 .slice(skipValue, skipValue + limitValue)
@@ -59,7 +67,7 @@ function createUserDb(users) {
           },
           async count() {
             return {
-              total: state.filter(item => Object.entries(where).every(([key, value]) => item[key] === value)).length
+              total: state.filter(item => matchesWhere(item, where)).length
             };
           }
         };
@@ -81,6 +89,11 @@ function createUserDb(users) {
   }
 
   const db = {
+    command: {
+      in(values) {
+        return { $in: values };
+      }
+    },
     collection,
     serverDate() {
       return new Date('2026-07-10T08:00:00.000Z');
@@ -140,6 +153,54 @@ test('a super administrator can be demoted when another active super administrat
 
   assert.equal(result.success, true);
   assert.equal(state.find(item => item._id === 'super-1').role, 'admin');
+});
+
+test('an active super administrator can promote another active user for a safe handover', async () => {
+  const { db, state } = createUserDb([
+    { _id: 'super-1', _openid: 'openid-super-1', role: 'super_admin', status: 'active' },
+    { _id: 'admin-1', _openid: 'openid-admin-1', role: 'admin', status: 'active' }
+  ]);
+  const mod = loadAdminUpdateUserStatus(db);
+
+  const result = await mod.main({ action: 'updateRole', userId: 'admin-1', role: 'super_admin' });
+
+  assert.equal(result.success, true);
+  assert.equal(state.find(item => item._id === 'admin-1').role, 'super_admin');
+});
+
+test('user disabling is transactional and cannot disable the last active super administrator', async () => {
+  const { db, state } = createUserDb([
+    { _id: 'super-1', _openid: 'openid-super-1', role: 'super_admin', status: 'active' },
+    { _id: 'user-1', _openid: 'openid-user-1', role: 'user', status: 'active' }
+  ]);
+  const mod = loadAdminUpdateUserStatus(db);
+
+  const disabled = await mod.main({ action: 'updateStatus', userId: 'user-1', status: 'disabled' });
+  assert.equal(disabled.success, true);
+  assert.equal(state.find(item => item._id === 'user-1').status, 'disabled');
+
+  const blocked = await mod.main({ action: 'updateStatus', userId: 'super-1', status: 'disabled' });
+  assert.equal(blocked.success, false);
+  assert.match(blocked.msg, /至少保留一名激活的超级管理员/);
+  assert.equal(state.find(item => item._id === 'super-1').status, 'active');
+});
+
+test('super-admin user management includes disabled users and exposes role and status actions', async () => {
+  const { db } = createUserDb([
+    { _id: 'super-1', _openid: 'openid-super-1', role: 'super_admin', status: 'active' },
+    { _id: 'user-disabled', _openid: 'openid-disabled', role: 'user', status: 'disabled' },
+    { _id: 'user-pending', _openid: 'openid-pending', role: 'user', status: 'pending' }
+  ]);
+  const mod = loadAdminUpdateUserStatus(db);
+
+  const result = await mod.main({ action: 'listActiveUsers' });
+  assert.equal(result.success, true);
+  assert.equal(result.list.some(item => item._id === 'user-disabled'), true);
+  assert.equal(result.list.some(item => item._id === 'user-pending'), false);
+
+  const pageSource = read('miniprogram/pages/super-admin/user-manage/index.js');
+  assert.match(pageSource, /role:\s*'super_admin'|super_admin[\s\S]*updateRole/);
+  assert.match(pageSource, /action:\s*'updateStatus'/);
 });
 
 test('approval center backend and page keep independent paginated tab state', () => {

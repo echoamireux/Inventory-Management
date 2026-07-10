@@ -21,7 +21,14 @@ function loadModuleWithMocks(modulePath, mocks) {
   }
 }
 
-function createManageMaterialModule({ existingMaterial = null, onAdd = () => {}, onUpdate = () => {} } = {}) {
+function createManageMaterialModule({
+  existingMaterial = null,
+  materialsById = null,
+  inventoryRecords = [],
+  onAdd = () => {},
+  onUpdate = () => {},
+  onRemove = () => {}
+} = {}) {
   const db = {
     command: {
       remove() {
@@ -58,11 +65,11 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
               }
             };
           },
-          doc() {
+          doc(id) {
             return {
               async get() {
                 return {
-                  data: existingMaterial || {
+                  data: (materialsById && materialsById[id]) || existingMaterial || {
                     _id: 'mat-test',
                     product_code: 'J-999',
                     material_name: '测试料-化材',
@@ -77,7 +84,11 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
                 };
               },
               async update({ data }) {
-                onUpdate(data);
+                onUpdate(data, id);
+                return {};
+              },
+              async remove() {
+                onRemove(id);
                 return {};
               }
             };
@@ -85,6 +96,27 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
           async add({ data }) {
             onAdd(data);
             return { _id: 'mat-created' };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where(query = {}) {
+            const matches = inventoryRecords.filter(record => Object.entries(query).every(
+              ([key, value]) => record[key] === value
+            ));
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: matches.map(item => ({ ...item })) };
+              },
+              async count() {
+                return { total: matches.length };
+              }
+            };
           }
         };
       }
@@ -98,6 +130,9 @@ function createManageMaterialModule({ existingMaterial = null, onAdd = () => {},
       }
 
       throw new Error(`unexpected collection: ${name}`);
+    },
+    runTransaction(handler) {
+      return handler({ collection: db.collection.bind(db) });
     }
   };
 
@@ -211,4 +246,138 @@ test('manageMaterial update allows switching a material to test material without
   assert.equal(updatedMaterials.length, 1);
   assert.equal(updatedMaterials[0].is_test_material, true);
   assert.equal(updatedMaterials[0].supplier_model, '');
+});
+
+test('manageMaterial update ignores non-editable client fields', async () => {
+  const updatedMaterials = [];
+  const manageMaterial = createManageMaterialModule({
+    onUpdate(data) {
+      updatedMaterials.push(data);
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'update',
+    data: {
+      id: 'mat-test',
+      product_code: '999',
+      product_code_number: '999',
+      material_name: '测试料-化材',
+      category: 'chemical',
+      subcategory_key: 'builtin:chemical:test',
+      sub_category: '测试料',
+      default_unit: 'g',
+      package_type: '瓶',
+      is_test_material: false,
+      status: 'archived',
+      created_by: 'forged-openid'
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(updatedMaterials.length, 1);
+  assert.equal(Object.hasOwn(updatedMaterials[0], 'status'), false);
+  assert.equal(Object.hasOwn(updatedMaterials[0], 'created_by'), false);
+  assert.equal(Object.hasOwn(updatedMaterials[0], 'product_code_number'), false);
+});
+
+test('manageMaterial locks identity fields after any inventory record exists', async () => {
+  const updatedMaterials = [];
+  const manageMaterial = createManageMaterialModule({
+    inventoryRecords: [{
+      _id: 'inv-history-1',
+      material_id: 'mat-test',
+      product_code: 'J-999',
+      status: 'used'
+    }],
+    onUpdate(data) {
+      updatedMaterials.push(data);
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'update',
+    data: {
+      id: 'mat-test',
+      product_code: '998',
+      material_name: '测试料-化材',
+      category: 'chemical',
+      subcategory_key: 'builtin:chemical:test',
+      sub_category: '测试料',
+      default_unit: 'g',
+      package_type: '瓶',
+      is_test_material: false
+    }
+  });
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /库存记录.*身份字段|身份字段.*库存记录/);
+  assert.equal(updatedMaterials.length, 0);
+});
+
+test('manageMaterial batch deletion refuses to archive materials with current stock', async () => {
+  const updatedMaterials = [];
+  let removed = 0;
+  const manageMaterial = createManageMaterialModule({
+    inventoryRecords: [{
+      _id: 'inv-current-1',
+      material_id: 'mat-test',
+      product_code: 'J-999',
+      status: 'in_stock'
+    }],
+    onUpdate(data) {
+      updatedMaterials.push(data);
+    },
+    onRemove() {
+      removed += 1;
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'batchDelete',
+    data: { ids: ['mat-test'], archive_reason: '测试批量归档' }
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.failed, 1);
+  assert.match(result.msg, /存在在库记录/);
+  assert.equal(updatedMaterials.length, 0);
+  assert.equal(removed, 0);
+});
+
+test('manageMaterial batch deletion is atomic when any selected material is still in stock', async () => {
+  const removedIds = [];
+  const manageMaterial = createManageMaterialModule({
+    materialsById: {
+      'mat-free': {
+        _id: 'mat-free',
+        product_code: 'J-001',
+        category: 'chemical',
+        status: 'active'
+      },
+      'mat-blocked': {
+        _id: 'mat-blocked',
+        product_code: 'J-002',
+        category: 'chemical',
+        status: 'active'
+      }
+    },
+    inventoryRecords: [{
+      _id: 'inv-current-2',
+      material_id: 'mat-blocked',
+      product_code: 'J-002',
+      status: 'in_stock'
+    }],
+    onRemove(id) {
+      removedIds.push(id);
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'batchDelete',
+    data: { ids: ['mat-free', 'mat-blocked'], archive_reason: '批量清理' }
+  });
+
+  assert.equal(result.success, false);
+  assert.deepEqual(removedIds, []);
 });

@@ -18,3 +18,7 @@
     background: #F3F4F6;
     color: #6B7280;
 }
+
+.user-cell--disabled {
+    opacity: 0.72;
+}

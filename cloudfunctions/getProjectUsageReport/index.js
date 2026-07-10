@@ -1,7 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess } = require('./auth');
 const { buildContainsRegExp } = require('./search');
-const { parseCstDateBoundary } = require('./cst-time');
+const { parseCstDateRange } = require('./cst-time');
 const {
   filterProjectUsageLogs,
   formatProjectUsageLog,
@@ -28,15 +28,18 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
-function buildQuery(event = {}) {
+function buildQuery(event = {}, dateRange = parseCstDateRange(
+  event.startDate || event.start_date,
+  event.endDate || event.end_date
+)) {
   const conditions = [{ type: 'outbound' }];
   const projectCode = normalizeText(event.project_code || event.projectCode);
   const keyword = normalizeText(event.keyword || event.searchVal);
   const uniqueCode = normalizeText(event.unique_code || event.uniqueCode);
   const productCode = normalizeText(event.product_code || event.productCode);
   const operator = normalizeText(event.operator || event.operatorFilter);
-  const startDate = parseCstDateBoundary(event.startDate || event.start_date);
-  const endDate = parseCstDateBoundary(event.endDate || event.end_date, true);
+  const startDate = dateRange.start;
+  const endDate = dateRange.end;
 
   if (projectCode && projectCode !== 'all') {
     conditions.push({ project_code: projectCode });
@@ -119,9 +122,17 @@ exports.main = async (event = {}) => {
       return { success: false, msg: authResult.msg };
     }
 
-    const where = buildQuery(event);
+    const dateRange = parseCstDateRange(
+      event.startDate || event.start_date,
+      event.endDate || event.end_date
+    );
+    const where = buildQuery(event, dateRange);
     const logs = await loadLogs(where);
-    const filteredLogs = filterProjectUsageLogs(logs, event);
+    const filteredLogs = filterProjectUsageLogs(logs, {
+      ...event,
+      startTime: dateRange.start,
+      endTime: dateRange.end
+    });
     const detailList = filteredLogs.map(formatProjectUsageLog);
     const total = detailList.length;
     const offset = (page - 1) * pageSize;

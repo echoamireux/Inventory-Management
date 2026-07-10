@@ -62,10 +62,30 @@ function parseCstDateBoundary(value, endOfDay = false) {
   return new Date(startTime + (endOfDay ? ONE_DAY_MS - 1 : 0));
 }
 
+function parseCstDateRange(startValue, endValue) {
+  const startText = String(startValue == null ? '' : startValue).trim();
+  const endText = String(endValue == null ? '' : endValue).trim();
+  const start = parseCstDateBoundary(startText);
+  const end = parseCstDateBoundary(endText, true);
+
+  if (startText && !start) {
+    throw new Error('开始日期格式无效，请重新选择');
+  }
+  if (endText && !end) {
+    throw new Error('结束日期格式无效，请重新选择');
+  }
+  if (start && end && start.getTime() > end.getTime()) {
+    throw new Error('开始日期不能晚于结束日期');
+  }
+
+  return { start, end };
+}
+
 module.exports = {
   ONE_DAY_MS,
   OFFSET_MS,
   getCstDayStart,
   getCstRange,
-  parseCstDateBoundary
+  parseCstDateBoundary,
+  parseCstDateRange
 };

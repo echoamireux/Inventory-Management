@@ -6,7 +6,10 @@ Page({
   data: {
     list: [],
     filteredList: [],
-    searchVal: ''
+    searchVal: '',
+    showUserActions: false,
+    userActions: [],
+    selectedUser: null
   },
 
   onLoad() {
@@ -89,47 +92,99 @@ Page({
       this.setData({ filteredList: filtered });
   },
 
-  onChangeRole(e) {
-      const dataset = e.currentTarget.dataset;
-      const targetUserId = dataset.id;
-      const targetName = dataset.name || '该用户';
-      const newRole = dataset.role; // 'admin' or 'user'
-      
-      const actionName = newRole === 'admin' ? '设为管理员' : '取消管理员权限';
-      const warningText = newRole === 'admin' ? '赋予管理权限后，该用户将能进行审批和物料维护等敏感操作。' : '取消管理权限后，该用户将变为普通用户。';
+  onOpenUserActions(e) {
+    const targetUser = this.data.list.find(item => item._id === e.currentTarget.dataset.id);
+    if (!targetUser) {
+      return;
+    }
 
-      Dialog.confirm({
-          title: `确认${actionName}`,
-          message: `确定要${actionName} (${targetName}) 吗？\n${warningText}`,
-          confirmButtonText: '确认执行',
-          confirmButtonColor: newRole === 'admin' ? '#2C68FF' : '#ee0a24'
-      }).then(async () => {
-          Toast.loading({ message: '执行中...', forbidClick: true });
-          
-          try {
-              const res = await wx.cloud.callFunction({
-                  name: 'adminUpdateUserStatus',
-                  data: {
-                      action: 'updateRole',
-                      userId: targetUserId,
-                      role: newRole
-                  }
-              });
-
-              if (res.result && res.result.success) {
-                  Toast.success('操作成功');
-                  this.getList(); // Reload list
-              } else {
-                  throw new Error(res.result ? res.result.msg : 'Unknown Error');
-              }
-          } catch (err) {
-              console.error(err);
-              Dialog.alert({ title: '操作失败', message: err.message || '网络或权限错误' });
-          } finally {
-              Toast.clear();
-          }
-      }).catch(() => {
-          // Cancelled
+    const actions = [];
+    if (targetUser.status === 'active') {
+      [
+        { value: 'user', name: '设为普通用户' },
+        { value: 'admin', name: '设为管理员' },
+        { value: 'super_admin', name: '设为超级管理员' }
+      ].filter(item => item.value !== targetUser.role).forEach(item => {
+        actions.push({ ...item, actionType: 'role' });
       });
+      actions.push({
+        name: '禁用账号',
+        value: 'disabled',
+        actionType: 'status',
+        color: '#dc2626'
+      });
+    } else {
+      actions.push({
+        name: '重新启用账号',
+        value: 'active',
+        actionType: 'status',
+        color: '#2563eb'
+      });
+    }
+
+    this.setData({
+      selectedUser: targetUser,
+      userActions: actions,
+      showUserActions: true
+    });
+  },
+
+  onUserActionsClose() {
+    this.setData({ showUserActions: false });
+  },
+
+  onUserActionSelect(e) {
+    const selectedAction = e.detail || {};
+    const targetUser = this.data.selectedUser;
+    this.setData({ showUserActions: false });
+    if (!targetUser || !selectedAction.actionType) {
+      return;
+    }
+
+    const isRoleAction = selectedAction.actionType === 'role';
+    const actionName = selectedAction.name || '执行操作';
+    const warningText = isRoleAction
+      ? '角色变更会立即影响该用户可访问的功能。'
+      : (selectedAction.value === 'disabled'
+        ? '禁用后该用户将无法继续进入系统。'
+        : '启用后该用户将恢复原角色对应的权限。');
+
+    Dialog.confirm({
+      title: `确认${actionName}`,
+      message: `确定要对 ${targetUser.name || '该用户'} 执行“${actionName}”吗？\n${warningText}`,
+      confirmButtonText: '确认执行',
+      confirmButtonColor: selectedAction.value === 'disabled' ? '#dc2626' : '#2563eb'
+    }).then(() => this.executeUserMutation(targetUser, selectedAction)).catch(() => {});
+  },
+
+  async executeUserMutation(targetUser, selectedAction) {
+    Toast.loading({ message: '执行中...', forbidClick: true });
+    try {
+      const data = selectedAction.actionType === 'role'
+        ? {
+          action: 'updateRole',
+          userId: targetUser._id,
+          role: selectedAction.value
+        }
+        : {
+          action: 'updateStatus',
+          userId: targetUser._id,
+          status: selectedAction.value
+        };
+      const res = await wx.cloud.callFunction({
+        name: 'adminUpdateUserStatus',
+        data
+      });
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result ? res.result.msg : '操作失败');
+      }
+      Toast.success('操作成功');
+      await this.getList();
+    } catch (err) {
+      console.error(err);
+      Dialog.alert({ title: '操作失败', message: err.message || '网络或权限错误' });
+    } finally {
+      Toast.clear();
+    }
   }
 });

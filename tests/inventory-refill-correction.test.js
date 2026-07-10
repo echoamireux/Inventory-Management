@@ -1031,6 +1031,11 @@ test('inventory template submit supports mixed create and refill rows in one req
     quantity: { val: 5, unit: 'kg' },
     dynamic_attrs: { weight_kg: 5 }
   };
+  const currentInventory = {
+    ...existingInventory,
+    quantity: { val: 3, unit: 'kg' },
+    dynamic_attrs: { weight_kg: 3 }
+  };
 
   const mod = loadModuleWithMocks('../cloudfunctions/importInventoryTemplate/index.js', {
     'wx-server-sdk': {
@@ -1124,6 +1129,10 @@ test('inventory template submit supports mixed create and refill rows in one req
                   return {
                     doc(id) {
                       return {
+                        async get() {
+                          assert.equal(id, 'inv-template-refill-2');
+                          return { data: currentInventory };
+                        },
                         async update({ data }) {
                           inventoryUpdates.push({ id, data });
                           return {};
@@ -1160,8 +1169,12 @@ test('inventory template submit supports mixed create and refill rows in one req
 
                 if (name === 'materials') {
                   return {
-                    doc() {
+                    doc(id) {
                       return {
+                        async get() {
+                          assert.equal(id, 'mat-tpl-2');
+                          return { data: material };
+                        },
                         async update() {
                           return {};
                         }
@@ -1236,7 +1249,7 @@ test('inventory template submit supports mixed create and refill rows in one req
   assert.equal(result.success, true);
   assert.equal(inventoryUpdates.length, 1);
   assert.equal(inventoryUpdates[0].id, 'inv-template-refill-2');
-  assert.equal(inventoryUpdates[0].data['quantity.val'], 7);
+  assert.equal(inventoryUpdates[0].data['quantity.val'], 5);
   assert.equal(inventoryAdds.length, 1);
   assert.equal(inventoryLogs.length, 2);
   assert.equal(inventoryLogs[0].type, 'refill');
@@ -1392,8 +1405,12 @@ test('inventory template submit consumes matching unused preprint labels when cr
 
                 if (name === 'materials') {
                   return {
-                    doc() {
+                    doc(id) {
                       return {
+                        async get() {
+                          assert.equal(id, material._id);
+                          return { data: material };
+                        },
                         async update() {
                           return {};
                         }
@@ -1579,8 +1596,12 @@ test('inventory template submit rejects voided preprint labels even when the row
 
                 if (name === 'materials') {
                   return {
-                    doc() {
+                    doc(id) {
                       return {
+                        async get() {
+                          assert.equal(id, material._id);
+                          return { data: material };
+                        },
                         async update() {
                           return {};
                         }

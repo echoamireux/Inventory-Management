@@ -10,6 +10,7 @@ cloud.init({
 });
 
 const db = cloud.database();
+const _ = db.command;
 
 function formatUserTime(value) {
   if (!value) {
@@ -61,7 +62,7 @@ async function listActiveUsers() {
 
   while (true) {
     const res = await db.collection('users')
-      .where({ status: 'active' })
+      .where({ status: _.in(['active', 'disabled']) })
       .orderBy('create_time', 'desc')
       .skip(skip)
       .limit(pageSize)
@@ -125,6 +126,9 @@ async function updateUserRole(userId, role) {
     if (!targetUser) {
       return { success: false, msg: '用户不存在' };
     }
+    if (targetUser.status !== 'active') {
+      return { success: false, msg: '禁用账号不能调整角色，请先启用账号' };
+    }
 
     if (targetUser.role === 'super_admin' && targetUser.status === 'active' && role !== 'super_admin') {
       const activeSuperAdminRes = await transaction.collection('users')
@@ -139,6 +143,54 @@ async function updateUserRole(userId, role) {
     await targetRef.update({
       data: {
         role,
+        update_time: db.serverDate()
+      }
+    });
+    return { success: true };
+  });
+}
+
+async function updateUserStatus(userId, status, operatorOpenid) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return { success: false, msg: '缺少用户 ID' };
+  }
+  if (!['active', 'disabled'].includes(status)) {
+    return { success: false, msg: '非法用户状态' };
+  }
+
+  return db.runTransaction(async (transaction) => {
+    const targetRef = transaction.collection('users').doc(normalizedUserId);
+    const targetRes = await targetRef.get();
+    const targetUser = targetRes.data;
+    if (!targetUser) {
+      return { success: false, msg: '用户不存在' };
+    }
+    if (!['active', 'disabled'].includes(targetUser.status)) {
+      return { success: false, msg: '只能启用或禁用正式用户' };
+    }
+    if (targetUser.status === status) {
+      return { success: true };
+    }
+
+    if (targetUser.status === 'active' && status === 'disabled') {
+      if (targetUser.role === 'super_admin') {
+        const activeSuperAdminRes = await transaction.collection('users')
+          .where({ role: 'super_admin', status: 'active' })
+          .limit(2)
+          .get();
+        if ((activeSuperAdminRes.data || []).length <= 1) {
+          return { success: false, msg: '系统必须至少保留一名激活的超级管理员' };
+        }
+      }
+      if (targetUser._openid === operatorOpenid) {
+        return { success: false, msg: '不能禁用当前登录账号，请由其他超级管理员操作' };
+      }
+    }
+
+    await targetRef.update({
+      data: {
+        status,
         update_time: db.serverDate()
       }
     });
@@ -188,10 +240,18 @@ exports.main = async (event, context) => {
       if (!authResult.ok) {
         return { success: false, msg: authResult.msg };
       }
-      if (!isAllowedManagedRole(role)) {
-        return { success: false, msg: '非法角色：仅允许设置为 user 或 admin' };
+      if (!isAllowedManagedRole(role) && role !== 'super_admin') {
+        return { success: false, msg: '非法角色：仅允许设置为 user、admin 或 super_admin' };
       }
       return await updateUserRole(userId, role);
+    }
+
+    if (action === 'updateStatus') {
+      const authResult = assertSuperAdminMutationAccess(operator, '越权操作：仅超级管理员可启用或禁用账号');
+      if (!authResult.ok) {
+        return { success: false, msg: authResult.msg };
+      }
+      return await updateUserStatus(userId, event.status, OPENID);
     }
 
     if (action === 'approveUser' || action === 'rejectUser') {

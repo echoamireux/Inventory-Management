@@ -5,7 +5,7 @@ const {
   formatProjectUsageLog,
   summarizeProjectUsageLogs
 } = require('./project-usage-report');
-const { OFFSET_MS, parseCstDateBoundary } = require('./cst-time');
+const { OFFSET_MS, parseCstDateRange } = require('./cst-time');
 const { buildContainsRegExp } = require('./search');
 
 let ExcelJS;
@@ -60,15 +60,18 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
-function buildQuery(event = {}) {
+function buildQuery(event = {}, dateRange = parseCstDateRange(
+  event.startDate || event.start_date,
+  event.endDate || event.end_date
+)) {
   const conditions = [{ type: 'outbound' }];
   const projectCode = normalizeText(event.project_code || event.projectCode);
   const keyword = normalizeText(event.keyword || event.searchVal);
   const uniqueCode = normalizeText(event.unique_code || event.uniqueCode);
   const productCode = normalizeText(event.product_code || event.productCode);
   const operator = normalizeText(event.operator || event.operatorFilter);
-  const startDate = parseCstDateBoundary(event.startDate || event.start_date);
-  const endDate = parseCstDateBoundary(event.endDate || event.end_date, true);
+  const startDate = dateRange.start;
+  const endDate = dateRange.end;
 
   if (projectCode && projectCode !== 'all') {
     conditions.push({ project_code: projectCode });
@@ -418,8 +421,16 @@ exports.main = async (event = {}) => {
       return { success: false, msg: authResult.msg };
     }
 
-    const logs = await loadLogs(buildQuery(event));
-    const filteredLogs = filterProjectUsageLogs(logs, event);
+    const dateRange = parseCstDateRange(
+      event.startDate || event.start_date,
+      event.endDate || event.end_date
+    );
+    const logs = await loadLogs(buildQuery(event, dateRange));
+    const filteredLogs = filterProjectUsageLogs(logs, {
+      ...event,
+      startTime: dateRange.start,
+      endTime: dateRange.end
+    });
     const detailList = filteredLogs.map(formatProjectUsageLog);
     const summaryList = summarizeProjectUsageLogs(filteredLogs);
     const exportedAt = new Date();
