@@ -106,6 +106,28 @@ async function loadProductCodePrefixOptions(category = '') {
   }
 }
 
+async function updatePendingMaterialRequestStatus(requestId, status, data = {}) {
+  return db.runTransaction(async (transaction) => {
+    const requestRef = transaction.collection('material_requests').doc(requestId);
+    const requestRes = await requestRef.get();
+    const request = requestRes.data;
+    if (!request) {
+      return { success: false, msg: '申请单不存在' };
+    }
+    if (request.status !== 'pending') {
+      return { success: false, msg: '该申请已被处理过' };
+    }
+    await requestRef.update({
+      data: {
+        status,
+        ...data,
+        updated_at: db.serverDate()
+      }
+    });
+    return { success: true, msg: status === 'rejected' ? '已驳回' : '操作成功' };
+  });
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const {
@@ -149,17 +171,11 @@ exports.main = async (event, context) => {
 
     // 3. 处理动作
     if (action === 'reject') {
-        // 驳回逻辑
-        await db.collection('material_requests').doc(request_id).update({
-            data: {
-                status: 'rejected',
-                reject_reason: reject_reason || '',
-                operator_id: OPENID,
-                operator_name: operator.name || 'Admin',
-                updated_at: db.serverDate()
-            }
+        return await updatePendingMaterialRequestStatus(request_id, 'rejected', {
+            reject_reason: sanitizeText(reject_reason),
+            operator_id: OPENID,
+            operator_name: operator.name || 'Admin'
         });
-        return { success: true, msg: '已驳回' };
     }
 
     if (action === 'approve') {

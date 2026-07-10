@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const frontendSubcategories = require('../miniprogram/utils/material-subcategory');
 const backendSubcategories = require('../cloudfunctions/_shared/material-subcategories');
@@ -26,6 +28,14 @@ function createMockDb(initialRecords) {
     },
     doc(id) {
       return {
+        async set({ data }) {
+          const index = state.records.findIndex(item => item._id === id);
+          if (index === -1) {
+            state.records.push({ _id: id, ...data });
+          } else {
+            state.records[index] = { _id: id, ...data };
+          }
+        },
         async update({ data }) {
           const index = state.records.findIndex(item => item._id === id);
           if (index === -1) {
@@ -80,6 +90,15 @@ test('subcategory seeds cover both chemical and film defaults', () => {
     'builtin:film:tape',
     'builtin:film:hard-coat'
   ]);
+});
+
+test('builtin subcategory seeds use stable document ids for concurrent initialization', () => {
+  assert.equal(
+    backendSubcategories.buildBuiltinSubcategoryDocumentId('builtin:chemical:resin'),
+    'builtin_subcategory_builtin_chemical_resin'
+  );
+  const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/_shared/material-subcategories.js'), 'utf8');
+  assert.match(source, /collection\.doc\(buildBuiltinSubcategoryDocumentId\(seed\.subcategory_key\)\)\.set/);
 });
 
 test('backend: subcategory status normalizer is exported for management cloud functions', () => {

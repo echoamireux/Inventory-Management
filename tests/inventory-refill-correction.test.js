@@ -958,8 +958,13 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
                   });
                   return { _id: `prefix-${productCodePrefixes.length}` };
                 },
-                doc() {
+                doc(id) {
                   return {
+                    async set({ data }) {
+                      const index = productCodePrefixes.findIndex(item => item._id === id);
+                      if (index === -1) productCodePrefixes.push({ _id: id, ...data });
+                      else productCodePrefixes[index] = { _id: id, ...data };
+                    },
                     async update() {}
                   };
                 }

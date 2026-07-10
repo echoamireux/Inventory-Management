@@ -4,7 +4,7 @@
   <van-tab title="物料审批" name="material">
     <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
 
-      <block wx:if="{{ materialLoading }}">
+      <block wx:if="{{ materialLoading && materialList.length === 0 }}">
         <view class="p-20 text-center text-gray-500">加载中...</view>
       </block>
 
@@ -57,6 +57,8 @@
             >通过</van-button>
           </view>
         </view>
+        <view wx:if="{{ materialLoading }}" class="p-15 text-center text-gray-400">加载更多...</view>
+        <view wx:elif="{{ materialIsEnd && materialList.length > materialPageSize }}" class="p-15 text-center text-gray-400">已加载全部</view>
       </block>
     </view>
   </van-tab>
@@ -65,7 +67,7 @@
   <van-tab title="人员审批" name="user">
     <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
 
-      <block wx:if="{{ userLoading }}">
+      <block wx:if="{{ userLoading && userList.length === 0 }}">
         <view class="p-20 text-center text-gray-500">加载中...</view>
       </block>
 
@@ -111,6 +113,8 @@
                 >通过(激活)</van-button>
             </view>
          </view>
+         <view wx:if="{{ userLoading }}" class="p-15 text-center text-gray-400">加载更多...</view>
+         <view wx:elif="{{ userIsEnd && userList.length > userPageSize }}" class="p-15 text-center text-gray-400">已加载全部</view>
       </block>
 
 
@@ -121,7 +125,7 @@
   <van-tab title="库存纠错" name="correction">
     <view class="container p-10 bg-gray-100" style="min-height: 90vh;">
 
-      <block wx:if="{{ correctionLoading }}">
+      <block wx:if="{{ correctionLoading && correctionList.length === 0 }}">
         <view class="p-20 text-center text-gray-500">加载中...</view>
       </block>
 
@@ -174,6 +178,8 @@
             >通过</van-button>
           </view>
         </view>
+        <view wx:if="{{ correctionLoading }}" class="p-15 text-center text-gray-400">加载更多...</view>
+        <view wx:elif="{{ correctionIsEnd && correctionList.length > correctionPageSize }}" class="p-15 text-center text-gray-400">已加载全部</view>
       </block>
 
     </view>

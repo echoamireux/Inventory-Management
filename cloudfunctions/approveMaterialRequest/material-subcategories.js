@@ -127,6 +127,11 @@ const DEPRECATED_SUBCATEGORY_KEYS = [
   'builtin:film:optical-film'
 ];
 
+function buildBuiltinSubcategoryDocumentId(subcategoryKey) {
+  const normalizedKey = String(subcategoryKey || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+  return `builtin_subcategory_${normalizedKey}`;
+}
+
 const RESERVED_SUBCATEGORY_NAMES = [
   '其他',
   '其他 (Other)'
@@ -260,7 +265,7 @@ async function ensureBuiltinSubcategories(db) {
       continue;
     }
 
-    await collection.add({
+    await collection.doc(buildBuiltinSubcategoryDocumentId(seed.subcategory_key)).set({
       data: {
         subcategory_key: seed.subcategory_key,
         name: seed.name,
@@ -408,6 +413,7 @@ function resolveSubcategorySelection(selection, records, subcategoryMap) {
 
 module.exports = {
   BUILTIN_SUBCATEGORY_SEEDS,
+  buildBuiltinSubcategoryDocumentId,
   DEPRECATED_SUBCATEGORY_KEYS,
   normalizeParentCategory,
   normalizeSubcategoryName,

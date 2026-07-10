@@ -33,9 +33,39 @@ function getCstRange(filter = 'today', now = new Date()) {
   return { start: null };
 }
 
+function parseCstDateBoundary(value, endOfDay = false) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!dateOnlyMatch) {
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const year = Number(dateOnlyMatch[1]);
+  const month = Number(dateOnlyMatch[2]);
+  const day = Number(dateOnlyMatch[3]);
+  const utcCalendarTime = Date.UTC(year, month - 1, day);
+  const calendarDate = new Date(utcCalendarTime);
+  if (
+    calendarDate.getUTCFullYear() !== year ||
+    calendarDate.getUTCMonth() !== month - 1 ||
+    calendarDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  const startTime = utcCalendarTime - OFFSET_MS;
+  return new Date(startTime + (endOfDay ? ONE_DAY_MS - 1 : 0));
+}
+
 module.exports = {
   ONE_DAY_MS,
   OFFSET_MS,
   getCstDayStart,
-  getCstRange
+  getCstRange,
+  parseCstDateBoundary
 };

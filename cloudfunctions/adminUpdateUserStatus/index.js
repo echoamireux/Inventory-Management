@@ -22,17 +22,36 @@ function formatUserTime(value) {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-async function listPendingUsers() {
-  const res = await db.collection('users')
-    .where({ status: 'pending' })
-    .orderBy('create_time', 'desc')
-    .limit(100)
-    .get();
+function normalizePagination(event = {}) {
+  return {
+    page: Math.max(1, Number(event.page) || 1),
+    pageSize: Math.max(1, Math.min(100, Number(event.pageSize) || 20))
+  };
+}
 
-  return (res.data || []).map(item => ({
-    ...item,
-    _timeStr: formatUserTime(item.create_time || item.created_at)
-  }));
+async function listPendingUsers(page = 1, pageSize = 20) {
+  const where = { status: 'pending' };
+  const [countRes, res] = await Promise.all([
+    db.collection('users').where(where).count(),
+    db.collection('users')
+      .where(where)
+      .orderBy('create_time', 'desc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+  ]);
+  const total = Number(countRes.total) || 0;
+
+  return {
+    list: (res.data || []).map(item => ({
+      ...item,
+      _timeStr: formatUserTime(item.create_time || item.created_at)
+    })),
+    total,
+    page,
+    pageSize,
+    isEnd: page * pageSize >= total
+  };
 }
 
 async function listActiveUsers() {
@@ -67,26 +86,64 @@ async function updatePendingUserStatus({ userId, status, rejectReason = '' }) {
     return { success: false, msg: '缺少用户 ID' };
   }
 
-  const targetRes = await db.collection('users').doc(normalizedUserId).get();
-  const targetUser = targetRes.data;
-  if (!targetUser) {
-    return { success: false, msg: '用户不存在' };
-  }
-  if (targetUser.status !== 'pending') {
-    return { success: false, msg: '只能审批待处理用户申请' };
-  }
   if (status === 'rejected' && !String(rejectReason || '').trim()) {
     return { success: false, msg: '请填写驳回原因' };
   }
 
-  await db.collection('users').doc(normalizedUserId).update({
-    data: {
-      status,
-      reject_reason: status === 'rejected' ? rejectReason : '',
-      update_time: db.serverDate()
+  return db.runTransaction(async (transaction) => {
+    const targetRef = transaction.collection('users').doc(normalizedUserId);
+    const targetRes = await targetRef.get();
+    const targetUser = targetRes.data;
+    if (!targetUser) {
+      return { success: false, msg: '用户不存在' };
     }
+    if (targetUser.status !== 'pending') {
+      return { success: false, msg: '只能审批待处理用户申请' };
+    }
+
+    await targetRef.update({
+      data: {
+        status,
+        reject_reason: status === 'rejected' ? String(rejectReason).trim() : '',
+        update_time: db.serverDate()
+      }
+    });
+    return { success: true };
   });
-  return { success: true };
+}
+
+async function updateUserRole(userId, role) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return { success: false, msg: '缺少用户 ID' };
+  }
+
+  return db.runTransaction(async (transaction) => {
+    const targetRef = transaction.collection('users').doc(normalizedUserId);
+    const targetRes = await targetRef.get();
+    const targetUser = targetRes.data;
+    if (!targetUser) {
+      return { success: false, msg: '用户不存在' };
+    }
+
+    if (targetUser.role === 'super_admin' && targetUser.status === 'active' && role !== 'super_admin') {
+      const activeSuperAdminRes = await transaction.collection('users')
+        .where({ role: 'super_admin', status: 'active' })
+        .limit(2)
+        .get();
+      if ((activeSuperAdminRes.data || []).length <= 1) {
+        return { success: false, msg: '系统必须至少保留一名激活的超级管理员' };
+      }
+    }
+
+    await targetRef.update({
+      data: {
+        role,
+        update_time: db.serverDate()
+      }
+    });
+    return { success: true };
+  });
 }
 
 exports.main = async (event, context) => {
@@ -110,10 +167,9 @@ exports.main = async (event, context) => {
       if (!authResult.ok) {
         return { success: false, msg: authResult.msg };
       }
-      return {
-        success: true,
-        list: await listPendingUsers()
-      };
+      const pagination = normalizePagination(event);
+      const result = await listPendingUsers(pagination.page, pagination.pageSize);
+      return { success: true, ...result };
     }
 
     if (action === 'listActiveUsers') {
@@ -135,13 +191,7 @@ exports.main = async (event, context) => {
       if (!isAllowedManagedRole(role)) {
         return { success: false, msg: '非法角色：仅允许设置为 user 或 admin' };
       }
-      await db.collection('users').doc(userId).update({
-        data: {
-          role: role,
-          update_time: db.serverDate()
-        }
-      });
-      return { success: true };
+      return await updateUserRole(userId, role);
     }
 
     if (action === 'approveUser' || action === 'rejectUser') {

@@ -39,6 +39,12 @@ function normalizeProductCodePrefix(value) {
   return raw;
 }
 
+function buildBuiltinProductCodePrefixDocumentId(category, prefix) {
+  const normalizedCategory = normalizePrefixCategory(category);
+  const normalizedPrefix = normalizeProductCodePrefix(prefix).toLowerCase();
+  return `builtin_prefix_${normalizedCategory}_${normalizedPrefix}`;
+}
+
 function normalizePrefixCategory(category) {
   return category === 'film' ? 'film' : 'chemical';
 }
@@ -174,7 +180,7 @@ async function ensureBuiltinProductCodePrefixes(db) {
       continue;
     }
 
-    await collection.add({
+    await collection.doc(buildBuiltinProductCodePrefixDocumentId(seed.category, seed.prefix)).set({
       data: {
         ...seed,
         created_at: db.serverDate(),
@@ -189,6 +195,7 @@ async function ensureBuiltinProductCodePrefixes(db) {
 module.exports = {
   BUILTIN_PRODUCT_CODE_PREFIX_SEEDS,
   PRODUCT_CODE_PREFIX_PATTERN,
+  buildBuiltinProductCodePrefixDocumentId,
   normalizeProductCodePrefix,
   normalizePrefixCategory,
   normalizeStatus,

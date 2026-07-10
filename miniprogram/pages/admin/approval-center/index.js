@@ -8,14 +8,26 @@ Page({
     // Material Data
     materialList: [],
     materialLoading: false,
+    materialPage: 0,
+    materialPageSize: 20,
+    materialTotal: 0,
+    materialIsEnd: false,
 
     // User Data
     userList: [],
     userLoading: false,
+    userPage: 0,
+    userPageSize: 20,
+    userTotal: 0,
+    userIsEnd: false,
 
     // Correction Data
     correctionList: [],
     correctionLoading: false,
+    correctionPage: 0,
+    correctionPageSize: 20,
+    correctionTotal: 0,
+    correctionIsEnd: false,
 
     // Reject Dialog State
     showRejectDialog: false,
@@ -45,37 +57,45 @@ Page({
       return;
     }
     // Auth passed, load data
-    this.loadData();
+    this.loadData(true);
   },
 
   onTabChange(e) {
       this.setData({ activeTab: e.detail.name }, () => {
-          this.loadData();
+          this.loadData(true);
       });
   },
 
-  loadData() {
+  loadData(reset = false) {
       if (this.data.activeTab === 'material') {
-          this.fetchMaterials();
+          return this.fetchMaterials(reset);
       } else if (this.data.activeTab === 'correction') {
-          this.fetchCorrections();
+          return this.fetchCorrections(reset);
       } else {
-          this.fetchUsers();
+          return this.fetchUsers(reset);
       }
   },
 
-  async fetchMaterials() {
+  async fetchMaterials(reset = false) {
+    if (this.data.materialLoading || (!reset && this.data.materialIsEnd)) return;
+    const page = reset ? 1 : this.data.materialPage + 1;
     this.setData({ materialLoading: true });
     try {
         const res = await wx.cloud.callFunction({
             name: 'getApprovalCenterData',
-            data: { action: 'materials' }
+            data: { action: 'materials', page, pageSize: this.data.materialPageSize }
         });
         const result = res.result || {};
         if (!result.success) {
             throw new Error(result.msg || '加载物料申请失败');
         }
-        this.setData({ materialList: result.materialList || [] });
+        const incoming = result.materialList || [];
+        this.setData({
+            materialList: reset ? incoming : [...this.data.materialList, ...incoming],
+            materialPage: result.page || page,
+            materialTotal: Number(result.total) || 0,
+            materialIsEnd: !!result.isEnd
+        });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载物料申请失败', icon: 'none' });
@@ -84,18 +104,26 @@ Page({
     }
   },
 
-  async fetchUsers() {
+  async fetchUsers(reset = false) {
+    if (this.data.userLoading || (!reset && this.data.userIsEnd)) return;
+    const page = reset ? 1 : this.data.userPage + 1;
     this.setData({ userLoading: true });
     try {
         const res = await wx.cloud.callFunction({
             name: 'getApprovalCenterData',
-            data: { action: 'users' }
+            data: { action: 'users', page, pageSize: this.data.userPageSize }
         });
         const result = res.result || {};
         if (!result.success) {
             throw new Error(result.msg || '加载人员申请失败');
         }
-        this.setData({ userList: result.userList || [] });
+        const incoming = result.userList || [];
+        this.setData({
+            userList: reset ? incoming : [...this.data.userList, ...incoming],
+            userPage: result.page || page,
+            userTotal: Number(result.total) || 0,
+            userIsEnd: !!result.isEnd
+        });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载人员申请失败', icon: 'none' });
@@ -104,18 +132,26 @@ Page({
     }
   },
 
-  async fetchCorrections() {
+  async fetchCorrections(reset = false) {
+    if (this.data.correctionLoading || (!reset && this.data.correctionIsEnd)) return;
+    const page = reset ? 1 : this.data.correctionPage + 1;
     this.setData({ correctionLoading: true });
     try {
         const res = await wx.cloud.callFunction({
             name: 'getApprovalCenterData',
-            data: { action: 'corrections' }
+            data: { action: 'corrections', page, pageSize: this.data.correctionPageSize }
         });
         const result = res.result || {};
         if (!result.success) {
             throw new Error(result.msg || '加载纠错申请失败');
         }
-        this.setData({ correctionList: result.correctionList || [] });
+        const incoming = result.correctionList || [];
+        this.setData({
+            correctionList: reset ? incoming : [...this.data.correctionList, ...incoming],
+            correctionPage: result.page || page,
+            correctionTotal: Number(result.total) || 0,
+            correctionIsEnd: !!result.isEnd
+        });
     } catch(err) {
         console.error(err);
         wx.showToast({ title: '加载纠错申请失败', icon: 'none' });
@@ -190,7 +226,7 @@ Page({
 
           if (res.result && res.result.success) {
               wx.showToast({ title: '操作成功', icon: 'success' });
-              this.fetchMaterials(); // Reload
+              this.fetchMaterials(true);
           } else {
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }
@@ -217,7 +253,7 @@ Page({
 
           if (res.result && res.result.success) {
               wx.showToast({ title: '操作成功', icon: 'success' });
-              this.fetchUsers(); // Reload
+              this.fetchUsers(true);
           } else {
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }
@@ -244,7 +280,7 @@ Page({
 
           if (res.result && res.result.success) {
               wx.showToast({ title: '操作成功', icon: 'success' });
-              this.fetchCorrections();
+              this.fetchCorrections(true);
           } else {
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }
@@ -253,6 +289,14 @@ Page({
           wx.showToast({ title: '网络异常', icon: 'none' });
           console.error(err);
       }
+  },
+
+  onReachBottom() {
+      this.loadData(false);
+  },
+
+  onPullDownRefresh() {
+      Promise.resolve(this.loadData(true)).finally(() => wx.stopPullDownRefresh());
   },
 
   /* Utils */

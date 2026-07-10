@@ -30,6 +30,15 @@ test('builtin product code prefixes cover chemical J/S/Y and film M', () => {
   assert.equal(BUILTIN_PRODUCT_CODE_PREFIX_SEEDS.some(item => item.name), false);
 });
 
+test('builtin prefix seeds use stable document ids for concurrent initialization', () => {
+  assert.equal(
+    require('../cloudfunctions/_shared/product-code-prefixes').buildBuiltinProductCodePrefixDocumentId('chemical', 'J'),
+    'builtin_prefix_chemical_j'
+  );
+  const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/_shared/product-code-prefixes.js'), 'utf8');
+  assert.match(source, /collection\.doc\(buildBuiltinProductCodePrefixDocumentId\(seed\.category, seed\.prefix\)\)\.set/);
+});
+
 test('product code prefix helpers normalize and filter active category prefixes', () => {
   assert.equal(normalizeProductCodePrefix('s'), 'S');
   assert.equal(normalizeProductCodePrefix('jp'), 'JP');
@@ -97,8 +106,15 @@ test('product code prefix collection ensure treats cloud already-exists errors a
             added.push({ _id: `prefix-${added.length}`, ...data });
             return { _id: `prefix-${added.length}` };
           },
-          doc() {
-            return { async update() {} };
+          doc(id) {
+            return {
+              async set({ data }) {
+                const index = added.findIndex(item => item._id === id);
+                if (index === -1) added.push({ _id: id, ...data });
+                else added[index] = { _id: id, ...data };
+              },
+              async update() {}
+            };
           }
         };
       }

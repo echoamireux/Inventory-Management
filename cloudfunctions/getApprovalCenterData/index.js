@@ -36,30 +36,56 @@ function formatTime(value) {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-async function listMaterials() {
-  const [requestRes, subcategoryRecords] = await Promise.all([
+function normalizePagination(event = {}) {
+  return {
+    page: Math.max(1, Number(event.page) || 1),
+    pageSize: Math.max(1, Math.min(100, Number(event.pageSize) || 20))
+  };
+}
+
+function buildPageResult(list, total, page, pageSize) {
+  return {
+    list,
+    total,
+    page,
+    pageSize,
+    isEnd: page * pageSize >= total
+  };
+}
+
+async function listMaterials(page, pageSize) {
+  const where = { status: 'pending' };
+  const [countRes, requestRes, subcategoryRecords] = await Promise.all([
+    db.collection('material_requests').where(where).count(),
     db.collection('material_requests')
-      .where({ status: 'pending' })
+      .where(where)
       .orderBy('created_at', 'desc')
-      .limit(100)
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
       .get(),
     ensureBuiltinSubcategories(db).then(sortSubcategoryRecords)
   ]);
   const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
-
-  return (requestRes.data || []).map(item => ({
+  const list = (requestRes.data || []).map(item => ({
     ...item,
     _subcategoryDisplay: resolveSubcategoryDisplay(item, subcategoryMap) || item.sub_category || '-',
     _timeStr: formatTime(item.created_at)
   }));
+
+  return buildPageResult(list, Number(countRes.total) || 0, page, pageSize);
 }
 
-async function listUsers() {
-  const res = await db.collection('users')
-    .where({ status: 'pending' })
-    .orderBy('create_time', 'desc')
-    .limit(100)
-    .get();
+async function listUsers(page, pageSize) {
+  const where = { status: 'pending' };
+  const [countRes, res] = await Promise.all([
+    db.collection('users').where(where).count(),
+    db.collection('users')
+      .where(where)
+      .orderBy('create_time', 'desc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+  ]);
 
   const uniqueUsers = [];
   const seenOpenids = new Set();
@@ -75,24 +101,42 @@ async function listUsers() {
     });
   });
 
-  return uniqueUsers;
+  return buildPageResult(uniqueUsers, Number(countRes.total) || 0, page, pageSize);
 }
 
-async function listCorrections() {
-  const res = await db.collection('inventory_correction_requests')
-    .where({ status: 'pending' })
-    .orderBy('created_at', 'desc')
-    .limit(100)
-    .get();
-  return (res.data || []).map(item => ({
+async function listCorrections(page, pageSize) {
+  const where = { status: 'pending' };
+  const [countRes, res] = await Promise.all([
+    db.collection('inventory_correction_requests').where(where).count(),
+    db.collection('inventory_correction_requests')
+      .where(where)
+      .orderBy('created_at', 'desc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+  ]);
+  const list = (res.data || []).map(item => ({
     ...item,
     _timeStr: formatTime(item.created_at)
   }));
+  return buildPageResult(list, Number(countRes.total) || 0, page, pageSize);
+}
+
+function buildActionResponse(listKey, result) {
+  return {
+    success: true,
+    [listKey]: result.list,
+    total: result.total,
+    page: result.page,
+    pageSize: result.pageSize,
+    isEnd: result.isEnd
+  };
 }
 
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
   const action = normalizeText(event.action || 'all');
+  const { page, pageSize } = normalizePagination(event);
 
   try {
     const operator = await getOperator(OPENID);
@@ -102,25 +146,30 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'materials') {
-      return { success: true, materialList: await listMaterials() };
+      return buildActionResponse('materialList', await listMaterials(page, pageSize));
     }
     if (action === 'users') {
-      return { success: true, userList: await listUsers() };
+      return buildActionResponse('userList', await listUsers(page, pageSize));
     }
     if (action === 'corrections') {
-      return { success: true, correctionList: await listCorrections() };
+      return buildActionResponse('correctionList', await listCorrections(page, pageSize));
     }
     if (action === 'all') {
-      const [materialList, userList, correctionList] = await Promise.all([
-        listMaterials(),
-        listUsers(),
-        listCorrections()
+      const [materials, users, corrections] = await Promise.all([
+        listMaterials(page, pageSize),
+        listUsers(page, pageSize),
+        listCorrections(page, pageSize)
       ]);
       return {
         success: true,
-        materialList,
-        userList,
-        correctionList
+        materialList: materials.list,
+        userList: users.list,
+        correctionList: corrections.list,
+        page,
+        pageSize,
+        total: materials.total + users.total + corrections.total,
+        isEnd: materials.isEnd && users.isEnd && corrections.isEnd,
+        pagination: { materials, users, corrections }
       };
     }
 

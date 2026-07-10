@@ -51,6 +51,10 @@ function normalizeProjectName(value) {
   return String(value || '').trim();
 }
 
+function buildBuiltinProjectCodeDocumentId(projectCode) {
+  return `builtin_project_${normalizeProjectCode(projectCode).toLowerCase()}`;
+}
+
 function normalizeStatus(status) {
   return status === 'disabled' ? 'disabled' : 'active';
 }
@@ -169,7 +173,7 @@ async function ensureBuiltinProjectCodes(db) {
       continue;
     }
 
-    await collection.add({
+    await collection.doc(buildBuiltinProjectCodeDocumentId(seed.project_code)).set({
       data: {
         project_code: seed.project_code,
         project_name: seed.project_name,
@@ -189,6 +193,7 @@ module.exports = {
   BUILTIN_PROJECT_CODE_SEEDS,
   normalizeProjectCode,
   normalizeProjectName,
+  buildBuiltinProjectCodeDocumentId,
   normalizeStatus,
   normalizeProjectCodeRecord,
   sortProjectCodeRecords,

@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess } = require('./auth');
 const { buildContainsRegExp } = require('./search');
+const { parseCstDateBoundary } = require('./cst-time');
 const {
   filterProjectUsageLogs,
   formatProjectUsageLog,
@@ -27,21 +28,6 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
-function toDate(value, endOfDay = false) {
-  const text = normalizeText(value);
-  if (!text) {
-    return null;
-  }
-  const date = new Date(text);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    date.setHours(23, 59, 59, 999);
-  }
-  return date;
-}
-
 function buildQuery(event = {}) {
   const conditions = [{ type: 'outbound' }];
   const projectCode = normalizeText(event.project_code || event.projectCode);
@@ -49,8 +35,8 @@ function buildQuery(event = {}) {
   const uniqueCode = normalizeText(event.unique_code || event.uniqueCode);
   const productCode = normalizeText(event.product_code || event.productCode);
   const operator = normalizeText(event.operator || event.operatorFilter);
-  const startDate = toDate(event.startDate || event.start_date);
-  const endDate = toDate(event.endDate || event.end_date, true);
+  const startDate = parseCstDateBoundary(event.startDate || event.start_date);
+  const endDate = parseCstDateBoundary(event.endDate || event.end_date, true);
 
   if (projectCode && projectCode !== 'all') {
     conditions.push({ project_code: projectCode });

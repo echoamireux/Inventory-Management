@@ -97,6 +97,14 @@ function createProjectDb({ users = [], projects = [] } = {}) {
           },
           doc(id) {
             return {
+              async set({ data }) {
+                const index = state.projects.findIndex(item => item._id === id);
+                if (index === -1) {
+                  state.projects.push({ _id: id, ...data });
+                } else {
+                  state.projects[index] = { _id: id, ...data };
+                }
+              },
               async update({ data }) {
                 const index = state.projects.findIndex(item => item._id === id);
                 if (index === -1) throw new Error(`missing project ${id}`);
@@ -180,6 +188,15 @@ test('ensureBuiltinProjectCodes preserves admin renamed and reordered builtin pr
   assert.equal(syncedMap.get('OR2026RD02002').project_name, '自定义项目二');
   assert.equal(syncedMap.get('OR2026RD02002').sort_order, 10);
   assert.equal(syncedMap.get('OR2026RD05005').project_name, 'OR2026RD05-低爬升硅胶保护膜 19502BL-E3');
+});
+
+test('builtin project seeds use stable document ids for concurrent initialization', () => {
+  assert.equal(
+    projectCodes.buildBuiltinProjectCodeDocumentId('OR2026RD02001'),
+    'builtin_project_or2026rd02001'
+  );
+  const source = read('cloudfunctions/_shared/project-codes.js');
+  assert.match(source, /collection\.doc\(buildBuiltinProjectCodeDocumentId\(seed\.project_code\)\)\.set/);
 });
 
 test('manageProjectCode allows active users to list and rejects inactive users before seeding', async () => {
