@@ -31,6 +31,14 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 function normalizeIdentityText(value) {
   return String(value || '').trim();
 }
@@ -251,9 +259,13 @@ async function loadInventoryItems(where) {
   let list = [];
 
   while (true) {
-    const res = await db.collection('inventory')
+    const query = db.collection('inventory')
       .where(where)
-      .field(fields)
+      .field(fields);
+    const res = await applyStableOrder(query, [
+      ['create_time', 'asc'],
+      ['_id', 'asc']
+    ])
       .skip(skip)
       .limit(pageSize)
       .get();
@@ -306,7 +318,7 @@ async function loadMaterialMapByProductCodes(productCodes) {
     let skip = 0;
 
     while (true) {
-      const res = await db.collection('materials')
+      const query = db.collection('materials')
         .where({ product_code: _.in(batch) })
         .field({
           product_code: true,
@@ -315,7 +327,11 @@ async function loadMaterialMapByProductCodes(productCodes) {
           default_unit: true,
           subcategory_key: true,
           sub_category: true
-        })
+        });
+      const res = await applyStableOrder(query, [
+        ['product_code', 'asc'],
+        ['_id', 'asc']
+      ])
         .skip(skip)
         .limit(100)
         .get();

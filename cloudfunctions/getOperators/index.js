@@ -10,6 +10,14 @@ function normalizeScope(value) {
   return String(value || '').trim() === 'audit' ? 'audit' : 'inventory';
 }
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 async function loadAllOperatorLogRows(scope = 'inventory', pageSize = 100) {
   let skip = 0;
   let rows = [];
@@ -18,8 +26,12 @@ async function loadAllOperatorLogRows(scope = 'inventory', pageSize = 100) {
   const fieldName = scope === 'audit' ? 'actor_name' : 'operator';
 
   do {
-    const res = await db.collection(collectionName)
-      .field({ [fieldName]: true })
+    const query = db.collection(collectionName)
+      .field({ [fieldName]: true });
+    const res = await applyStableOrder(query, [
+      ['timestamp', 'desc'],
+      ['_id', 'desc']
+    ])
       .skip(skip)
       .limit(pageSize)
       .get();

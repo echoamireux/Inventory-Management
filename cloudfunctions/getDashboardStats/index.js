@@ -20,13 +20,21 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 async function loadInventoryItems(pageSize = 100) {
   let skip = 0;
   let rows = [];
   let batch = [];
 
   do {
-    const res = await db.collection('inventory')
+    const query = db.collection('inventory')
       .where({ status: 'in_stock' })
       .field({
         product_code: true,
@@ -35,8 +43,13 @@ async function loadInventoryItems(pageSize = 100) {
         is_test_material: true,
         quantity: true,
         dynamic_attrs: true,
-        expiry_date: true
-      })
+        expiry_date: true,
+        create_time: true
+      });
+    const res = await applyStableOrder(query, [
+      ['create_time', 'asc'],
+      ['_id', 'asc']
+    ])
       .skip(skip)
       .limit(pageSize)
       .get();

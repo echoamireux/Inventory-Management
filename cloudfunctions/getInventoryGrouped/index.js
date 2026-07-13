@@ -46,13 +46,21 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 async function loadInventoryGroupSourceItems(where, pageSize = 100) {
   let skip = 0;
   let rows = [];
   let batch = [];
 
   do {
-    const res = await db.collection('inventory')
+    const query = db.collection('inventory')
       .where(where)
       .field({
         material_name: true,
@@ -72,8 +80,13 @@ async function loadInventoryGroupSourceItems(where, pageSize = 100) {
         supplier_model: true,
         sample_note: true,
         unique_code: true,
-        is_test_material: true
-      })
+        is_test_material: true,
+        create_time: true
+      });
+    const res = await applyStableOrder(query, [
+      ['create_time', 'asc'],
+      ['_id', 'asc']
+    ])
       .skip(skip)
       .limit(pageSize)
       .get();
@@ -266,9 +279,13 @@ exports.main = async (event, context) => {
 
     if (productCodes.length > 0) {
       materialMap = await loadMaterialMapByProductCodes(productCodes, async ({ productCodes: batch, skip: materialSkip, limit }) => {
-        const materialsRes = await db.collection('materials')
+        const materialQuery = db.collection('materials')
           .where({ product_code: _.in(batch) })
-          .field({ product_code: true, status: true, default_unit: true })
+          .field({ product_code: true, status: true, default_unit: true });
+        const materialsRes = await applyStableOrder(materialQuery, [
+          ['product_code', 'asc'],
+          ['_id', 'asc']
+        ])
           .skip(materialSkip)
           .limit(limit)
           .get();
@@ -426,7 +443,7 @@ async function loadInventoryItemsForGroups(baseWhere, groups) {
     let skip = 0;
 
     while (true) {
-      const res = await db.collection('inventory')
+      const query = db.collection('inventory')
         .where(where)
         .field({
           _id: true,
@@ -450,7 +467,11 @@ async function loadInventoryItemsForGroups(baseWhere, groups) {
           unique_code: true,
           status: true,
           create_time: true
-        })
+        });
+      const res = await applyStableOrder(query, [
+        ['create_time', 'asc'],
+        ['_id', 'asc']
+      ])
         .skip(skip)
         .limit(pageSize)
         .get();

@@ -102,7 +102,14 @@
 - 操作日志
 - 审计日志
 
-日志链路支持按产品代码、物料名称、标签编号、批号、操作人、类型、描述、备注等信息检索，便捷领用与精确领用最终都会落到实际标签日志，保证追溯能力。
+日志链路拆分为两类：
+
+- `inventory_log`
+  库存数量流水，用于标签详情、项目用料报表、库存纠错申请和库存变动追溯。
+- `audit_events`
+  管理审计唯一查询源，用于追踪主数据、权限、项目编码、子类别、库区坐标、标签预打印与库存写入动作。
+
+后台“审计日志”页面已拆成“库存流水”和“管理审计”两个页签。库存流水保留纠错申请入口；管理审计支持按领域、动作、操作人、关键字和日期检索。
 
 ## 角色与状态
 
@@ -302,6 +309,16 @@ module.exports = {
 
 在微信开发者工具中，对需要使用的云函数执行“上传并部署：云端安装依赖”。
 
+发布前先在本地执行：
+
+```bash
+npm run sync:shared
+npm run preflight:deploy
+npm test
+```
+
+`npm run preflight:deploy` 是只读发布预检，会检查 34 个可部署云函数目录、前端实际调用的云函数、共享文件副本、依赖锁文件、README 必需集合/索引说明和关键查询稳定排序。预检失败时不要上传正式版。
+
 建议首次接手项目时至少重新部署以下函数：
 
 - `userLogin`
@@ -337,7 +354,9 @@ module.exports = {
 
 旧的 `login` 和 `initMDMCollection` 已从仓库移除。部署前请在云开发控制台同步删除云端 `login`，并删除云端 `initMDMCollection`，避免废弃入口继续被误调用。
 
-首次部署本版本前，先在云数据库创建 `preprint_jobs` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
+首次部署本版本前，先在云数据库创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
+
+`removeInventory` 安全部署要求：仓库内该函数已停用数据库写入，只保留“删除入口已停用”的兼容响应。云端必须重新部署新版 `removeInventory`，并确认日常页面没有库存删除入口。库存减少只能通过领用或盘点纠错审批链路完成。
 
 ### 6. 生产索引配置建议
 
@@ -355,6 +374,11 @@ module.exports = {
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id + job_index` | 复合索引，升序 + 升序 + 升序 | 支持按任务稳定恢复完整标签顺序 |
 | `preprint_jobs` | `preprint_jobs.operator_id + created_at desc` | 复合索引，升序 + 降序 | 支持本人最近预打印任务倒序加载 |
+| `operation_receipts` | `operation_receipts.operator_id + created_at desc` | 复合索引，升序 + 降序 | 支持库存写入幂等凭证排查与后台清理 |
+| `audit_events` | `audit_events.timestamp desc` | 普通索引，降序 | 支持管理审计按时间倒序加载 |
+| `audit_events` | `audit_events.actor_id + timestamp desc` | 复合索引，升序 + 降序 | 支持按操作者追溯管理审计 |
+| `audit_events` | `audit_events.domain + timestamp desc` | 复合索引，升序 + 降序 | 支持按审计领域筛选，例如库存、预打印、主数据和权限 |
+| `preprint_daily_usage` | 稳定文档 ID，无额外查询索引 | 无 | 按操作者和北京时间日期累计预打印额度 |
 | `users` | `users.status + create_time desc` | 复合索引，升序 + 降序 | 支持人员审批分页 |
 | `material_requests` | `material_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持物料审批分页 |
 | `inventory_correction_requests` | `inventory_correction_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持库存纠错审批分页 |
@@ -368,12 +392,13 @@ module.exports = {
 | `inventory` | `inventory.product_code + status + supplier_model` | 复合索引，升序 + 升序 + 升序 | 支持测试料共用 `999` 时按原厂型号拆分查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model + batch_number` | 复合索引，升序 + 升序 + 升序 + 升序 | 支持测试料按产品代码、原厂型号和批号展开标签明细 |
 | `inventory` | `inventory.material_id + status` | 复合索引，升序 + 升序 | 支持主数据归档和单位锁定前检查库存记录 |
+| `inventory` | `inventory.status + identity_key` | 复合索引，升序 + 升序 | 支持正式料按产品代码、测试料按“产品代码 + 原厂型号”聚合查询 |
 | `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
-| `inventory_log` | `inventory_log.type + project_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按项目和时间导出 |
-| `inventory_log` | `inventory_log.type + product_code + timestamp desc` | 复合索引，升序 + 升序 + 降序 | 支持项目用料报表按物料反查 |
-| `inventory_log` | `inventory_log.inventory_id + timestamp desc` | 复合索引，升序 + 降序 | 支持标签详情页查看历史日志 |
-| `inventory_log` | `inventory_log.unique_code + timestamp desc` | 复合索引，升序 + 降序 | 支持按标签编号追溯日志 |
-| `inventory_log` | `inventory_log.timestamp desc` | 普通索引，降序 | 支持日志列表按时间倒序加载 |
+| `inventory_log` | `inventory_log.type + project_code + timestamp desc + _id desc` | 复合索引，升序 + 升序 + 降序 + 降序 | 支持项目用料报表按项目和时间稳定导出 |
+| `inventory_log` | `inventory_log.type + product_code + timestamp desc + _id desc` | 复合索引，升序 + 升序 + 降序 + 降序 | 支持项目用料报表按物料稳定反查 |
+| `inventory_log` | `inventory_log.inventory_id + timestamp desc + _id desc` | 复合索引，升序 + 降序 + 降序 | 支持标签详情页稳定查看历史日志 |
+| `inventory_log` | `inventory_log.unique_code + timestamp desc + _id desc` | 复合索引，升序 + 降序 + 降序 | 支持按标签编号稳定追溯日志 |
+| `inventory_log` | `inventory_log.timestamp desc + _id desc` | 复合索引，降序 + 降序 | 支持日志列表按时间倒序稳定加载 |
 
 创建步骤：
 
@@ -395,9 +420,10 @@ module.exports = {
 
 正式环境的核心集合必须配置为“仅云函数可读写”，小程序端不直接读写数据库。至少包括：
 
-- `users`、`materials`、`inventory`、`inventory_log`、`material_log`
+- `users`、`materials`、`inventory`、`inventory_log`、`audit_events`
 - `material_requests`、`inventory_correction_requests`
-- `preprinted_labels`、`preprint_jobs`、`system_counters`
+- `preprinted_labels`、`preprint_jobs`、`preprint_daily_usage`、`system_counters`
+- `operation_receipts`
 - `project_codes`、`material_subcategories`、`product_code_prefixes`
 - `warehouse_zones`、`warehouse_location_details`
 
@@ -411,12 +437,13 @@ module.exports = {
 
 以下项目未完成时不要上传正式版小程序：
 
-1. 已创建 `preprint_jobs`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
+1. 已创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
 2. 本节要求的唯一索引和复合索引均已构建成功。
 3. 核心集合权限均已收紧为仅云函数可读写。
 4. 旧云端 `login`、`initMDMCollection` 已删除。
 5. 本次涉及的库存写入、标签、审批、项目报表、主数据与查询云函数均已重新部署。
-6. 已在开发版完成扫码入库、标签失败重导、审批分页、库存导出和项目报表日期边界回归。
+6. 已执行 `npm run sync:shared`、`npm run preflight:deploy` 和 `npm test`。
+7. 已在开发版完成扫码入库、标签失败重导、审批分页、库存导出和项目报表日期边界回归。
 
 ## 库区与详细坐标规则
 

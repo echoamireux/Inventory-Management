@@ -169,6 +169,7 @@ exports.main = async (event, context) => {
       const dataRes = await collection.where(where)
           .orderBy('timestamp', 'desc')
           .orderBy('create_time', 'desc') // Fallback sort
+          .orderBy('_id', 'desc')
           .skip(skip)
           .limit(pagination.limit)
           .get();
