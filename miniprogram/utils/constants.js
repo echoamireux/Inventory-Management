@@ -49,10 +49,10 @@ const FILM_CATEGORIES = [
 
 // ========== 单位选项 ==========
 const CHEMICAL_UNIT_OPTIONS = [
-  { name: 'kg' },
   { name: 'g' },
-  { name: 'L' },
-  { name: 'mL' }
+  { name: 'kg' },
+  { name: 'mL' },
+  { name: 'L' }
 ];
 
 const FILM_UNIT_OPTIONS = [

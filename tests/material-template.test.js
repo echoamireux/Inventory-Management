@@ -29,7 +29,7 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
   assert.deepEqual(spec.headers, TEMPLATE_HEADERS);
   assert.equal(spec.headers.length, 12);
   assert.deepEqual(spec.unitOptions, {
-    chemical: ['kg', 'g', 'L', 'mL'],
+    chemical: ['g', 'kg', 'mL', 'L'],
     film: ['m', 'm²']
   });
   assert.deepEqual(spec.packageTypeOptions, ['瓶装', '桶装', '袋装', '卷装', '盒装']);

@@ -1,19 +1,31 @@
+const { isChemicalLowStock, isFilmLowStock } = require('./low-stock');
+
+function buildDashboardGroupKey(item = {}) {
+  const productCode = String(item.product_code || 'UNKNOWN').trim() || 'UNKNOWN';
+  const supplierModel = String(item.supplier_model || '').trim();
+  if (item.is_test_material && supplierModel) {
+    return `${productCode}::test-model::${supplierModel}`;
+  }
+  return productCode;
+}
+
 function calculateDashboardStatsFromItems(items, alertConfig) {
   const grouped = new Map();
   const futureTime = Date.now() + (alertConfig.EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
   for (const item of items || []) {
-    const productCode = item.product_code || 'UNKNOWN';
-    if (!grouped.has(productCode)) {
-      grouped.set(productCode, {
+    const groupKey = buildDashboardGroupKey(item);
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
         category: item.category,
         earliestExpiryTime: Number.POSITIVE_INFINITY,
         totalChemicalQty: 0,
+        chemicalUnit: '',
         totalFilmLength: 0
       });
     }
 
-    const current = grouped.get(productCode);
+    const current = grouped.get(groupKey);
     if (!current.category && item.category) {
       current.category = item.category;
     }
@@ -30,6 +42,9 @@ function calculateDashboardStatsFromItems(items, alertConfig) {
       current.totalFilmLength += Number(item.dynamic_attrs && item.dynamic_attrs.current_length_m) || 0;
     } else {
       current.totalChemicalQty += Number(item.quantity && item.quantity.val) || 0;
+      if (!current.chemicalUnit && item.quantity && item.quantity.unit) {
+        current.chemicalUnit = item.quantity.unit;
+      }
     }
   }
 
@@ -38,8 +53,8 @@ function calculateDashboardStatsFromItems(items, alertConfig) {
     const hasExplicitExpiry = Number.isFinite(item.earliestExpiryTime);
     const isExpiring = hasExplicitExpiry && item.earliestExpiryTime <= futureTime;
     const isLowStock = item.category === 'film'
-      ? item.totalFilmLength <= alertConfig.LOW_STOCK.film
-      : item.totalChemicalQty <= alertConfig.LOW_STOCK.chemical;
+      ? isFilmLowStock(item.totalFilmLength, alertConfig)
+      : isChemicalLowStock(item.totalChemicalQty, item.chemicalUnit, alertConfig);
 
     if (isExpiring || isLowStock) {
       riskCount += 1;

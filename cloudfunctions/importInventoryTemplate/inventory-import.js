@@ -1,6 +1,6 @@
 const PRODUCT_CODE_DIGITS = 3;
 const PRODUCT_CODE_PREFIX_PATTERN = /^[A-Z]{1,4}$/u;
-const CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL'];
+const CHEMICAL_UNITS = ['g', 'kg', 'mL', 'L'];
 const FILM_UNITS = ['m', 'm²'];
 const {
   isTestMaterial,
@@ -194,7 +194,7 @@ function normalizeUnitInput(category, unit) {
     ok: false,
     msg: category === 'film'
       ? '膜材默认单位仅支持 m / m²'
-      : '化材默认单位仅支持 kg / g / L / mL'
+      : '化材默认单位仅支持 g / kg / mL / L'
   };
 }
 

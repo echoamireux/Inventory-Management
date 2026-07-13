@@ -1,4 +1,4 @@
-const CHEMICAL_UNITS = ['kg', 'g', 'L', 'mL'];
+const CHEMICAL_UNITS = ['g', 'kg', 'mL', 'L'];
 const FILM_UNITS = ['m', 'm²'];
 
 function getAllowedUnits(category) {
@@ -13,7 +13,7 @@ function getAllowedUnits(category) {
 
 function getInvalidUnitMessage(category) {
   if (category === 'chemical') {
-    return '化材默认单位仅支持 kg / g / L / mL';
+    return '化材默认单位仅支持 g / kg / mL / L';
   }
   if (category === 'film') {
     return '膜材默认单位仅支持 m / m²';

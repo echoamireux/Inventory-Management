@@ -131,3 +131,28 @@ test('inventory export only reads current stock, enforces a hard cap and uses a 
   assert.match(source, /OPENID/);
   assert.match(source, /cloudPath/);
 });
+
+test('inventory risk queries share unit-aware global low-stock thresholds', () => {
+  const alertConfig = require('../cloudfunctions/_shared/alert-config');
+  const dashboardStats = read('cloudfunctions/_shared/dashboard-stats.js');
+  const groupedInventory = read('cloudfunctions/getInventoryGrouped/index.js');
+  const syncScript = read('cloudfunctions/sync_shared.sh');
+
+  assert.deepEqual(alertConfig.LOW_STOCK, {
+    chemical: {
+      mass_g: 50,
+      volume_ml: 50
+    },
+    film: {
+      length_m: 50
+    }
+  });
+  assert.match(dashboardStats, /require\(['"]\.\/low-stock['"]\)/);
+  assert.match(groupedInventory, /require\(['"]\.\/low-stock['"]\)/);
+  assert.match(groupedInventory, /lowStockQuantity:\s*Number\(item\.totalChemicalQty\)/);
+  assert.match(groupedInventory, /totalQuantity:\s*item\.lowStockQuantity/);
+  assert.match(groupedInventory, /checkLowStock\(\{[\s\S]{0,180}unit/);
+  assert.match(syncScript, /_shared\/low-stock\.js/);
+  assert.match(syncScript, /getDashboardStats\/low-stock\.js/);
+  assert.match(syncScript, /getInventoryGrouped\/low-stock\.js/);
+});

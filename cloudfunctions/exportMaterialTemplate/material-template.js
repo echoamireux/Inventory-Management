@@ -26,7 +26,7 @@ const TEMPLATE_HEADERS = [
 
 const CATEGORY_OPTIONS = ['化材', '膜材'];
 const UNIT_OPTIONS = {
-  chemical: ['kg', 'g', 'L', 'mL'],
+  chemical: ['g', 'kg', 'mL', 'L'],
   film: ['m', 'm²']
 };
 const PACKAGE_TYPE_OPTIONS = ['瓶装', '桶装', '袋装', '卷装', '盒装'];
@@ -223,7 +223,7 @@ function buildMaterialTemplateSpec({
       '物料名称*：必填。',
       '类别*：必填。只能选择“化材”或“膜材”。',
       '子类别*：必填。只能选择系统中当前启用的正式子类别。',
-      '默认单位*：必填。化材仅支持 kg/g/L/mL；膜材仅支持 m/m²。',
+      '默认单位*：必填。化材仅支持 g/kg/mL/L；膜材仅支持 m/m²。',
       '化材包装形式：选填。仅化材使用；膜材请留空。',
       '膜材厚度(μm)*：膜材必填；化材请留空。',
       '默认幅宽(mm)：膜材选填；化材请留空。填写即写入主数据默认幅宽，留空则后续补齐。',

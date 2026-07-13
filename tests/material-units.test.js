@@ -11,11 +11,11 @@ const implementations = [
 
 for (const [label, units] of implementations) {
   test(`${label}: category-specific unit lists stay strict`, () => {
-    assert.deepEqual(units.CHEMICAL_UNITS, ['kg', 'g', 'L', 'mL']);
+    assert.deepEqual(units.CHEMICAL_UNITS, ['g', 'kg', 'mL', 'L']);
     assert.deepEqual(units.FILM_UNITS, ['m', 'm²']);
-    assert.deepEqual(units.getAllowedUnits('chemical'), ['kg', 'g', 'L', 'mL']);
+    assert.deepEqual(units.getAllowedUnits('chemical'), ['g', 'kg', 'mL', 'L']);
     assert.deepEqual(units.getAllowedUnits('film'), ['m', 'm²']);
-    assert.equal(units.getDefaultUnit('chemical'), 'kg');
+    assert.equal(units.getDefaultUnit('chemical'), 'g');
     assert.equal(units.getDefaultUnit('film'), 'm');
     assert.equal(units.isAllowedUnit('chemical', 'm'), false);
     assert.equal(units.isAllowedUnit('film', 'kg'), false);
@@ -32,7 +32,7 @@ for (const [label, units] of implementations) {
   test(`${label}: empty unit falls back to category default while invalid cross-category units are rejected`, () => {
     assert.deepEqual(units.normalizeUnitInput('chemical', ''), {
       ok: true,
-      unit: 'kg'
+      unit: 'g'
     });
     assert.deepEqual(units.normalizeUnitInput('film', '  '), {
       ok: true,
@@ -44,7 +44,7 @@ for (const [label, units] of implementations) {
     });
     assert.deepEqual(units.normalizeUnitInput('chemical', 'm'), {
       ok: false,
-      msg: '化材默认单位仅支持 kg / g / L / mL'
+      msg: '化材默认单位仅支持 g / kg / mL / L'
     });
   });
 }

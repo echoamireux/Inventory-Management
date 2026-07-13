@@ -30,20 +30,20 @@ test('dashboard stats count unique products and risky products correctly', () =>
   const alertConfig = {
     EXPIRY_DAYS: 30,
     LOW_STOCK: {
-      chemical: 5,
-      film: 20
+      chemical: { mass_g: 5, volume_ml: 5 },
+      film: { length_m: 20 }
     }
   };
   const items = [
     {
       product_code: 'J-001',
       category: 'chemical',
-      quantity: { val: 3 }
+      quantity: { val: 3, unit: 'g' }
     },
     {
       product_code: 'J-001',
       category: 'chemical',
-      quantity: { val: 10 }
+      quantity: { val: 10, unit: 'g' }
     },
     {
       product_code: 'M-001',
@@ -60,6 +60,70 @@ test('dashboard stats count unique products and risky products correctly', () =>
 
   assert.deepEqual(calculateDashboardStatsFromItems(items, alertConfig), {
     totalMaterials: 3,
+    lowStock: 1,
+    riskCount: 1
+  });
+});
+
+test('dashboard low-stock rules normalize chemical units and keep film thresholds in base meters', () => {
+  const alertConfig = {
+    EXPIRY_DAYS: 30,
+    LOW_STOCK: {
+      chemical: {
+        mass_g: 50,
+        volume_ml: 50
+      },
+      film: {
+        length_m: 50
+      }
+    }
+  };
+  const items = [
+    { product_code: 'J-001', category: 'chemical', quantity: { val: 49, unit: 'g' } },
+    { product_code: 'J-002', category: 'chemical', quantity: { val: 0.051, unit: 'kg' } },
+    { product_code: 'J-003', category: 'chemical', quantity: { val: 0.05, unit: 'kg' } },
+    { product_code: 'S-001', category: 'chemical', quantity: { val: 49, unit: 'mL' } },
+    { product_code: 'S-002', category: 'chemical', quantity: { val: 0.051, unit: 'L' } },
+    { product_code: 'S-003', category: 'chemical', quantity: { val: 0.05, unit: 'L' } },
+    { product_code: 'M-001', category: 'film', dynamic_attrs: { current_length_m: 49 } },
+    { product_code: 'M-002', category: 'film', dynamic_attrs: { current_length_m: 51 } },
+    { product_code: 'M-003', category: 'film', dynamic_attrs: { current_length_m: 50 } }
+  ];
+
+  assert.deepEqual(calculateDashboardStatsFromItems(items, alertConfig), {
+    totalMaterials: 9,
+    lowStock: 6,
+    riskCount: 6
+  });
+});
+
+test('dashboard treats test-material supplier models as separate inventory identities', () => {
+  const alertConfig = {
+    EXPIRY_DAYS: 30,
+    LOW_STOCK: {
+      chemical: { mass_g: 50, volume_ml: 50 },
+      film: { length_m: 50 }
+    }
+  };
+  const items = [
+    {
+      product_code: 'J-999',
+      supplier_model: 'MODEL-A',
+      is_test_material: true,
+      category: 'chemical',
+      quantity: { val: 60, unit: 'g' }
+    },
+    {
+      product_code: 'J-999',
+      supplier_model: 'MODEL-B',
+      is_test_material: true,
+      category: 'chemical',
+      quantity: { val: 40, unit: 'g' }
+    }
+  ];
+
+  assert.deepEqual(calculateDashboardStatsFromItems(items, alertConfig), {
+    totalMaterials: 2,
     lowStock: 1,
     riskCount: 1
   });
@@ -170,8 +234,8 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
     './alert-config': {
       EXPIRY_DAYS: 30,
       LOW_STOCK: {
-        chemical: 5,
-        film: 20
+        chemical: { mass_g: 5, volume_ml: 5 },
+        film: { length_m: 20 }
       }
     },
     './cst-time': {
@@ -286,8 +350,8 @@ test('dashboard stats loads all inventory pages before calculating grouped risk 
     './alert-config': {
       EXPIRY_DAYS: 30,
       LOW_STOCK: {
-        chemical: 5,
-        film: 20
+        chemical: { mass_g: 5, volume_ml: 5 },
+        film: { length_m: 20 }
       }
     },
     './cst-time': {

@@ -11,10 +11,15 @@ const ALERT_CONFIG = {
     // 临期预警阈值 (天)
     EXPIRY_DAYS: 30,
 
-    // 低库存预警阈值
+    // 全局低库存预警阈值。化材先换算到 g / mL，膜材按基础长度 m 判断。
     LOW_STOCK: {
-        chemical: 0.5, // 化学品 (kg)
-        film: 50       // 膜 (m)
+        chemical: {
+            mass_g: 50,
+            volume_ml: 50
+        },
+        film: {
+            length_m: 50
+        }
     }
 };
 

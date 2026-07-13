@@ -12,6 +12,8 @@ echo "🔄 Syncing shared files..."
 echo "   -> Updating alert-config.js..."
 cp cloudfunctions/_shared/alert-config.js cloudfunctions/getInventoryGrouped/alert-config.js
 cp cloudfunctions/_shared/alert-config.js cloudfunctions/getDashboardStats/alert-config.js
+cp cloudfunctions/_shared/low-stock.js cloudfunctions/getInventoryGrouped/low-stock.js
+cp cloudfunctions/_shared/low-stock.js cloudfunctions/getDashboardStats/low-stock.js
 
 # 2. Sync Response Helper
 # (Only searchInventory uses it currently, but good to track)

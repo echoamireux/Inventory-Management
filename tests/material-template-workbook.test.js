@@ -59,7 +59,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
       unit: 'INDIRECT($D3&"_单位")'
     },
     unitOptions: {
-      chemical: ['kg', 'g', 'L', 'mL'],
+      chemical: ['g', 'kg', 'mL', 'L'],
       film: ['m', 'm²']
     },
     packageTypeOptions: ['瓶装', '桶装', '袋装', '卷装', '盒装'],
@@ -117,7 +117,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
       unit: 'INDIRECT($D3&"_单位")'
     },
     unitOptions: {
-      chemical: ['kg', 'g', 'L', 'mL'],
+      chemical: ['g', 'kg', 'mL', 'L'],
       film: ['m', 'm²']
     },
     packageTypeOptions: ['瓶装', '桶装', '袋装', '卷装', '盒装'],

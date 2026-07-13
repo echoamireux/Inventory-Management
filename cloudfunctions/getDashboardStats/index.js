@@ -31,6 +31,8 @@ async function loadInventoryItems(pageSize = 100) {
       .field({
         product_code: true,
         category: true,
+        supplier_model: true,
+        is_test_material: true,
         quantity: true,
         dynamic_attrs: true,
         expiry_date: true

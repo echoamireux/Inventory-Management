@@ -8,6 +8,7 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const ALERT_CONFIG = require('./alert-config');
+const { isChemicalLowStock, isFilmLowStock } = require('./low-stock');
 const { loadMaterialMapByProductCodes } = require('./material-map');
 const {
   ensureBuiltinZones,
@@ -197,6 +198,7 @@ function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
     totalCount: item.totalCount,
     minExpiry: item.minExpiry || null,
     totalChemicalQty: Number(item.totalChemicalQty) || 0,
+    lowStockQuantity: Number(item.totalChemicalQty) || 0,
     totalBaseLengthM: Number(item.totalBaseLengthM) || 0,
     firstUnit: item.firstUnit || '',
     locations: Array.from(item.locationSet),
@@ -294,8 +296,9 @@ exports.main = async (event, context) => {
         const isExpiring = checkExpiring(item.minExpiry, item.category);
         const isLowStock = checkLowStock({
           category: item.category,
-          totalQuantity,
-          totalBaseLengthM
+          totalQuantity: item.lowStockQuantity,
+          totalBaseLengthM,
+          unit
         });
         const isRisky = isExpiring || isLowStock;
 
@@ -398,10 +401,10 @@ function checkExpiring(dateStr, category) {
 
 function checkLowStock(item = {}) {
     if (String(item.category || '').trim() === 'film') {
-      return (Number(item.totalBaseLengthM) || 0) <= ALERT_CONFIG.LOW_STOCK.film;
+      return isFilmLowStock(item.totalBaseLengthM, ALERT_CONFIG);
     }
 
-    return (Number(item.totalQuantity) || 0) <= ALERT_CONFIG.LOW_STOCK.chemical;
+    return isChemicalLowStock(item.totalQuantity, item.unit, ALERT_CONFIG);
 }
 
 async function loadInventoryItemsForGroups(baseWhere, groups) {

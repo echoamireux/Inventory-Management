@@ -69,6 +69,8 @@
 
 其中“预警”表示临期或低库存产品的并集，不再等价于单纯低库存。
 
+全局低库存阈值维护在 `cloudfunctions/_shared/alert-config.js`：质量类化材按 `mass_g`、体积类化材按 `volume_ml`、膜材按基础长度 `length_m` 判断。当前值分别为 `50 g`、`50 mL`、`50 m`；`kg` 和 `L` 会在判断前自动换算，膜材展示为 `m²` 时仍按基础长度判断。
+
 ### 5. 主数据与导入模板治理
 
 系统当前的正式导入模板来源，是管理员在系统内动态导出的最新 `.xlsx` 模板：
@@ -474,7 +476,7 @@ npm test
 
 ## 维护建议
 
-- 修改预警阈值时，请同步检查前后端共享配置
+- 修改预警阈值时，只编辑 `cloudfunctions/_shared/alert-config.js` 中的 `mass_g`、`volume_ml`、`length_m`，然后运行 `npm run sync:shared`，重新部署 `getDashboardStats` 与 `getInventoryGrouped`
 - 修改库存分配规则时，请同时检查首页推荐、批次推荐和实际扣减逻辑
 - 修改库区或详细坐标规则时，请同步检查单条入库、批量入库、模板导入、移库和库存导出
 - 修改物料导入字段时，请同步更新：
