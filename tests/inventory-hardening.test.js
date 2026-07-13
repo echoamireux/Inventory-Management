@@ -189,6 +189,14 @@ test('all inbound paths enforce active master data and the master chemical unit'
   assert.match(templatePayload, /material\.default_unit/);
 });
 
+test('single stock-in trusts master category for location validation instead of client category', () => {
+  const singleStockIn = read('cloudfunctions/addMaterial/index.js');
+
+  assert.match(singleStockIn, /transaction\.collection\('materials'\)\.where/);
+  assert.match(singleStockIn, /filterZoneRecordsByCategory\(zoneRecords,\s*category\)/);
+  assert.doesNotMatch(singleStockIn, /filterZoneRecordsByCategory\(zoneRecords,\s*base\.category\)/);
+});
+
 test('duplicate chemical labels require an explicit refill action on write APIs', () => {
   const singleStockIn = read('cloudfunctions/addMaterial/index.js');
   const batchStockIn = read('cloudfunctions/batchAddInventory/index.js');
@@ -236,9 +244,12 @@ test('material unit and archive mutations are blocked after inventory exists', (
 
 test('material-wide cascade deletion is disabled and audit operator is server-derived', () => {
   const source = read('cloudfunctions/removeInventory/index.js');
+  const correctionApproval = read('cloudfunctions/approveInventoryCorrectionRequest/index.js');
 
   assert.match(source, /不再支持整物料删除|仅支持按库存标签/);
   assert.doesNotMatch(source, /operator:\s*operator_name/);
+  assert.match(source, /库存删除入口已停用/);
+  assert.match(correctionApproval, /inventory\.status !== 'in_stock'/);
 });
 
 test('inventory export only reads current stock, enforces a hard cap and uses a stable cloud path', () => {

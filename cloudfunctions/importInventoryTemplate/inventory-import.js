@@ -9,7 +9,8 @@ const {
 } = require('./test-material');
 const {
   parseChemicalQuantity,
-  parsePositiveIntegerMeters
+  parsePositiveIntegerMeters,
+  buildInventoryIdentityKey
 } = require('./inventory-quantity');
 const NEW_TEMPLATE_COLUMN_COUNT = 17;
 const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
@@ -1139,11 +1140,11 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     }
 
     row.thickness_um = thicknessGovernance.resolvedThicknessUm;
-    if (thicknessGovernance.shouldBackfillMasterThickness) {
+    if (!row.is_test_material && thicknessGovernance.shouldBackfillMasterThickness) {
       row.warning = appendNotice(row.warning, `当前主数据缺少厚度，本次入库后将补齐主数据厚度为 ${formatDisplayNumber(row.thickness_um)} μm`);
     }
 
-    if (!extractMaterialWidth(material) && row.batch_width_mm > 0) {
+    if (!row.is_test_material && !extractMaterialWidth(material) && row.batch_width_mm > 0) {
       row.warning = appendNotice(row.warning, `当前主数据缺少默认幅宽，本次入库后将补齐主数据默认幅宽为 ${formatDisplayNumber(row.batch_width_mm)} mm`);
     }
   } catch (error) {
@@ -1266,6 +1267,11 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     supplier_model: supplierModel,
     sample_note: sampleNote,
     is_test_material: isTest,
+    identity_key: buildInventoryIdentityKey({
+      product_code: productCode,
+      is_test_material: isTest,
+      supplier_model: supplierModel
+    }),
     batch_number: batchNumber,
     zone_key: zoneKey,
     location_detail_key: locationDetailKey,
@@ -1325,7 +1331,7 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
       baseLengthM
     );
 
-    if (thicknessGovernance.shouldBackfillMasterThickness || !currentMasterWidth) {
+    if (!isTest && (thicknessGovernance.shouldBackfillMasterThickness || !currentMasterWidth)) {
       masterSpecBackfill = {};
       if (thicknessGovernance.shouldBackfillMasterThickness) {
         masterSpecBackfill.thickness_um = resolvedThicknessUm;

@@ -151,6 +151,27 @@ test('single stock-in rejects duplicate chemical labels unless refill is explici
             };
           }
 
+          if (name === 'materials') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return {
+                      data: [{
+                        _id: 'mat-1',
+                        product_code: 'J-001',
+                        category: 'chemical',
+                        material_name: '丙酮',
+                        default_unit: 'kg',
+                        status: 'active'
+                      }]
+                    };
+                  }
+                };
+              }
+            };
+          }
+
           if (name === 'operation_receipts') {
             return createOperationReceiptCollection();
           }
@@ -343,6 +364,27 @@ test('single stock-in refills an in-stock chemical label only after explicit ref
             };
           }
 
+          if (name === 'materials') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return {
+                      data: [{
+                        _id: 'mat-1',
+                        product_code: 'J-001',
+                        category: 'chemical',
+                        material_name: '丙酮',
+                        default_unit: 'kg',
+                        status: 'active'
+                      }]
+                    };
+                  }
+                };
+              }
+            };
+          }
+
           if (name === 'operation_receipts') {
             return createOperationReceiptCollection();
           }
@@ -495,6 +537,27 @@ test('single stock-in rejects voided preprint labels even when manually submitte
                         material_id: 'mat-1',
                         product_code: 'J-001',
                         category: 'chemical'
+                      }]
+                    };
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'materials') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return {
+                      data: [{
+                        _id: 'mat-1',
+                        product_code: 'J-001',
+                        category: 'chemical',
+                        material_name: '丙酮',
+                        default_unit: 'kg',
+                        status: 'active'
                       }]
                     };
                   }
@@ -2330,6 +2393,7 @@ test('approveInventoryCorrectionRequest applies a chemical quantity delta and wr
                       data: {
                         _id: 'inv-2',
                         unique_code: 'L000702',
+                        status: 'in_stock',
                         category: 'chemical',
                         product_code: 'J-002',
                         batch_number: 'AC240702',
@@ -2509,6 +2573,7 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
                     return {
                       data: {
                         _id: 'inv-3',
+                        status: 'in_stock',
                         category: 'film',
                         quantity: { val: 10, unit: 'm' },
                         dynamic_attrs: {

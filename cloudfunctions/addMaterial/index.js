@@ -13,7 +13,8 @@ const {
   isChemicalRefillEligible,
   buildChemicalRefillUpdate,
   parseChemicalQuantity,
-  parsePositiveIntegerMeters
+  parsePositiveIntegerMeters,
+  buildInventoryIdentityKey
 } = require('./inventory-quantity');
 const {
   isTestMaterial,
@@ -151,25 +152,24 @@ function generateUniqueCode(prefix) {
 
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { base, specs, inventory, unique_code } = event; // 接收 unique_code
+  const {
+    base = {},
+    specs = {},
+    inventory = {},
+    unique_code
+  } = event; // 接收 unique_code
   const normalizedUniqueCode = normalizeLabelCodeInput(unique_code);
   const preprintLabelId = String(event.preprint_label_id || '').trim();
   const submitAction = normalizeText(event.submit_action || 'create') || 'create';
   const refillInventoryId = normalizeText(event.refill_inventory_id);
 
   // 1. 参数校验
-  if (!base.name || !base.category || !normalizedUniqueCode) {
-    return { success: false, msg: 'Missing required info: name, category, or unique_code' };
+  if (!base.product_code || !normalizedUniqueCode) {
+    return { success: false, msg: 'Missing required info: product_code or unique_code' };
   }
 
   if (!isValidLabelCode(normalizedUniqueCode)) {
     return { success: false, msg: '标签编号格式不正确，应为 L + 6位数字' };
-  }
-
-  // 1.2 数量有效性校验 (Security Fix)
-  const quantityVal = Number(inventory.quantity_val);
-  if (!Number.isFinite(quantityVal) || quantityVal <= 0) {
-      return { success: false, msg: '错误：入库数量必须为有效的正数' };
   }
 
   try {
@@ -212,12 +212,6 @@ exports.main = async (event, context) => {
     const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
     const detailRecords = await ensureBuiltinLocationDetails(db, zoneRecords);
     const detailMapByZone = buildLocationDetailMapByZone(detailRecords);
-    const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, base.category));
-    const locationPayload = buildInventoryLocationPayload({
-      zoneKey: inventory.zone_key,
-      locationDetailKey: inventory.location_detail_key,
-      locationDetail: inventory.location_detail
-    }, zoneMap, detailMapByZone);
 
     return await db.runTransaction(async transaction => {
       const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
@@ -232,7 +226,7 @@ exports.main = async (event, context) => {
 
       // 2. 写入/验证 Materials 集合
       // MDM 强管控模式：必须查到已有主数据，否则报错
-      const materialQuery = await db.collection('materials').where({
+      const materialQuery = await transaction.collection('materials').where({
           product_code: base.product_code
       }).get();
 
@@ -271,6 +265,12 @@ exports.main = async (event, context) => {
       const normalizedQuantityVal = category === 'film'
         ? parsePositiveIntegerMeters(inventory.length_m, '膜材入库长度')
         : parseChemicalQuantity(inventory.quantity_val, '入库数量');
+      const zoneMap = buildZoneMap(filterZoneRecordsByCategory(zoneRecords, category));
+      const locationPayload = buildInventoryLocationPayload({
+        zoneKey: inventory.zone_key,
+        locationDetailKey: inventory.location_detail_key,
+        locationDetail: inventory.location_detail
+      }, zoneMap, detailMapByZone);
 
       if (existingInventory) {
         if (submitAction !== 'refill') {
@@ -401,6 +401,11 @@ exports.main = async (event, context) => {
         supplier_model: supplierModel,
         sample_note: sampleNote,
         is_test_material: isTest,
+        identity_key: buildInventoryIdentityKey({
+          product_code: productCode,
+          is_test_material: isTest,
+          supplier_model: supplierModel
+        }),
         ...locationPayload,
         status: 'in_stock',
         quantity: {
@@ -418,7 +423,7 @@ exports.main = async (event, context) => {
         invData.is_long_term_valid = true;
       }
 
-      let logQuantityChange = Number(inventory.quantity_val);
+      let logQuantityChange = normalizedQuantityVal;
       let logUnit = defaultUnit || '份';
 
       if (category === 'chemical') {
@@ -467,7 +472,7 @@ exports.main = async (event, context) => {
          );
          const shouldBackfillMasterWidth = !materialWidthMm && !!resolvedWidthMm;
 
-         if (thicknessGovernance.shouldBackfillMasterThickness || shouldBackfillMasterWidth) {
+         if (!isTest && (thicknessGovernance.shouldBackfillMasterThickness || shouldBackfillMasterWidth)) {
            const materialUpdateData = {
              updated_by: OPENID,
              updated_at: db.serverDate()

@@ -55,6 +55,20 @@ function isTestMaterialRecord(record = {}) {
   return record.is_test_material === true;
 }
 
+function buildInventoryIdentityKey(record = {}) {
+  const productCode = normalizeText(record.product_code);
+  if (!productCode) {
+    return '';
+  }
+
+  if (isTestMaterialRecord(record)) {
+    const supplierModel = normalizeText(record.supplier_model);
+    return supplierModel ? `${productCode}::${supplierModel}` : productCode;
+  }
+
+  return productCode;
+}
+
 function hasMatchingTestMaterialIdentity(existingInventory = {}, candidate = {}) {
   if (!isTestMaterialRecord(existingInventory) && !isTestMaterialRecord(candidate)) {
     return true;
@@ -199,6 +213,7 @@ module.exports = {
   normalizeLogType,
   resolveLogTimestamp,
   isQuantityAffectingLogType,
+  buildInventoryIdentityKey,
   hasMatchingTestMaterialIdentity,
   hasMatchingChemicalUnit,
   isChemicalRefillEligible,

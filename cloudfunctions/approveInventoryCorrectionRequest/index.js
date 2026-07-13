@@ -128,6 +128,9 @@ exports.main = async (event, context) => {
       if (!inventory) {
         return { success: false, msg: '关联库存记录不存在' };
       }
+      if (inventory.status !== 'in_stock') {
+        return { success: false, msg: '仅在库库存允许审批纠错' };
+      }
 
       const allLogs = await loadAllInventoryLogs(transaction, correctionRequest.inventory_id);
       const sourceTimestamp = resolveLogTimestamp(sourceLog);

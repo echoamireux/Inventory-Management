@@ -49,6 +49,7 @@ test('batch add builds chemical inventory payload with strict required fields', 
 
   assert.equal(payload.inventoryData.material_name, '丙酮');
   assert.equal(payload.inventoryData.location, 'A区 | 1层-01');
+  assert.equal(payload.inventoryData.identity_key, 'J-001');
   assert.equal(payload.logData.spec_change_unit, 'kg');
   assert.equal(payload.logData.description, '批量入库');
 });
@@ -121,6 +122,7 @@ test('batch add requires inventory-level model for test materials and keeps opti
   assert.equal(payload.inventoryData.sample_note, '');
   assert.equal(payload.inventoryData.supplier, '主数据供应商');
   assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-X');
+  assert.equal(payload.inventoryData.identity_key, 'J-999::SAMPLE-X');
 });
 
 test('batch add rejects rows that omit both expiry date and long-term validity', () => {
@@ -201,6 +203,37 @@ test('batch add allows first film batches to backfill missing governed master sp
     thickness_um: 50,
     standard_width_mm: 1230
   });
+});
+
+test('batch add keeps test film specs as inventory snapshots instead of backfilling test master data', () => {
+  const payload = buildBatchInventoryPayload({
+    unique_code: 'L000013',
+    batch_number: 'TEST-F-01',
+    location: '膜材区 | T-01',
+    expiry_date: '2026-12-31',
+    thickness_um: 30,
+    batch_width_mm: 520,
+    length_m: 100,
+    supplier_model: 'TEST-FILM-A',
+    quantity: {
+      val: 100,
+      unit: 'm'
+    }
+  }, {
+    _id: 'mat-test-film',
+    material_name: '测试膜材',
+    product_code: 'M-999',
+    category: 'film',
+    sub_category: '测试膜',
+    default_unit: 'm',
+    is_test_material: true,
+    specs: {}
+  }, 0);
+
+  assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 30);
+  assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 520);
+  assert.equal(payload.inventoryData.identity_key, 'M-999::TEST-FILM-A');
+  assert.equal(payload.masterSpecBackfill, undefined);
 });
 
 test('batch add lets a film batch use a different actual width without overwriting the governed default width', () => {

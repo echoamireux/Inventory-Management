@@ -347,6 +347,58 @@ test('removeInventory rejects unauthorized users before scanning material invent
   assert.equal(transactionStarted, false);
 });
 
+test('removeInventory is a no-write disabled endpoint even when an admin passes an inventory id', async () => {
+  let inventoryScanned = false;
+  let transactionStarted = false;
+
+  const db = {
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where(query) {
+            assert.deepEqual(query, { _openid: 'openid-admin' });
+            return {
+              async get() {
+                return { data: [{ role: 'admin', status: 'active', name: '管理员' }] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        inventoryScanned = true;
+        throw new Error('disabled removeInventory must not scan inventory');
+      }
+
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    runTransaction() {
+      transactionStarted = true;
+      throw new Error('disabled removeInventory must not start a transaction');
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/removeInventory/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    }
+  });
+
+  const result = await mod.main({ inventory_id: 'inv-1' }, {});
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /删除入口已停用|盘点纠错审批/);
+  assert.equal(inventoryScanned, false);
+  assert.equal(transactionStarted, false);
+});
+
 test('material add archived-product branch exposes a working contact-admin handler', () => {
   const pageJs = read('miniprogram/pages/material-add/index.js');
   const pageWxml = read('miniprogram/pages/material-add/index.wxml');

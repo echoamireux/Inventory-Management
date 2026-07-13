@@ -13,7 +13,8 @@ const {
 } = require('./test-material');
 const {
   parseChemicalQuantity,
-  parsePositiveIntegerMeters
+  parsePositiveIntegerMeters,
+  buildInventoryIdentityKey
 } = require('./inventory-quantity');
 
 const MAX_BATCH_INVENTORY_ITEMS = 100;
@@ -150,6 +151,11 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     supplier_model: supplierModel,
     sample_note: sampleNote,
     is_test_material: isTest,
+    identity_key: buildInventoryIdentityKey({
+      product_code: material.product_code,
+      is_test_material: isTest,
+      supplier_model: supplierModel
+    }),
     batch_number: batchNumber,
     location,
     status: 'in_stock',
@@ -208,8 +214,9 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     const initialLengthM = baseLengthM;
     const filmState = buildFilmInventoryState(baseLengthM, quantityUnit, batchWidthMm, initialLengthM);
 
-    const needsThicknessBackfill = !(Number(specs.thickness_um) > 0) && thicknessUm > 0;
-    const needsWidthBackfill = !currentMasterWidth && batchWidthMm > 0;
+    const canBackfillMasterSpecs = !isTest;
+    const needsThicknessBackfill = canBackfillMasterSpecs && !(Number(specs.thickness_um) > 0) && thicknessUm > 0;
+    const needsWidthBackfill = canBackfillMasterSpecs && !currentMasterWidth && batchWidthMm > 0;
 
     if (needsThicknessBackfill || needsWidthBackfill) {
       masterSpecBackfill = {};

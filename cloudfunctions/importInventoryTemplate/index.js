@@ -197,6 +197,36 @@ function resolvePreprintFilmSpecs(preprintLabel = {}) {
   };
 }
 
+function buildFilmMasterSpecUpdateFromCurrent(material = {}, backfill = {}, rowLabel = '') {
+  const specs = material && material.specs ? material.specs : {};
+  const updateData = {};
+  const prefix = rowLabel || '';
+
+  if (backfill.thickness_um !== undefined) {
+    const currentThickness = normalizePositiveSpec(specs.thickness_um);
+    if (currentThickness && currentThickness !== backfill.thickness_um) {
+      throw new Error(`${prefix}膜材厚度已被其他入库补齐为 ${currentThickness} μm，请核实规格后重试`);
+    }
+    if (!currentThickness) {
+      updateData['specs.thickness_um'] = backfill.thickness_um;
+    }
+  }
+
+  if (backfill.standard_width_mm !== undefined) {
+    const currentWidth = normalizePositiveSpec(
+      specs.standard_width_mm !== undefined ? specs.standard_width_mm : specs.width_mm
+    );
+    if (currentWidth && currentWidth !== backfill.standard_width_mm) {
+      throw new Error(`${prefix}膜材默认幅宽已被其他入库补齐为 ${currentWidth} mm，请核实规格后重试`);
+    }
+    if (!currentWidth) {
+      updateData['specs.standard_width_mm'] = backfill.standard_width_mm;
+    }
+  }
+
+  return updateData;
+}
+
 function assertPreprintLabelUsable(preprintLabel, item, material) {
   if (!preprintLabel) {
     return;
@@ -576,21 +606,25 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       const payload = buildInventoryImportPayload(item, material, { preprintLabel });
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {
-        const materialUpdateData = {
-          updated_by: openid,
-          updated_at: db.serverDate()
-        };
+        const currentMaterialRes = await transaction.collection('materials')
+          .doc(payload.inventoryData.material_id)
+          .get();
+        const currentMaterial = currentMaterialRes.data || {};
+        const materialSpecUpdate = buildFilmMasterSpecUpdateFromCurrent(
+          currentMaterial,
+          payload.masterSpecBackfill,
+          `第${Number(item.rowIndex) || 0}行`
+        );
 
-        if (payload.masterSpecBackfill.thickness_um !== undefined) {
-          materialUpdateData['specs.thickness_um'] = payload.masterSpecBackfill.thickness_um;
+        if (Object.keys(materialSpecUpdate).length > 0) {
+          await transaction.collection('materials').doc(payload.inventoryData.material_id).update({
+            data: {
+              ...materialSpecUpdate,
+              updated_by: openid,
+              updated_at: db.serverDate()
+            }
+          });
         }
-        if (payload.masterSpecBackfill.standard_width_mm !== undefined) {
-          materialUpdateData['specs.standard_width_mm'] = payload.masterSpecBackfill.standard_width_mm;
-        }
-
-        await transaction.collection('materials').doc(payload.inventoryData.material_id).update({
-          data: materialUpdateData
-        });
       }
 
       const addRes = await transaction.collection('inventory').add({

@@ -989,6 +989,7 @@ test('inventory import payload follows manual stock-in semantics for film truth 
   assert.equal(payload.inventoryData.dynamic_attrs.current_length_m, 100);
   assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 1080);
   assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 50);
+  assert.equal(payload.inventoryData.identity_key, 'M-001');
   assert.equal(payload.inventoryData.quantity.val, 108);
   assert.equal(payload.inventoryData.quantity.unit, 'm²');
   assert.deepEqual(payload.masterSpecBackfill, {
@@ -1040,6 +1041,8 @@ test('inventory import payload aligns film specs with preprinted label snapshots
   const payload = buildInventoryImportPayload(baseRow, material, { preprintLabel });
   assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 50);
   assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 520);
+  assert.equal(payload.inventoryData.identity_key, 'M-999::TEST-FILM-01');
+  assert.equal(payload.masterSpecBackfill, undefined);
 
   assert.throws(
     () => buildInventoryImportPayload({
