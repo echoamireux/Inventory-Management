@@ -13,6 +13,7 @@ const {
   beginOperationReceipt,
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
+const { writeAuditEvent, writeInventoryAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -101,6 +102,23 @@ exports.main = async (event, context) => {
             updated_at: db.serverDate()
           }
         });
+        await writeAuditEvent(transaction, db, {
+          domain: 'inventory_correction',
+          action: 'reject',
+          operator: Object.assign({}, operator || {}, { _openid: OPENID }),
+          operationId: operationContext.operationId,
+          target: {
+            type: 'inventory_correction_request',
+            id: request_id,
+            label: correctionRequest.unique_code || correctionRequest.inventory_id || ''
+          },
+          detail: {
+            inventory_id: correctionRequest.inventory_id,
+            product_code: correctionRequest.product_code || '',
+            unique_code: correctionRequest.unique_code || '',
+            reject_reason: reject_reason || ''
+          }
+        });
 
         const response = { success: true, msg: '已驳回' };
         await markOperationReceiptSucceeded(transaction, db, operationContext, response);
@@ -170,8 +188,7 @@ exports.main = async (event, context) => {
       });
 
       const unit = correctionRequest.unit || '';
-      await transaction.collection('inventory_log').add({
-        data: {
+      const correctionLog = {
           material_id: inventory.material_id || '',
           inventory_id: correctionRequest.inventory_id,
           material_name: inventory.material_name || '',
@@ -189,7 +206,10 @@ exports.main = async (event, context) => {
           _openid: OPENID,
           correction_request_id: request_id,
           timestamp: db.serverDate()
-        }
+      };
+      await transaction.collection('inventory_log').add({ data: correctionLog });
+      await writeInventoryAuditEvent(transaction, db, correctionLog, {
+        operationId: operationContext.operationId
       });
 
       await requestRef.update({
@@ -198,6 +218,26 @@ exports.main = async (event, context) => {
           operator_id: OPENID,
           operator_name: (operator && operator.name) || 'Admin',
           updated_at: db.serverDate()
+        }
+      });
+      await writeAuditEvent(transaction, db, {
+        domain: 'inventory_correction',
+        action: 'approve',
+        operator: Object.assign({}, operator || {}, { _openid: OPENID }),
+        operationId: operationContext.operationId,
+        target: {
+          type: 'inventory_correction_request',
+          id: request_id,
+          label: correctionRequest.unique_code || correctionRequest.inventory_id || ''
+        },
+        detail: {
+          inventory_id: correctionRequest.inventory_id,
+          product_code: correctionRequest.product_code || inventory.product_code || '',
+          unique_code: correctionRequest.unique_code || inventory.unique_code || '',
+          original_quantity: correctionRequest.original_quantity,
+          requested_quantity: correctionRequest.requested_quantity,
+          unit,
+          reason: correctionRequest.reason || ''
         }
       });
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Cloud Functions Shared File Synchronizer
 # Usage: ./sync_shared.sh
@@ -81,6 +82,22 @@ cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/batchAddInventory
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/editInventory/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/importInventoryTemplate/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/updateInventory/operation-receipts.js
+
+echo "   -> Updating audit-events.js..."
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/addMaterial/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/approveInventoryCorrectionRequest/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/batchAddInventory/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/editInventory/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/exportLabelData/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/importInventoryTemplate/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/updateInventory/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/adminUpdateUserStatus/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/approveMaterialRequest/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageMaterial/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageProductCodePrefix/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageProjectCode/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageSubcategory/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/addWarehouseZone/audit-events.js
 
 echo "   -> Updating preprint-jobs.js..."
 cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/exportLabelData/preprint-jobs.js

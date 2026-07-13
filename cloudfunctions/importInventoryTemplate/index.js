@@ -32,6 +32,7 @@ const {
   beginOperationReceipt,
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
+const { writeInventoryAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -570,8 +571,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
           }
         });
 
-        await transaction.collection('inventory_log').add({
-          data: {
+        const refillLog = {
             type: 'refill',
             inventory_id: currentInventory._id,
             material_id: material && material._id,
@@ -587,7 +587,10 @@ async function submitRows(items = [], openid, operatorName, operationId) {
             operator_id: openid,
             _openid: openid,
             timestamp: db.serverDate()
-          }
+        };
+        await transaction.collection('inventory_log').add({ data: refillLog });
+        await writeInventoryAuditEvent(transaction, db, refillLog, {
+          operationId: operationContext.operationId
         });
 
         ids.push(currentInventory._id);
@@ -651,14 +654,18 @@ async function submitRows(items = [], openid, operatorName, operationId) {
         }
       }
 
-      await transaction.collection('inventory_log').add({
-        data: Object.assign({}, payload.logData, {
+      const inboundLog = Object.assign({}, payload.logData, {
           inventory_id: addRes._id,
           operator: operatorName || 'System',
           operator_id: openid,
           _openid: openid,
           timestamp: db.serverDate()
-        })
+      });
+      await transaction.collection('inventory_log').add({
+        data: inboundLog
+      });
+      await writeInventoryAuditEvent(transaction, db, inboundLog, {
+        operationId: operationContext.operationId
       });
 
       ids.push(addRes._id);

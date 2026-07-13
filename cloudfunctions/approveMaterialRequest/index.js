@@ -15,6 +15,7 @@ const {
   ensureBuiltinProductCodePrefixes,
   filterProductCodePrefixRecordsByCategory
 } = require('./product-code-prefixes');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -106,7 +107,7 @@ async function loadProductCodePrefixOptions(category = '') {
   }
 }
 
-async function updatePendingMaterialRequestStatus(requestId, status, data = {}) {
+async function updatePendingMaterialRequestStatus(requestId, status, data = {}, auditContext = {}) {
   return db.runTransaction(async (transaction) => {
     const requestRef = transaction.collection('material_requests').doc(requestId);
     const requestRes = await requestRef.get();
@@ -122,6 +123,27 @@ async function updatePendingMaterialRequestStatus(requestId, status, data = {}) 
         status,
         ...data,
         updated_at: db.serverDate()
+      }
+    });
+    await writeAuditEvent(transaction, db, {
+      domain: 'material_request',
+      action: status === 'rejected' ? 'reject' : 'update',
+      operator: Object.assign({}, auditContext.operator || {}, { _openid: auditContext.openid || '' }),
+      target: {
+        type: 'material_request',
+        id: requestId,
+        label: request.product_code || request.material_name || ''
+      },
+      before: {
+        status: request.status
+      },
+      after: {
+        status
+      },
+      detail: {
+        product_code: request.product_code || '',
+        material_name: request.material_name || '',
+        reject_reason: data.reject_reason || ''
       }
     });
     return { success: true, msg: status === 'rejected' ? '已驳回' : '操作成功' };
@@ -175,6 +197,9 @@ exports.main = async (event, context) => {
             reject_reason: sanitizeText(reject_reason),
             operator_id: OPENID,
             operator_name: operator.name || 'Admin'
+        }, {
+            operator,
+            openid: OPENID
         });
     }
 
@@ -219,6 +244,26 @@ exports.main = async (event, context) => {
                         updated_at: db.serverDate()
                     }
                 });
+                await writeAuditEvent(transaction, db, {
+                    domain: 'material_request',
+                    action: 'reject',
+                    operator: Object.assign({}, operator || {}, { _openid: OPENID }),
+                    target: {
+                        type: 'material_request',
+                        id: request_id,
+                        label: normalizedCode.product_code
+                    },
+                    before: {
+                        status: txRequest.status
+                    },
+                    after: {
+                        status: 'rejected'
+                    },
+                    detail: {
+                        product_code: normalizedCode.product_code,
+                        reject_reason: 'System: Code already exists in library'
+                    }
+                });
                 return { success: false, msg: 'Fail: 代码已存在于物料库，自动驳回' };
             }
 
@@ -256,6 +301,50 @@ exports.main = async (event, context) => {
                     operator_id: OPENID,
                     operator_name: operator.name || 'Admin',
                     updated_at: db.serverDate()
+                }
+            });
+            await writeAuditEvent(transaction, db, {
+                domain: 'material_request',
+                action: 'approve',
+                operator: Object.assign({}, operator || {}, { _openid: OPENID }),
+                target: {
+                    type: 'material_request',
+                    id: request_id,
+                    label: normalizedCode.product_code
+                },
+                before: {
+                    status: txRequest.status
+                },
+                after: {
+                    status: 'approved',
+                    material_id: addRes._id,
+                    product_code: normalizedCode.product_code
+                },
+                detail: {
+                    material_id: addRes._id,
+                    product_code: normalizedCode.product_code,
+                    material_name: masterFields.material_name || '',
+                    category
+                }
+            });
+            await writeAuditEvent(transaction, db, {
+                domain: 'material',
+                action: 'create',
+                operator: Object.assign({}, operator || {}, { _openid: OPENID }),
+                target: {
+                    type: 'material',
+                    id: addRes._id,
+                    label: normalizedCode.product_code
+                },
+                after: {
+                    material_id: addRes._id,
+                    product_code: normalizedCode.product_code,
+                    material_name: masterFields.material_name || '',
+                    category,
+                    status: 'active'
+                },
+                detail: {
+                    note: '物料申请审批通过后创建主数据'
                 }
             });
 

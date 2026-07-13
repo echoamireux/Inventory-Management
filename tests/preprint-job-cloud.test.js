@@ -34,6 +34,8 @@ function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } =
     ['inventory', new Map()],
     ['preprinted_labels', new Map()],
     ['preprint_jobs', new Map()],
+    ['preprint_daily_usage', new Map()],
+    ['audit_events', new Map()],
     ['system_counters', new Map()]
   ]);
   let transactionQueue = Promise.resolve();
@@ -108,6 +110,11 @@ function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } =
       collections.set(name, new Map());
     }
     return {
+      async add({ data }) {
+        const id = `${name}-${collections.get(name).size + 1}`;
+        collections.get(name).set(id, clone(data));
+        return { _id: id };
+      },
       where(where) {
         return createQuery(name, where);
       },
@@ -378,6 +385,130 @@ test('preprint job completes the supported 200-label maximum outside the reserva
   assert.equal(result.count, 200);
   assert.equal(memory.collections.get('preprinted_labels').size, 200);
   assert.equal(Array.from(memory.collections.get('preprint_jobs').values())[0].status, 'ready');
+});
+
+test('preprint quota tracks daily usage, keeps idempotent retries free, and limits task bursts', async () => {
+  const memory = createMemoryDatabase();
+  const mod = loadExportLabelData(memory);
+
+  const first = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'quota-200-a',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 200,
+      form: { supplier_model: 'MODEL-QA' }
+    }
+  });
+  assert.equal(first.success, true);
+  const usage = Array.from(memory.collections.get('preprint_daily_usage').values())[0];
+  assert.equal(usage.total_count, 200);
+  assert.equal(usage.recent_task_times.length, 1);
+
+  const retry = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'quota-200-a',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 200,
+      form: { supplier_model: 'MODEL-QA' }
+    }
+  });
+  assert.equal(retry.success, true);
+  assert.equal(Array.from(memory.collections.get('preprint_daily_usage').values())[0].total_count, 200);
+
+  const second = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'quota-200-b',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 200,
+      form: { supplier_model: 'MODEL-QB' }
+    }
+  });
+  assert.equal(second.success, true);
+  assert.equal(Array.from(memory.collections.get('preprint_daily_usage').values())[0].total_count, 400);
+
+  const overDaily = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'quota-over-daily',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 101,
+      form: { supplier_model: 'MODEL-QC' }
+    }
+  });
+  assert.equal(overDaily.success, false);
+  assert.match(overDaily.msg, /每天最多预生成 500 个标签/);
+  assert.equal(Array.from(memory.collections.get('preprint_daily_usage').values())[0].total_count, 400);
+
+  for (let index = 0; index < 3; index += 1) {
+    const burst = await mod.main({
+      action: 'createPreprintJob',
+      data: {
+        requestId: `quota-burst-${index}`,
+        templateType: 'chemical',
+        materialId: 'mat-1',
+        count: 1,
+        form: { supplier_model: `MODEL-BURST-${index}` }
+      }
+    });
+    assert.equal(burst.success, true);
+  }
+
+  const overBurst = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'quota-burst-over',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 1,
+      form: { supplier_model: 'MODEL-BURST-OVER' }
+    }
+  });
+  assert.equal(overBurst.success, false);
+  assert.match(overBurst.msg, /10 分钟内最多创建 5 次/);
+});
+
+test('preprint create export and void write admin audit events', async () => {
+  const memory = createMemoryDatabase();
+  const mod = loadExportLabelData(memory);
+
+  const created = await mod.main({
+    action: 'createAndExportPreprintJob',
+    data: {
+      requestId: 'request-audit-create-export',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 2,
+      form: { supplier_model: 'MODEL-AUDIT' }
+    }
+  });
+  assert.equal(created.success, true);
+
+  const voided = await mod.main({
+    action: 'voidPreprintLabels',
+    data: {
+      jobId: created.job_id
+    }
+  });
+  assert.equal(voided.success, true);
+
+  const auditEvents = Array.from(memory.collections.get('audit_events').values());
+  assert.deepEqual(auditEvents.map(item => `${item.domain}:${item.action}`), [
+    'preprint:create',
+    'preprint:export',
+    'preprint:void'
+  ]);
+  assert(auditEvents.every(item => item.actor_id === 'openid-1'));
+  assert(auditEvents.every(item => item.target_id === created.job_id));
+  assert.match(auditEvents[0].search_text, /J-999/);
+  assert.match(auditEvents[1].search_text, /标签 Excel/);
+  assert.match(auditEvents[2].search_text, /作废/);
 });
 
 test('preprint export does not return a file when the job starts voiding during generation', async () => {

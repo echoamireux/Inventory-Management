@@ -6,6 +6,7 @@ const { validateStandardProductCode } = require('./product-code');
 const { createImportResultTracker } = require('./import-batch-results');
 const { buildContainsRegExp, normalizeSearchKeyword } = require('./search');
 const { assertAdminMutationAccess, assertActiveUserAccess } = require('./auth');
+const { writeAuditEvent } = require('./audit-events');
 const {
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
@@ -830,10 +831,20 @@ async function archiveMaterial(data, openid) {
  */
 async function logMaterialChange(logData) {
   try {
-    await db.collection('material_log').add({
-      data: {
-        ...logData,
-        timestamp: db.serverDate()
+    await writeAuditEvent(db, db, {
+      domain: 'material',
+      action: logData.action || 'change',
+      actorId: logData.operator,
+      target: {
+        type: 'material',
+        id: logData.material_id || '',
+        label: logData.product_code || ''
+      },
+      before: logData.old_data || {},
+      after: logData.new_data || logData.changes || {},
+      detail: {
+        product_code: logData.product_code || '',
+        note: logData.action || ''
       }
     });
   } catch (err) {

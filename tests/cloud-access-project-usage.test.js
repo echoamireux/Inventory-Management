@@ -91,7 +91,7 @@ const FRONTEND_CORE_FILES = [
 
 test('frontend core pages no longer read core collections directly', () => {
   const offenders = [];
-  const directCoreCollectionPattern = /collection\(\s*['"](inventory|materials|users|material_requests|inventory_correction_requests|inventory_log)['"]\s*\)/;
+  const directCoreCollectionPattern = /collection\(\s*['"](inventory|materials|users|material_requests|inventory_correction_requests|inventory_log|audit_events)['"]\s*\)/;
 
   for (const relPath of FRONTEND_CORE_FILES) {
     const source = read(relPath);

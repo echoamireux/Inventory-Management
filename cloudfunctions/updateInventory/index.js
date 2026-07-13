@@ -20,6 +20,7 @@ const {
   beginOperationReceipt,
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
+const { writeInventoryAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -360,6 +361,9 @@ exports.main = async (event, context) => {
 
       for (const log of logs) {
         await transaction.collection('inventory_log').add({ data: log });
+        await writeInventoryAuditEvent(transaction, db, log, {
+          operationId: operationContext.operationId
+        });
       }
 
       let totalRemaining = 0;

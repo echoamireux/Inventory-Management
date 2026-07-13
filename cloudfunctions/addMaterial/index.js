@@ -40,6 +40,7 @@ const {
   beginOperationReceipt,
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
+const { writeInventoryAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -300,8 +301,7 @@ exports.main = async (event, context) => {
           }
         });
 
-        await transaction.collection('inventory_log').add({
-          data: {
+        const refillLog = {
             type: 'refill',
             inventory_id: existingInventory._id,
             material_id: materialId,
@@ -321,7 +321,10 @@ exports.main = async (event, context) => {
             _openid: OPENID,
             timestamp: db.serverDate(),
             description: '补料入库'
-          }
+        };
+        await transaction.collection('inventory_log').add({ data: refillLog });
+        await writeInventoryAuditEvent(transaction, db, refillLog, {
+          operationId: operationContext.operationId
         });
 
         const response = {
@@ -531,8 +534,7 @@ exports.main = async (event, context) => {
       }
 
       // 5. 写入 inventory_log 集合 (原 logs 集合)
-      await transaction.collection('inventory_log').add({
-         data: {
+      const inboundLog = {
             type: 'inbound', // 初始入库
             inventory_id: invRes._id,
             material_id: materialId,
@@ -547,7 +549,10 @@ exports.main = async (event, context) => {
             _openid: OPENID,
             timestamp: db.serverDate(),
             description: '初始录入'
-         }
+      };
+      await transaction.collection('inventory_log').add({ data: inboundLog });
+      await writeInventoryAuditEvent(transaction, db, inboundLog, {
+        operationId: operationContext.operationId
       });
 
       const response = {

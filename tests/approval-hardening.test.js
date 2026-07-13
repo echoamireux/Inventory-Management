@@ -40,6 +40,13 @@ function createUserDb(users) {
   }
 
   function collection(name) {
+    if (name === 'audit_events') {
+      return {
+        async add() {
+          return { _id: 'audit-test-id' };
+        }
+      };
+    }
     assert.equal(name, 'users');
     return {
       where(where) {

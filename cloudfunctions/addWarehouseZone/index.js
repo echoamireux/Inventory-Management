@@ -17,6 +17,7 @@ const {
   findZoneRecordByName,
   findLocationDetailRecordByName
 } = require('./warehouse-zones');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -35,6 +36,22 @@ function buildCustomDetailKey(zoneKey) {
 async function getOperator(openid) {
   const userRes = await db.collection('users').where({ _openid: openid }).limit(1).get();
   return userRes.data && userRes.data[0];
+}
+
+async function writeWarehouseAudit(action, operator, openid, record = {}, detail = {}) {
+  const isDetail = !!record.detail_key;
+  await writeAuditEvent(db, db, {
+    domain: 'warehouse',
+    action,
+    operator: Object.assign({}, operator || {}, { _openid: openid }),
+    target: {
+      type: isDetail ? 'warehouse_location_detail' : 'warehouse_zone',
+      id: record.detail_key || record.zone_key || record._id || '',
+      label: record.name || record.detail_key || record.zone_key || ''
+    },
+    after: record,
+    detail
+  });
 }
 
 async function listZones(event, openid) {
@@ -89,6 +106,13 @@ async function createZone(name, scope, openid) {
           updated_at: db.serverDate()
         }
       });
+      await writeWarehouseAudit('status', operator, openid, Object.assign({}, existing, {
+        scope: normalizedScope,
+        status: 'active'
+      }), {
+        previous_status: existing.status,
+        next_status: 'active'
+      });
     }
 
     return {
@@ -114,6 +138,13 @@ async function createZone(name, scope, openid) {
       created_at: db.serverDate(),
       updated_at: db.serverDate()
     }
+  });
+  await writeWarehouseAudit('create', operator, openid, {
+    _id: res._id,
+    zone_key: zoneKey,
+    name: normalizedName,
+    scope: normalizedScope,
+    status: 'active'
   });
 
   return {
@@ -153,6 +184,12 @@ async function renameExistingZone(zoneKey, name, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writeWarehouseAudit('update', operator, openid, Object.assign({}, currentZone, {
+    name: normalizedName
+  }), {
+    previous_name: currentZone.name,
+    next_name: normalizedName
+  });
 
   return {
     success: true,
@@ -179,6 +216,12 @@ async function setExistingZoneStatus(zoneKey, status, openid) {
       status: normalized,
       updated_at: db.serverDate()
     }
+  });
+  await writeWarehouseAudit('status', operator, openid, Object.assign({}, currentZone, {
+    status: normalized
+  }), {
+    previous_status: currentZone.status,
+    next_status: normalized
   });
 
   return {
@@ -214,6 +257,9 @@ async function reorderExistingZones(zoneKeys, openid) {
       }
     });
   }
+  await writeWarehouseAudit('reorder', operator, openid, { zone_key: validKeys.join(',') }, {
+    zone_keys: validKeys
+  });
 
   return {
     success: true,
@@ -253,6 +299,12 @@ async function createLocationDetail(zoneKey, name, openid) {
           updated_at: db.serverDate()
         }
       });
+      await writeWarehouseAudit('status', operator, openid, Object.assign({}, existing, {
+        status: 'active'
+      }), {
+        previous_status: existing.status,
+        next_status: 'active'
+      });
     }
 
     return {
@@ -277,6 +329,13 @@ async function createLocationDetail(zoneKey, name, openid) {
       created_at: db.serverDate(),
       updated_at: db.serverDate()
     }
+  });
+  await writeWarehouseAudit('create', operator, openid, {
+    _id: res._id,
+    zone_key: normalizedZoneKey,
+    detail_key: detailKey,
+    name: normalizedName,
+    status: 'active'
   });
 
   return {
@@ -323,6 +382,12 @@ async function renameLocationDetail(detailKey, name, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writeWarehouseAudit('update', operator, openid, Object.assign({}, currentDetail, {
+    name: normalizedName
+  }), {
+    previous_name: currentDetail.name,
+    next_name: normalizedName
+  });
 
   return {
     success: true,
@@ -351,6 +416,12 @@ async function setLocationDetailStatus(detailKey, status, openid) {
       status: normalized,
       updated_at: db.serverDate()
     }
+  });
+  await writeWarehouseAudit('status', operator, openid, Object.assign({}, currentDetail, {
+    status: normalized
+  }), {
+    previous_status: currentDetail.status,
+    next_status: normalized
   });
 
   return {
@@ -392,6 +463,13 @@ async function reorderLocationDetails(zoneKey, detailKeys, openid) {
       }
     });
   }
+  await writeWarehouseAudit('reorder', operator, openid, {
+    zone_key: normalizedZoneKey,
+    detail_key: validKeys.join(',')
+  }, {
+    zone_key: normalizedZoneKey,
+    detail_keys: validKeys
+  });
 
   return {
     success: true,

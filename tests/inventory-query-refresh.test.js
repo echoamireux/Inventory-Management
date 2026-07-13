@@ -149,6 +149,7 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   const materialDirectoryWxml = read('miniprogram/pages/material-directory/index.wxml');
   const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
   const logsWxml = read('miniprogram/pages/logs/index.wxml');
+  const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
   const adminLogsWxml = read('miniprogram/pages/admin-logs/index.wxml');
 
   assert.match(homeIndexJs, /homeSearchVal:/);
@@ -163,7 +164,9 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
   assert.match(materialListWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
   assert.match(logsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
-  assert.match(adminLogsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
+  assert.match(adminLogsWxml, /placeholder="\{\{ searchPlaceholder \}\}"/);
+  assert.match(adminLogsJs, /产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注/);
+  assert.match(adminLogsJs, /领域\/动作\/操作人\/目标对象\/操作编号\/关键说明/);
 });
 
 test('grouped inventory search keeps full product totals while using search only for matching', () => {

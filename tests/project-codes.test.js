@@ -120,7 +120,8 @@ function createProjectDb({ users = [], projects = [] } = {}) {
         };
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 

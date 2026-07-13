@@ -73,7 +73,8 @@ test('editInventory rejects legacy location text update fields', async () => {
         };
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -207,7 +208,8 @@ test('editInventory requires admin access for film width correction and logs the
         return createOperationReceiptCollection();
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -340,7 +342,8 @@ test('editInventory stocktake adjustment updates chemical current quantity and w
         return createOperationReceiptCollection();
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -476,7 +479,8 @@ test('editInventory stocktake adjustment updates film current length without cha
         return createOperationReceiptCollection();
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -620,7 +624,8 @@ test('addMaterialRequest no longer writes suggested_sub_category', async () => {
         };
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -748,7 +753,8 @@ test('addMaterialRequest requires active users for submit and listMine actions',
           };
         }
 
-        throw new Error(`unexpected collection: ${name}`);
+        if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
       }
     };
 
@@ -863,7 +869,8 @@ test('addMaterialRequest allows active users to list their own requests', async 
         };
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 
@@ -1034,7 +1041,8 @@ test('approveMaterialRequest writes request default unit into the formal materia
         };
       }
 
-      throw new Error(`unexpected collection: ${name}`);
+      if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+      throw new Error(`unexpected collection: `);
     }
   };
 

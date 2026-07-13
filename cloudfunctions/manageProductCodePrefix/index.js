@@ -8,6 +8,7 @@ const {
   sortProductCodePrefixRecords,
   filterProductCodePrefixRecordsByCategory
 } = require('./product-code-prefixes');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -31,6 +32,21 @@ async function getPrefixRecords(includeDisabled = false) {
 async function findPrefix(prefix) {
   const records = await getPrefixRecords(true);
   return records.find(item => item.prefix === prefix) || null;
+}
+
+async function writePrefixAudit(action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(db, db, {
+    domain: 'product_prefix',
+    action,
+    operator: Object.assign({}, operator || {}, { _openid: openid }),
+    target: {
+      type: 'product_code_prefix',
+      id: record._id || record.prefix || '',
+      label: record.prefix || ''
+    },
+    after: record,
+    detail
+  });
 }
 
 async function listPrefixes(event, openid) {
@@ -81,6 +97,7 @@ async function createPrefix(event, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writePrefixAudit('create', operator, openid, { _id: res._id, prefix, category, status: 'active' });
 
   return {
     success: true,
@@ -133,6 +150,10 @@ async function setPrefixStatus(event, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writePrefixAudit('status', operator, openid, Object.assign({}, record, { status: nextStatus }), {
+    previous_status: record.status,
+    next_status: nextStatus
+  });
 
   return {
     success: true,
@@ -170,6 +191,9 @@ async function reorderPrefixes(event, openid) {
       }
     });
   }
+  await writePrefixAudit('reorder', operator, openid, { prefix: validPrefixes.join(',') }, {
+    prefixes: validPrefixes
+  });
 
   return { success: true, msg: '排序已更新' };
 }

@@ -1,5 +1,7 @@
 const cloud = require('wx-server-sdk');
+const crypto = require('crypto');
 const { assertActiveUserAccess } = require('./auth');
+const { writeAuditEvent } = require('./audit-events');
 const { buildContainsRegExp } = require('./search');
 const {
   normalizeTemplateType,
@@ -33,10 +35,57 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const CHEMICAL_TEMPLATE_TYPES = ['chemical', 'chemical_std', 'chemical_mini'];
+const MAX_DAILY_PREPRINT_LABELS = 500;
+const MAX_PREPRINT_TASKS_PER_10_MINUTES = 5;
+const PREPRINT_BURST_WINDOW_MS = 10 * 60 * 1000;
 
 async function getOperator(openid) {
   const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
   return res.data && res.data[0];
+}
+
+function buildOperatorSnapshot(operator = {}, openid = '') {
+  return Object.assign({}, operator || {}, {
+    _openid: openid || operator._openid || operator.openid || ''
+  });
+}
+
+function buildPreprintJobAuditLabel(job = {}) {
+  const labelCodes = Array.isArray(job.label_codes) ? job.label_codes : [];
+  const startCode = labelCodes[0] || '';
+  const endCode = labelCodes[labelCodes.length - 1] || startCode;
+  return [job.product_code, startCode && endCode && startCode !== endCode ? `${startCode}-${endCode}` : startCode]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function buildPreprintJobAuditDetail(job = {}, extra = {}) {
+  const labelCodes = Array.isArray(job.label_codes) ? job.label_codes : [];
+  return Object.assign({
+    template_type: job.template_type || '',
+    product_code: job.product_code || '',
+    material_name: job.material_name || '',
+    material_id: job.material_id || '',
+    count: Number(job.count) || labelCodes.length,
+    start_code: labelCodes[0] || '',
+    end_code: labelCodes[labelCodes.length - 1] || labelCodes[0] || '',
+    export_status: job.export_status || '',
+    status: job.status || ''
+  }, extra || {});
+}
+
+async function writePreprintAudit(action, job = {}, operator = {}, operatorOpenid = '', detail = {}) {
+  await writeAuditEvent(db, db, {
+    domain: 'preprint',
+    action,
+    operator: buildOperatorSnapshot(operator, operatorOpenid),
+    target: {
+      type: 'preprint_job',
+      id: job.job_id || '',
+      label: buildPreprintJobAuditLabel(job)
+    },
+    detail: buildPreprintJobAuditDetail(job, detail)
+  });
 }
 
 function buildQueryWhere(templateType, searchVal) {
@@ -82,6 +131,49 @@ function isRetryablePreprintTransactionConflict(error) {
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function formatCstDateKey(date = new Date()) {
+  const cst = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return cst.toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+function buildPreprintDailyUsageId(operatorOpenid, dateKey) {
+  return crypto
+    .createHash('sha256')
+    .update(`${operatorOpenid}:${dateKey}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+async function consumePreprintQuota(transaction, operatorOpenid, count) {
+  const now = new Date();
+  const nowTime = now.getTime();
+  const dateKey = formatCstDateKey(now);
+  const usageId = buildPreprintDailyUsageId(operatorOpenid, dateKey);
+  const usageRef = transaction.collection('preprint_daily_usage').doc(usageId);
+  const currentUsage = await getDocumentData(usageRef) || {};
+  const currentTotal = Number(currentUsage.total_count) || 0;
+  const recentTaskTimes = (currentUsage.recent_task_times || [])
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && nowTime - value < PREPRINT_BURST_WINDOW_MS);
+
+  if (currentTotal + count > MAX_DAILY_PREPRINT_LABELS) {
+    throw new Error(`每人每天最多预生成 ${MAX_DAILY_PREPRINT_LABELS} 个标签，请明天再生成或联系管理员`);
+  }
+  if (recentTaskTimes.length >= MAX_PREPRINT_TASKS_PER_10_MINUTES) {
+    throw new Error(`10 分钟内最多创建 ${MAX_PREPRINT_TASKS_PER_10_MINUTES} 次标签预生成任务，请稍后再试`);
+  }
+
+  await usageRef.set({
+    data: {
+      operator_id: operatorOpenid,
+      date_key: dateKey,
+      total_count: currentTotal + count,
+      recent_task_times: recentTaskTimes.concat(nowTime),
+      updated_at: db.serverDate()
+    }
+  });
 }
 
 async function runPreprintTransactionWithRetry(operation) {
@@ -372,6 +464,7 @@ async function reservePreprintJob({
       throw new Error('物料主数据已变化，请刷新物料后重新生成标签');
     }
 
+    await consumePreprintQuota(transaction, operatorOpenid, count);
     const labelCodes = await allocatePreprintLabelCodes(transaction, count);
     const job = {
       request_id: requestId,
@@ -504,7 +597,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
 
   if (preprintMode === 'voidAndRecreate') {
     const previousJobId = normalizeText(data.previousJobId || data.previous_job_id);
-    const voidResult = await voidPreprintLabels({ jobId: previousJobId }, operatorOpenid);
+    const voidResult = await voidPreprintLabels({ jobId: previousJobId }, operatorOpenid, operator);
     if (!voidResult.success) {
       return {
         success: false,
@@ -529,6 +622,11 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   }
 
   const readyResult = await ensurePreprintJobReady(reserveResult.job, operatorOpenid);
+  if (!reserveResult.reused) {
+    await writePreprintAudit('create', readyResult.job, operator, operatorOpenid, {
+      note: '标签预打印创建'
+    });
+  }
   return {
     success: true,
     job_id: readyResult.job.job_id,
@@ -554,9 +652,36 @@ async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpen
       operatorId: operatorOpenid
     });
     await updatePreprintJobExportState(createResult.job_id, operatorOpenid, 'exported', exportResult);
+    const auditJob = await getPreprintJobById(createResult.job_id, operatorOpenid);
+    await writePreprintAudit('export', auditJob || {
+      job_id: createResult.job_id,
+      template_type: templateType,
+      label_codes: (createResult.records || []).map(item => item.unique_code),
+      count: createResult.count,
+      product_code: createResult.records && createResult.records[0] && createResult.records[0].product_code,
+      material_name: createResult.records && createResult.records[0] && createResult.records[0].material_name,
+      export_status: 'exported'
+    }, operator, operatorOpenid, {
+      file_id: exportResult.fileID,
+      file_name: exportResult.fileName,
+      note: '标签 Excel 导出'
+    });
   } catch (error) {
     await updatePreprintJobExportState(createResult.job_id, operatorOpenid, 'failed', {
       error: error.message || '标签 Excel 导出失败'
+    }).catch(() => {});
+    const auditJob = await getPreprintJobById(createResult.job_id, operatorOpenid).catch(() => null);
+    await writePreprintAudit('export_failed', auditJob || {
+      job_id: createResult.job_id,
+      template_type: templateType,
+      label_codes: (createResult.records || []).map(item => item.unique_code),
+      count: createResult.count,
+      product_code: createResult.records && createResult.records[0] && createResult.records[0].product_code,
+      material_name: createResult.records && createResult.records[0] && createResult.records[0].material_name,
+      export_status: 'failed'
+    }, operator, operatorOpenid, {
+      error: error.message || '标签 Excel 导出失败',
+      note: '标签 Excel 导出失败'
     }).catch(() => {});
     return {
       success: false,
@@ -583,7 +708,7 @@ async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpen
   };
 }
 
-async function exportPreprintJob(data = {}, operatorOpenid = '') {
+async function exportPreprintJob(data = {}, operatorOpenid = '', operator = {}) {
   const jobId = normalizeText(data.jobId || data.job_id);
   const templateType = normalizeTemplateType(data.templateType);
   if (!jobId) {
@@ -619,12 +744,37 @@ async function exportPreprintJob(data = {}, operatorOpenid = '') {
     if (job) {
       await updatePreprintJobExportState(jobId, operatorOpenid, 'exported', exportResult);
     }
+    await writePreprintAudit('export', job || {
+      job_id: jobId,
+      template_type: effectiveTemplateType,
+      label_codes: records.map(item => item.unique_code),
+      count: records.length,
+      product_code: records[0] && records[0].product_code,
+      material_name: records[0] && records[0].material_name,
+      export_status: 'exported'
+    }, operator, operatorOpenid, {
+      file_id: exportResult.fileID,
+      file_name: exportResult.fileName,
+      note: '标签 Excel 重新导出'
+    });
   } catch (error) {
     if (job) {
       await updatePreprintJobExportState(jobId, operatorOpenid, 'failed', {
         error: error.message || '标签 Excel 导出失败'
       }).catch(() => {});
     }
+    await writePreprintAudit('export_failed', job || {
+      job_id: jobId,
+      template_type: effectiveTemplateType,
+      label_codes: records.map(item => item.unique_code),
+      count: records.length,
+      product_code: records[0] && records[0].product_code,
+      material_name: records[0] && records[0].material_name,
+      export_status: 'failed'
+    }, operator, operatorOpenid, {
+      error: error.message || '标签 Excel 导出失败',
+      note: '标签 Excel 导出失败'
+    }).catch(() => {});
     throw error;
   }
 
@@ -748,7 +898,7 @@ async function listRecentPreprintJobs(data = {}, operatorOpenid = '') {
   };
 }
 
-async function voidPreprintLabels(data = {}, operatorOpenid = '') {
+async function voidPreprintLabels(data = {}, operatorOpenid = '', operator = {}) {
   const jobId = normalizeText(data.jobId || data.job_id);
   if (!jobId) {
     return {
@@ -859,6 +1009,10 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '') {
       });
     }));
 
+    await writePreprintAudit('void', job, operator, operatorOpenid, {
+      note: '预生成标签批次作废'
+    });
+
     return {
       success: true,
       count: expectedRecords.length,
@@ -898,6 +1052,18 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '') {
       }
     }));
   }
+
+  await writePreprintAudit('void', {
+    job_id: jobId,
+    template_type: records[0] && records[0].template_type,
+    label_codes: records.map(item => item.unique_code),
+    count: records.length,
+    product_code: records[0] && records[0].product_code,
+    material_name: records[0] && records[0].material_name,
+    status: 'voided'
+  }, operator, operatorOpenid, {
+    note: '旧预生成标签批次作废'
+  });
 
   return {
     success: true,
@@ -1105,11 +1271,11 @@ exports.main = async (event, context) => {
     }
 
     if (action === 'exportPreprintJob') {
-      return await exportPreprintJob(event.data || {}, OPENID);
+      return await exportPreprintJob(event.data || {}, OPENID, operator || {});
     }
 
     if (action === 'voidPreprintLabels') {
-      return await voidPreprintLabels(event.data || {}, OPENID);
+      return await voidPreprintLabels(event.data || {}, OPENID, operator || {});
     }
 
     if (action === 'getPreprintLabel') {

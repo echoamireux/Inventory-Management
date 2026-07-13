@@ -121,7 +121,7 @@ function createManageMaterialModule({
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add() {
             return { _id: 'log-1' };

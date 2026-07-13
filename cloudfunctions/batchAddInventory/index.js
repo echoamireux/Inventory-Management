@@ -28,6 +28,7 @@ const {
   beginOperationReceipt,
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
+const { writeInventoryAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -260,8 +261,7 @@ exports.main = async (event, context) => {
             });
 
             // 写 refill 类型日志
-            await transaction.collection('inventory_log').add({
-              data: Object.assign({}, prepared.logData, {
+            const refillLog = Object.assign({}, prepared.logData, {
                 type: 'refill',
                 description: '补料入库',
                 inventory_id: existingItem._id,
@@ -269,7 +269,12 @@ exports.main = async (event, context) => {
                 operator_id: OPENID,
                 _openid: OPENID,
                 timestamp: db.serverDate()
-              })
+            });
+            await transaction.collection('inventory_log').add({
+              data: refillLog
+            });
+            await writeInventoryAuditEvent(transaction, db, refillLog, {
+              operationId: operationContext.operationId
             });
 
             ids.push(existingItem._id);
@@ -337,14 +342,18 @@ exports.main = async (event, context) => {
           }
         }
 
-        await transaction.collection('inventory_log').add({
-          data: Object.assign({}, prepared.logData, {
+        const inboundLog = Object.assign({}, prepared.logData, {
             inventory_id: addRes._id,
             operator: (operator && operator.name) || 'System',
             operator_id: OPENID,
             _openid: OPENID,
             timestamp: db.serverDate()
-          })
+        });
+        await transaction.collection('inventory_log').add({
+          data: inboundLog
+        });
+        await writeInventoryAuditEvent(transaction, db, inboundLog, {
+          operationId: operationContext.operationId
         });
 
         ids.push(addRes._id);

@@ -7,6 +7,7 @@ const {
   ensureBuiltinProjectCodes,
   sortProjectCodeRecords
 } = require('./project-codes');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -30,6 +31,21 @@ async function getProjectRecords(includeDisabled = false) {
 async function findProjectByCode(projectCode) {
   const records = sortProjectCodeRecords(await ensureBuiltinProjectCodes(db));
   return records.find(item => item.project_code === projectCode) || null;
+}
+
+async function writeProjectAudit(action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(db, db, {
+    domain: 'project_code',
+    action,
+    operator: Object.assign({}, operator || {}, { _openid: openid }),
+    target: {
+      type: 'project_code',
+      id: record._id || record.project_code || '',
+      label: record.project_code || ''
+    },
+    after: record,
+    detail
+  });
 }
 
 async function listProjects(event, openid) {
@@ -77,6 +93,12 @@ async function createProject(event, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writeProjectAudit('create', operator, openid, {
+    _id: res._id,
+    project_code: projectCode,
+    project_name: projectName,
+    status: 'active'
+  });
 
   return {
     success: true,
@@ -113,6 +135,12 @@ async function updateProject(event, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writeProjectAudit('update', operator, openid, Object.assign({}, project, {
+    project_name: projectName
+  }), {
+    previous_name: project.project_name,
+    next_name: projectName
+  });
 
   return { success: true, msg: '保存成功' };
 }
@@ -136,6 +164,12 @@ async function setProjectStatus(event, openid) {
       status: nextStatus,
       updated_at: db.serverDate()
     }
+  });
+  await writeProjectAudit('status', operator, openid, Object.assign({}, project, {
+    status: nextStatus
+  }), {
+    previous_status: project.status,
+    next_status: nextStatus
   });
 
   return {
@@ -174,6 +208,9 @@ async function reorderProjects(event, openid) {
       }
     });
   }
+  await writeProjectAudit('reorder', operator, openid, { project_code: validCodes.join(',') }, {
+    project_codes: validCodes
+  });
 
   return { success: true, msg: '排序已更新' };
 }

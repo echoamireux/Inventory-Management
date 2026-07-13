@@ -176,7 +176,8 @@ test('single stock-in rejects duplicate chemical labels unless refill is explici
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       });
     }
@@ -389,7 +390,8 @@ test('single stock-in refills an in-stock chemical label only after explicit ref
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       });
     }
@@ -570,7 +572,8 @@ test('single stock-in rejects voided preprint labels even when manually submitte
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       });
     }
@@ -774,7 +777,8 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
                 return createOperationReceiptCollection();
               }
 
-              throw new Error(`unexpected transaction collection: ${name}`);
+              if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
             }
           });
         }
@@ -1469,7 +1473,8 @@ test('inventory template submit supports mixed create and refill rows in one req
                   return createOperationReceiptCollection();
                 }
 
-                throw new Error(`unexpected transaction collection: ${name}`);
+                if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
               }
             });
           }
@@ -1710,7 +1715,8 @@ test('inventory template submit consumes matching unused preprint labels when cr
                   return createOperationReceiptCollection();
                 }
 
-                throw new Error(`unexpected transaction collection: ${name}`);
+                if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
               }
             });
           }
@@ -1914,7 +1920,8 @@ test('inventory template submit rejects voided preprint labels even when the row
                   return createOperationReceiptCollection();
                 }
 
-                throw new Error(`unexpected transaction collection: ${name}`);
+                if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
               }
             });
           }
@@ -2415,7 +2422,8 @@ test('approveInventoryCorrectionRequest applies a chemical quantity delta and wr
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       });
     }
@@ -2597,7 +2605,8 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       });
     }

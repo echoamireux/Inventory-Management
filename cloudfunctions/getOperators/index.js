@@ -6,14 +6,20 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 
-async function loadAllOperatorLogRows(pageSize = 100) {
+function normalizeScope(value) {
+  return String(value || '').trim() === 'audit' ? 'audit' : 'inventory';
+}
+
+async function loadAllOperatorLogRows(scope = 'inventory', pageSize = 100) {
   let skip = 0;
   let rows = [];
   let batch = [];
+  const collectionName = scope === 'audit' ? 'audit_events' : 'inventory_log';
+  const fieldName = scope === 'audit' ? 'actor_name' : 'operator';
 
   do {
-    const res = await db.collection('inventory_log')
-      .field({ operator: true })
+    const res = await db.collection(collectionName)
+      .field({ [fieldName]: true })
       .skip(skip)
       .limit(pageSize)
       .get();
@@ -43,9 +49,10 @@ exports.main = async (event, context) => {
       };
     }
 
-    const rows = await loadAllOperatorLogRows();
+    const scope = normalizeScope(event && event.logScope);
+    const rows = await loadAllOperatorLogRows(scope);
     const operators = Array.from(new Set(rows
-      .map(item => item.operator)
+      .map(item => scope === 'audit' ? item.actor_name : item.operator)
       .filter(op => op && op.trim()) // 过滤空值
     ))
       .sort(); // 排序

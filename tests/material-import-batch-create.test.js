@@ -61,7 +61,7 @@ test('material import batchCreate keeps create-only semantics while writing gove
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add({ data }) {
             materialLogs.push(data);
@@ -260,7 +260,7 @@ test('material import batchCreate allows film creation without default width whi
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add() {
             return { _id: 'log-1' };
@@ -411,7 +411,7 @@ test('material import batchCreate rejects film rows that omit thickness even if 
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add() {
             return { _id: 'log-1' };
@@ -572,7 +572,7 @@ test('material import batchCreate blocks same-code rows in one file when their g
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add() {
             return { _id: 'log-1' };
@@ -764,7 +764,7 @@ test('material import batchCreate ignores film-only fields on chemical rows and 
         };
       }
 
-      if (name === 'material_log') {
+      if (name === 'material_log' || name === 'audit_events') {
         return {
           async add() {
             return { _id: 'log-1' };

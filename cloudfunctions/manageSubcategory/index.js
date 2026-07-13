@@ -14,6 +14,7 @@ const {
   filterSubcategoryRecordsByCategory,
   findSubcategoryRecordByName
 } = require('./material-subcategories');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -28,6 +29,21 @@ function buildCustomSubcategoryKey(category) {
 async function getOperator(openid) {
   const userRes = await db.collection('users').where({ _openid: openid }).limit(1).get();
   return userRes.data && userRes.data[0];
+}
+
+async function writeSubcategoryAudit(action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(db, db, {
+    domain: 'subcategory',
+    action,
+    operator: Object.assign({}, operator || {}, { _openid: openid }),
+    target: {
+      type: 'material_subcategory',
+      id: record.subcategory_key || record._id || '',
+      label: record.name || record.subcategory_key || ''
+    },
+    after: record,
+    detail
+  });
 }
 
 async function listSubcategories(event, openid) {
@@ -84,6 +100,10 @@ async function createSubcategory(name, category, openid) {
           updated_at: db.serverDate()
         }
       });
+      await writeSubcategoryAudit('status', operator, openid, Object.assign({}, existing, { status: 'active' }), {
+        previous_status: existing.status,
+        next_status: 'active'
+      });
     }
 
     return {
@@ -112,6 +132,13 @@ async function createSubcategory(name, category, openid) {
       created_at: db.serverDate(),
       updated_at: db.serverDate()
     }
+  });
+  await writeSubcategoryAudit('create', operator, openid, {
+    _id: res._id,
+    subcategory_key: subcategoryKey,
+    name: normalizedName,
+    parent_category: normalizedCategory,
+    status: 'active'
   });
 
   return {
@@ -159,6 +186,12 @@ async function renameSubcategory(subcategoryKey, name, openid) {
       updated_at: db.serverDate()
     }
   });
+  await writeSubcategoryAudit('update', operator, openid, Object.assign({}, current, {
+    name: normalizedName
+  }), {
+    previous_name: current.name,
+    next_name: normalizedName
+  });
 
   return {
     success: true,
@@ -185,6 +218,12 @@ async function setSubcategoryStatus(subcategoryKey, status, openid) {
       status: normalized,
       updated_at: db.serverDate()
     }
+  });
+  await writeSubcategoryAudit('status', operator, openid, Object.assign({}, current, {
+    status: normalized
+  }), {
+    previous_status: current.status,
+    next_status: normalized
   });
 
   return {
@@ -220,6 +259,9 @@ async function reorderSubcategories(subcategoryKeys, openid) {
       }
     });
   }
+  await writeSubcategoryAudit('reorder', operator, openid, { subcategory_key: validKeys.join(',') }, {
+    subcategory_keys: validKeys
+  });
 
   return {
     success: true,

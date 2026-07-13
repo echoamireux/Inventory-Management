@@ -4,6 +4,7 @@ const {
   assertSuperAdminMutationAccess,
   isAllowedManagedRole
 } = require('./auth');
+const { writeAuditEvent } = require('./audit-events');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -81,7 +82,7 @@ async function listActiveUsers() {
   }));
 }
 
-async function updatePendingUserStatus({ userId, status, rejectReason = '' }) {
+async function updatePendingUserStatus({ userId, status, rejectReason = '', operator, operatorOpenid }) {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
     return { success: false, msg: '缺少用户 ID' };
@@ -109,11 +110,32 @@ async function updatePendingUserStatus({ userId, status, rejectReason = '' }) {
         update_time: db.serverDate()
       }
     });
+    await writeAuditEvent(transaction, db, {
+      domain: 'user',
+      action: status === 'active' ? 'approve' : 'reject',
+      operator: Object.assign({}, operator || {}, { _openid: operatorOpenid }),
+      target: {
+        type: 'user',
+        id: normalizedUserId,
+        label: targetUser.name || targetUser.nickName || targetUser._openid || ''
+      },
+      before: {
+        status: targetUser.status,
+        role: targetUser.role || ''
+      },
+      after: {
+        status,
+        role: targetUser.role || ''
+      },
+      detail: {
+        reject_reason: status === 'rejected' ? String(rejectReason).trim() : ''
+      }
+    });
     return { success: true };
   });
 }
 
-async function updateUserRole(userId, role) {
+async function updateUserRole(userId, role, operator, operatorOpenid) {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
     return { success: false, msg: '缺少用户 ID' };
@@ -146,11 +168,32 @@ async function updateUserRole(userId, role) {
         update_time: db.serverDate()
       }
     });
+    await writeAuditEvent(transaction, db, {
+      domain: 'user',
+      action: 'update',
+      operator: Object.assign({}, operator || {}, { _openid: operatorOpenid }),
+      target: {
+        type: 'user',
+        id: normalizedUserId,
+        label: targetUser.name || targetUser.nickName || targetUser._openid || ''
+      },
+      before: {
+        status: targetUser.status,
+        role: targetUser.role || ''
+      },
+      after: {
+        status: targetUser.status,
+        role
+      },
+      detail: {
+        note: '修改用户角色'
+      }
+    });
     return { success: true };
   });
 }
 
-async function updateUserStatus(userId, status, operatorOpenid) {
+async function updateUserStatus(userId, status, operatorOpenid, operator) {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
     return { success: false, msg: '缺少用户 ID' };
@@ -192,6 +235,27 @@ async function updateUserStatus(userId, status, operatorOpenid) {
       data: {
         status,
         update_time: db.serverDate()
+      }
+    });
+    await writeAuditEvent(transaction, db, {
+      domain: 'user',
+      action: 'status',
+      operator: Object.assign({}, operator || {}, { _openid: operatorOpenid }),
+      target: {
+        type: 'user',
+        id: normalizedUserId,
+        label: targetUser.name || targetUser.nickName || targetUser._openid || ''
+      },
+      before: {
+        status: targetUser.status,
+        role: targetUser.role || ''
+      },
+      after: {
+        status,
+        role: targetUser.role || ''
+      },
+      detail: {
+        note: status === 'active' ? '启用用户' : '禁用用户'
       }
     });
     return { success: true };
@@ -243,7 +307,7 @@ exports.main = async (event, context) => {
       if (!isAllowedManagedRole(role) && role !== 'super_admin') {
         return { success: false, msg: '非法角色：仅允许设置为 user、admin 或 super_admin' };
       }
-      return await updateUserRole(userId, role);
+      return await updateUserRole(userId, role, operator, OPENID);
     }
 
     if (action === 'updateStatus') {
@@ -251,7 +315,7 @@ exports.main = async (event, context) => {
       if (!authResult.ok) {
         return { success: false, msg: authResult.msg };
       }
-      return await updateUserStatus(userId, event.status, OPENID);
+      return await updateUserStatus(userId, event.status, OPENID, operator);
     }
 
     if (action === 'approveUser' || action === 'rejectUser') {
@@ -262,7 +326,9 @@ exports.main = async (event, context) => {
       return await updatePendingUserStatus({
         userId,
         status: action === 'approveUser' ? 'active' : 'rejected',
-        rejectReason: event.rejectReason || ''
+        rejectReason: event.rejectReason || '',
+        operator,
+        operatorOpenid: OPENID
       });
     }
 

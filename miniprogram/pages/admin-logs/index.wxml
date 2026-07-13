@@ -1,12 +1,15 @@
 <!--pages/admin-logs/index.wxml-->
-<!-- 审计日志页面 -->
 <view class="page-container">
-  <!-- 搜索栏 -->
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
+    <van-tab title="库存流水" name="inventory"></van-tab>
+    <van-tab title="管理审计" name="audit"></van-tab>
+  </van-tabs>
+
   <!-- 搜索栏 -->
   <view class="search-transparent">
     <van-search
         value="{{ searchVal }}"
-        placeholder="产品代码/物料名称/项目编码/标签编号/批号/操作人/备注"
+        placeholder="{{ searchPlaceholder }}"
         shape="round"
         bind:search="onSearch"
         bind:change="onSearchChange"
@@ -16,6 +19,7 @@
 
   <van-dropdown-menu active-color="#1989fa">
     <van-dropdown-item value="{{ dateFilter }}" options="{{ dateOptions }}" bind:change="onDateFilterChange" />
+    <van-dropdown-item wx:if="{{ activeTab === 'audit' }}" value="{{ domainFilter }}" options="{{ domainOptions }}" bind:change="onDomainFilterChange" />
     <van-dropdown-item value="{{ typeFilter }}" options="{{ typeOptions }}" bind:change="onTypeFilterChange" />
     <van-dropdown-item value="{{ operatorFilter }}" options="{{ operatorOptions }}" bind:change="onOperatorFilterChange" />
   </van-dropdown-menu>
@@ -24,7 +28,8 @@
   <view class="list-container">
     <block wx:if="{{ list.length > 0 }}">
       <view wx:for="{{ list }}" wx:key="_id">
-        <log-item item="{{ item }}" mode="full" bind:requestcorrection="onRequestCorrection" />
+        <log-item wx:if="{{ activeTab === 'inventory' }}" item="{{ item }}" mode="full" bind:requestcorrection="onRequestCorrection" />
+        <log-item wx:else item="{{ item }}" mode="full" />
       </view>
     </block>
 

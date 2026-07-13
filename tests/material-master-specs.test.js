@@ -328,7 +328,8 @@ test('updateInventory retries transient transaction conflicts and then completes
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       };
 
@@ -452,7 +453,8 @@ test('updateInventory does not retry business validation errors from the transac
             return createOperationReceiptCollection();
           }
 
-          throw new Error(`unexpected transaction collection: ${name}`);
+          if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
+          throw new Error(`unexpected transaction collection: `);
         }
       };
 

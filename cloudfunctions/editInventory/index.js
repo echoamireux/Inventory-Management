@@ -19,6 +19,7 @@ const {
   parseChemicalQuantity,
   parsePositiveIntegerMeters
 } = require('./inventory-quantity');
+const { writeInventoryAuditEvent } = require('./audit-events');
 
 function roundNumber(value, digits = 3) {
   const factor = 10 ** digits;
@@ -213,8 +214,7 @@ exports.main = async (event, context) => {
             }
           });
 
-          await transaction.collection('inventory_log').add({
-            data: {
+          const widthAdjustLog = {
               material_id: item.material_id,
               inventory_id,
               material_name: item.material_name,
@@ -230,7 +230,10 @@ exports.main = async (event, context) => {
               operator_id: OPENID,
               _openid: OPENID,
               timestamp: db.serverDate()
-            }
+          };
+          await transaction.collection('inventory_log').add({ data: widthAdjustLog });
+          await writeInventoryAuditEvent(transaction, db, widthAdjustLog, {
+            operationId: operationContext.operationId
           });
 
           const response = { success: true };
@@ -251,8 +254,7 @@ exports.main = async (event, context) => {
             data: stocktakePayload.updateData
           });
 
-          await transaction.collection('inventory_log').add({
-            data: {
+          const stocktakeLog = {
               material_id: item.material_id,
               inventory_id,
               material_name: item.material_name,
@@ -268,7 +270,10 @@ exports.main = async (event, context) => {
               operator_id: OPENID,
               _openid: OPENID,
               timestamp: db.serverDate()
-            }
+          };
+          await transaction.collection('inventory_log').add({ data: stocktakeLog });
+          await writeInventoryAuditEvent(transaction, db, stocktakeLog, {
+            operationId: operationContext.operationId
           });
 
           const response = { success: true };
@@ -295,8 +300,7 @@ exports.main = async (event, context) => {
             }
         });
 
-        await transaction.collection('inventory_log').add({
-          data: {
+        const transferLog = {
             material_id: item.material_id,
             inventory_id,
             material_name: item.material_name,
@@ -311,7 +315,10 @@ exports.main = async (event, context) => {
             operator_id: OPENID,
             _openid: OPENID,
             timestamp: db.serverDate()
-          }
+        };
+        await transaction.collection('inventory_log').add({ data: transferLog });
+        await writeInventoryAuditEvent(transaction, db, transferLog, {
+          operationId: operationContext.operationId
         });
 
         const response = { success: true };
