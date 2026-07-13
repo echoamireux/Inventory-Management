@@ -1,5 +1,9 @@
 // pages/admin/approval-center/index.js
 import Dialog from '@vant/weapp/dialog/dialog';
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../../utils/operation-id');
 
 Page({
   data: {
@@ -267,18 +271,24 @@ Page({
   async handleCorrectionAction(id, action, reason = '') {
       wx.showLoading({ title: '处理中...' });
       try {
+          const payload = {
+              request_id: id,
+              action: action,
+              reject_reason: reason
+          };
+          const operationScope = `approveInventoryCorrectionRequest:${id}:${action}`;
           const res = await wx.cloud.callFunction({
               name: 'approveInventoryCorrectionRequest',
               data: {
-                  request_id: id,
-                  action: action,
-                  reject_reason: reason
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'approve')
               }
           });
 
           wx.hideLoading();
 
           if (res.result && res.result.success) {
+              clearOperationId(operationScope);
               wx.showToast({ title: '操作成功', icon: 'success' });
               this.fetchCorrections(true);
           } else {

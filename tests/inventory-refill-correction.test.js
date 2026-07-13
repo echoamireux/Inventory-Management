@@ -27,7 +27,201 @@ function read(relPath) {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
 }
 
-test('single stock-in refills an in-stock chemical label instead of rejecting the duplicate', async () => {
+function createOperationReceiptCollection(store = new Map()) {
+  return {
+    doc(id) {
+      return {
+        async get() {
+          return { data: store.get(id) || null };
+        },
+        async set({ data }) {
+          store.set(id, { ...data });
+          return {};
+        },
+        async update({ data }) {
+          store.set(id, { ...store.get(id), ...data });
+          return {};
+        }
+      };
+    }
+  };
+}
+
+test('single stock-in rejects duplicate chemical labels unless refill is explicit', async () => {
+  const inventoryRecord = {
+    _id: 'inv-1',
+    unique_code: 'L000501',
+    status: 'in_stock',
+    category: 'chemical',
+    product_code: 'J-001',
+    batch_number: 'AC240501',
+    quantity: { val: 5, unit: 'kg' },
+    dynamic_attrs: { weight_kg: 5 }
+  };
+
+  const db = {
+    command: {},
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return {
+                  async get() {
+                    return {
+                      data: [{ role: 'user', status: 'active', name: '服务端库管' }]
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'inventory') {
+        return {
+          where() {
+            return {
+              async count() {
+                return { total: 1 };
+              },
+              async get() {
+                return { data: [inventoryRecord] };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'materials') {
+        return {
+          where() {
+            return {
+              async get() {
+                return {
+                  data: [{
+                    _id: 'mat-1',
+                    product_code: 'J-001',
+                    category: 'chemical',
+                    material_name: '丙酮',
+                    default_unit: 'kg',
+                    status: 'active'
+                  }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    },
+    runTransaction(fn) {
+      return fn({
+        collection(name) {
+          if (name === 'inventory') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [inventoryRecord] };
+                  }
+                };
+              },
+              doc() {
+                throw new Error('implicit duplicate label must not update inventory');
+              }
+            };
+          }
+
+          if (name === 'preprinted_labels') {
+            return {
+              where() {
+                return {
+                  async get() {
+                    return { data: [] };
+                  }
+                };
+              }
+            };
+          }
+
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      });
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/addMaterial/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-1' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './warehouse-zones': {
+      ensureBuiltinZones: async () => [],
+      ensureBuiltinLocationDetails: async () => [],
+      sortZoneRecords(records) {
+        return records;
+      },
+      filterZoneRecordsByCategory(records) {
+        return records;
+      },
+      buildZoneMap() {
+        return new Map();
+      },
+      buildLocationDetailMapByZone() {
+        return new Map();
+      },
+      buildInventoryLocationPayload() {
+        return {
+          zone_key: 'builtin:chemical:safe-cabinet-01',
+          location_detail: 'F1',
+          location_text: '防爆柜01 | F1',
+          location: '防爆柜01 | F1'
+        };
+      }
+    }
+  });
+
+  const result = await mod.main({
+    base: {
+      name: '丙酮',
+      category: 'chemical',
+      product_code: 'J-001'
+    },
+    specs: {},
+    inventory: {
+      batch_number: 'AC240501',
+      quantity_val: 2,
+      quantity_unit: 'kg',
+      expiry_date: '2026-12-31',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location_detail: 'A-01'
+    },
+    unique_code: 'L000501',
+    operation_id: 'op_single_reject_001',
+    operator_name: '库管员'
+  });
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /补料/);
+});
+
+test('single stock-in refills an in-stock chemical label only after explicit refill confirmation', async () => {
   let updatedInventory = null;
   let addedLog = null;
 
@@ -149,6 +343,10 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       });
@@ -207,6 +405,9 @@ test('single stock-in refills an in-stock chemical label instead of rejecting th
       location_detail: 'A-01'
     },
     unique_code: 'L000501',
+    operation_id: 'op_single_refill_001',
+    submit_action: 'refill',
+    refill_inventory_id: 'inv-1',
     operator_name: '库管员'
   });
 
@@ -302,6 +503,10 @@ test('single stock-in rejects voided preprint labels even when manually submitte
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       });
@@ -346,6 +551,7 @@ test('single stock-in rejects voided preprint labels even when manually submitte
 
   const result = await mod.main({
     unique_code: 'L000777',
+    operation_id: 'op_single_voided_001',
     base: {
       name: '丙酮',
       category: 'chemical',
@@ -501,6 +707,10 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
                 };
               }
 
+              if (name === 'operation_receipts') {
+                return createOperationReceiptCollection();
+              }
+
               throw new Error(`unexpected transaction collection: ${name}`);
             }
           });
@@ -541,6 +751,7 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
       buildBatchInventoryPayload(_item, _material, index) {
         if (index === 0) {
           return {
+            rawItem: _item,
             inventoryData: {
               material_id: 'mat-1',
               material_name: '丙酮',
@@ -568,6 +779,7 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
         }
 
         return {
+          rawItem: _item,
           inventoryData: {
             material_id: 'mat-1',
             material_name: '丙酮',
@@ -597,9 +809,15 @@ test('batch stock-in keeps eligible duplicate chemical labels as refill operatio
   });
 
   const result = await mod.main({
+    operation_id: 'op_batch_refill_001',
     operator_name: '批量库管',
     items: [
-      { material_id: 'mat-1', unique_code: 'L000601' },
+      {
+        material_id: 'mat-1',
+        unique_code: 'L000601',
+        submit_action: 'refill',
+        refill_inventory_id: 'inv-refill'
+      },
       { material_id: 'mat-1', unique_code: 'L000602' }
     ]
   });
@@ -763,7 +981,8 @@ test('single stock-in rejects expiry dates earlier than today on the backend', a
       expiry_date: '2026-03-25',
       zone_key: 'builtin:chemical:safe-cabinet-01'
     },
-    unique_code: 'L000511'
+    unique_code: 'L000511',
+    operation_id: 'op_single_expiry_001'
   });
 
   assert.equal(result.success, false);
@@ -1183,6 +1402,10 @@ test('inventory template submit supports mixed create and refill rows in one req
                   };
                 }
 
+                if (name === 'operation_receipts') {
+                  return createOperationReceiptCollection();
+                }
+
                 throw new Error(`unexpected transaction collection: ${name}`);
               }
             });
@@ -1199,6 +1422,7 @@ test('inventory template submit supports mixed create and refill rows in one req
 
   const result = await mod.main({
     action: 'submit',
+    operation_id: 'op_template_mixed_001',
     data: {
       items: [
         {
@@ -1419,6 +1643,10 @@ test('inventory template submit consumes matching unused preprint labels when cr
                   };
                 }
 
+                if (name === 'operation_receipts') {
+                  return createOperationReceiptCollection();
+                }
+
                 throw new Error(`unexpected transaction collection: ${name}`);
               }
             });
@@ -1435,6 +1663,7 @@ test('inventory template submit consumes matching unused preprint labels when cr
 
   const result = await mod.main({
     action: 'submit',
+    operation_id: 'op_template_preprint_001',
     data: {
       items: [{
         rowIndex: 5,
@@ -1618,6 +1847,10 @@ test('inventory template submit rejects voided preprint labels even when the row
                   };
                 }
 
+                if (name === 'operation_receipts') {
+                  return createOperationReceiptCollection();
+                }
+
                 throw new Error(`unexpected transaction collection: ${name}`);
               }
             });
@@ -1634,6 +1867,7 @@ test('inventory template submit rejects voided preprint labels even when the row
 
   const result = await mod.main({
     action: 'submit',
+    operation_id: 'op_template_voided_001',
     data: {
       items: [{
         rowIndex: 5,
@@ -1758,8 +1992,11 @@ test('inventory template submit rejects invalid refill quantities even if the fr
           },
           runTransaction(fn) {
             return fn({
-              collection() {
-                throw new Error('invalid refill quantity should fail before any transaction writes');
+              collection(name) {
+                if (name === 'operation_receipts') {
+                  return createOperationReceiptCollection();
+                }
+                throw new Error('invalid refill quantity should fail before inventory writes');
               }
             });
           }
@@ -1775,6 +2012,7 @@ test('inventory template submit rejects invalid refill quantities even if the fr
 
   const result = await mod.main({
     action: 'submit',
+    operation_id: 'op_template_invalid_refill_001',
     data: {
       items: [{
         rowIndex: 4,
@@ -2109,6 +2347,10 @@ test('approveInventoryCorrectionRequest applies a chemical quantity delta and wr
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       });
@@ -2134,7 +2376,8 @@ test('approveInventoryCorrectionRequest applies a chemical quantity delta and wr
 
   const result = await mod.main({
     request_id: 'corr-approve-1',
-    action: 'approve'
+    action: 'approve',
+    operation_id: 'op_correction_approve_001'
   });
 
   assert.equal(result.success, true);
@@ -2285,6 +2528,10 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       });
@@ -2310,7 +2557,8 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
 
   const result = await mod.main({
     request_id: 'corr-reject-1',
-    action: 'approve'
+    action: 'approve',
+    operation_id: 'op_correction_reject_001'
   });
 
   assert.equal(result.success, false);

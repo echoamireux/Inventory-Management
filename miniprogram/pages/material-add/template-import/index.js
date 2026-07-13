@@ -16,6 +16,10 @@ const {
   getParsedTemplateMeta,
   resolveImportTemplateErrorMessage
 } = require('../../../utils/import-file-parser');
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../../utils/operation-id');
 
 const INVENTORY_TEMPLATE_HEADER_ROWS = [
   ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''],
@@ -253,16 +257,20 @@ Page({
     Toast.loading({ message: '入库中...', forbidClick: true, duration: 0 });
 
     try {
+      const operationScope = 'importInventoryTemplate:submit';
+      const operationPayload = { items: validItems };
       const res = await wx.cloud.callFunction({
         name: 'importInventoryTemplate',
         data: {
           action: 'submit',
+          operation_id: ensureOperationId(operationScope, operationPayload, 'tplin'),
           data: {
             items: validItems
           }
         }
       });
       const result = normalizeInventoryTemplateSubmitResult(res);
+      clearOperationId(operationScope);
 
       Toast.clear();
       const lines = [];

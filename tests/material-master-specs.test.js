@@ -34,6 +34,26 @@ function loadModuleWithMocks(modulePath, mocks) {
   }
 }
 
+function createOperationReceiptCollection(store = new Map()) {
+  return {
+    doc(id) {
+      return {
+        async get() {
+          return { data: store.get(id) || null };
+        },
+        async set({ data }) {
+          store.set(id, { ...data });
+          return {};
+        },
+        async update({ data }) {
+          store.set(id, { ...store.get(id), ...data });
+          return {};
+        }
+      };
+    }
+  };
+}
+
 test('admin material edit page exposes governed master spec fields for chemical and film materials', () => {
   const wxml = read('miniprogram/pages/admin/material-edit.wxml');
   const js = read('miniprogram/pages/admin/material-edit.js');
@@ -304,6 +324,10 @@ test('updateInventory retries transient transaction conflicts and then completes
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       };
@@ -329,7 +353,8 @@ test('updateInventory retries transient transaction conflicts and then completes
     withdraw_amount: 1,
     project_code: 'OR2026RD02001',
     project_name: '复合双面胶带',
-    withdraw_note: ''
+    withdraw_note: '',
+    operation_id: 'op_withdraw_retry_001'
   }, {});
 
   assert.equal(result.success, true);
@@ -423,6 +448,10 @@ test('updateInventory does not retry business validation errors from the transac
             };
           }
 
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection();
+          }
+
           throw new Error(`unexpected transaction collection: ${name}`);
         }
       };
@@ -450,7 +479,8 @@ test('updateInventory does not retry business validation errors from the transac
     result = await mod.main({
       unique_code: 'L000001',
       withdraw_amount: 2,
-      project_code: 'OR2026RD02001'
+      project_code: 'OR2026RD02001',
+      operation_id: 'op_withdraw_insufficient_001'
     }, {});
   } finally {
     console.error = originalError;
@@ -548,7 +578,8 @@ test('updateInventory stops retrying transient transaction conflicts after three
     result = await mod.main({
       unique_code: 'L000001',
       withdraw_amount: 1,
-      project_code: 'OR2026RD02001'
+      project_code: 'OR2026RD02001',
+      operation_id: 'op_withdraw_conflict_001'
     }, {});
   } finally {
     console.error = originalError;

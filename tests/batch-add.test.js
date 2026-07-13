@@ -142,12 +142,13 @@ test('batch add rejects rows that omit both expiry date and long-term validity',
   }, /必须填写过期日期或明确设为长期有效/);
 });
 
-test('batch add converts film square meter input back to base meters', () => {
+test('batch add keeps film base stock in explicit integer meters even when display unit is square meters', () => {
   const payload = buildBatchInventoryPayload({
     unique_code: 'L000005',
     batch_number: 'F-202603',
     location: '膜材区 | B-02',
     expiry_date: '2026-12-31',
+    length_m: 100,
     quantity: {
       val: 50,
       unit: 'm²'
@@ -209,6 +210,7 @@ test('batch add lets a film batch use a different actual width without overwriti
     location: '膜材区 | B-08',
     expiry_date: '2026-12-31',
     batch_width_mm: 1250,
+    length_m: 100,
     quantity: {
       val: 125,
       unit: 'm²'

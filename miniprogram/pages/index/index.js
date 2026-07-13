@@ -9,6 +9,10 @@ const {
   normalizeLabelCodeInput,
   isValidLabelCode
 } = require('../../utils/label-code');
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../utils/operation-id');
 
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -439,12 +443,17 @@ Page({
         payload.unique_code = withdrawItem.unique_code;
       }
 
+      const operationScope = 'updateInventory:home-withdraw';
       const res = await wx.cloud.callFunction({
         name: "updateInventory",
-        data: payload,
+        data: {
+          ...payload,
+          operation_id: ensureOperationId(operationScope, payload, 'withdraw')
+        },
       });
 
       if (res.result && res.result.success) {
+        clearOperationId(operationScope);
         getApp().globalData.inventoryChangedAt = Date.now();
         // 统一反馈格式
         const remaining = res.result.displayRemaining !== undefined

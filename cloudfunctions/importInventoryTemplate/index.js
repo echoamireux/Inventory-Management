@@ -2,7 +2,8 @@ const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess } = require('./auth');
 const {
   isChemicalRefillEligible,
-  buildChemicalRefillUpdate
+  buildChemicalRefillUpdate,
+  parseChemicalQuantity
 } = require('./inventory-quantity');
 const {
   isInventoryTemplateGroupHeaderRow,
@@ -26,6 +27,11 @@ const {
   assertPreprintJobConsumable,
   loadPreprintJobForLabel
 } = require('./preprint-jobs');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -410,7 +416,7 @@ async function previewRows(rawRows = [], templateMeta = null) {
   };
 }
 
-async function submitRows(items = [], openid, operatorName) {
+async function submitRows(items = [], openid, operatorName, operationId) {
   const normalizedItems = (Array.isArray(items) ? items : []).filter(item => item && !item.error);
   if (!normalizedItems.length) {
     return {
@@ -419,6 +425,11 @@ async function submitRows(items = [], openid, operatorName) {
     };
   }
   assertInventoryTemplateImportLimit(normalizedItems.length);
+  const operationContext = buildOperationReceiptContext({
+    openid,
+    operationId,
+    requestPayload: { items: normalizedItems }
+  });
 
   const lookupKeys = {
     productCodes: Array.from(new Set(normalizedItems.map(item => String(item.product_code || '').trim()).filter(Boolean))),
@@ -436,6 +447,11 @@ async function submitRows(items = [], openid, operatorName) {
   const seenUniqueCodes = new Set();
 
   return db.runTransaction(async (transaction) => {
+    const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+    if (operationReceipt.reused) {
+      return operationReceipt.response;
+    }
+
     const ids = [];
     let created = 0;
     let refilled = 0;
@@ -478,9 +494,10 @@ async function submitRows(items = [], openid, operatorName) {
 
       let refillQuantity = null;
       if (submitAction === 'refill') {
-        refillQuantity = Number(item.net_content);
-        if (!Number.isFinite(refillQuantity) || refillQuantity <= 0) {
-          throw new Error(`标签编号 ${uniqueCode} 的补料数量必须为有效正数`);
+        try {
+          refillQuantity = parseChemicalQuantity(item.net_content, `标签编号 ${uniqueCode} 的补料数量`);
+        } catch (error) {
+          throw new Error(error.message || `标签编号 ${uniqueCode} 的补料数量必须为有效正数`);
         }
       }
 
@@ -497,6 +514,10 @@ async function submitRows(items = [], openid, operatorName) {
       if (submitAction === 'refill') {
         if (!existingInventorySnapshot) {
           throw new Error(`标签编号 ${uniqueCode} 对应原库存不存在，请刷新预览后重试`);
+        }
+        const refillInventoryId = String(item.refill_inventory_id || '').trim();
+        if (!refillInventoryId || refillInventoryId !== existingInventorySnapshot._id) {
+          throw new Error(`标签编号 ${uniqueCode} 的补料目标库存不一致，请刷新预览后重试`);
         }
 
         const currentInventoryRes = await transaction.collection('inventory')
@@ -619,7 +640,7 @@ async function submitRows(items = [], openid, operatorName) {
       });
     }
 
-    return {
+    const response = {
       success: true,
       created,
       refilled,
@@ -627,6 +648,8 @@ async function submitRows(items = [], openid, operatorName) {
       ids,
       msg: `成功处理 ${ids.length} 条`
     };
+    await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+    return response;
   });
 }
 
@@ -652,7 +675,12 @@ exports.main = async (event) => {
     }
 
     if (action === 'submit') {
-      return await submitRows((event.data && event.data.items) || [], OPENID, operator && operator.name);
+      return await submitRows(
+        (event.data && event.data.items) || [],
+        OPENID,
+        operator && operator.name,
+        event.operation_id || (event.data && event.data.operation_id)
+      );
     }
 
     return {

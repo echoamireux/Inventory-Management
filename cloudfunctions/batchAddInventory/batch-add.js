@@ -11,6 +11,10 @@ const {
   buildTestMaterialStockInValidation,
   resolveInventorySourceText
 } = require('./test-material');
+const {
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters
+} = require('./inventory-quantity');
 
 const MAX_BATCH_INVENTORY_ITEMS = 100;
 
@@ -80,36 +84,12 @@ function assertExplicitExpiryState(rawItem, rowLabel) {
   };
 }
 
-function resolveFilmBaseLength(quantityVal, quantityUnit, widthMm, initialLengthM, rowLabel) {
-  const normalizedUnit = normalizeFilmUnit(quantityUnit);
-
-  if (normalizedUnit === 'm') {
-    return quantityVal;
-  }
-
-  if (normalizedUnit === 'm²') {
-    if (!(widthMm > 0)) {
-      throw new Error(`${rowLabel}膜材缺少宽度，无法将平方米换算为米`);
-    }
-    return quantityVal / (widthMm / 1000);
-  }
-
-  if (normalizedUnit === '卷') {
-    if (!(initialLengthM > 0)) {
-      throw new Error(`${rowLabel}膜材缺少单卷长度，无法将卷数换算为米`);
-    }
-    return quantityVal * initialLengthM;
-  }
-
-  throw new Error(`${rowLabel}膜材单位不受支持: ${quantityUnit}`);
-}
-
 function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   const rowLabel = `第${rowIndex + 1}条`;
   const quantity = rawItem && rawItem.quantity ? rawItem.quantity : {};
   const specs = material && material.specs ? material.specs : {};
   const materialName = (material && (material.material_name || material.name)) || '';
-  const quantityVal = Number(quantity.val);
+  const rawQuantityVal = Number(quantity.val);
   const requestedQuantityUnit = String(quantity.unit || '').trim();
   const masterQuantityUnit = String((material && material.default_unit) || '').trim();
   const quantityUnit = material && material.category === 'chemical'
@@ -132,7 +112,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   if (!materialName || !material.product_code || !material.category) {
     throw new Error(`${rowLabel}对应的物料主数据不完整`);
   }
-  if (!Number.isFinite(quantityVal) || quantityVal <= 0) {
+  if (!Number.isFinite(rawQuantityVal) || rawQuantityVal <= 0) {
     throw new Error(`${rowLabel}入库数量必须为有效正数`);
   }
   if (!quantityUnit) {
@@ -174,7 +154,9 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     location,
     status: 'in_stock',
     quantity: {
-      val: quantityVal,
+      val: material.category === 'chemical'
+        ? parseChemicalQuantity(rawQuantityVal, `${rowLabel}入库数量`)
+        : rawQuantityVal,
       unit: quantityUnit
     }
   };
@@ -212,12 +194,9 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
         ? rawItem.length_m
         : (rawItem && rawItem.initial_length_m !== undefined ? rawItem.initial_length_m : 0)
     ) || 0;
-    const baseLengthM = resolveFilmBaseLength(
-      quantityVal,
-      quantityUnit,
-      batchWidthMm,
-      rawInitialLength,
-      rowLabel
+    const baseLengthM = parsePositiveIntegerMeters(
+      rawInitialLength > 0 ? rawInitialLength : rawQuantityVal,
+      `${rowLabel}膜材入库长度`
     );
 
     if (!(thicknessUm > 0)) {
@@ -226,7 +205,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     if (!(batchWidthMm > 0)) {
       throw new Error(`${rowLabel}膜材缺少本批次实际幅宽，请先完成规格确认`);
     }
-    const initialLengthM = rawInitialLength > 0 ? rawInitialLength : baseLengthM;
+    const initialLengthM = baseLengthM;
     const filmState = buildFilmInventoryState(baseLengthM, quantityUnit, batchWidthMm, initialLengthM);
 
     const needsThicknessBackfill = !(Number(specs.thickness_um) > 0) && thicknessUm > 0;
@@ -253,7 +232,7 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     };
   } else {
     inventoryData.dynamic_attrs = {
-      weight_kg: quantityVal
+      weight_kg: inventoryData.quantity.val
     };
   }
 

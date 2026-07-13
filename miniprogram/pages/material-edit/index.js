@@ -10,6 +10,10 @@ const {
 } = require('../../utils/location-zone');
 const { getMovePageAccessState, canManageZones } = require('../../utils/move-page-access');
 const { listZoneConfig } = require('../../utils/zone-service');
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../utils/operation-id');
 
 Page({
   data: {
@@ -244,16 +248,22 @@ Page({
       const app = getApp();
       const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
 
+      const payload = {
+        inventory_id: id,
+        updates,
+        operator_name: operator
+      };
+      const operationScope = `editInventory:move:${id}`;
       const res = await wx.cloud.callFunction({
         name: 'editInventory',
         data: {
-          inventory_id: id,
-          updates,
-          operator_name: operator
+          ...payload,
+          operation_id: ensureOperationId(operationScope, payload, 'move')
         }
       });
 
       if (res.result.success) {
+        clearOperationId(operationScope);
         wx.showToast({ title: '修改成功', icon: 'success' });
         setTimeout(() => {
           const pages = getCurrentPages();

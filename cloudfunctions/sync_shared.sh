@@ -60,6 +60,7 @@ echo "   -> Updating film-quantity.js..."
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/addMaterial/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/approveInventoryCorrectionRequest/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/batchAddInventory/film-quantity.js
+cp cloudfunctions/_shared/film-quantity.js cloudfunctions/editInventory/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/importInventoryTemplate/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/updateInventory/film-quantity.js
 cp cloudfunctions/_shared/film-quantity.js cloudfunctions/getInventoryGrouped/film-quantity.js
@@ -69,8 +70,17 @@ echo "   -> Updating inventory-quantity.js..."
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/addMaterial/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/approveInventoryCorrectionRequest/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/batchAddInventory/inventory-quantity.js
+cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/editInventory/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/importInventoryTemplate/inventory-quantity.js
 cp cloudfunctions/_shared/inventory-quantity.js cloudfunctions/updateInventory/inventory-quantity.js
+
+echo "   -> Updating operation-receipts.js..."
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/addMaterial/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/approveInventoryCorrectionRequest/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/batchAddInventory/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/editInventory/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/importInventoryTemplate/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/updateInventory/operation-receipts.js
 
 echo "   -> Updating preprint-jobs.js..."
 cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/exportLabelData/preprint-jobs.js

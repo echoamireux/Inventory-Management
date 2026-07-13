@@ -11,7 +11,9 @@ const {
 } = require('./thickness-governance');
 const {
   isChemicalRefillEligible,
-  buildChemicalRefillUpdate
+  buildChemicalRefillUpdate,
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters
 } = require('./inventory-quantity');
 const {
   isTestMaterial,
@@ -32,6 +34,11 @@ const {
   assertPreprintJobConsumable,
   loadPreprintJobForLabel
 } = require('./preprint-jobs');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -147,6 +154,8 @@ exports.main = async (event, context) => {
   const { base, specs, inventory, unique_code } = event; // 接收 unique_code
   const normalizedUniqueCode = normalizeLabelCodeInput(unique_code);
   const preprintLabelId = String(event.preprint_label_id || '').trim();
+  const submitAction = normalizeText(event.submit_action || 'create') || 'create';
+  const refillInventoryId = normalizeText(event.refill_inventory_id);
 
   // 1. 参数校验
   if (!base.name || !base.category || !normalizedUniqueCode) {
@@ -169,6 +178,19 @@ exports.main = async (event, context) => {
     if (!authResult.ok) {
       return { success: false, msg: authResult.msg };
     }
+    const operationContext = buildOperationReceiptContext({
+      openid: OPENID,
+      operationId: event.operation_id,
+      requestPayload: {
+        base,
+        specs,
+        inventory,
+        unique_code: normalizedUniqueCode,
+        preprint_label_id: preprintLabelId,
+        submit_action: submitAction,
+        refill_inventory_id: refillInventoryId
+      }
+    });
 
     const hasExpiryDate = !!inventory.expiry_date;
     const isLongTermValid = !!inventory.is_long_term_valid;
@@ -198,6 +220,11 @@ exports.main = async (event, context) => {
     }, zoneMap, detailMapByZone);
 
     return await db.runTransaction(async transaction => {
+      const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+      if (operationReceipt.reused) {
+        return operationReceipt.response;
+      }
+
       const existingInventoryRes = await transaction.collection('inventory').where({
         unique_code: normalizedUniqueCode
       }).get();
@@ -241,8 +268,17 @@ exports.main = async (event, context) => {
       const productCode = materialRecord.product_code || base.product_code || '';
       const materialName = materialRecord.material_name || base.name;
       const isTest = isTestMaterial(materialRecord, base);
+      const normalizedQuantityVal = category === 'film'
+        ? parsePositiveIntegerMeters(inventory.length_m, '膜材入库长度')
+        : parseChemicalQuantity(inventory.quantity_val, '入库数量');
 
       if (existingInventory) {
+        if (submitAction !== 'refill') {
+          throw new Error(`标签编号 ${normalizedUniqueCode} 已存在，如需补料请明确选择补料入库`);
+        }
+        if (!refillInventoryId || refillInventoryId !== existingInventory._id) {
+          throw new Error(`标签编号 ${normalizedUniqueCode} 的补料目标库存不一致，请刷新后重试`);
+        }
         const canRefill = isChemicalRefillEligible(existingInventory, {
           category,
           product_code: productCode,
@@ -256,7 +292,7 @@ exports.main = async (event, context) => {
           throw new Error(`冲突：标签编号 ${normalizedUniqueCode} 已被占用，请尝试重新生成或检查网络`);
         }
 
-        const refillUpdate = buildChemicalRefillUpdate(existingInventory, Number(inventory.quantity_val));
+        const refillUpdate = buildChemicalRefillUpdate(existingInventory, normalizedQuantityVal);
         await transaction.collection('inventory').doc(existingInventory._id).update({
           data: {
             ...refillUpdate.updateData,
@@ -273,7 +309,7 @@ exports.main = async (event, context) => {
             category,
             product_code: productCode,
             unique_code: normalizedUniqueCode,
-            quantity_change: Number(inventory.quantity_val),
+            quantity_change: normalizedQuantityVal,
             spec_change_unit: existingInventory.quantity && existingInventory.quantity.unit
               ? existingInventory.quantity.unit
               : (defaultUnit || '份'),
@@ -288,13 +324,15 @@ exports.main = async (event, context) => {
           }
         });
 
-        return {
+        const response = {
           success: true,
           materialId,
           inventoryId: existingInventory._id,
           uniqueCode: normalizedUniqueCode,
           action: 'refill'
         };
+        await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+        return response;
       }
 
       let preprintLabel = null;
@@ -366,7 +404,7 @@ exports.main = async (event, context) => {
         ...locationPayload,
         status: 'in_stock',
         quantity: {
-          val: Number(inventory.quantity_val),
+          val: normalizedQuantityVal,
           unit: defaultUnit
         },
         create_time: db.serverDate(),
@@ -386,9 +424,7 @@ exports.main = async (event, context) => {
       if (category === 'chemical') {
         invData.batch_number = inventory.batch_number;
         // 化材动态属性: 重量
-        if (inventory.weight_kg) {
-             invData.dynamic_attrs = { weight_kg: Number(inventory.weight_kg) };
-        }
+        invData.dynamic_attrs = { weight_kg: normalizedQuantityVal };
       } else if (category === 'film') {
          invData.batch_number = inventory.batch_number; // 膜材也有批号
          const filmSpecs = alignFilmSpecsWithPreprint(specs, preprintLabel);
@@ -448,10 +484,10 @@ exports.main = async (event, context) => {
          }
 
          const filmState = buildFilmInventoryState(
-           Number(inventory.length_m || 0),
+           normalizedQuantityVal,
            defaultUnit,
            resolvedWidthMm,
-           Number(inventory.length_m || 0)
+           normalizedQuantityVal
          );
          invData.quantity.val = filmState.quantityVal;
          invData.quantity.unit = filmState.quantityUnit;
@@ -509,12 +545,14 @@ exports.main = async (event, context) => {
          }
       });
 
-      return {
+      const response = {
         success: true,
         materialId: materialId,
         inventoryId: invRes._id,
         uniqueCode: normalizedUniqueCode
       };
+      await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      return response;
     });
 
   } catch (err) {

@@ -14,6 +14,39 @@ function normalizeNumber(value) {
   return Number.isFinite(normalized) ? normalized : 0;
 }
 
+function parsePositiveNumber(value, fieldName) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    throw new Error(`${fieldName || '数量'}必须为有效正数`);
+  }
+  return normalized;
+}
+
+function hasMoreThanDecimalPlaces(value, places) {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized)) {
+    return false;
+  }
+  const scale = 10 ** places;
+  return Math.abs(normalized * scale - Math.round(normalized * scale)) > 1e-9;
+}
+
+function parseChemicalQuantity(value, fieldName = '化材数量') {
+  const normalized = parsePositiveNumber(value, fieldName);
+  if (hasMoreThanDecimalPlaces(normalized, 3)) {
+    throw new Error(`${fieldName}最多保留三位小数`);
+  }
+  return roundNumber(normalized, 3);
+}
+
+function parsePositiveIntegerMeters(value, fieldName = '膜材长度') {
+  const normalized = parsePositiveNumber(value, fieldName);
+  if (!Number.isInteger(normalized)) {
+    throw new Error(`${fieldName}必须为正整数米`);
+  }
+  return normalized;
+}
+
 function normalizeUnit(value) {
   return normalizeText(value);
 }
@@ -65,12 +98,9 @@ function isChemicalRefillEligible(existingInventory = {}, candidate = {}) {
 
 function buildChemicalRefillUpdate(existingInventory = {}, refillQuantity) {
   const currentQuantity = Number(existingInventory.quantity && existingInventory.quantity.val);
-  const increment = Number(refillQuantity);
+  const increment = parseChemicalQuantity(refillQuantity, '补料数量');
   if (!Number.isFinite(currentQuantity) || currentQuantity < 0) {
     throw new Error('当前化材库存数量无效，请先完成库存纠错');
-  }
-  if (!Number.isFinite(increment) || increment <= 0) {
-    throw new Error('补料数量必须为有效正数');
   }
   const nextQuantity = roundNumber(currentQuantity + increment, 3);
 
@@ -98,7 +128,14 @@ function assertConsistentChemicalUnits(items = []) {
 
 function applyChemicalQuantityDelta(existingInventory = {}, delta) {
   const currentQuantity = normalizeNumber(existingInventory.quantity && existingInventory.quantity.val);
-  const nextQuantity = roundNumber(currentQuantity + normalizeNumber(delta), 3);
+  const deltaValue = Number(delta);
+  if (!Number.isFinite(deltaValue)) {
+    throw new Error('化材纠错数量必须为有效数字');
+  }
+  if (hasMoreThanDecimalPlaces(deltaValue, 3)) {
+    throw new Error('化材纠错数量最多保留三位小数');
+  }
+  const nextQuantity = roundNumber(currentQuantity + deltaValue, 3);
 
   if (!(nextQuantity > 0)) {
     throw new Error('纠错后的化材库存数量必须大于 0');
@@ -120,7 +157,10 @@ function applyFilmQuantityDelta(existingInventory = {}, delta) {
   const displayUnit = normalizeText(quantity.unit) || 'm';
   const currentLengthM = normalizeNumber(dynamicAttrs.current_length_m);
   const initialLengthM = normalizeNumber(dynamicAttrs.initial_length_m) || currentLengthM;
-  const safeDelta = normalizeNumber(delta);
+  const safeDelta = Number(delta);
+  if (!Number.isFinite(safeDelta) || !Number.isInteger(safeDelta)) {
+    throw new Error('膜材纠错长度必须为整数米');
+  }
   const nextCurrentLengthM = roundNumber(currentLengthM + safeDelta, 3);
   const nextInitialLengthM = roundNumber(initialLengthM + safeDelta, 3);
 
@@ -154,6 +194,8 @@ function applyFilmQuantityDelta(existingInventory = {}, delta) {
 
 module.exports = {
   QUANTITY_AFFECTING_LOG_TYPES,
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters,
   normalizeLogType,
   resolveLogTimestamp,
   isQuantityAffectingLogType,

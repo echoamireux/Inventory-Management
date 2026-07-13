@@ -72,6 +72,20 @@ test('chemical quantity helpers reject invalid increments and mixed units', () =
     () => inventoryQuantity.buildChemicalRefillUpdate({ quantity: { val: 1, unit: 'kg' } }, 'abc'),
     /有效正数/
   );
+  assert.equal(inventoryQuantity.parseChemicalQuantity('0.001', '领用数量'), 0.001);
+  assert.throws(
+    () => inventoryQuantity.parseChemicalQuantity('0.0005', '领用数量'),
+    /最多保留三位小数/
+  );
+  assert.throws(
+    () => inventoryQuantity.parseChemicalQuantity('1.2345', '领用数量'),
+    /最多保留三位小数/
+  );
+  assert.equal(inventoryQuantity.parsePositiveIntegerMeters('1', '膜材长度'), 1);
+  assert.throws(
+    () => inventoryQuantity.parsePositiveIntegerMeters('1.5', '膜材长度'),
+    /必须为正整数米/
+  );
   assert.equal(typeof inventoryQuantity.assertConsistentChemicalUnits, 'function');
   assert.throws(
     () => inventoryQuantity.assertConsistentChemicalUnits([
@@ -82,15 +96,82 @@ test('chemical quantity helpers reject invalid increments and mixed units', () =
   );
 });
 
+test('template import payload enforces chemical precision and integer film meters', () => {
+  const {
+    buildInventoryImportPayload
+  } = require('../cloudfunctions/importInventoryTemplate/inventory-import');
+
+  assert.throws(
+    () => buildInventoryImportPayload({
+      rowIndex: 5,
+      category: 'chemical',
+      unique_code: 'L000801',
+      product_code: 'J-001',
+      batch_number: 'B001',
+      zone_key: 'builtin:chemical:safe-cabinet-01',
+      location: '防爆柜01 | F1',
+      net_content: '0.0005',
+      expiry_date: '2026-12-31'
+    }, {
+      _id: 'mat-chemical',
+      product_code: 'J-001',
+      category: 'chemical',
+      status: 'active',
+      material_name: '化材',
+      default_unit: 'kg'
+    }),
+    /最多保留三位小数/
+  );
+
+  assert.throws(
+    () => buildInventoryImportPayload({
+      rowIndex: 6,
+      category: 'film',
+      unique_code: 'L000802',
+      product_code: 'M-001',
+      batch_number: 'B002',
+      zone_key: 'builtin:film:research-warehouse-01',
+      location: '研发仓1',
+      thickness_um: 25,
+      batch_width_mm: 500,
+      length_m: '1.5',
+      expiry_date: '2026-12-31',
+      quantity_unit: 'm'
+    }, {
+      _id: 'mat-film',
+      product_code: 'M-001',
+      category: 'film',
+      status: 'active',
+      material_name: '膜材',
+      default_unit: 'm',
+      specs: {
+        thickness_um: 25,
+        standard_width_mm: 500
+      }
+    }),
+    /必须为正整数米/
+  );
+});
+
 test('withdrawal validates finite quantities, test-material model and canonical project data', () => {
   const cloudFunction = read('cloudfunctions/updateInventory/index.js');
   const homePage = read('miniprogram/pages/index/index.js');
 
-  assert.match(cloudFunction, /Number\.isFinite\(totalNeed\)/);
+  assert.match(cloudFunction, /parseChemicalQuantity/);
+  assert.match(cloudFunction, /parsePositiveIntegerMeters/);
   assert.match(cloudFunction, /supplier_model/);
   assert.match(cloudFunction, /project_codes/);
   assert.match(cloudFunction, /status:\s*'active'/);
+  assert.doesNotMatch(cloudFunction, /newStock\s*<=\s*0\.1/);
   assert.match(homePage, /payload\.supplier_model\s*=\s*withdrawItem\.supplier_model/);
+});
+
+test('stocktake adjustment uses the shared quantity precision rules', () => {
+  const editInventory = read('cloudfunctions/editInventory/index.js');
+
+  assert.match(editInventory, /parseChemicalQuantity/);
+  assert.match(editInventory, /parsePositiveIntegerMeters/);
+  assert.doesNotMatch(editInventory, /const nextBaseQuantity = Number\(updates\.stocktake_quantity\)/);
 });
 
 test('all inbound paths enforce active master data and the master chemical unit', () => {
@@ -106,6 +187,43 @@ test('all inbound paths enforce active master data and the master chemical unit'
   assert.match(singleStockIn, /materialRecord\.default_unit/);
   assert.match(batchPayload, /material\.default_unit/);
   assert.match(templatePayload, /material\.default_unit/);
+});
+
+test('duplicate chemical labels require an explicit refill action on write APIs', () => {
+  const singleStockIn = read('cloudfunctions/addMaterial/index.js');
+  const batchStockIn = read('cloudfunctions/batchAddInventory/index.js');
+  const templateStockIn = read('cloudfunctions/importInventoryTemplate/index.js');
+
+  assert.match(singleStockIn, /submitAction[\s\S]{0,260}refill/);
+  assert.match(singleStockIn, /refill_inventory_id/);
+  assert.match(batchStockIn, /submitAction[\s\S]{0,260}refill/);
+  assert.match(batchStockIn, /refill_inventory_id/);
+  assert.match(templateStockIn, /submitAction\s*===\s*'refill'/);
+  assert.match(templateStockIn, /refill_inventory_id/);
+});
+
+test('inventory write frontends submit stable operation ids', () => {
+  const singleStockInPage = read('miniprogram/pages/material-add/index.js');
+  const batchStockInPage = read('miniprogram/pages/material-add/batch-entry.js');
+  const templateStockInPage = read('miniprogram/pages/material-add/template-import/index.js');
+  const homePage = read('miniprogram/pages/index/index.js');
+  const detailPage = read('miniprogram/pages/inventory-detail/index.js');
+  const movePage = read('miniprogram/pages/material-edit/index.js');
+  const approvalCenterPage = read('miniprogram/pages/admin/approval-center/index.js');
+
+  for (const source of [
+    singleStockInPage,
+    batchStockInPage,
+    templateStockInPage,
+    homePage,
+    detailPage,
+    movePage,
+    approvalCenterPage
+  ]) {
+    assert.match(source, /ensureOperationId/);
+    assert.match(source, /operation_id/);
+    assert.match(source, /clearOperationId/);
+  }
 });
 
 test('material unit and archive mutations are blocked after inventory exists', () => {

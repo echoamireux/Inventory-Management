@@ -8,6 +8,11 @@ const {
   applyChemicalQuantityDelta,
   applyFilmQuantityDelta
 } = require('./inventory-quantity');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -72,6 +77,19 @@ exports.main = async (event, context) => {
       if (correctionRequest.status !== 'pending') {
         return { success: false, msg: '该申请已被处理过' };
       }
+      const operationContext = buildOperationReceiptContext({
+        openid: OPENID,
+        operationId: event.operation_id,
+        requestPayload: {
+          request_id,
+          action,
+          reject_reason: reject_reason || ''
+        }
+      });
+      const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+      if (operationReceipt.reused) {
+        return operationReceipt.response;
+      }
 
       if (action === 'reject') {
         await requestRef.update({
@@ -84,7 +102,9 @@ exports.main = async (event, context) => {
           }
         });
 
-        return { success: true, msg: '已驳回' };
+        const response = { success: true, msg: '已驳回' };
+        await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+        return response;
       }
 
       if (action !== 'approve') {
@@ -178,7 +198,9 @@ exports.main = async (event, context) => {
         }
       });
 
-      return { success: true, msg: '纠错已通过，库存已更新' };
+      const response = { success: true, msg: '纠错已通过，库存已更新' };
+      await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      return response;
     });
 
     return result;

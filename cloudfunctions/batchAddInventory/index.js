@@ -23,6 +23,11 @@ const {
   assertPreprintJobConsumable,
   loadPreprintJobForLabel
 } = require('./preprint-jobs');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -98,6 +103,11 @@ exports.main = async (event, context) => {
 
     assertBatchInventoryItemLimit(items.length);
     assertUniqueCodes(items);
+    const operationContext = buildOperationReceiptContext({
+      openid: OPENID,
+      operationId: event.operation_id,
+      requestPayload: { items }
+    });
 
     const materialIds = Array.from(new Set(
       items.map(item => item && item.material_id).filter(Boolean)
@@ -147,6 +157,11 @@ exports.main = async (event, context) => {
     });
 
     return await db.runTransaction(async transaction => {
+      const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+      if (operationReceipt.reused) {
+        return operationReceipt.response;
+      }
+
       const ids = [];
       const preprintJobUsageCounts = new Map();
 
@@ -180,9 +195,13 @@ exports.main = async (event, context) => {
 
         if (exist.data && exist.data.length > 0) {
           const existingItem = exist.data[0];
+          const submitAction = normalizeText(prepared.rawItem && prepared.rawItem.submit_action) || 'create';
+          const refillInventoryId = normalizeText(prepared.rawItem && prepared.rawItem.refill_inventory_id);
 
           // 化材补料条件：同产品代码、同批号、在库状态
           if (
+            submitAction === 'refill'
+            &&
             inventoryData.category === 'chemical'
             && isChemicalRefillEligible(existingItem, {
               category: inventoryData.category,
@@ -193,6 +212,9 @@ exports.main = async (event, context) => {
               quantity: inventoryData.quantity
             })
           ) {
+            if (!refillInventoryId || refillInventoryId !== existingItem._id) {
+              throw new Error(`第${i + 1}条补料目标库存不一致，请刷新后重试`);
+            }
             const addQty = (inventoryData.quantity && inventoryData.quantity.val) || 0;
             const refillUpdate = buildChemicalRefillUpdate(existingItem, addQty);
 
@@ -221,7 +243,7 @@ exports.main = async (event, context) => {
           }
 
           // 非化材或不满足补料条件：冲突回滚
-          throw new Error(`冲突：标签编号 ${inventoryData.unique_code} 已存在，批量操作已回滚`);
+          throw new Error(`冲突：标签编号 ${inventoryData.unique_code} 已存在，如需补料请明确选择补料入库，批量操作已回滚`);
         }
 
         const preprintLabelId = String(prepared.rawItem && prepared.rawItem.preprint_label_id || '').trim();
@@ -303,11 +325,13 @@ exports.main = async (event, context) => {
         });
       }
 
-      return {
+      const response = {
         success: true,
         total: ids.length,
         ids
       };
+      await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      return response;
     });
   } catch (err) {
     console.error(err);

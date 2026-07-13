@@ -22,6 +22,26 @@ function loadModuleWithMocks(modulePath, mocks) {
   }
 }
 
+function createOperationReceiptCollection(store = new Map()) {
+  return {
+    doc(id) {
+      return {
+        async get() {
+          return { data: store.get(id) || null };
+        },
+        async set({ data }) {
+          store.set(id, { ...data });
+          return {};
+        },
+        async update({ data }) {
+          store.set(id, { ...store.get(id), ...data });
+          return {};
+        }
+      };
+    }
+  };
+}
+
 test('editInventory rejects legacy location text update fields', async () => {
   const transaction = {
     collection(name) {
@@ -183,6 +203,10 @@ test('editInventory requires admin access for film width correction and logs the
         };
       }
 
+      if (name === 'operation_receipts') {
+        return createOperationReceiptCollection();
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -238,6 +262,7 @@ test('editInventory requires admin access for film width correction and logs the
 
   const result = await mod.main({
     inventory_id: 'inv-film-1',
+    operation_id: 'op_edit_width_001',
     operator_name: '库存管理员',
     updates: {
       width_mm: 1250,
@@ -311,6 +336,10 @@ test('editInventory stocktake adjustment updates chemical current quantity and w
         };
       }
 
+      if (name === 'operation_receipts') {
+        return createOperationReceiptCollection();
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -364,6 +393,7 @@ test('editInventory stocktake adjustment updates chemical current quantity and w
 
   const result = await mod.main({
     inventory_id: 'inv-chemical-1',
+    operation_id: 'op_edit_stocktake_chemical_001',
     operator_name: '库存管理员',
     updates: {
       stocktake_quantity: 7.5,
@@ -442,6 +472,10 @@ test('editInventory stocktake adjustment updates film current length without cha
         };
       }
 
+      if (name === 'operation_receipts') {
+        return createOperationReceiptCollection();
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -495,6 +529,7 @@ test('editInventory stocktake adjustment updates film current length without cha
 
   const result = await mod.main({
     inventory_id: 'inv-film-2',
+    operation_id: 'op_edit_stocktake_film_001',
     operator_name: '库存管理员',
     updates: {
       stocktake_quantity: 80,

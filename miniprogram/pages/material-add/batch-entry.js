@@ -37,6 +37,10 @@ const {
   listProductCodePrefixes,
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../utils/operation-id');
 
 const DEFAULT_PREFIX_OPTIONS = [
   { prefix: 'J', category: 'chemical', status: 'active' },
@@ -1226,15 +1230,21 @@ Page({
 
           wx.showLoading({ title: '提交中...', mask: true });
 
+          const payload = {
+              items,
+              operator_name: operator
+          };
+          const operationScope = 'batchAddInventory:batch-entry';
           const res = await wx.cloud.callFunction({
               name: 'batchAddInventory',
               data: {
-                  items,
-                  operator_name: operator
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'batchin')
               }
           });
 
           if (res.result.success) {
+              clearOperationId(operationScope);
               wx.hideLoading();
               const successParts = [];
               if (createCount > 0) {

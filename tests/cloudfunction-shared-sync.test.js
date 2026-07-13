@@ -236,12 +236,17 @@ test('importInventoryTemplate keeps a deployable local film helper and sync scri
   assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/getInventoryRecord\/auth\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/auth\.js cloudfunctions\/getApprovalCenterData\/auth\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/approveInventoryCorrectionRequest\/film-quantity\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/editInventory\/film-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/film-quantity\.js cloudfunctions\/importInventoryTemplate\/film-quantity\.js/);
 
   assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/addMaterial\/inventory-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/batchAddInventory\/inventory-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/approveInventoryCorrectionRequest\/inventory-quantity\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/editInventory\/inventory-quantity\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/inventory-quantity\.js cloudfunctions\/importInventoryTemplate\/inventory-quantity\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/operation-receipts\.js cloudfunctions\/addMaterial\/operation-receipts\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/operation-receipts\.js cloudfunctions\/editInventory\/operation-receipts\.js/);
+  assert.match(syncScript, /cp cloudfunctions\/_shared\/operation-receipts\.js cloudfunctions\/importInventoryTemplate\/operation-receipts\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/export-report\.js cloudfunctions\/exportData\/export-report\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/exportData\/cst-time\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/getProjectUsageReport\/cst-time\.js/);

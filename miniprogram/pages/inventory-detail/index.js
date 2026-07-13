@@ -10,6 +10,10 @@ const {
   getInventorySpecDisplayState,
   resolveInventoryExpiryDisplay
 } = require('../../utils/inventory-display');
+const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../utils/operation-id');
 // const dayjs = require('../../utils/dayjs.min.js'); // Removed unused dependency
 
 Page({
@@ -291,20 +295,26 @@ Page({
           const app = getApp();
           const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
 
+          const payload = {
+              unique_code: item.unique_code,
+              withdraw_amount: withdraw_amount,
+              project_code,
+              project_name,
+              withdraw_note,
+              note: project_code || note,
+              operator_name: operator
+          };
+          const operationScope = `updateInventory:detail-withdraw:${item.unique_code || this.data.id}`;
           const res = await wx.cloud.callFunction({
               name: 'updateInventory',
               data: {
-                  unique_code: item.unique_code,
-                  withdraw_amount: withdraw_amount,
-                  project_code,
-                  project_name,
-                  withdraw_note,
-                  note: project_code || note,
-                  operator_name: operator
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'withdraw')
               }
           });
 
           if (res.result && res.result.success) {
+              clearOperationId(operationScope);
               getApp().globalData.inventoryChangedAt = Date.now();
               const remaining = res.result.displayRemaining !== undefined
                 ? res.result.displayRemaining
@@ -401,19 +411,25 @@ Page({
       try {
           const app = getApp();
           const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
+          const payload = {
+              inventory_id: this.data.id,
+              operator_name: operator,
+              updates: {
+                  width_mm: nextWidth,
+                  adjust_reason: String(adjustWidthReason || '').trim()
+              }
+          };
+          const operationScope = `editInventory:width:${this.data.id}`;
           const res = await wx.cloud.callFunction({
               name: 'editInventory',
               data: {
-                  inventory_id: this.data.id,
-                  operator_name: operator,
-                  updates: {
-                      width_mm: nextWidth,
-                      adjust_reason: String(adjustWidthReason || '').trim()
-                  }
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'edit')
               }
           });
 
           if (res.result && res.result.success) {
+              clearOperationId(operationScope);
               getApp().globalData.inventoryChangedAt = Date.now();
               Toast.success('幅宽已修正');
               this.setData({
@@ -487,19 +503,25 @@ Page({
       try {
           const app = getApp();
           const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
+          const payload = {
+              inventory_id: this.data.id,
+              operator_name: operator,
+              updates: {
+                  stocktake_quantity: nextQuantity,
+                  adjust_reason: String(stocktakeAdjustReason || '').trim()
+              }
+          };
+          const operationScope = `editInventory:stocktake:${this.data.id}`;
           const res = await wx.cloud.callFunction({
               name: 'editInventory',
               data: {
-                  inventory_id: this.data.id,
-                  operator_name: operator,
-                  updates: {
-                      stocktake_quantity: nextQuantity,
-                      adjust_reason: String(stocktakeAdjustReason || '').trim()
-                  }
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'edit')
               }
           });
 
           if (res.result && res.result.success) {
+              clearOperationId(operationScope);
               getApp().globalData.inventoryChangedAt = Date.now();
               Toast.success('盘点调整已保存');
               this.setData({

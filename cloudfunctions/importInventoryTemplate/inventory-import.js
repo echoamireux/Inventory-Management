@@ -7,6 +7,10 @@ const {
   buildTestMaterialStockInValidation,
   resolveInventorySourceText
 } = require('./test-material');
+const {
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters
+} = require('./inventory-quantity');
 const NEW_TEMPLATE_COLUMN_COUNT = 17;
 const INVENTORY_TEMPLATE_GROUP_HEADER_ROW = ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''];
 const INVENTORY_TEMPLATE_HEADER_ROW = ['标签编号*', '代码前缀*', '产品编号*', '类别*', '生产批号*', '存储区域*', '详细坐标', '净含量', '包装形式', '膜材厚度(μm)', '本批次实际幅宽(mm)', '长度(m)', '供应商', '原厂型号', '样品说明/备注', '过期日期', '长期有效'];
@@ -1076,9 +1080,14 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   row.quantity_unit = normalizedUnit.unit;
 
   if (category === 'chemical') {
-    row.net_content = normalizePositiveNumber(values[7]);
-    if (row.net_content == null) {
+    if (!normalizeText(values[7])) {
       row.error = '化材必须填写净含量';
+      return row;
+    }
+    try {
+      row.net_content = parseChemicalQuantity(values[7], '化材净含量');
+    } catch (error) {
+      row.error = error.message || '化材净含量必须为有效正数';
       return row;
     }
     row.quantity_summary = `${formatDisplayNumber(row.net_content, 3)} ${row.quantity_unit}`;
@@ -1091,7 +1100,16 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
 
   row.thickness_um = normalizePositiveNumber(values[9]);
   row.batch_width_mm = normalizePositiveNumber(values[10]);
-  row.length_m = normalizePositiveNumber(values[11]);
+  if (normalizeText(values[11])) {
+    try {
+      row.length_m = parsePositiveIntegerMeters(values[11], '膜材长度');
+    } catch (error) {
+      row.error = error.message || '膜材长度必须为正整数米';
+      return row;
+    }
+  } else {
+    row.length_m = null;
+  }
 
   try {
     alignFilmSpecsWithPreprint(row, preprintLabelsByUniqueCode.get(row.unique_code));
@@ -1284,7 +1302,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
       inboundThicknessUm: normalizePositiveNumber(filmItem.thickness_um)
     });
     const resolvedThicknessUm = thicknessGovernance.resolvedThicknessUm;
-    const baseLengthM = normalizePositiveNumber(filmItem.length_m);
+    const normalizedBaseLengthM = normalizePositiveNumber(filmItem.length_m);
+    const baseLengthM = normalizedBaseLengthM
+      ? parsePositiveIntegerMeters(filmItem.length_m, `${rowLabel}膜材长度`)
+      : null;
     const currentMasterWidth = extractMaterialWidth(material);
 
     if (!resolvedWidthMm) {
@@ -1327,10 +1348,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     logQuantityChange = filmState.currentLengthM;
     logUnit = 'm';
   } else {
-    const quantityVal = normalizePositiveNumber(sourceItem.net_content);
-    if (!quantityVal) {
+    if (!normalizeText(sourceItem.net_content)) {
       throw new Error(`${rowLabel}化材缺少净含量`);
     }
+    const quantityVal = parseChemicalQuantity(sourceItem.net_content, `${rowLabel}化材净含量`);
     inventoryData.quantity.val = quantityVal;
     inventoryData.quantity.unit = normalizedUnit.unit;
     inventoryData.dynamic_attrs = {

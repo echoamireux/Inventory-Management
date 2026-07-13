@@ -10,7 +10,16 @@ const { assertActiveUserAccess } = require('./auth');
 const {
   shouldBlockTestMaterialProductOnlyWithdrawal
 } = require('./test-material-withdrawal');
-const { assertConsistentChemicalUnits } = require('./inventory-quantity');
+const {
+  assertConsistentChemicalUnits,
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters
+} = require('./inventory-quantity');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -18,8 +27,6 @@ cloud.init({
 
 const db = cloud.database();
 
-// 浮点数精度阈值（用于库存量比较）
-const EPSILON = 0.001;
 const PRECISION = 1000; // 3 decimal places for calculation safety
 
 async function loadOperator(openid) {
@@ -188,8 +195,8 @@ exports.main = async (event, context) => {
     };
   }
 
-  const totalNeed = Number(withdraw_amount);
-  if (!Number.isFinite(totalNeed) || totalNeed <= 0) {
+  const requestedNeed = Number(withdraw_amount);
+  if (!Number.isFinite(requestedNeed) || requestedNeed <= 0) {
     return { success: false, msg: '领用数量必须为有效正数' };
   }
 
@@ -210,6 +217,19 @@ exports.main = async (event, context) => {
       return { success: false, msg: '项目编码不存在或已停用，请刷新后重新选择' };
     }
     const projectName = sanitizeText(project.project_name);
+    const operationContext = buildOperationReceiptContext({
+      openid: OPENID,
+      operationId: event.operation_id,
+      requestPayload: {
+        unique_code,
+        product_code,
+        batch_no,
+        supplier_model,
+        withdraw_amount,
+        project_code: projectCode,
+        withdraw_note: withdrawNote
+      }
+    });
 
     const materialForSelection = (!unique_code && product_code)
       ? await loadMaterialByProductCode(product_code)
@@ -237,9 +257,19 @@ exports.main = async (event, context) => {
       return { success: false, msg: testMaterialGuard.msg };
     }
     assertConsistentChemicalUnits(candidateItems);
+    const isFilmSelection = candidateItems.length > 0
+      && candidateItems.every(item => item && item.category === 'film');
+    const totalNeed = isFilmSelection
+      ? parsePositiveIntegerMeters(withdraw_amount, '膜材领用量')
+      : parseChemicalQuantity(withdraw_amount, '领用数量');
     const preferredFilmUnit = await loadPreferredFilmUnit(candidateItems);
 
     const runWithdrawalTransaction = () => db.runTransaction(async transaction => {
+      const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+      if (operationReceipt.reused) {
+        return operationReceipt.response;
+      }
+
       const itemsToProcess = await reloadTransactionCandidates(transaction, candidateIds);
       if (itemsToProcess.length === 0) {
         throw new Error('No available inventory found for this selection.');
@@ -251,7 +281,7 @@ exports.main = async (event, context) => {
       const newStockMap = new Map();
 
       for (const item of itemsToProcess) {
-        if (remainingNeed <= EPSILON) break;
+        if (remainingNeed <= 0) break;
 
         const isFilm = item.category === 'film';
         const currentStock = isFilm
@@ -289,13 +319,13 @@ exports.main = async (event, context) => {
             item.dynamic_attrs && item.dynamic_attrs.width_mm,
             item.dynamic_attrs && item.dynamic_attrs.initial_length_m
           );
-          if (newStock <= 0.1) newStatus = 'used';
+          if (newStock === 0) newStatus = 'used';
         } else {
           updateData['quantity.val'] = newStock;
           if (item.dynamic_attrs && item.dynamic_attrs.weight_kg !== undefined) {
             updateData['dynamic_attrs.weight_kg'] = newStock;
           }
-          if (newStock <= 0.001) newStatus = 'used';
+          if (newStock === 0) newStatus = 'used';
         }
         updateData.status = newStatus;
 
@@ -324,7 +354,7 @@ exports.main = async (event, context) => {
         });
       }
 
-      if (remainingNeed > EPSILON) {
+      if (remainingNeed > 0) {
         throw new Error(`库存不足，总可用: ${(totalNeed - remainingNeed).toFixed(2)}，需求: ${totalNeed}`);
       }
 
@@ -378,7 +408,7 @@ exports.main = async (event, context) => {
         ? '本标签'
         : (batch_no ? '本批次' : '该产品');
 
-      return {
+      const response = {
         success: true,
         remaining: Number(totalRemaining.toFixed(2)),
         unit,
@@ -386,6 +416,8 @@ exports.main = async (event, context) => {
         displayUnit,
         remainingScope
       };
+      await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      return response;
     });
 
     let lastTransactionError = null;

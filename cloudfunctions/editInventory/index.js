@@ -10,6 +10,15 @@ const {
   buildInventoryLocationPayload,
   resolveInventoryLocationText
 } = require('./warehouse-zones');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded
+} = require('./operation-receipts');
+const {
+  parseChemicalQuantity,
+  parsePositiveIntegerMeters
+} = require('./inventory-quantity');
 
 function roundNumber(value, digits = 3) {
   const factor = 10 ** digits;
@@ -93,6 +102,13 @@ function buildStocktakeUpdatePayload(item = {}, nextBaseQuantity) {
   };
 }
 
+function parseStocktakeQuantity(item = {}, value) {
+  if (item.category === 'film') {
+    return parsePositiveIntegerMeters(value, '剩余长度');
+  }
+  return parseChemicalQuantity(value, '当前数量');
+}
+
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
@@ -138,6 +154,18 @@ exports.main = async (event, context) => {
           if (!authResult.ok) {
             throw new Error(authResult.msg);
           }
+        }
+        const operationContext = buildOperationReceiptContext({
+          openid: OPENID,
+          operationId: event.operation_id,
+          requestPayload: {
+            inventory_id,
+            updates
+          }
+        });
+        const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+        if (operationReceipt.reused) {
+          return operationReceipt.response;
         }
 
         const invRes = await transaction.collection('inventory').doc(inventory_id).get();
@@ -205,14 +233,13 @@ exports.main = async (event, context) => {
             }
           });
 
-          return { success: true };
+          const response = { success: true };
+          await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+          return response;
         }
 
         if (isStocktakeUpdate) {
-          const nextBaseQuantity = Number(updates.stocktake_quantity);
-          if (!Number.isFinite(nextBaseQuantity) || nextBaseQuantity <= 0) {
-            throw new Error(item.category === 'film' ? '请输入有效的剩余长度' : '请输入有效的当前数量');
-          }
+          const nextBaseQuantity = parseStocktakeQuantity(item, updates.stocktake_quantity);
 
           const oldBaseQuantity = resolveCurrentBaseQuantity(item);
           const delta = roundNumber(nextBaseQuantity - oldBaseQuantity, 3);
@@ -244,7 +271,9 @@ exports.main = async (event, context) => {
             }
           });
 
-          return { success: true };
+          const response = { success: true };
+          await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+          return response;
         }
 
         const zoneRecords = sortZoneRecords(await ensureBuiltinZones(db));
@@ -285,7 +314,9 @@ exports.main = async (event, context) => {
           }
         });
 
-        return { success: true };
+        const response = { success: true };
+        await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+        return response;
      });
 
      return result;

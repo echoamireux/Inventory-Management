@@ -44,6 +44,10 @@ const {
   findExactProductCodeMatch
 } = require('../../utils/product-code');
 const {
+  ensureOperationId,
+  clearOperationId
+} = require('../../utils/operation-id');
+const {
   listProductCodePrefixes,
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
@@ -1480,19 +1484,29 @@ Page({
       const app = getApp();
       const operator = app.globalData.user ? app.globalData.user.name : 'Unknown';
 
-      const res = await wx.cloud.callFunction({
-        name: 'addMaterial',
-        data: {
+      const payload = {
           base,
           specs,
           inventory,
           unique_code: normalizedLabelCode, // Pass code
           preprint_label_id: form.preprint_label_id || '',
+          submit_action: duplicateResult.refill ? 'refill' : 'create',
+          refill_inventory_id: duplicateResult.refill && duplicateResult.existingItem
+            ? (duplicateResult.existingItem._id || '')
+            : '',
           operator_name: operator
+      };
+      const operationScope = 'addMaterial:single-stock-in';
+      const res = await wx.cloud.callFunction({
+        name: 'addMaterial',
+        data: {
+          ...payload,
+          operation_id: ensureOperationId(operationScope, payload, 'stockin')
         }
       });
 
       if (res.result && res.result.success) {
+        clearOperationId(operationScope);
         this.setData({ showSuccessDialog: true });
       } else {
         throw new Error(res.result.msg || 'Unknown Error');
