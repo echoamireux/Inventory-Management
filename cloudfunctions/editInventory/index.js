@@ -175,6 +175,10 @@ exports.main = async (event, context) => {
         }
 
         const item = invRes.data;
+        if (item.status !== 'in_stock') {
+          throw new Error('仅在库库存允许编辑');
+        }
+
         if (isWidthUpdate) {
           if (item.category !== 'film') {
             throw new Error('仅膜材记录支持修正幅宽');

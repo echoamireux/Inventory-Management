@@ -185,6 +185,16 @@ async function loadPreprintLabelByUniqueCode(transaction, uniqueCode) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
+async function assertUniqueCodeAvailableForCreate(transaction, uniqueCode) {
+  const res = await transaction.collection('inventory')
+    .where({ unique_code: uniqueCode })
+    .limit(1)
+    .get();
+  if (res.data && res.data.length > 0) {
+    throw new Error(`标签编号 ${uniqueCode} 已存在，请刷新预览后重试`);
+  }
+}
+
 function normalizePositiveSpec(value) {
   const normalized = Number(value);
   return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
@@ -601,6 +611,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       if (existingInventorySnapshot) {
         throw new Error(`标签编号 ${uniqueCode} 已存在，请刷新预览后重试`);
       }
+      await assertUniqueCodeAvailableForCreate(transaction, uniqueCode);
 
       const preprintLabel = await loadPreprintLabelByUniqueCode(transaction, uniqueCode);
       assertPreprintLabelUsable(preprintLabel, item, material);

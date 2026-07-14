@@ -21,6 +21,14 @@ cloud.init({
 
 const db = cloud.database();
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 async function loadOperator(openid) {
   const res = await db.collection('users')
     .where({ _openid: openid })
@@ -34,8 +42,12 @@ async function loadAllInventoryLogs(transaction, inventoryId) {
   let skip = 0;
 
   while (true) {
-    const res = await transaction.collection('inventory_log')
-      .where({ inventory_id: inventoryId })
+    const query = transaction.collection('inventory_log')
+      .where({ inventory_id: inventoryId });
+    const res = await applyStableOrder(query, [
+      ['timestamp', 'asc'],
+      ['_id', 'asc']
+    ])
       .skip(skip)
       .limit(100)
       .get();

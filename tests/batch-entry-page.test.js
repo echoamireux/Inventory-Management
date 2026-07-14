@@ -320,3 +320,19 @@ test('batch entry page allows preprinted labels to select the material before sc
   assert.match(pageWxml, /待补料/);
   assert.doesNotMatch(pageWxml, /van-field[\s\S]*class="product-code-field/);
 });
+
+test('batch entry confirms first film specs locally and never writes master data before submit', () => {
+  const pageJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.js'),
+    'utf8'
+  );
+  const manageMaterial = fs.readFileSync(
+    path.join(__dirname, '../cloudfunctions/manageMaterial/index.js'),
+    'utf8'
+  );
+
+  assert.doesNotMatch(pageJs, /completeFilmSpecsFromInbound/);
+  assert.doesNotMatch(pageJs, /保存规格中/);
+  assert.doesNotMatch(manageMaterial, /completeFilmSpecsFromInbound/);
+  assert.match(pageJs, /已确认本批次规格/);
+});

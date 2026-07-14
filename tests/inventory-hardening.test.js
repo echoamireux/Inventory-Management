@@ -210,6 +210,14 @@ test('duplicate chemical labels require an explicit refill action on write APIs'
   assert.match(templateStockIn, /refill_inventory_id/);
 });
 
+test('template stock-in rechecks unique label codes inside the create transaction', () => {
+  const templateStockIn = read('cloudfunctions/importInventoryTemplate/index.js');
+
+  assert.match(templateStockIn, /assertUniqueCodeAvailableForCreate/);
+  assert.match(templateStockIn, /transaction\.collection\('inventory'\)[\s\S]*where\(\{\s*unique_code:\s*uniqueCode\s*\}\)[\s\S]*limit\(1\)[\s\S]*get\(\)/);
+  assert.match(templateStockIn, /标签编号 \$\{uniqueCode\} 已存在/);
+});
+
 test('inventory write frontends submit stable operation ids', () => {
   const singleStockInPage = read('miniprogram/pages/material-add/index.js');
   const batchStockInPage = read('miniprogram/pages/material-add/batch-entry.js');
@@ -240,6 +248,32 @@ test('material unit and archive mutations are blocked after inventory exists', (
   assert.match(source, /default_unit[\s\S]{0,1200}inventory/);
   assert.match(source, /status:\s*'in_stock'/);
   assert.match(source, /存在在库库存|在库记录/);
+});
+
+test('material master mutations write audit events in the same transaction', () => {
+  const source = read('cloudfunctions/manageMaterial/index.js');
+
+  assert.doesNotMatch(source, /记录物料日志失败/);
+  assert.match(source, /writeMaterialAuditEvent/);
+  assert.match(source, /writeMaterialAuditEvent\(transaction,\s*openid,\s*\{/);
+  assert.match(source, /action:\s*'batch_archive'/);
+  assert.match(source, /action:\s*'batch_delete'/);
+  assert.match(source, /action:\s*'restore'/);
+});
+
+test('editInventory rejects non-in-stock records before any mutation branch', () => {
+  const editInventory = read('cloudfunctions/editInventory/index.js');
+
+  assert.match(editInventory, /item\.status !== 'in_stock'/);
+  assert.match(editInventory, /仅在库库存允许编辑/);
+});
+
+test('withdrawal and correction log pagination use stable order before skip', () => {
+  const updateInventory = read('cloudfunctions/updateInventory/index.js');
+  const correctionApproval = read('cloudfunctions/approveInventoryCorrectionRequest/index.js');
+
+  assert.match(updateInventory, /applyStableOrder\(query,\s*\[[\s\S]*\['expiry_date', 'asc'\][\s\S]*\['create_time', 'asc'\][\s\S]*\['_id', 'asc'\][\s\S]*\]\)[\s\S]*skip\(skip\)/);
+  assert.match(correctionApproval, /applyStableOrder\(query,\s*\[[\s\S]*\['timestamp', 'asc'\][\s\S]*\['_id', 'asc'\][\s\S]*\]\)[\s\S]*skip\(skip\)/);
 });
 
 test('material-wide cascade deletion is disabled and audit operator is server-derived', () => {

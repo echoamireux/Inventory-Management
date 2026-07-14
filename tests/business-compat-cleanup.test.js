@@ -65,7 +65,7 @@ test('editInventory rejects legacy location text update fields', async () => {
             return {
               async get() {
                 return {
-                  data: { _id: 'inv-1', category: 'chemical' }
+                  data: { _id: 'inv-1', category: 'chemical', status: 'in_stock' }
                 };
               }
             };
@@ -177,6 +177,7 @@ test('editInventory requires admin access for film width correction and logs the
                     category: 'film',
                     product_code: 'M-005',
                     unique_code: 'L000004',
+                    status: 'in_stock',
                     quantity: { val: 246, unit: 'm²' },
                     dynamic_attrs: {
                       current_length_m: 200,
@@ -315,6 +316,7 @@ test('editInventory stocktake adjustment updates chemical current quantity and w
                     category: 'chemical',
                     product_code: 'J-008',
                     unique_code: 'L000108',
+                    status: 'in_stock',
                     quantity: { val: 10, unit: 'kg' },
                     dynamic_attrs: { weight_kg: 10 }
                   }
@@ -448,6 +450,7 @@ test('editInventory stocktake adjustment updates film current length without cha
                     category: 'film',
                     product_code: 'M-008',
                     unique_code: 'L000208',
+                    status: 'in_stock',
                     quantity: { val: 120, unit: 'm²' },
                     dynamic_attrs: {
                       current_length_m: 100,

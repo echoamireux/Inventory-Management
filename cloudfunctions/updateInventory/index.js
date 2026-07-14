@@ -30,6 +30,14 @@ const db = cloud.database();
 
 const PRECISION = 1000; // 3 decimal places for calculation safety
 
+function applyStableOrder(query, sorts = []) {
+  return sorts.reduce((current, [field, direction]) => (
+    current && typeof current.orderBy === 'function'
+      ? current.orderBy(field, direction)
+      : current
+  ), query);
+}
+
 async function loadOperator(openid) {
   const res = await db.collection('users')
     .where({ _openid: openid })
@@ -77,8 +85,13 @@ async function loadInventoryCandidatesByPage(where, pageSize = 100) {
   let items = [];
 
   while (true) {
-    const res = await db.collection('inventory')
-      .where(where)
+    const query = db.collection('inventory')
+      .where(where);
+    const res = await applyStableOrder(query, [
+      ['expiry_date', 'asc'],
+      ['create_time', 'asc'],
+      ['_id', 'asc']
+    ])
       .skip(skip)
       .limit(pageSize)
       .get();

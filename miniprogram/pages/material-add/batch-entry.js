@@ -720,52 +720,29 @@ Page({
           return;
       }
 
-      Toast.loading({ message: '保存规格中...', forbidClick: true });
-      try {
-          const res = await wx.cloud.callFunction({
-              name: 'manageMaterial',
-              data: {
-                  action: 'completeFilmSpecsFromInbound',
-                  data: {
-                      id: selectedMaterial._id,
-                      thickness_um: thicknessUm,
-                      batch_width_mm: batchWidthMm
-                  }
-              }
-          });
+      const currentBatchWidthMm = String(batchWidthMm);
+      const nextSpecs = Object.assign({}, selectedMaterial.specs || {}, {
+          thickness_um: thicknessUm,
+          standard_width_mm: summary.standardWidthMm || batchWidthMm
+      });
+      const nextMaterial = Object.assign({}, selectedMaterial, {
+          specs: nextSpecs
+      });
+      const selectedMaterialSummary = buildSelectedMaterialSummary(nextMaterial);
 
-          if (!(res.result && res.result.success)) {
-              throw new Error((res.result && res.result.msg) || '规格保存失败');
+      Toast.success('已确认本批次规格');
+      this.updateBatchViewState({
+          selectedMaterial: nextMaterial,
+          selectedMaterialSummary,
+          showInitialFilmSpecForm: false,
+          currentBatchWidthMm,
+          filmBatchSpecsConfirmed: true,
+          usesCustomBatchWidth: !!(selectedMaterialSummary.standardWidthMm && selectedMaterialSummary.standardWidthMm !== currentBatchWidthMm),
+          initialFilmSpecForm: {
+              thickness_um: selectedMaterialSummary.thicknessUm || '',
+              batch_width_mm: currentBatchWidthMm
           }
-
-          const nextSpecs = Object.assign({}, selectedMaterial.specs || {}, {
-              thickness_um: res.result.data.material_thickness_um,
-              standard_width_mm: res.result.data.material_standard_width_mm
-          });
-          const nextMaterial = Object.assign({}, selectedMaterial, {
-              specs: nextSpecs
-          });
-          const selectedMaterialSummary = buildSelectedMaterialSummary(nextMaterial);
-          const currentBatchWidthMm = String(res.result.data.batch_width_mm || batchWidthMm);
-
-          Toast.clear();
-          Toast.success('已保存并开始本批次');
-          this.updateBatchViewState({
-              selectedMaterial: nextMaterial,
-              selectedMaterialSummary,
-              showInitialFilmSpecForm: false,
-              currentBatchWidthMm,
-              filmBatchSpecsConfirmed: true,
-              usesCustomBatchWidth: !!(selectedMaterialSummary.standardWidthMm && selectedMaterialSummary.standardWidthMm !== currentBatchWidthMm),
-              initialFilmSpecForm: {
-                  thickness_um: selectedMaterialSummary.thicknessUm || '',
-                  batch_width_mm: currentBatchWidthMm
-              }
-          });
-      } catch (err) {
-          console.error(err);
-          this.showBusinessError(err.message || '规格保存失败', '规格确认');
-      }
+      });
   },
 
   // === Scanning Logic ===

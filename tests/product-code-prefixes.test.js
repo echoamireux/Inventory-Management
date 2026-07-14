@@ -138,6 +138,15 @@ test('product code prefix management is registered and reachable for admins', ()
   assert.match(cloudIndex, /ensureBuiltinProductCodePrefixes/);
 });
 
+test('product code prefix status changes recheck category guard inside one transaction', () => {
+  const cloudIndex = read('cloudfunctions/manageProductCodePrefix/index.js');
+
+  assert.match(cloudIndex, /db\.runTransaction/);
+  assert.match(cloudIndex, /transaction\.collection\('product_code_prefixes'\)/);
+  assert.match(cloudIndex, /至少保留一个启用的产品代码前缀/);
+  assert.match(cloudIndex, /writePrefixAudit\([^)]*transaction/);
+});
+
 test('product code prefix form surfaces invalid prefix feedback inside the popup', () => {
   const pageWxml = read('miniprogram/pages/admin/product-code-prefix-manage/index.wxml');
   const pageJs = read('miniprogram/pages/admin/product-code-prefix-manage/index.js');

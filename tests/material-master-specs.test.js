@@ -104,12 +104,11 @@ test('manageMaterial cloud function persists package_type and film specs as gove
   assert.match(file, /package_type/);
   assert.match(file, /thickness_um/);
   assert.match(file, /standard_width_mm/);
-  assert.match(file, /batch_width_mm/);
-  assert.match(file, /material_standard_width_mm/);
   assert.match(file, /fields\.specs/);
   assert.match(file, /buildGovernedMaterialMasterFields/);
   assert.match(file, /assertAdminMutationAccess/);
   assert.match(file, /assertActiveUserAccess/);
+  assert.doesNotMatch(file, /completeFilmSpecsFromInbound/);
   assert.doesNotMatch(file, /shelf_life_days/);
 });
 

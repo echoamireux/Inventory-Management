@@ -34,8 +34,8 @@ async function findPrefix(prefix) {
   return records.find(item => item.prefix === prefix) || null;
 }
 
-async function writePrefixAudit(action, operator, openid, record = {}, detail = {}) {
-  await writeAuditEvent(db, db, {
+async function writePrefixAudit(collectionOwner, action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(collectionOwner, db, {
     domain: 'product_prefix',
     action,
     operator: Object.assign({}, operator || {}, { _openid: openid }),
@@ -97,7 +97,7 @@ async function createPrefix(event, openid) {
       updated_at: db.serverDate()
     }
   });
-  await writePrefixAudit('create', operator, openid, { _id: res._id, prefix, category, status: 'active' });
+  await writePrefixAudit(db, 'create', operator, openid, { _id: res._id, prefix, category, status: 'active' });
 
   return {
     success: true,
@@ -105,25 +105,6 @@ async function createPrefix(event, openid) {
     id: res._id,
     prefix
   };
-}
-
-async function assertCategoryHasActiveAfter(prefixRecord, nextStatus) {
-  if (nextStatus === 'active') {
-    return { ok: true };
-  }
-  const records = await getPrefixRecords(true);
-  const activeSameCategory = records.filter(item => (
-    item.category === prefixRecord.category
-    && item.prefix !== prefixRecord.prefix
-    && item.status === 'active'
-  ));
-  if (!activeSameCategory.length) {
-    return {
-      ok: false,
-      msg: '至少保留一个启用的产品代码前缀'
-    };
-  }
-  return { ok: true };
 }
 
 async function setPrefixStatus(event, openid) {
@@ -135,24 +116,42 @@ async function setPrefixStatus(event, openid) {
 
   const prefix = normalizeProductCodePrefix(event && event.prefix);
   const nextStatus = normalizeStatus(event && event.status);
-  const record = await findPrefix(prefix);
-  if (!record || !record._id) {
-    return { success: false, msg: '产品代码前缀不存在' };
-  }
-  const guard = await assertCategoryHasActiveAfter(record, nextStatus);
-  if (!guard.ok) {
-    return { success: false, msg: guard.msg };
-  }
+  await ensureBuiltinProductCodePrefixes(db);
 
-  await db.collection('product_code_prefixes').doc(record._id).update({
-    data: {
-      status: nextStatus,
-      updated_at: db.serverDate()
+  await db.runTransaction(async (transaction) => {
+    const recordRes = await transaction.collection('product_code_prefixes')
+      .where({ prefix })
+      .limit(1)
+      .get();
+    const record = recordRes.data && recordRes.data[0];
+    if (!record || !record._id) {
+      throw new Error('产品代码前缀不存在');
     }
-  });
-  await writePrefixAudit('status', operator, openid, Object.assign({}, record, { status: nextStatus }), {
-    previous_status: record.status,
-    next_status: nextStatus
+
+    if (record.status === 'active' && nextStatus === 'disabled') {
+      const activeRes = await transaction.collection('product_code_prefixes')
+        .where({
+          category: record.category,
+          status: 'active'
+        })
+        .limit(2)
+        .get();
+      const hasOtherActive = (activeRes.data || []).some(item => item.prefix !== record.prefix);
+      if (!hasOtherActive) {
+        throw new Error('至少保留一个启用的产品代码前缀');
+      }
+    }
+
+    await transaction.collection('product_code_prefixes').doc(record._id).update({
+      data: {
+        status: nextStatus,
+        updated_at: db.serverDate()
+      }
+    });
+    await writePrefixAudit(transaction, 'status', operator, openid, Object.assign({}, record, { status: nextStatus }), {
+      previous_status: record.status,
+      next_status: nextStatus
+    });
   });
 
   return {
@@ -191,7 +190,7 @@ async function reorderPrefixes(event, openid) {
       }
     });
   }
-  await writePrefixAudit('reorder', operator, openid, { prefix: validPrefixes.join(',') }, {
+  await writePrefixAudit(db, 'reorder', operator, openid, { prefix: validPrefixes.join(',') }, {
     prefixes: validPrefixes
   });
 

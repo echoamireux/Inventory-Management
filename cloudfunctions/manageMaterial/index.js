@@ -171,6 +171,32 @@ async function assertManageMaterialActiveAccess(openid, message = '仅已激活�
   return { ok: true, operator };
 }
 
+async function runMaterialTransaction(handler) {
+  if (typeof db.runTransaction === 'function') {
+    return db.runTransaction(handler);
+  }
+  return handler({ collection: db.collection.bind(db) });
+}
+
+async function writeMaterialAuditEvent(collectionOwner, openid, logData = {}) {
+  await writeAuditEvent(collectionOwner, db, {
+    domain: 'material',
+    action: logData.action || 'change',
+    actorId: openid,
+    target: {
+      type: 'material',
+      id: logData.material_id || '',
+      label: logData.product_code || ''
+    },
+    before: logData.old_data || {},
+    after: logData.new_data || logData.changes || {},
+    detail: {
+      product_code: logData.product_code || '',
+      note: logData.action || ''
+    }
+  });
+}
+
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
   const removeIrrelevant = !!options.removeIrrelevant;
   const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
@@ -356,8 +382,6 @@ exports.main = async (event, context) => {
         return await createMaterial(data, OPENID);
       case 'update':
         return await updateMaterial(data, OPENID);
-      case 'completeFilmSpecsFromInbound':
-        return await completeFilmSpecsFromInbound(data, OPENID);
       case 'archive':
         return await archiveMaterial(data, OPENID);
       case 'batchCreate':
@@ -545,15 +569,15 @@ async function createMaterial(data, openid) {
     updated_at: now
   };
 
-  const res = await db.collection('materials').add({ data: newMaterial });
-
-  // 记录日志
-  await logMaterialChange({
-    material_id: res._id,
-    product_code: normalizedCode.product_code,
-    action: 'create',
-    operator: openid,
-    changes: newMaterial
+  const res = await runMaterialTransaction(async (transaction) => {
+    const addRes = await transaction.collection('materials').add({ data: newMaterial });
+    await writeMaterialAuditEvent(transaction, openid, {
+      material_id: addRes._id,
+      product_code: normalizedCode.product_code,
+      action: 'create',
+      changes: newMaterial
+    });
+    return addRes;
   });
 
   return { success: true, id: res._id };
@@ -643,7 +667,7 @@ async function updateMaterial(data, openid) {
   updateData.updated_at = db.serverDate();
 
   let committedOldData = oldData;
-  await db.runTransaction(async (transaction) => {
+  await runMaterialTransaction(async (transaction) => {
     const materialRef = transaction.collection('materials').doc(id);
     const currentRes = await materialRef.get();
     const currentData = currentRes.data;
@@ -671,110 +695,16 @@ async function updateMaterial(data, openid) {
 
     await materialRef.update({ data: updateData });
     committedOldData = currentData;
-  });
-
-  // 记录日志
-  await logMaterialChange({
-    material_id: id,
-    product_code: updateData.product_code || oldData.product_code,
-    action: 'update',
-    operator: openid,
-    old_data: committedOldData,
-    new_data: updateData
+    await writeMaterialAuditEvent(transaction, openid, {
+      material_id: id,
+      product_code: updateData.product_code || currentData.product_code,
+      action: 'update',
+      old_data: committedOldData,
+      new_data: updateData
+    });
   });
 
   return { success: true };
-}
-
-async function completeFilmSpecsFromInbound(data, openid) {
-  const { id, thickness_um, batch_width_mm, width_mm } = data || {};
-
-  if (!id) {
-    return { success: false, msg: '缺少物料ID' };
-  }
-
-  const operator = await getOperator(openid);
-  const authResult = assertActiveUserAccess(operator, '仅已激活用户可补齐首批膜材规格');
-  if (!authResult.ok) {
-    return { success: false, msg: authResult.msg };
-  }
-
-  const materialRes = await db.collection('materials').doc(id).get();
-  const material = materialRes.data;
-  if (!material) {
-    return { success: false, msg: '物料不存在' };
-  }
-  if (material.category !== 'film') {
-    return { success: false, msg: '仅膜材支持首批规格补录' };
-  }
-
-  const nextThicknessUm = normalizeOptionalNumber(thickness_um);
-  const nextBatchWidthMm = normalizeOptionalNumber(
-    batch_width_mm !== undefined ? batch_width_mm : width_mm
-  );
-
-  const currentSpecs = material.specs || {};
-  const currentThicknessUm = normalizeOptionalNumber(currentSpecs.thickness_um);
-  const currentWidthMm = normalizeOptionalNumber(
-    currentSpecs.standard_width_mm !== undefined
-      ? currentSpecs.standard_width_mm
-      : currentSpecs.width_mm
-  );
-
-  if (!currentThicknessUm && !nextThicknessUm) {
-    return { success: false, msg: '请填写有效的补录厚度' };
-  }
-  if (!nextBatchWidthMm) {
-    return { success: false, msg: '请填写有效的本批次实际幅宽' };
-  }
-
-  if (currentThicknessUm && nextThicknessUm && currentThicknessUm !== nextThicknessUm) {
-    return {
-      success: false,
-      msg: `当前物料厚度已锁定为 ${currentThicknessUm} μm，请按主数据入库；如需修改请联系管理员在物料管理中调整`
-    };
-  }
-
-  const updateData = {
-    updated_by: openid,
-    updated_at: db.serverDate()
-  };
-  const newData = {};
-
-  if (!currentThicknessUm) {
-    updateData['specs.thickness_um'] = nextThicknessUm;
-    newData['specs.thickness_um'] = nextThicknessUm;
-  }
-  if (!currentWidthMm) {
-    updateData['specs.standard_width_mm'] = nextBatchWidthMm;
-    newData['specs.standard_width_mm'] = nextBatchWidthMm;
-  }
-
-  if (Object.keys(newData).length > 0) {
-    await db.collection('materials').doc(id).update({ data: updateData });
-    await logMaterialChange({
-      material_id: id,
-      product_code: material.product_code,
-      action: 'complete_specs_from_inbound',
-      operator: openid,
-      old_data: {
-        specs: {
-          thickness_um: currentThicknessUm || null,
-          standard_width_mm: currentWidthMm || null
-        }
-      },
-      new_data: newData
-    });
-  }
-
-  return {
-    success: true,
-    data: {
-      material_thickness_um: currentThicknessUm || nextThicknessUm,
-      material_standard_width_mm: currentWidthMm || nextBatchWidthMm,
-      batch_width_mm: nextBatchWidthMm
-    }
-  };
 }
 
 /**
@@ -791,7 +721,7 @@ async function archiveMaterial(data, openid) {
     return { success: false, msg: '缺少物料ID' };
   }
 
-  const oldData = await db.runTransaction(async (transaction) => {
+  await runMaterialTransaction(async (transaction) => {
     const oldRes = await transaction.collection('materials').doc(id).get();
     if (!oldRes.data) {
       throw new Error('物料不存在');
@@ -812,44 +742,16 @@ async function archiveMaterial(data, openid) {
         updated_at: db.serverDate()
       }
     });
-    return oldRes.data;
-  });
-
-  // 记录日志
-  await logMaterialChange({
-    material_id: id,
-    product_code: oldData.product_code,
-    action: 'archive',
-    operator: openid
+    await writeMaterialAuditEvent(transaction, openid, {
+      material_id: id,
+      product_code: oldRes.data.product_code,
+      action: 'archive',
+      old_data: oldRes.data,
+      new_data: { status: 'archived' }
+    });
   });
 
   return { success: true };
-}
-
-/**
- * 记录物料变更日志
- */
-async function logMaterialChange(logData) {
-  try {
-    await writeAuditEvent(db, db, {
-      domain: 'material',
-      action: logData.action || 'change',
-      actorId: logData.operator,
-      target: {
-        type: 'material',
-        id: logData.material_id || '',
-        label: logData.product_code || ''
-      },
-      before: logData.old_data || {},
-      after: logData.new_data || logData.changes || {},
-      detail: {
-        product_code: logData.product_code || '',
-        note: logData.action || ''
-      }
-    });
-  } catch (err) {
-    console.error('记录物料日志失败:', err);
-  }
 }
 
 /**
@@ -989,10 +891,8 @@ async function batchCreateMaterials(data, openid) {
   const skipped = importResult.skipped;
   const errors = importResult.errors;
 
-  // 记录批量导入日志
-  await logMaterialChange({
+  await writeMaterialAuditEvent(db, openid, {
     action: 'batch_create',
-    operator: openid,
     changes: { total: items.length, created, skipped, errors }
   });
 
@@ -1022,7 +922,7 @@ async function batchDeleteMaterials(data, openid) {
   const normalizedIds = Array.from(new Set(ids.map(id => String(id || '').trim()).filter(Boolean)));
 
   try {
-    const outcome = await db.runTransaction(async (transaction) => {
+    const outcome = await runMaterialTransaction(async (transaction) => {
       const prepared = [];
 
       for (const id of normalizedIds) {
@@ -1047,6 +947,7 @@ async function batchDeleteMaterials(data, openid) {
         prepared.push({
           id,
           materialRef,
+          material: materialRes.data,
           hasHistory: !!(historyRes.data && historyRes.data.length > 0)
         });
       }
@@ -1063,9 +964,26 @@ async function batchDeleteMaterials(data, openid) {
               updated_at: db.serverDate()
             }
           });
+          await writeMaterialAuditEvent(transaction, openid, {
+            material_id: item.id,
+            product_code: item.material.product_code,
+            action: 'batch_archive',
+            old_data: item.material,
+            new_data: {
+              status: 'archived',
+              archive_reason: archive_reason || '批量删除归档'
+            }
+          });
           archived += 1;
         } else {
           await item.materialRef.remove();
+          await writeMaterialAuditEvent(transaction, openid, {
+            material_id: item.id,
+            product_code: item.material.product_code,
+            action: 'batch_delete',
+            old_data: item.material,
+            new_data: { removed: true }
+          });
           deleted += 1;
         }
       }
@@ -1106,33 +1024,42 @@ async function restoreMaterial(data, openid) {
   if (!id) return { success: false, msg: '缺少参数' };
 
   try {
-    const material = await db.collection('materials').doc(id).get();
-    if (!material.data) return { success: false, msg: '物料不存在' };
+    await runMaterialTransaction(async (transaction) => {
+      const materialRef = transaction.collection('materials').doc(id);
+      const material = await materialRef.get();
+      if (!material.data) {
+        throw new Error('物料不存在');
+      }
 
-    // 检查是否有同名的 Active 物料 (防重)
-    const conflict = await db.collection('materials').where({
-      product_code: material.data.product_code,
-      status: _.neq('archived')
-    }).count();
+      const conflict = await transaction.collection('materials').where({
+        product_code: material.data.product_code,
+        status: _.neq('archived')
+      }).limit(1).get();
 
-    if (conflict.total > 0) {
-      return { success: false, msg: '当前活跃库中已存在相同代码的物料，无法还原' };
-    }
+      if (conflict.data && conflict.data.length > 0) {
+        throw new Error('当前活跃库中已存在相同代码的物料，无法还原');
+      }
 
-    // 执行还原
-    await db.collection('materials').doc(id).update({
-      data: {
+      const restoreData = {
         status: 'active',
-        archive_reason: _.remove(), // 清除归档原因
+        archive_reason: _.remove(),
         updated_by: openid,
         updated_at: db.serverDate()
-      }
+      };
+      await materialRef.update({ data: restoreData });
+      await writeMaterialAuditEvent(transaction, openid, {
+        material_id: id,
+        product_code: material.data.product_code,
+        action: 'restore',
+        old_data: material.data,
+        new_data: { status: 'active' }
+      });
     });
 
     return { success: true, msg: '已还原' };
   } catch (err) {
     console.error(err);
-    return { success: false, msg: '还原失败' };
+    return { success: false, msg: err.message || '还原失败' };
   }
 }
 

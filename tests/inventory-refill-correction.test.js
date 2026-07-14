@@ -1411,11 +1411,22 @@ test('inventory template submit supports mixed create and refill rows in one req
           runTransaction(fn) {
             return fn({
               collection(name) {
-                if (name === 'inventory') {
-                  return {
-                    doc(id) {
-                      return {
-                        async get() {
+	                if (name === 'inventory') {
+	                  return {
+	                    where(query) {
+	                      return {
+	                        limit() {
+	                          return this;
+	                        },
+	                        async get() {
+	                          assert.equal(query.unique_code, 'L000902');
+	                          return { data: [] };
+	                        }
+	                      };
+	                    },
+	                    doc(id) {
+	                      return {
+	                        async get() {
                           assert.equal(id, 'inv-template-refill-2');
                           return { data: currentInventory };
                         },
@@ -1656,11 +1667,22 @@ test('inventory template submit consumes matching unused preprint labels when cr
           runTransaction(fn) {
             return fn({
               collection(name) {
-                if (name === 'inventory') {
-                  return {
-                    async add({ data }) {
-                      inventoryAdds.push(data);
-                      return { _id: `inv-created-${inventoryAdds.length}` };
+	                if (name === 'inventory') {
+	                  return {
+	                    where(query) {
+	                      return {
+	                        limit() {
+	                          return this;
+	                        },
+	                        async get() {
+	                          assert.equal(query.unique_code, 'L000904');
+	                          return { data: [] };
+	                        }
+	                      };
+	                    },
+	                    async add({ data }) {
+	                      inventoryAdds.push(data);
+	                      return { _id: `inv-created-${inventoryAdds.length}` };
                     }
                   };
                 }
@@ -1871,10 +1893,21 @@ test('inventory template submit rejects voided preprint labels even when the row
           runTransaction(fn) {
             return fn({
               collection(name) {
-                if (name === 'inventory') {
-                  return {
-                    async add() {
-                      throw new Error('voided preprint should fail before inventory is created');
+	                if (name === 'inventory') {
+	                  return {
+	                    where(query) {
+	                      return {
+	                        limit() {
+	                          return this;
+	                        },
+	                        async get() {
+	                          assert.equal(query.unique_code, 'L000905');
+	                          return { data: [] };
+	                        }
+	                      };
+	                    },
+	                    async add() {
+	                      throw new Error('voided preprint should fail before inventory is created');
                     }
                   };
                 }
