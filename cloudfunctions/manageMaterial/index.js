@@ -350,6 +350,44 @@ function buildBatchCreateConflictMap(preparedItems = []) {
   return conflictMap;
 }
 
+async function materialExistsByProductCode(collectionOwner, productCode) {
+  const query = collectionOwner.collection('materials').where({ product_code: productCode });
+  if (query && typeof query.limit === 'function' && typeof query.get === 'function') {
+    const res = await query.limit(1).get();
+    return !!(res.data && res.data.length > 0);
+  }
+  if (query && typeof query.count === 'function') {
+    const res = await query.count();
+    return Number(res.total) > 0;
+  }
+  throw new Error('当前数据库接口不支持物料查重');
+}
+
+async function createBatchMaterialWithAudit(newMaterial, openid) {
+  return runMaterialTransaction(async (transaction) => {
+    const exists = await materialExistsByProductCode(transaction, newMaterial.product_code);
+    if (exists) {
+      return {
+        status: 'skipped',
+        reason: '产品代码已存在'
+      };
+    }
+
+    const res = await transaction.collection('materials').add({ data: newMaterial });
+    await writeMaterialAuditEvent(transaction, openid, {
+      material_id: res._id,
+      product_code: newMaterial.product_code,
+      action: 'create',
+      changes: newMaterial
+    });
+
+    return {
+      status: 'created',
+      id: res._id
+    };
+  });
+}
+
 /**
  * 物料主数据管理云函数
  *
@@ -844,16 +882,6 @@ async function batchCreateMaterials(data, openid) {
         continue;
       }
 
-      // 检查是否已存在
-      const existing = await db.collection('materials')
-        .where({ product_code: normalizedCode })
-        .count();
-
-      if (existing.total > 0) {
-        tracker.recordSkipped(rowIndex, normalizedCode, '产品代码已存在');
-        continue;
-      }
-
       // 创建物料
       const newMaterial = {
         product_code: normalizedCode,
@@ -877,7 +905,11 @@ async function batchCreateMaterials(data, openid) {
         updated_at: now
       };
 
-      await db.collection('materials').add({ data: newMaterial });
+      const createOutcome = await createBatchMaterialWithAudit(newMaterial, openid);
+      if (createOutcome.status === 'skipped') {
+        tracker.recordSkipped(rowIndex, normalizedCode, createOutcome.reason);
+        continue;
+      }
       created++;
       tracker.recordCreated(rowIndex, normalizedCode);
 

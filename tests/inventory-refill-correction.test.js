@@ -2496,6 +2496,157 @@ test('approveInventoryCorrectionRequest applies a chemical quantity delta and wr
   assert.match(addedAdjustLog.description, /差额 3 kg/);
 });
 
+test('approveInventoryCorrectionRequest reuses the success receipt when retrying an already approved request', async () => {
+  let inventoryUpdateCount = 0;
+  const receiptStore = new Map();
+
+  const requestRecord = {
+    _id: 'corr-approve-retry',
+    status: 'pending',
+    source_log_id: 'log-in-retry',
+    inventory_id: 'inv-retry',
+    unique_code: 'L000703',
+    product_code: 'J-003',
+    category: 'chemical',
+    original_quantity: 2,
+    requested_quantity: 3,
+    unit: 'kg',
+    reason: '复核修正'
+  };
+  const sourceLog = {
+    _id: 'log-in-retry',
+    type: 'inbound',
+    inventory_id: 'inv-retry',
+    timestamp: new Date('2026-03-25T08:00:00.000Z')
+  };
+
+  const db = {
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              async get() {
+                return { data: [{ role: 'admin', status: 'active', name: '审批员' }] };
+              }
+            };
+          }
+        };
+      }
+      throw new Error(`unexpected collection outside transaction: ${name}`);
+    },
+    runTransaction(fn) {
+      return fn({
+        collection(name) {
+          if (name === 'inventory_correction_requests') {
+            return {
+              doc() {
+                return {
+                  async get() {
+                    return { data: requestRecord };
+                  },
+                  async update({ data }) {
+                    Object.assign(requestRecord, data);
+                    return {};
+                  }
+                };
+              }
+            };
+          }
+          if (name === 'operation_receipts') {
+            return createOperationReceiptCollection(receiptStore);
+          }
+          if (name === 'inventory_log') {
+            return {
+              doc() {
+                return {
+                  async get() {
+                    return { data: sourceLog };
+                  }
+                };
+              },
+              where() {
+                return {
+                  orderBy() { return this; },
+                  skip() { return this; },
+                  limit() { return this; },
+                  async get() {
+                    return { data: [sourceLog] };
+                  }
+                };
+              },
+              async add() {
+                return { _id: 'log-adjust-retry' };
+              }
+            };
+          }
+          if (name === 'inventory') {
+            return {
+              doc() {
+                return {
+                  async get() {
+                    return {
+                      data: {
+                        _id: 'inv-retry',
+                        unique_code: 'L000703',
+                        status: 'in_stock',
+                        category: 'chemical',
+                        product_code: 'J-003',
+                        quantity: { val: 2, unit: 'kg' },
+                        dynamic_attrs: { weight_kg: 2 }
+                      }
+                    };
+                  },
+                  async update() {
+                    inventoryUpdateCount += 1;
+                    return {};
+                  }
+                };
+              }
+            };
+          }
+          if (name === 'audit_events') {
+            return { async add() { return { _id: 'audit-test-id' }; } };
+          }
+          throw new Error(`unexpected transaction collection: ${name}`);
+        }
+      });
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/approveInventoryCorrectionRequest/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './auth': {
+      assertAdminMutationAccess() {
+        return { ok: true };
+      }
+    }
+  });
+
+  const payload = {
+    request_id: 'corr-approve-retry',
+    action: 'approve',
+    operation_id: 'op_correction_retry_001'
+  };
+  const first = await mod.main(payload);
+  const retry = await mod.main(payload);
+
+  assert.equal(first.success, true);
+  assert.deepEqual(retry, first);
+  assert.equal(inventoryUpdateCount, 1);
+});
+
 test('approveInventoryCorrectionRequest rejects corrections when later quantity-affecting logs only appear on a later page', async () => {
   let inventoryUpdated = false;
   let scannedSkips = [];

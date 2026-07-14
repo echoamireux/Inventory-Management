@@ -94,7 +94,10 @@ test('README documents production permissions, required indexes and retired clou
 
 test('deployment preflight script verifies cloud functions, shared copies and stable query sorts', () => {
   const script = read('scripts/deploy-preflight.js');
-  assert.match(script, /预期 34 个可部署云函数目录/);
+  assert.doesNotMatch(script, /预期 34 个可部署云函数目录/);
+  assert.match(script, /cloudfunctions-manifest\.json/);
+  assert.match(script, /新增未登记云函数/);
+  assert.match(script, /清单登记但目录缺失/);
   assert.match(script, /collectFrontendCloudCalls/);
   assert.match(script, /audit-events\.js/);
   assert.match(script, /operation_receipts/);

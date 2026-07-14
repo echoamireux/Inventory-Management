@@ -12,6 +12,10 @@ function exists(relPath) {
   return fs.existsSync(path.join(repoRoot, relPath));
 }
 
+function readJson(relPath) {
+  return JSON.parse(read(relPath));
+}
+
 function fail(message) {
   throw new Error(message);
 }
@@ -63,8 +67,24 @@ function assertCloudFunctions() {
   }
 
   const functionNames = listCloudFunctionDirectories();
-  if (functionNames.length !== 34) {
-    fail(`预期 34 个可部署云函数目录，实际 ${functionNames.length} 个`);
+  const manifest = readJson('scripts/cloudfunctions-manifest.json');
+  const expectedFunctionNames = Array.from(new Set(manifest.cloudFunctions || [])).sort();
+  if (!expectedFunctionNames.length) {
+    fail('cloudfunctions-manifest.json 未登记任何云函数');
+  }
+  if (expectedFunctionNames.length !== (manifest.cloudFunctions || []).length) {
+    fail('cloudfunctions-manifest.json 存在重复云函数名称');
+  }
+
+  const expectedSet = new Set(expectedFunctionNames);
+  const actualSet = new Set(functionNames);
+  const missingFromDisk = expectedFunctionNames.filter(name => !actualSet.has(name));
+  const unregistered = functionNames.filter(name => !expectedSet.has(name));
+  if (missingFromDisk.length) {
+    fail(`清单登记但目录缺失: ${missingFromDisk.join(', ')}`);
+  }
+  if (unregistered.length) {
+    fail(`新增未登记云函数: ${unregistered.join(', ')}`);
   }
   for (const name of functionNames) {
     if (!exists(`cloudfunctions/${name}/index.js`)) {

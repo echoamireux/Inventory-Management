@@ -122,6 +122,10 @@ cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/getApprovalCe
 
 echo "   -> Updating material-units.js..."
 cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/material-units.js
+# INTENTIONAL_STRICT_MATERIAL_UNIT_HELPERS:
+# addMaterialRequest and approveMaterialRequest keep local strict material-units.js
+# variants so requested default_unit must be explicitly selected instead of
+# silently falling back to category defaults.
 
 echo "   -> Updating product-code.js..."
 cp cloudfunctions/_shared/product-code.js cloudfunctions/manageMaterial/product-code.js

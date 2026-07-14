@@ -228,7 +228,18 @@ test('material import batchCreate keeps create-only semantics while writing gove
     result.results.find(item => item.rowIndex === 4).reason,
     '产品代码已存在'
   );
-  assert.equal(materialLogs.length > 0, true);
+  const createAuditEvents = materialLogs.filter(item => (
+    item.domain === 'material' && item.action === 'create'
+  ));
+  const batchAuditEvents = materialLogs.filter(item => (
+    item.domain === 'material' && item.action === 'batch_create'
+  ));
+  assert.equal(createAuditEvents.length, 2);
+  assert.deepEqual(
+    createAuditEvents.map(item => item.target_label).sort(),
+    ['J-001', 'M-002']
+  );
+  assert.equal(batchAuditEvents.length, 1);
 });
 
 test('material import batchCreate allows film creation without default width while still persisting thickness', async () => {

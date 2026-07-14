@@ -77,6 +77,9 @@ exports.main = async (event, context) => {
     if (!authResult.ok) {
       return { success: false, msg: authResult.msg };
     }
+    if (!['approve', 'reject'].includes(action)) {
+      return { success: false, msg: '未知操作类型' };
+    }
 
     const result = await db.runTransaction(async (transaction) => {
       const requestRef = transaction.collection('inventory_correction_requests').doc(request_id);
@@ -87,9 +90,6 @@ exports.main = async (event, context) => {
         return { success: false, msg: '纠错申请不存在' };
       }
 
-      if (correctionRequest.status !== 'pending') {
-        return { success: false, msg: '该申请已被处理过' };
-      }
       const operationContext = buildOperationReceiptContext({
         openid: OPENID,
         operationId: event.operation_id,
@@ -102,6 +102,10 @@ exports.main = async (event, context) => {
       const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
       if (operationReceipt.reused) {
         return operationReceipt.response;
+      }
+
+      if (correctionRequest.status !== 'pending') {
+        return { success: false, msg: '该申请已被处理过' };
       }
 
       if (action === 'reject') {
@@ -135,10 +139,6 @@ exports.main = async (event, context) => {
         const response = { success: true, msg: '已驳回' };
         await markOperationReceiptSucceeded(transaction, db, operationContext, response);
         return response;
-      }
-
-      if (action !== 'approve') {
-        return { success: false, msg: '未知操作类型' };
       }
 
       const sourceLogRes = await transaction.collection('inventory_log')

@@ -253,4 +253,7 @@ test('importInventoryTemplate keeps a deployable local film helper and sync scri
   assert.match(syncScript, /cp cloudfunctions\/_shared\/cst-time\.js cloudfunctions\/exportProjectUsageReport\/cst-time\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/search\.js cloudfunctions\/getProjectUsageReport\/search\.js/);
   assert.match(syncScript, /cp cloudfunctions\/_shared\/material-subcategories\.js cloudfunctions\/getApprovalCenterData\/material-subcategories\.js/);
+  assert.match(syncScript, /INTENTIONAL_STRICT_MATERIAL_UNIT_HELPERS/);
+  assert.doesNotMatch(syncScript, /cp cloudfunctions\/_shared\/material-units\.js cloudfunctions\/addMaterialRequest\/material-units\.js/);
+  assert.doesNotMatch(syncScript, /cp cloudfunctions\/_shared\/material-units\.js cloudfunctions\/approveMaterialRequest\/material-units\.js/);
 });
