@@ -2650,6 +2650,7 @@ test('approveInventoryCorrectionRequest reuses the success receipt when retrying
 test('approveInventoryCorrectionRequest rejects corrections when later quantity-affecting logs only appear on a later page', async () => {
   let inventoryUpdated = false;
   let scannedSkips = [];
+  const receiptStore = new Map();
 
   const sourceLog = {
     _id: 'log-in-3',
@@ -2786,7 +2787,7 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
           }
 
           if (name === 'operation_receipts') {
-            return createOperationReceiptCollection();
+            return createOperationReceiptCollection(receiptStore);
           }
 
           if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
@@ -2818,9 +2819,15 @@ test('approveInventoryCorrectionRequest rejects corrections when later quantity-
     action: 'approve',
     operation_id: 'op_correction_reject_001'
   });
+  const retry = await mod.main({
+    request_id: 'corr-reject-1',
+    action: 'approve',
+    operation_id: 'op_correction_reject_001'
+  });
 
   assert.equal(result.success, false);
   assert.match(result.msg, /已有后续业务/);
+  assert.deepEqual(retry, result);
   assert.equal(inventoryUpdated, false);
   assert.deepEqual(scannedSkips, [0, 100]);
 });

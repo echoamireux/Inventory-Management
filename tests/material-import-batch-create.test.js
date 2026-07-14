@@ -242,6 +242,168 @@ test('material import batchCreate keeps create-only semantics while writing gove
   assert.equal(batchAuditEvents.length, 1);
 });
 
+test('material import batchCreate returns success with warning when summary audit fails after row audits', async () => {
+  const addedMaterials = [];
+  const materialLogs = [];
+
+  const db = {
+    command: {
+      remove() {
+        return { __remove: true };
+      }
+    },
+    serverDate() {
+      return { $date: true };
+    },
+    collection(name) {
+      if (name === 'materials') {
+        return {
+          where() {
+            return {
+              async count() {
+                return { total: 0 };
+              }
+            };
+          },
+          async add({ data }) {
+            addedMaterials.push(data);
+            return { _id: `mat-${addedMaterials.length}` };
+          }
+        };
+      }
+
+      if (name === 'material_log' || name === 'audit_events') {
+        return {
+          async add({ data }) {
+            if (data.action === 'batch_create') {
+              throw new Error('summary audit unavailable');
+            }
+            materialLogs.push(data);
+            return { _id: `log-${materialLogs.length}` };
+          }
+        };
+      }
+
+      if (name === 'users') {
+        return {
+          where() {
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return {
+                  data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+                };
+              }
+            };
+          }
+        };
+      }
+
+      throw new Error(`unexpected collection: ${name}`);
+    }
+  };
+
+  const manageMaterial = loadModuleWithMocks('../cloudfunctions/manageMaterial/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: 'openid-admin' };
+      },
+      database() {
+        return db;
+      }
+    },
+    './material-units': {
+      normalizeUnitInput(_category, unit) {
+        return { ok: true, unit };
+      }
+    },
+    './product-code': {
+      validateStandardProductCode() {
+        return { ok: true, product_code: 'J-011' };
+      }
+    },
+    './import-batch-results': {
+      createImportResultTracker() {
+        const results = [];
+        return {
+          recordCreated(rowIndex, productCode) {
+            results.push({ rowIndex, product_code: productCode, status: 'created' });
+          },
+          recordSkipped(rowIndex, productCode, reason) {
+            results.push({ rowIndex, product_code: productCode, status: 'skipped', reason });
+          },
+          recordError(rowIndex, productCode, reason) {
+            results.push({ rowIndex, product_code: productCode, status: 'error', reason });
+          },
+          toResponse() {
+            return {
+              skipped: results.filter(item => item.status === 'skipped').length,
+              errors: results.filter(item => item.status === 'error').length,
+              results
+            };
+          }
+        };
+      }
+    },
+    './material-subcategories': {
+      async ensureBuiltinSubcategories() {
+        return [
+          { subcategory_key: 'builtin:chemical:solvent', name: '溶剂', parent_category: 'chemical' }
+        ];
+      },
+      sortSubcategoryRecords(records) {
+        return records;
+      },
+      filterSubcategoryRecordsByCategory(records, category) {
+        return records.filter(item => item.parent_category === category);
+      },
+      buildSubcategoryMap(records) {
+        return new Map(records.map(item => [item.subcategory_key, item]));
+      },
+      resolveSubcategoryDisplay(item) {
+        return item.sub_category || '';
+      },
+      resolveSubcategorySelection() {
+        return {
+          subcategory_key: 'builtin:chemical:solvent',
+          sub_category: '溶剂'
+        };
+      }
+    }
+  });
+
+  const originalConsoleError = console.error;
+  console.error = () => {};
+  let result;
+  try {
+    result = await manageMaterial.main({
+      action: 'batchCreate',
+      data: {
+        items: [{
+          rowIndex: 2,
+          product_code: '011',
+          material_name: '汇总审计测试料',
+          category: 'chemical',
+          sub_category: '溶剂',
+          default_unit: 'g',
+          package_type: '瓶'
+        }]
+      }
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  assert.equal(result.success, true);
+  assert.equal(result.created, 1);
+  assert.equal(addedMaterials.length, 1);
+  assert.equal(materialLogs.filter(item => item.action === 'create').length, 1);
+  assert.match(result.warning, /汇总审计记录写入失败/);
+});
+
 test('material import batchCreate allows film creation without default width while still persisting thickness', async () => {
   const addedMaterials = [];
 

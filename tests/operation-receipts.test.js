@@ -6,7 +6,8 @@ const {
   normalizeOperationId,
   buildOperationReceiptContext,
   beginOperationReceipt,
-  markOperationReceiptSucceeded
+  markOperationReceiptSucceeded,
+  markOperationReceiptFailed
 } = require('../cloudfunctions/_shared/operation-receipts');
 
 test('operation receipt signatures are stable across object key order', () => {
@@ -82,4 +83,47 @@ test('operation receipt context uses operator plus operation id and detects requ
     () => beginOperationReceipt(transaction, db, changedContext),
     /请求内容已变化/
   );
+});
+
+test('operation receipt failed responses are terminal and reusable', async () => {
+  const context = buildOperationReceiptContext({
+    openid: 'openid-2',
+    operationId: 'op_failed_20260713',
+    requestPayload: { request_id: 'corr-1', action: 'approve' }
+  });
+  const receiptStore = new Map();
+  const db = {
+    serverDate() {
+      return { $date: true };
+    }
+  };
+  const transaction = {
+    collection(name) {
+      assert.equal(name, 'operation_receipts');
+      return {
+        doc(id) {
+          return {
+            async get() {
+              return { data: receiptStore.get(id) || null };
+            },
+            async set({ data }) {
+              receiptStore.set(id, { ...data });
+            },
+            async update({ data }) {
+              receiptStore.set(id, { ...receiptStore.get(id), ...data });
+            }
+          };
+        }
+      };
+    }
+  };
+
+  const first = await beginOperationReceipt(transaction, db, context);
+  assert.equal(first.reused, false);
+
+  const response = { success: false, msg: '业务条件不满足' };
+  await markOperationReceiptFailed(transaction, db, context, response);
+
+  const repeated = await beginOperationReceipt(transaction, db, context);
+  assert.deepEqual(repeated, { reused: true, response });
 });

@@ -922,11 +922,17 @@ async function batchCreateMaterials(data, openid) {
   const importResult = tracker.toResponse();
   const skipped = importResult.skipped;
   const errors = importResult.errors;
+  let warning = '';
 
-  await writeMaterialAuditEvent(db, openid, {
-    action: 'batch_create',
-    changes: { total: items.length, created, skipped, errors }
-  });
+  try {
+    await writeMaterialAuditEvent(db, openid, {
+      action: 'batch_create',
+      changes: { total: items.length, created, skipped, errors }
+    });
+  } catch (err) {
+    console.error('批量物料导入汇总审计写入失败:', err);
+    warning = '物料已按行处理完成，但汇总审计记录写入失败，请联系管理员核查审计日志';
+  }
 
   return {
     success: true,
@@ -934,6 +940,7 @@ async function batchCreateMaterials(data, openid) {
     skipped,
     errors,
     results: importResult.results,
+    ...(warning ? { warning } : {}),
     msg: `成功导入 ${created} 条`
   };
 }

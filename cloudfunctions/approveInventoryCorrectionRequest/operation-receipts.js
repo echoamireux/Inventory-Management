@@ -84,7 +84,7 @@ async function beginOperationReceipt(transaction, db, context) {
     if (receipt.request_signature !== context.requestSignature) {
       throw createRequestChangedError();
     }
-    if (receipt.status === 'succeeded' && receipt.response) {
+    if ((receipt.status === 'succeeded' || receipt.status === 'failed') && receipt.response) {
       return {
         reused: true,
         response: receipt.response
@@ -121,10 +121,21 @@ async function markOperationReceiptSucceeded(transaction, db, context, response)
   });
 }
 
+async function markOperationReceiptFailed(transaction, db, context, response) {
+  await transaction.collection('operation_receipts').doc(context.receiptId).update({
+    data: {
+      status: 'failed',
+      response,
+      updated_at: db.serverDate()
+    }
+  });
+}
+
 module.exports = {
   stableStringify,
   normalizeOperationId,
   buildOperationReceiptContext,
   beginOperationReceipt,
-  markOperationReceiptSucceeded
+  markOperationReceiptSucceeded,
+  markOperationReceiptFailed
 };

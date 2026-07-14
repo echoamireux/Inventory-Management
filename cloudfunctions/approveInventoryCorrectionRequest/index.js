@@ -11,7 +11,8 @@ const {
 const {
   buildOperationReceiptContext,
   beginOperationReceipt,
-  markOperationReceiptSucceeded
+  markOperationReceiptSucceeded,
+  markOperationReceiptFailed
 } = require('./operation-receipts');
 const { writeAuditEvent, writeInventoryAuditEvent } = require('./audit-events');
 
@@ -105,7 +106,9 @@ exports.main = async (event, context) => {
       }
 
       if (correctionRequest.status !== 'pending') {
-        return { success: false, msg: '该申请已被处理过' };
+        const response = { success: false, msg: '该申请已被处理过' };
+        await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
       }
 
       if (action === 'reject') {
@@ -147,7 +150,9 @@ exports.main = async (event, context) => {
       const sourceLog = sourceLogRes.data;
 
       if (!sourceLog) {
-        return { success: false, msg: '源入库日志不存在' };
+        const response = { success: false, msg: '源入库日志不存在' };
+        await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
       }
 
       const inventoryRes = await transaction.collection('inventory')
@@ -156,10 +161,14 @@ exports.main = async (event, context) => {
       const inventory = inventoryRes.data;
 
       if (!inventory) {
-        return { success: false, msg: '关联库存记录不存在' };
+        const response = { success: false, msg: '关联库存记录不存在' };
+        await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
       }
       if (inventory.status !== 'in_stock') {
-        return { success: false, msg: '仅在库库存允许审批纠错' };
+        const response = { success: false, msg: '仅在库库存允许审批纠错' };
+        await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
       }
 
       const allLogs = await loadAllInventoryLogs(transaction, correctionRequest.inventory_id);
@@ -174,10 +183,12 @@ exports.main = async (event, context) => {
       });
 
       if (hasLaterQuantityLogs) {
-        return {
+        const response = {
           success: false,
           msg: '该入库记录之后已有后续业务操作（领用/补料/调整），无法直接纠错，请手动处理'
         };
+        await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
       }
 
       const originalQuantity = Number(correctionRequest.original_quantity);
