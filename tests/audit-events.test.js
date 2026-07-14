@@ -236,6 +236,26 @@ test('getLogs reads audit_events for admin audit scope and searches search_text'
   assert(memory.queriedCollections.includes('audit_events'));
 });
 
+test('getLogs audit scope does not build an empty search regexp when search is blank', async () => {
+  const memory = createGetLogsDatabase();
+  memory.db.RegExp = ({ regexp, options }) => {
+    if (!regexp) {
+      throw new Error('regexp must be a string');
+    }
+    return new RegExp(regexp, options);
+  };
+  const mod = loadGetLogs(memory, 'openid-admin');
+
+  const result = await mod.main({
+    logScope: 'audit',
+    searchVal: ''
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.list.length, 1);
+  assert.equal(result.list[0]._id, 'audit-1');
+});
+
 test('critical write cloud functions emit unified audit events', () => {
   const inventoryWriters = [
     'cloudfunctions/addMaterial/index.js',

@@ -1,6 +1,7 @@
 // cloudfunctions/getLogs/index.js
 const cloud = require('wx-server-sdk');
 const { getCstRange } = require('./cst-time');
+const { buildContainsRegExp } = require('./search');
 const { buildLogSearchWhere } = require('./log-search');
 const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 
@@ -76,11 +77,8 @@ function buildAuditSearchWhere({
     ]));
   }
 
-  const searchRegex = db.RegExp && db.RegExp({
-    regexp: String(searchVal || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-    options: 'i'
-  });
-  if (searchRegex && String(searchVal || '').trim()) {
+  const searchRegex = buildContainsRegExp(db, searchVal);
+  if (searchRegex) {
     conditions.push(_.or(AUDIT_SEARCH_FIELD_NAMES.map(field => ({ [field]: searchRegex }))));
   }
 
