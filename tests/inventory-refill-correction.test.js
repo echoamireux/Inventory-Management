@@ -47,6 +47,18 @@ function createOperationReceiptCollection(store = new Map()) {
   };
 }
 
+function createEmptyTestMaterialIdentityCollection() {
+  return {
+    where() {
+      return {
+        async get() {
+          return { data: [] };
+        }
+      };
+    }
+  };
+}
+
 test('single stock-in rejects duplicate chemical labels unless refill is explicit', async () => {
   const inventoryRecord = {
     _id: 'inv-1',
@@ -1257,6 +1269,10 @@ test('inventory template preview marks eligible duplicate chemical labels as pen
               };
             }
 
+            if (name === 'test_material_identities') {
+              return createEmptyTestMaterialIdentityCollection();
+            }
+
             throw new Error(`unexpected collection: ${name}`);
           }
         };
@@ -1404,6 +1420,10 @@ test('inventory template submit supports mixed create and refill rows in one req
                   return { data: [] };
                 }
               };
+            }
+
+            if (name === 'test_material_identities') {
+              return createEmptyTestMaterialIdentityCollection();
             }
 
             throw new Error(`unexpected collection outside transaction: ${name}`);
@@ -1662,6 +1682,10 @@ test('inventory template submit consumes matching unused preprint labels when cr
               };
             }
 
+            if (name === 'test_material_identities') {
+              return createEmptyTestMaterialIdentityCollection();
+            }
+
             throw new Error(`unexpected collection outside transaction: ${name}`);
           },
           runTransaction(fn) {
@@ -1888,6 +1912,10 @@ test('inventory template submit rejects voided preprint labels even when the row
               };
             }
 
+            if (name === 'test_material_identities') {
+              return createEmptyTestMaterialIdentityCollection();
+            }
+
             throw new Error(`unexpected collection outside transaction: ${name}`);
           },
           runTransaction(fn) {
@@ -2089,6 +2117,10 @@ test('inventory template submit rejects invalid refill quantities even if the fr
                   return { data: [] };
                 }
               };
+            }
+
+            if (name === 'test_material_identities') {
+              return createEmptyTestMaterialIdentityCollection();
             }
 
             throw new Error(`unexpected collection: ${name}`);

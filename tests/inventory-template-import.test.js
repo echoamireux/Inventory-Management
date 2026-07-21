@@ -42,6 +42,15 @@ function buildContext(overrides = {}) {
   };
 }
 
+function activeTestIdentity(category, productCode, supplierModel) {
+  return {
+    category,
+    product_code: productCode,
+    supplier_model: supplierModel,
+    status: 'active'
+  };
+}
+
 test('inventory template import preview result normalizes valid payloads and rejects legacy structures', () => {
   assert.deepEqual(
     normalizeInventoryTemplatePreviewResult({
@@ -624,10 +633,13 @@ test('inventory import preview requires supplier model but keeps supplier and sa
         default_unit: 'kg',
         is_test_material: true
       }]
-    ])
+    ]),
+    testMaterialIdentities: [
+      activeTestIdentity('chemical', 'J-999', 'TM-02')
+    ]
   }));
 
-  assert.match(missingModel.error, /测试料入库必须填写原厂型号和生产批号/);
+  assert.match(missingModel.error, /测试料请先选择已维护的原厂型号/);
   assert.equal(optionalSourceAndNote.error, '');
   assert.equal(optionalSourceAndNote.supplier, '');
   assert.equal(optionalSourceAndNote.sample_note, '');
@@ -645,6 +657,9 @@ test('inventory import preview aligns test-material supplier model with preprint
   };
   const context = buildContext({
     materialsByCode: new Map([['J-999', material]]),
+    testMaterialIdentities: [
+      activeTestIdentity('chemical', 'J-999', 'SAMPLE-904')
+    ],
     preprintLabelsByUniqueCode: new Map([
       ['L000904', {
         _id: 'preprint-904',
@@ -714,9 +729,16 @@ test('inventory import preview and payload keep test-material identifiers as inv
     rowIndex: 4,
     values: ['L000903', 'J', '999', '化材', 'TEST-003', '防爆柜01', 'A03', '0.5', '小瓶', '', '', '', '送样供应商', 'SAMPLE-X', '透明小样，客户A评估', '2026-10-01', '']
   }, buildContext({
-    materialsByCode: new Map([['J-999', material]])
+    materialsByCode: new Map([['J-999', material]]),
+    testMaterialIdentities: [
+      activeTestIdentity('chemical', 'J-999', 'SAMPLE-X')
+    ]
   }));
-  const payload = buildInventoryImportPayload(preview, material);
+  const payload = buildInventoryImportPayload(preview, material, {
+    testMaterialIdentities: [
+      activeTestIdentity('chemical', 'J-999', 'SAMPLE-X')
+    ]
+  });
 
   assert.equal(preview.error, '');
   assert.equal(preview.is_test_material, true);
@@ -760,14 +782,24 @@ test('inventory import payload aligns test-material supplier model with preprint
     supplier_model: 'SAMPLE-906'
   };
 
-  const payload = buildInventoryImportPayload(baseRow, material, { preprintLabel });
+  const payload = buildInventoryImportPayload(baseRow, material, {
+    preprintLabel,
+    testMaterialIdentities: [
+      activeTestIdentity('chemical', 'J-999', 'SAMPLE-906')
+    ]
+  });
   assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-906');
 
   assert.throws(
     () => buildInventoryImportPayload({
       ...baseRow,
       supplier_model: 'OTHER-MODEL'
-    }, material, { preprintLabel }),
+    }, material, {
+      preprintLabel,
+      testMaterialIdentities: [
+        activeTestIdentity('chemical', 'J-999', 'SAMPLE-906')
+      ]
+    }),
     /预生成标签原厂型号与当前入库信息不一致/
   );
 });
@@ -1009,6 +1041,7 @@ test('inventory import payload aligns film specs with preprinted label snapshots
     material_name: '测试料-膜材',
     sub_category: '测试膜',
     default_unit: 'm²',
+    is_test_material: true,
     specs: {}
   };
   const baseRow = {
@@ -1038,7 +1071,12 @@ test('inventory import payload aligns film specs with preprinted label snapshots
     }
   };
 
-  const payload = buildInventoryImportPayload(baseRow, material, { preprintLabel });
+  const payload = buildInventoryImportPayload(baseRow, material, {
+    preprintLabel,
+    testMaterialIdentities: [
+      activeTestIdentity('film', 'M-999', 'TEST-FILM-01')
+    ]
+  });
   assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 50);
   assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 520);
   assert.equal(payload.inventoryData.identity_key, 'M-999::TEST-FILM-01');
@@ -1049,7 +1087,12 @@ test('inventory import payload aligns film specs with preprinted label snapshots
       ...baseRow,
       thickness_um: 50,
       batch_width_mm: 530
-    }, material, { preprintLabel }),
+    }, material, {
+      preprintLabel,
+      testMaterialIdentities: [
+        activeTestIdentity('film', 'M-999', 'TEST-FILM-01')
+      ]
+    }),
     /与预生成标签规格不一致/
   );
 });

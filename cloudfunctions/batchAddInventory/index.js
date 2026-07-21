@@ -29,6 +29,9 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const {
+  normalizeTestMaterialSupplierModel
+} = require('./test-material-identities');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -48,6 +51,28 @@ async function loadOperator(openid) {
 
 function normalizeText(value) {
   return String(value === undefined || value === null ? '' : value).trim();
+}
+
+async function loadTestMaterialIdentitiesForMaterials(materials = []) {
+  const productCodes = Array.from(new Set(
+    (materials || [])
+      .filter(item => item && item.is_test_material)
+      .map(item => normalizeText(item.product_code))
+      .filter(Boolean)
+  ));
+  if (!productCodes.length) {
+    return [];
+  }
+
+  const rows = [];
+  for (let index = 0; index < productCodes.length; index += 50) {
+    const codes = productCodes.slice(index, index + 50);
+    const res = await db.collection('test_material_identities').where({
+      product_code: _.in(codes)
+    }).get();
+    rows.push(...(res.data || []));
+  }
+  return rows;
 }
 
 function normalizePositiveSpec(value) {
@@ -99,8 +124,8 @@ function assertPreprintSourceConsistency(preprintLabel, inventoryData = {}, rowL
   }
 
   const prefix = rowLabel || '';
-  const preprintSupplierModel = normalizeText(preprintLabel.supplier_model);
-  const inboundSupplierModel = normalizeText(inventoryData.supplier_model);
+  const preprintSupplierModel = normalizeTestMaterialSupplierModel(preprintLabel.supplier_model);
+  const inboundSupplierModel = normalizeTestMaterialSupplierModel(inventoryData.supplier_model);
   if (preprintSupplierModel && inboundSupplierModel && preprintSupplierModel !== inboundSupplierModel) {
     throw new Error(`${prefix}预生成标签原厂型号与当前入库信息不一致`);
   }
@@ -174,8 +199,11 @@ exports.main = async (event, context) => {
       film: buildZoneMap(filterZoneRecordsByCategory(zoneRecords, 'film'))
     };
 
+    const testMaterialIdentities = await loadTestMaterialIdentitiesForMaterials(Array.from(materialMap.values()));
     const preparedItems = items.map((item, index) => {
-      const prepared = buildBatchInventoryPayload(item, materialMap.get(item.material_id), index);
+      const prepared = buildBatchInventoryPayload(item, materialMap.get(item.material_id), index, {
+        testMaterialIdentities
+      });
       const category = prepared.inventoryData.category === 'film' ? 'film' : 'chemical';
       const locationPayload = buildInventoryLocationPayload({
         zoneKey: item && item.zone_key,
@@ -243,6 +271,7 @@ exports.main = async (event, context) => {
               product_code: inventoryData.product_code,
               batch_number: inventoryData.batch_number,
               supplier_model: inventoryData.supplier_model,
+              supplier_model_key: inventoryData.supplier_model_key,
               is_test_material: inventoryData.is_test_material,
               quantity: inventoryData.quantity
             })

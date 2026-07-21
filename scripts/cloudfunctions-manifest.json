@@ -27,6 +27,7 @@
     "manageProductCodePrefix",
     "manageProjectCode",
     "manageSubcategory",
+    "manageTestMaterialIdentity",
     "registerUser",
     "removeInventory",
     "removeLog",

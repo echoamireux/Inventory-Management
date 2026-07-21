@@ -37,6 +37,7 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/editInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageSubcategory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageMaterial/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProductCodePrefix/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/manageTestMaterialIdentity/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportInventoryTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
@@ -95,6 +96,7 @@ cp cloudfunctions/_shared/audit-events.js cloudfunctions/adminUpdateUserStatus/a
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/approveMaterialRequest/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageMaterial/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageProductCodePrefix/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageTestMaterialIdentity/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageProjectCode/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageSubcategory/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/addWarehouseZone/audit-events.js
@@ -146,6 +148,7 @@ cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/searchInventory/search.js
+cp cloudfunctions/_shared/search.js cloudfunctions/manageTestMaterialIdentity/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getProjectUsageReport/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportProjectUsageReport/search.js
 
@@ -183,6 +186,17 @@ cp cloudfunctions/_shared/test-material.js cloudfunctions/approveMaterialRequest
 cp cloudfunctions/_shared/test-material.js cloudfunctions/batchAddInventory/test-material.js
 cp cloudfunctions/_shared/test-material.js cloudfunctions/importInventoryTemplate/test-material.js
 cp cloudfunctions/_shared/test-material.js cloudfunctions/manageMaterial/test-material.js
+
+echo "   -> Updating test-material-identities.js..."
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/addMaterial/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/batchAddInventory/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/importInventoryTemplate/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/exportLabelData/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/updateInventory/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/getInventoryGrouped/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/getInventoryBatches/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/exportData/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/manageTestMaterialIdentity/test-material-identities.js
 
 echo "   -> Updating label-code.js..."
 cp cloudfunctions/_shared/label-code.js cloudfunctions/addMaterial/label-code.js

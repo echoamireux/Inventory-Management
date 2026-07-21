@@ -20,6 +20,20 @@ function loadModuleWithMocks(modulePath, mocks) {
 }
 
 function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } = {}) {
+  const identityModels = [
+    'MODEL-01',
+    'MODEL-RACE',
+    'MODEL-VOID',
+    'MODEL-200',
+    'MODEL-QA',
+    'MODEL-QB',
+    'MODEL-QC',
+    'MODEL-BURST-0',
+    'MODEL-BURST-1',
+    'MODEL-BURST-2',
+    'MODEL-BURST-OVER',
+    'MODEL-AUDIT'
+  ];
   const collections = new Map([
     ['users', new Map([['user-1', { _openid: 'openid-1', name: '测试操作员', role: 'user', status: 'active' }]])],
     ['materials', new Map([['mat-1', {
@@ -31,6 +45,18 @@ function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } =
       is_test_material: true,
       status: 'active'
     }]])],
+    ['test_material_identities', new Map(identityModels.map(model => [
+      `chemical::J-999::${model}`,
+      {
+        _id: `identity-${model}`,
+        category: 'chemical',
+        product_code: 'J-999',
+        supplier_model: model,
+        supplier_model_key: model,
+        identity_key: `chemical::J-999::${model}`,
+        status: 'active'
+      }
+    ]))],
     ['inventory', new Map()],
     ['preprinted_labels', new Map()],
     ['preprint_jobs', new Map()],

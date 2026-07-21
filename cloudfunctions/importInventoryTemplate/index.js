@@ -33,6 +33,9 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const {
+  validateTestMaterialIdentitySelection
+} = require('./test-material-identities');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -173,6 +176,20 @@ async function loadPreprintLabelsByUniqueCodes(uniqueCodes = []) {
   );
 }
 
+async function loadTestMaterialIdentitiesByProductCodes(productCodes = []) {
+  const rows = [];
+  for (const codes of chunkArray(productCodes, 50)) {
+    if (!codes.length) {
+      continue;
+    }
+    const res = await db.collection('test_material_identities').where({
+      product_code: _.in(codes)
+    }).get();
+    rows.push(...(res.data || []));
+  }
+  return rows;
+}
+
 async function loadPreprintLabelByUniqueCode(transaction, uniqueCode) {
   const normalizedUniqueCode = String(uniqueCode || '').trim();
   if (!normalizedUniqueCode) {
@@ -266,11 +283,7 @@ function assertPreprintLabelUsable(preprintLabel, item, material) {
     throw new Error('预生成标签类型与当前物料不一致');
   }
 
-  const isTest = !!(
-    item.is_test_material
-    || (material && material.is_test_material)
-    || preprintLabel.is_test_material
-  );
+  const isTest = !!(material && material.is_test_material);
   const preprintSupplierModel = String(preprintLabel.supplier_model || '').trim();
   const inboundSupplierModel = String(item.supplier_model || '').trim();
   if (isTest && preprintSupplierModel && inboundSupplierModel && inboundSupplierModel !== preprintSupplierModel) {
@@ -425,14 +438,16 @@ async function previewRows(rawRows = [], templateMeta = null) {
     preprintLabelsByUniqueCode,
     zoneRecords,
     locationDetailRecords,
-    currentInventoryByProductCode
+    currentInventoryByProductCode,
+    testMaterialIdentities
   ] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
     loadPreprintLabelsByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
     loadActiveLocationDetailRecords(),
-    loadCurrentInStockInventoryByCodes(lookupKeys.productCodes)
+    loadCurrentInStockInventoryByCodes(lookupKeys.productCodes),
+    loadTestMaterialIdentitiesByProductCodes(lookupKeys.productCodes)
   ]);
   const existingUniqueCodes = new Set(existingInventoryByUniqueCode.keys());
 
@@ -445,7 +460,8 @@ async function previewRows(rawRows = [], templateMeta = null) {
     zoneMapsByCategory: buildZoneMapsByCategory(zoneRecords),
     locationDetailMapByZone: buildLocationDetailMapByZone(locationDetailRecords),
     currentInventoryByProductCode,
-    productCodePrefixes
+    productCodePrefixes,
+    testMaterialIdentities
   })));
 
   return {
@@ -477,11 +493,12 @@ async function submitRows(items = [], openid, operatorName, operationId) {
     uniqueCodes: Array.from(new Set(normalizedItems.map(item => String(item.unique_code || '').trim()).filter(Boolean)))
   };
 
-  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, locationDetailRecords] = await Promise.all([
+  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, locationDetailRecords, testMaterialIdentities] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
-    loadActiveLocationDetailRecords()
+    loadActiveLocationDetailRecords(),
+    loadTestMaterialIdentitiesByProductCodes(lookupKeys.productCodes)
   ]);
   const zoneMapsByCategory = buildZoneMapsByCategory(zoneRecords);
   const locationDetailMapByZone = buildLocationDetailMapByZone(locationDetailRecords);
@@ -551,6 +568,18 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       ) {
         throw new Error(`产品代码 ${item.product_code || ''} 未启用或主数据已变化，请刷新后重试`);
       }
+      const identityValidation = validateTestMaterialIdentitySelection({
+        material,
+        source: item,
+        identities: testMaterialIdentities
+      });
+      if (!identityValidation.ok) {
+        throw new Error(`第${Number(item.rowIndex) || 0}行${identityValidation.msg}`);
+      }
+      if (material.is_test_material) {
+        item.supplier_model = identityValidation.supplier_model;
+        item.supplier_model_key = identityValidation.supplier_model_key;
+      }
 
       if (submitAction === 'refill') {
         if (!existingInventorySnapshot) {
@@ -617,7 +646,10 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       assertPreprintLabelUsable(preprintLabel, item, material);
       const preprintJob = await loadPreprintJobForLabel(transaction, preprintLabel);
       assertPreprintJobConsumable(preprintJob);
-      const payload = buildInventoryImportPayload(item, material, { preprintLabel });
+      const payload = buildInventoryImportPayload(item, material, {
+        preprintLabel,
+        testMaterialIdentities
+      });
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {
         const currentMaterialRes = await transaction.collection('materials')

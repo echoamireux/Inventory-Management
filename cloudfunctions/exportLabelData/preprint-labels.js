@@ -3,6 +3,10 @@ const {
   resolveTemplateCategory,
   buildLabelExportRow
 } = require('./label-export-report');
+const {
+  validateTestMaterialIdentitySelection,
+  buildTestMaterialIdentityKey
+} = require('./test-material-identities');
 
 const LABEL_CODE_PREFIX = 'L';
 const LABEL_CODE_DIGITS = 6;
@@ -103,6 +107,28 @@ function resolveSupplierModel(material = {}, form = {}) {
   return normalizeText(material.supplier_model);
 }
 
+function resolveSupplierModelPayload(material = {}, form = {}) {
+  if (material.is_test_material && Array.isArray(form.testMaterialIdentities)) {
+    const validation = validateTestMaterialIdentitySelection({
+      material,
+      source: form,
+      identities: form.testMaterialIdentities
+    });
+    if (!validation.ok) {
+      throw new Error(validation.msg);
+    }
+    return {
+      supplierModel: validation.supplier_model,
+      supplierModelKey: validation.supplier_model_key
+    };
+  }
+
+  return {
+    supplierModel: resolveSupplierModel(material, form),
+    supplierModelKey: normalizeText(form.supplier_model_key)
+  };
+}
+
 function assertPreprintPayload({
   templateType = 'film',
   count = 1,
@@ -115,7 +141,9 @@ function assertPreprintPayload({
   const materialCategory = normalizeText(material.category) || expectedCategory;
   const productCode = normalizeText(material.product_code);
   const materialName = resolveMaterialName(material);
-  const supplierModel = resolveSupplierModel(material, form);
+  const supplierModelPayload = resolveSupplierModelPayload(material, form);
+  const supplierModel = supplierModelPayload.supplierModel;
+  const supplierModelKey = supplierModelPayload.supplierModelKey;
 
   if (!material || !material._id) {
     throw new Error('请先选择需要打印标签的物料');
@@ -140,6 +168,7 @@ function assertPreprintPayload({
     productCode,
     materialName,
     supplierModel,
+    supplierModelKey,
     filmSpecs
   };
 }
@@ -163,6 +192,7 @@ function buildPreprintRequestSignature({
     category: payload.category,
     count: payload.count,
     supplier_model: payload.supplierModel,
+    supplier_model_key: payload.supplierModelKey,
     thickness_um: payload.filmSpecs ? payload.filmSpecs.thickness_um : null,
     width_mm: payload.filmSpecs ? payload.filmSpecs.width_mm : null,
     supplier: normalizeText(form.supplier),
@@ -194,6 +224,7 @@ function buildPreprintLabelRecords({
   const resolvedJobId = normalizeText(jobId) || buildJobId(now);
   const supplier = normalizeText(form.supplier);
   const supplierModel = payload.supplierModel;
+  const supplierModelKey = payload.supplierModelKey;
   const sampleNote = normalizeText(form.sample_note);
 
   return labelCodes.map((code, index) => {
@@ -212,8 +243,16 @@ function buildPreprintLabelRecords({
       sub_category: normalizeText(material.sub_category),
       supplier,
       supplier_model: supplierModel,
+      supplier_model_key: supplierModelKey,
       sample_note: sampleNote,
       is_test_material: !!material.is_test_material,
+      identity_key: material.is_test_material
+        ? buildTestMaterialIdentityKey({
+          category: payload.category,
+          product_code: payload.productCode,
+          supplier_model_key: supplierModelKey
+        })
+        : '',
       specs: payload.filmSpecs ? { ...payload.filmSpecs } : {},
       status: 'unused',
       operator_id: operatorOpenid,

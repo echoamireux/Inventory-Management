@@ -62,7 +62,7 @@ function buildInventoryIdentityKey(record = {}) {
   }
 
   if (isTestMaterialRecord(record)) {
-    const supplierModel = normalizeText(record.supplier_model);
+    const supplierModel = normalizeText(record.supplier_model_key || record.supplier_model);
     return supplierModel ? `${productCode}::${supplierModel}` : productCode;
   }
 
@@ -74,8 +74,8 @@ function hasMatchingTestMaterialIdentity(existingInventory = {}, candidate = {})
     return true;
   }
 
-  const existingModel = normalizeText(existingInventory.supplier_model);
-  const candidateModel = normalizeText(candidate.supplier_model);
+  const existingModel = normalizeText(existingInventory.supplier_model_key || existingInventory.supplier_model);
+  const candidateModel = normalizeText(candidate.supplier_model_key || candidate.supplier_model);
   return !!existingModel && existingModel === candidateModel;
 }
 

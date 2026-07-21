@@ -21,6 +21,9 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const {
+  loadTestMaterialIdentityForSelection
+} = require('./test-material-identities');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -47,7 +50,7 @@ async function loadOperator(openid) {
   return res.data && res.data.length > 0 ? res.data[0] : null;
 }
 
-async function loadWithdrawCandidates({ unique_code, product_code, batch_no, supplier_model }) {
+async function loadWithdrawCandidates({ unique_code, product_code, batch_no, supplier_model, supplier_model_key }) {
   if (unique_code) {
     const res = await db.collection('inventory')
       .where({ unique_code, status: 'in_stock' })
@@ -62,7 +65,9 @@ async function loadWithdrawCandidates({ unique_code, product_code, batch_no, sup
       batch_number: batch_no,
       status: 'in_stock'
     };
-    if (supplier_model) {
+    if (supplier_model_key) {
+      where.supplier_model_key = supplier_model_key;
+    } else if (supplier_model) {
       where.supplier_model = supplier_model;
     }
     return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
@@ -248,16 +253,26 @@ exports.main = async (event, context) => {
     const materialForSelection = (!unique_code && product_code)
       ? await loadMaterialByProductCode(product_code)
       : null;
-    const supplierModel = sanitizeText(supplier_model);
-    if (batch_no && materialForSelection && materialForSelection.is_test_material && !supplierModel) {
-      return { success: false, msg: '测试料按批次领用时必须选择原厂型号' };
+    let supplierModel = sanitizeText(supplier_model);
+    let supplierModelKey = '';
+    if (batch_no && materialForSelection && materialForSelection.is_test_material) {
+      const identityValidation = await loadTestMaterialIdentityForSelection(db, materialForSelection, {
+        product_code,
+        supplier_model: supplierModel
+      });
+      if (!identityValidation.ok) {
+        return { success: false, msg: identityValidation.msg };
+      }
+      supplierModel = identityValidation.supplier_model;
+      supplierModelKey = identityValidation.supplier_model_key;
     }
 
     const candidateItems = await loadWithdrawCandidates({
       unique_code,
       product_code,
       batch_no,
-      supplier_model: materialForSelection && materialForSelection.is_test_material ? supplierModel : ''
+      supplier_model: materialForSelection && materialForSelection.is_test_material ? supplierModel : '',
+      supplier_model_key: materialForSelection && materialForSelection.is_test_material ? supplierModelKey : ''
     });
     const candidateIds = candidateItems.map(item => item._id);
     const testMaterialGuard = shouldBlockTestMaterialProductOnlyWithdrawal({

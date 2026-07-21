@@ -29,10 +29,7 @@ function normalizeTestMaterialFlag(value) {
 }
 
 function isTestMaterial(material = {}, inventoryItem = {}) {
-  return !!(
-    (inventoryItem && inventoryItem.is_test_material)
-    || (material && material.is_test_material)
-  );
+  return !!(material && material.is_test_material);
 }
 
 function buildTestMaterialStockInValidation(source = {}, material = {}) {

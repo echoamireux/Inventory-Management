@@ -8,6 +8,9 @@ const {
   resolveInventorySourceText
 } = require('./test-material');
 const {
+  validateTestMaterialIdentitySelection
+} = require('./test-material-identities');
+const {
   parseChemicalQuantity,
   parsePositiveIntegerMeters,
   buildInventoryIdentityKey
@@ -890,6 +893,7 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     package_type: '',
     supplier: '',
     supplier_model: '',
+    supplier_model_key: '',
     sample_note: '',
     is_test_material: false,
     quantity_summary: '',
@@ -1017,6 +1021,17 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
     row.error = error.message || '预生成标签原厂型号与当前入库信息不一致';
     return row;
   }
+  const identityValidation = validateTestMaterialIdentitySelection({
+    material,
+    source: row,
+    identities: context.testMaterialIdentities || []
+  });
+  if (!identityValidation.ok) {
+    row.error = identityValidation.msg;
+    return row;
+  }
+  row.supplier_model = row.is_test_material ? identityValidation.supplier_model : row.supplier_model;
+  row.supplier_model_key = row.is_test_material ? identityValidation.supplier_model_key : '';
 
   const testMaterialValidation = buildTestMaterialStockInValidation(row, material);
   if (!testMaterialValidation.ok) {
@@ -1211,9 +1226,20 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const materialName = normalizeText(material.material_name || material.name || sourceItem.material_name);
   const subCategory = normalizeText(material.sub_category || sourceItem.sub_category);
   const supplier = resolveInventorySourceText({ material, item: sourceItem, field: 'supplier' });
-  const supplierModel = resolveInventorySourceText({ material, item: sourceItem, field: 'supplier_model' });
-  const sampleNote = normalizeText(sourceItem.sample_note);
   const isTest = isTestMaterial(material, sourceItem);
+  const identityValidation = validateTestMaterialIdentitySelection({
+    material,
+    source: sourceItem,
+    identities: options.testMaterialIdentities || []
+  });
+  if (!identityValidation.ok) {
+    throw new Error(`${rowLabel}${identityValidation.msg}`);
+  }
+  const supplierModel = isTest
+    ? identityValidation.supplier_model
+    : resolveInventorySourceText({ material, item: sourceItem, field: 'supplier_model' });
+  const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
+  const sampleNote = normalizeText(sourceItem.sample_note);
   const batchNumber = normalizeText(sourceItem.batch_number);
   const zoneKey = normalizeText(sourceItem.zone_key);
   const locationDetailKey = normalizeText(sourceItem.location_detail_key);
@@ -1265,12 +1291,14 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     unique_code: uniqueCode,
     supplier,
     supplier_model: supplierModel,
+    supplier_model_key: supplierModelKey,
     sample_note: sampleNote,
     is_test_material: isTest,
     identity_key: buildInventoryIdentityKey({
       product_code: productCode,
       is_test_material: isTest,
-      supplier_model: supplierModel
+      supplier_model: supplierModel,
+      supplier_model_key: supplierModelKey
     }),
     batch_number: batchNumber,
     zone_key: zoneKey,

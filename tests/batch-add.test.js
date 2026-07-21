@@ -116,7 +116,14 @@ test('batch add requires inventory-level model for test materials and keeps opti
     supplier: '主数据供应商',
     supplier_model: 'MASTER',
     is_test_material: true
-  }, 0);
+  }, 0, {
+    testMaterialIdentities: [{
+      category: 'chemical',
+      product_code: 'J-999',
+      supplier_model: 'SAMPLE-X',
+      status: 'active'
+    }]
+  });
 
   assert.equal(payload.inventoryData.is_test_material, true);
   assert.equal(payload.inventoryData.sample_note, '');
@@ -228,7 +235,14 @@ test('batch add keeps test film specs as inventory snapshots instead of backfill
     default_unit: 'm',
     is_test_material: true,
     specs: {}
-  }, 0);
+  }, 0, {
+    testMaterialIdentities: [{
+      category: 'film',
+      product_code: 'M-999',
+      supplier_model: 'TEST-FILM-A',
+      status: 'active'
+    }]
+  });
 
   assert.equal(payload.inventoryData.dynamic_attrs.thickness_um, 30);
   assert.equal(payload.inventoryData.dynamic_attrs.width_mm, 520);

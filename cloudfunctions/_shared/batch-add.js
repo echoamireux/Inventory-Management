@@ -12,6 +12,9 @@ const {
   resolveInventorySourceText
 } = require('./test-material');
 const {
+  validateTestMaterialIdentitySelection
+} = require('./test-material-identities');
+const {
   parseChemicalQuantity,
   parsePositiveIntegerMeters,
   buildInventoryIdentityKey
@@ -85,7 +88,7 @@ function assertExplicitExpiryState(rawItem, rowLabel) {
   };
 }
 
-function buildBatchInventoryPayload(rawItem, material, rowIndex) {
+function buildBatchInventoryPayload(rawItem, material, rowIndex, options = {}) {
   const rowLabel = `第${rowIndex + 1}条`;
   const quantity = rawItem && rawItem.quantity ? rawItem.quantity : {};
   const specs = material && material.specs ? material.specs : {};
@@ -100,7 +103,6 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   const batchNumber = String((rawItem && rawItem.batch_number) || '').trim();
   const location = String((rawItem && rawItem.location) || '').trim();
   const supplier = resolveInventorySourceText({ material, item: rawItem, field: 'supplier' });
-  const supplierModel = resolveInventorySourceText({ material, item: rawItem, field: 'supplier_model' });
   const sampleNote = String((rawItem && rawItem.sample_note) || '').trim();
   const isTest = isTestMaterial(material, rawItem);
 
@@ -135,6 +137,18 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
   if (!testMaterialValidation.ok) {
     throw new Error(`${rowLabel}${testMaterialValidation.msg}`);
   }
+  const identityValidation = validateTestMaterialIdentitySelection({
+    material,
+    source: rawItem,
+    identities: options.testMaterialIdentities || []
+  });
+  if (!identityValidation.ok) {
+    throw new Error(`${rowLabel}${identityValidation.msg}`);
+  }
+  const supplierModel = isTest
+    ? identityValidation.supplier_model
+    : resolveInventorySourceText({ material, item: rawItem, field: 'supplier_model' });
+  const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
   if (!location) {
     throw new Error(`${rowLabel}缺少存储区域`);
   }
@@ -149,12 +163,14 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex) {
     unique_code: uniqueCode,
     supplier,
     supplier_model: supplierModel,
+    supplier_model_key: supplierModelKey,
     sample_note: sampleNote,
     is_test_material: isTest,
     identity_key: buildInventoryIdentityKey({
       product_code: material.product_code,
       is_test_material: isTest,
-      supplier_model: supplierModel
+      supplier_model: supplierModel,
+      supplier_model_key: supplierModelKey
     }),
     batch_number: batchNumber,
     location,

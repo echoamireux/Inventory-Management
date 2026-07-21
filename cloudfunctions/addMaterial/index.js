@@ -22,6 +22,10 @@ const {
   resolveInventorySourceText
 } = require('./test-material');
 const {
+  loadTestMaterialIdentityForSelection,
+  normalizeTestMaterialSupplierModel
+} = require('./test-material-identities');
+const {
   ensureBuiltinZones,
   ensureBuiltinLocationDetails,
   sortZoneRecords,
@@ -100,8 +104,8 @@ function assertPreprintSourceConsistency(preprintLabel, source = {}) {
     return;
   }
 
-  const preprintSupplierModel = normalizeText(preprintLabel.supplier_model);
-  const inboundSupplierModel = normalizeText(source.supplier_model);
+  const preprintSupplierModel = normalizeTestMaterialSupplierModel(preprintLabel.supplier_model);
+  const inboundSupplierModel = normalizeTestMaterialSupplierModel(source.supplier_model);
   if (preprintSupplierModel && inboundSupplierModel && preprintSupplierModel !== inboundSupplierModel) {
     throw new Error('预生成标签原厂型号与当前入库信息不一致');
   }
@@ -280,11 +284,22 @@ exports.main = async (event, context) => {
         if (!refillInventoryId || refillInventoryId !== existingInventory._id) {
           throw new Error(`标签编号 ${normalizedUniqueCode} 的补料目标库存不一致，请刷新后重试`);
         }
+        const refillIdentity = await loadTestMaterialIdentityForSelection(transaction, materialRecord, {
+          ...base,
+          category,
+          product_code: productCode
+        });
+        if (!refillIdentity.ok) {
+          throw new Error(refillIdentity.msg);
+        }
+        const refillSupplierModel = isTest ? refillIdentity.supplier_model : base.supplier_model;
+        const refillSupplierModelKey = isTest ? refillIdentity.supplier_model_key : '';
         const canRefill = isChemicalRefillEligible(existingInventory, {
           category,
           product_code: productCode,
           batch_number: inventory.batch_number,
-          supplier_model: base.supplier_model,
+          supplier_model: refillSupplierModel,
+          supplier_model_key: refillSupplierModelKey,
           is_test_material: isTest,
           quantity: { unit: defaultUnit }
         });
@@ -377,11 +392,11 @@ exports.main = async (event, context) => {
           ...base,
           supplier: preprintLabel.supplier || base.supplier,
           supplier_model: preprintLabel.supplier_model || base.supplier_model,
+          supplier_model_key: preprintLabel.supplier_model_key || base.supplier_model_key,
           sample_note: preprintLabel.sample_note || base.sample_note
         }
         : base;
       const supplier = resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier' });
-      const supplierModel = resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier_model' });
       const sampleNote = String((inventory && inventory.sample_note) || (sourceBase && sourceBase.sample_note) || '').trim();
       const testMaterialValidation = buildTestMaterialStockInValidation({
         ...sourceBase,
@@ -390,6 +405,18 @@ exports.main = async (event, context) => {
       if (!testMaterialValidation.ok) {
         throw new Error(testMaterialValidation.msg);
       }
+      const identityValidation = await loadTestMaterialIdentityForSelection(transaction, materialRecord, {
+        ...sourceBase,
+        category,
+        product_code: productCode
+      });
+      if (!identityValidation.ok) {
+        throw new Error(identityValidation.msg);
+      }
+      const supplierModel = isTest
+        ? identityValidation.supplier_model
+        : resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier_model' });
+      const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
 
       // 4. 写入 Inventory 集合
       const invData = {
@@ -402,12 +429,14 @@ exports.main = async (event, context) => {
         unique_code: normalizedUniqueCode, // 使用传入的 code
         supplier,
         supplier_model: supplierModel,
+        supplier_model_key: supplierModelKey,
         sample_note: sampleNote,
         is_test_material: isTest,
         identity_key: buildInventoryIdentityKey({
           product_code: productCode,
           is_test_material: isTest,
-          supplier_model: supplierModel
+          supplier_model: supplierModel,
+          supplier_model_key: supplierModelKey
         }),
         ...locationPayload,
         status: 'in_stock',

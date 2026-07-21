@@ -27,6 +27,9 @@ const {
   assertPreprintJobVoidable,
   isMissingDocumentError
 } = require('./preprint-jobs');
+const {
+  loadTestMaterialIdentityForSelection
+} = require('./test-material-identities');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -454,11 +457,22 @@ async function reservePreprintJob({
     if (!currentMaterial || currentMaterial.status !== 'active') {
       throw new Error('所选物料未启用，不能预生成标签');
     }
+    const identityValidation = await loadTestMaterialIdentityForSelection(transaction, currentMaterial, form);
+    if (!identityValidation.ok) {
+      throw new Error(identityValidation.msg);
+    }
+    const currentForm = currentMaterial.is_test_material
+      ? {
+        ...form,
+        supplier_model: identityValidation.supplier_model,
+        supplier_model_key: identityValidation.supplier_model_key
+      }
+      : form;
     const currentSignature = buildPreprintRequestSignature({
       templateType,
       count,
       material: currentMaterial,
-      form
+      form: currentForm
     });
     if (currentSignature !== requestSignature) {
       throw new Error('物料主数据已变化，请刷新物料后重新生成标签');
@@ -482,11 +496,12 @@ async function reservePreprintJob({
       is_test_material: !!currentMaterial.is_test_material,
       material_specs: currentMaterial.specs || {},
       form_snapshot: {
-        supplier_model: normalizeText(form.supplier_model),
-        supplier: normalizeText(form.supplier),
-        sample_note: normalizeText(form.sample_note),
-        thickness_um: form.thickness_um,
-        width_mm: form.width_mm
+        supplier_model: normalizeText(currentForm.supplier_model),
+        supplier_model_key: normalizeText(currentForm.supplier_model_key),
+        supplier: normalizeText(currentForm.supplier),
+        sample_note: normalizeText(currentForm.sample_note),
+        thickness_um: currentForm.thickness_um,
+        width_mm: currentForm.width_mm
       },
       count,
       label_codes: labelCodes,
@@ -592,8 +607,24 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   const count = Number(data.count) || 0;
   const material = await loadMaterialForPreprint(data);
   const form = data.form || data;
+  const identityValidation = await loadTestMaterialIdentityForSelection(db, material, form);
+  if (!identityValidation.ok) {
+    throw new Error(identityValidation.msg);
+  }
+  const normalizedForm = material.is_test_material
+    ? {
+      ...form,
+      supplier_model: identityValidation.supplier_model,
+      supplier_model_key: identityValidation.supplier_model_key
+    }
+    : form;
   const preprintMode = normalizeText(data.preprintMode || data.preprint_mode || 'normal') || 'normal';
-  const requestSignature = buildPreprintRequestSignature({ templateType, count, material, form });
+  const requestSignature = buildPreprintRequestSignature({
+    templateType,
+    count,
+    material,
+    form: normalizedForm
+  });
 
   if (preprintMode === 'voidAndRecreate') {
     const previousJobId = normalizeText(data.previousJobId || data.previous_job_id);
@@ -613,7 +644,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
     templateType,
     count,
     material,
-    form,
+    form: normalizedForm,
     operator,
     operatorOpenid
   });
