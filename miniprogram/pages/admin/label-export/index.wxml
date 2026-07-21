@@ -103,9 +103,22 @@
             原厂型号
             <text wx:if="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material }}" class="field-required">*</text>
           </view>
+          <block wx:if="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material }}">
+            <van-field
+              value="{{ preprintForm.supplier_model }}"
+              placeholder="{{ testMaterialIdentityLoading ? '型号加载中...' : '请选择已维护型号' }}"
+              readonly
+              right-icon="arrow"
+              bind:tap="showTestMaterialIdentitySheet"
+            />
+            <view wx:if="{{ testMaterialIdentityNotice }}" class="field-inline-notice">
+              {{ testMaterialIdentityNotice }}
+            </view>
+          </block>
           <van-field
+            wx:else
             value="{{ preprintForm.supplier_model }}"
-            placeholder="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material ? '测试料必填' : '选填' }}"
+            placeholder="选填"
             data-field="supplier_model"
             bind:change="onPreprintFieldChange"
           />
@@ -317,5 +330,12 @@
     </view>
   </block>
 </view>
+
+<van-action-sheet
+  show="{{ showTestMaterialIdentitySheet }}"
+  actions="{{ testMaterialIdentityActions }}"
+  bind:close="onTestMaterialIdentityClose"
+  bind:select="onTestMaterialIdentitySelect"
+/>
 
 <van-toast id="van-toast" />

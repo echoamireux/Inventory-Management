@@ -106,6 +106,7 @@ function buildBatchListItem(material, uniqueCode, defaults = {}) {
     sub_category: material.sub_category,
     supplier: String(defaults.supplier || material.supplier || '').trim(),
     supplier_model: String(defaults.supplier_model || material.supplier_model || '').trim(),
+    supplier_model_key: String(defaults.supplier_model_key || '').trim(),
     sample_note: String(defaults.sample_note || '').trim(),
     is_test_material: !!(material && material.is_test_material),
     batch_number: defaults.defaultBatchNo || '',

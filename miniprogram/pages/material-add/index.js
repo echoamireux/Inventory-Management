@@ -52,6 +52,10 @@ const {
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
 const {
+  listTestMaterialIdentities,
+  buildTestMaterialIdentityActions
+} = require('../../utils/test-material-identity-service');
+const {
   getMaterialSubmitValidationMessage,
   getCategorySpecificValidationMessage
 } = require('../../utils/stock-form');
@@ -139,6 +143,11 @@ Page({
 
     // 联想建议
     suggestions: [],
+    selectedMaterialRecord: null,
+    testMaterialIdentityActions: [],
+    showTestMaterialIdentitySheet: false,
+    testMaterialIdentityLoading: false,
+    testMaterialIdentityNotice: '',
     codePrefix: 'J',
     codePrefixRecords: [],
     codePrefixOptions: [],
@@ -376,6 +385,7 @@ Page({
         'form.name': '',
         'form.sub_category': '',
         'form.supplier_model': '',
+        'form.supplier_model_key': '',
         'form.batch_number': '',
         'form.unit': getDefaultUnit(tab),
         'form.expiry_date': '',
@@ -394,6 +404,10 @@ Page({
         labelCodeNotice: '',
         // We can keep unique_code
         suggestions: [],
+        selectedMaterialRecord: null,
+        testMaterialIdentityActions: [],
+        showTestMaterialIdentitySheet: false,
+        testMaterialIdentityNotice: '',
         isUnknownCode: false,
         isArchived: false,
         archiveReason: '',
@@ -500,7 +514,11 @@ Page({
           suggestions: [],
           isUnknownCode: false,
           isArchived: false,
-          archiveReason: ''
+          archiveReason: '',
+          selectedMaterialRecord: null,
+          testMaterialIdentityActions: [],
+          showTestMaterialIdentitySheet: false,
+          testMaterialIdentityNotice: ''
       });
       if (this.data.form.product_code) {
           await this.confirmProductCodeLookup({ detail: this.data.form.product_code });
@@ -521,7 +539,11 @@ Page({
       requestForm: buildEmptyRequestForm(this.data.activeTab),
       labelCodeError: '',
       labelCodeChecking: false,
-      labelCodeNotice: ''
+      labelCodeNotice: '',
+      selectedMaterialRecord: null,
+      testMaterialIdentityActions: [],
+      showTestMaterialIdentitySheet: false,
+      testMaterialIdentityNotice: ''
     };
   },
 
@@ -571,6 +593,10 @@ Page({
         return;
       }
       updates.suggestions = [];
+      updates.selectedMaterialRecord = null;
+      updates.testMaterialIdentityActions = [];
+      updates.showTestMaterialIdentitySheet = false;
+      updates.testMaterialIdentityNotice = '';
       updates.isUnknownCode = false;
       updates.isArchived = false;
       updates.archiveReason = '';
@@ -1029,14 +1055,30 @@ Page({
       const newForm = syncFormWithMaterialMaster(this.data.form, this.data.activeTab, item, prefix);
 
       this.setData({
-          form: newForm,
+          form: {
+            ...newForm,
+            supplier_model: item.is_test_material ? '' : newForm.supplier_model,
+            supplier_model_key: ''
+          },
+          selectedMaterialRecord: item,
           suggestions: [],
           isUnknownCode: false,
           isArchived: false,
           archiveReason: '',
           showRequestPopup: false,
-          showRequestUnitSheet: false
+          showRequestUnitSheet: false,
+          showTestMaterialIdentitySheet: false,
+          testMaterialIdentityNotice: ''
       });
+
+      if (item.is_test_material) {
+        this.loadTestMaterialIdentityOptions(item);
+      } else {
+        this.setData({
+          testMaterialIdentityActions: [],
+          testMaterialIdentityNotice: ''
+        });
+      }
 
       if (showToast) {
         wx.showToast({
@@ -1045,6 +1087,66 @@ Page({
             duration: 1500
         });
       }
+  },
+
+  async loadTestMaterialIdentityOptions(material) {
+      if (!material || !material.is_test_material) {
+        return;
+      }
+      this.setData({
+        testMaterialIdentityLoading: true,
+        testMaterialIdentityNotice: ''
+      });
+      try {
+        const result = await listTestMaterialIdentities({
+          material_id: material._id,
+          product_code: material.product_code,
+          includeDisabled: false,
+          pageSize: 100
+        });
+        const actions = buildTestMaterialIdentityActions(result.list || []);
+        this.setData({
+          testMaterialIdentityActions: actions,
+          testMaterialIdentityNotice: actions.length
+            ? ''
+            : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库'
+        });
+      } catch (err) {
+        this.setData({
+          testMaterialIdentityActions: [],
+          testMaterialIdentityNotice: err.message || '加载测试料型号失败'
+        });
+      } finally {
+        this.setData({ testMaterialIdentityLoading: false });
+      }
+  },
+
+  async showTestMaterialIdentitySheet() {
+      if (this.data.form.preprint_label_id || !this.data.form.is_test_material) {
+        return;
+      }
+      if (!this.data.testMaterialIdentityActions.length && this.data.selectedMaterialRecord) {
+        await this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord);
+      }
+      if (!this.data.testMaterialIdentityActions.length) {
+        Toast.fail(this.data.testMaterialIdentityNotice || '请先维护测试料型号库');
+        return;
+      }
+      this.setData({ showTestMaterialIdentitySheet: true });
+  },
+
+  onTestMaterialIdentityClose() {
+      this.setData({ showTestMaterialIdentitySheet: false });
+  },
+
+  onTestMaterialIdentitySelect(e) {
+      const item = e.detail || {};
+      this.setData({
+        'form.supplier_model': item.supplier_model || item.name || '',
+        'form.supplier_model_key': item.supplier_model_key || '',
+        showTestMaterialIdentitySheet: false,
+        testMaterialIdentityNotice: ''
+      });
   },
 
   // 选中建议 (Auto-fill) - 自动填入所有可用字段
@@ -1196,6 +1298,7 @@ Page({
           'form.product_code': normalizedCode.number,
           'form.supplier': record.supplier || material.supplier || '',
           'form.supplier_model': record.supplier_model || material.supplier_model || '',
+          'form.supplier_model_key': record.supplier_model_key || '',
           'form.sample_note': record.sample_note || '',
           'form.preprint_label': record,
           ...((nextTab === 'film') ? {
@@ -1412,6 +1515,7 @@ Page({
       product_code: fullProductCode,
       supplier: form.supplier,
       supplier_model: form.supplier_model || '',
+      supplier_model_key: form.supplier_model_key || '',
       sample_note: form.sample_note || '',
       package_type: form.package_type || '' // New
     };

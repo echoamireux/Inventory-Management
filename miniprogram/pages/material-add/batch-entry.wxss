@@ -250,3 +250,10 @@ page {
 .spec-submit-btn {
   margin-top: 20rpx;
 }
+.entry-inline-notice {
+  padding: 8rpx 32rpx 16rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  line-height: 1.45;
+  background: #ffffff;
+}

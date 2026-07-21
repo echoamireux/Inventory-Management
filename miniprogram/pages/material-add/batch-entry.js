@@ -38,6 +38,10 @@ const {
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
 const {
+  listTestMaterialIdentities,
+  buildTestMaterialIdentityActions
+} = require('../../utils/test-material-identity-service');
+const {
   ensureOperationId,
   clearOperationId
 } = require('../../utils/operation-id');
@@ -93,6 +97,11 @@ Page({
     suggestionTimer: null,
     selectedMaterial: null,
     selectedMaterialSummary: null,
+    selectedTestMaterialIdentity: null,
+    testMaterialIdentityActions: [],
+    showTestMaterialIdentitySheet: false,
+    testMaterialIdentityLoading: false,
+    testMaterialIdentityNotice: '',
     showInitialFilmSpecForm: false,
     initialFilmSpecForm: {
       thickness_um: '',
@@ -262,6 +271,88 @@ Page({
       });
   },
 
+  async loadTestMaterialIdentityOptions(material) {
+      if (!material || !material.is_test_material) {
+          return;
+      }
+      this.setData({
+          testMaterialIdentityLoading: true,
+          testMaterialIdentityNotice: ''
+      });
+      try {
+          const result = await listTestMaterialIdentities({
+              material_id: material._id,
+              product_code: material.product_code,
+              includeDisabled: false,
+              pageSize: 100
+          });
+          const actions = buildTestMaterialIdentityActions(result.list || []);
+          this.setData({
+              testMaterialIdentityActions: actions,
+              testMaterialIdentityNotice: actions.length
+                  ? ''
+                  : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库'
+          });
+      } catch (err) {
+          this.setData({
+              testMaterialIdentityActions: [],
+              testMaterialIdentityNotice: err.message || '加载测试料型号失败'
+          });
+      } finally {
+          this.setData({ testMaterialIdentityLoading: false });
+      }
+  },
+
+  async showTestMaterialIdentitySheet() {
+      if (!this.data.selectedMaterial || !this.data.selectedMaterial.is_test_material) {
+          return;
+      }
+      if (!this.data.testMaterialIdentityActions.length) {
+          await this.loadTestMaterialIdentityOptions(this.data.selectedMaterial);
+      }
+      if (!this.data.testMaterialIdentityActions.length) {
+          Toast.fail(this.data.testMaterialIdentityNotice || '请先维护测试料型号库');
+          return;
+      }
+      this.setData({ showTestMaterialIdentitySheet: true });
+  },
+
+  onTestMaterialIdentityClose() {
+      this.setData({ showTestMaterialIdentitySheet: false });
+  },
+
+  onTestMaterialIdentitySelect(e) {
+      const item = e.detail || {};
+      this.setData({
+          selectedTestMaterialIdentity: {
+              supplier_model: item.supplier_model || item.name || '',
+              supplier_model_key: item.supplier_model_key || '',
+              identity_key: item.identity_key || ''
+          },
+          showTestMaterialIdentitySheet: false,
+          testMaterialIdentityNotice: ''
+      });
+  },
+
+  resolveTestMaterialIdentityOverrides(overrides = {}) {
+      const selectedMaterial = this.data.selectedMaterial || {};
+      if (!selectedMaterial.is_test_material) {
+          return overrides;
+      }
+      if (overrides.supplier_model) {
+          return overrides;
+      }
+      const identity = this.data.selectedTestMaterialIdentity || {};
+      if (!identity.supplier_model) {
+          return null;
+      }
+      return {
+          ...overrides,
+          supplier_model: identity.supplier_model,
+          supplier_model_key: identity.supplier_model_key
+      };
+  },
+
   validateSelectedMaterial(material) {
       const categoryCheck = assertBatchEntryMaterialCategory(this.data.activeTab, material);
       if (!categoryCheck.ok) {
@@ -385,6 +476,7 @@ Page({
           preprintLabelId: record._id,
           supplier: record.supplier || selectedMaterial.supplier || '',
           supplier_model: record.supplier_model || selectedMaterial.supplier_model || '',
+          supplier_model_key: record.supplier_model_key || '',
           sample_note: record.sample_note || ''
       };
 
@@ -616,8 +708,15 @@ Page({
               usesCustomBatchWidth: false,
               codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
               materialCodeInput: extractCodeNumber(material.product_code),
-              materialSuggestions: []
+              materialSuggestions: [],
+              selectedTestMaterialIdentity: null,
+              testMaterialIdentityActions: [],
+              showTestMaterialIdentitySheet: false,
+              testMaterialIdentityNotice: ''
           });
+          if (material.is_test_material) {
+              this.loadTestMaterialIdentityOptions(material);
+          }
       };
 
       const currentProductCode = this.data.selectedMaterial && this.data.selectedMaterial.product_code;
@@ -652,7 +751,11 @@ Page({
               filmBatchSpecsConfirmed: true,
               usesCustomBatchWidth: false,
               materialCodeInput: '',
-              materialSuggestions: []
+              materialSuggestions: [],
+              selectedTestMaterialIdentity: null,
+              testMaterialIdentityActions: [],
+              showTestMaterialIdentitySheet: false,
+              testMaterialIdentityNotice: ''
           });
       };
 
@@ -806,12 +909,18 @@ Page({
               );
 
               if (canRefill) {
-                  Toast.clear();
-                  this.addItemToList(this.data.selectedMaterial, uniqueCode, {
+                  const refillOverrides = this.resolveTestMaterialIdentityOverrides({
                       submitAction: 'refill',
                       refillInventoryId: existingItem._id,
                       pendingNotice: '待补料：同标签在库化材，提交时将按补料入库'
                   });
+                  if (!refillOverrides) {
+                      Toast.clear();
+                      this.showBusinessError('测试料请先选择原厂型号', '型号必选');
+                      return;
+                  }
+                  Toast.clear();
+                  this.addItemToList(this.data.selectedMaterial, uniqueCode, refillOverrides);
                   wx.showToast({ title: '已加入待补料列表', icon: 'none', duration: 2000 });
                   return;
               }
@@ -879,7 +988,14 @@ Page({
               this.updateBatchViewState(nextState);
           }
 
-          this.addItemToList(this.data.selectedMaterial, uniqueCode, preprintValidation.overrides);
+          const listItemOverrides = this.resolveTestMaterialIdentityOverrides(preprintValidation.overrides);
+          if (!listItemOverrides) {
+              Toast.clear();
+              this.showBusinessError('测试料请先选择原厂型号', '型号必选');
+              return;
+          }
+
+          this.addItemToList(this.data.selectedMaterial, uniqueCode, listItemOverrides);
           Toast.clear();
           Toast.success('已添加标签');
       } catch (err) {
@@ -903,6 +1019,7 @@ Page({
           preprintLabelId: overrides.preprintLabelId,
           supplier: overrides.supplier,
           supplier_model: overrides.supplier_model,
+          supplier_model_key: overrides.supplier_model_key,
           sample_note: overrides.sample_note,
           submitAction: overrides.submitAction,
           refillInventoryId: overrides.refillInventoryId,

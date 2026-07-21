@@ -199,12 +199,25 @@
         />
 
         <!-- 4. 供应商型号 -->
+        <block wx:if="{{ form.is_test_material }}">
+          <van-field
+            value="{{ form.supplier_model }}"
+            label="原厂型号"
+            placeholder="{{ testMaterialIdentityLoading ? '型号加载中...' : '请选择已维护型号' }}"
+            required
+            readonly
+            right-icon="{{ form.preprint_label_id ? '' : 'arrow' }}"
+            bind:tap="showTestMaterialIdentitySheet"
+          />
+          <view wx:if="{{ testMaterialIdentityNotice && !form.preprint_label_id }}" class="form-inline-notice">
+            {{ testMaterialIdentityNotice }}
+          </view>
+        </block>
         <van-field
+          wx:else
           value="{{ form.supplier_model }}"
           label="原厂型号"
-          placeholder="{{ form.is_test_material ? '测试料必填' : '请输入 (选填)' }}"
-          required="{{ form.is_test_material }}"
-          readonly="{{ form.preprint_label_id }}"
+          placeholder="请输入 (选填)"
           data-field="supplier_model"
           bind:change="onInput"
         />
@@ -389,6 +402,13 @@
     actions="{{ codePrefixOptions }}"
     bind:close="onCodePrefixClose"
     bind:select="onCodePrefixSelect"
+  />
+
+  <van-action-sheet
+    show="{{ showTestMaterialIdentitySheet }}"
+    actions="{{ testMaterialIdentityActions }}"
+    bind:close="onTestMaterialIdentityClose"
+    bind:select="onTestMaterialIdentitySelect"
   />
 
   <!-- 包装形式选择 -->

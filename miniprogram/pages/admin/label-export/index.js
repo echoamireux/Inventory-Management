@@ -5,6 +5,10 @@ const {
 const {
   resolveOpenDocumentPath
 } = require('../../../utils/download-file');
+const {
+  listTestMaterialIdentities,
+  buildTestMaterialIdentityActions
+} = require('../../../utils/test-material-identity-service');
 
 const TEMPLATE_CATEGORY_MAP = {
   film: 'film',
@@ -78,6 +82,7 @@ function buildPreprintFormSnapshot(preprintForm = {}, templateType = 'film') {
     materialId: material._id || '',
     count: String(preprintForm.count || '').trim(),
     supplier_model: String(preprintForm.supplier_model || '').trim(),
+    supplier_model_key: String(preprintForm.supplier_model_key || '').trim(),
     thickness_um: String(preprintForm.thickness_um || '').trim(),
     width_mm: String(preprintForm.width_mm || '').trim(),
     supplier: String(preprintForm.supplier || '').trim(),
@@ -103,6 +108,7 @@ Page({
       selectedMaterial: null,
       count: 1,
       supplier_model: '',
+      supplier_model_key: '',
       thickness_um: '',
       width_mm: '',
       filmThicknessLocked: false,
@@ -117,6 +123,10 @@ Page({
     recentPreprintJobs: [],
     loadingRecentPreprints: false,
     materialSuggestions: [],
+    testMaterialIdentityActions: [],
+    showTestMaterialIdentitySheet: false,
+    testMaterialIdentityLoading: false,
+    testMaterialIdentityNotice: '',
     materialSearching: false,
     materialSearchState: '',
     creatingPreprint: false,
@@ -207,6 +217,7 @@ Page({
       'preprintForm.materialSearchVal': '',
       'preprintForm.selectedMaterial': null,
       'preprintForm.supplier_model': '',
+      'preprintForm.supplier_model_key': '',
       'preprintForm.thickness_um': '',
       'preprintForm.width_mm': '',
       'preprintForm.filmThicknessLocked': false,
@@ -216,7 +227,10 @@ Page({
       'preprintForm.requestId': buildRequestId(),
       'preprintForm.lastSnapshot': '',
       'preprintForm.lastJobId': '',
-      'preprintForm.lastRecords': []
+      'preprintForm.lastRecords': [],
+      testMaterialIdentityActions: [],
+      showTestMaterialIdentitySheet: false,
+      testMaterialIdentityNotice: ''
     });
     this.getList(true);
     this.loadRecentPreprintJobs();
@@ -339,14 +353,82 @@ Page({
     this.setData({
       'preprintForm.selectedMaterial': material,
       'preprintForm.materialSearchVal': `${material.display_code} ${material.display_name}`,
-      'preprintForm.supplier_model': material.supplier_model || '',
+      'preprintForm.supplier_model': material.is_test_material ? '' : (material.supplier_model || ''),
+      'preprintForm.supplier_model_key': '',
       'preprintForm.thickness_um': isFilmTemplate ? (material.film_thickness_um || '') : '',
       'preprintForm.width_mm': isFilmTemplate ? (material.film_width_mm || '') : '',
       'preprintForm.filmThicknessLocked': !!(isFormalFilm && material.film_thickness_um),
       'preprintForm.filmWidthLocked': !!(isFormalFilm && material.film_width_mm),
       'preprintForm.supplier': material.supplier || '',
       materialSuggestions: [],
-      materialSearchState: ''
+      materialSearchState: '',
+      testMaterialIdentityActions: [],
+      showTestMaterialIdentitySheet: false,
+      testMaterialIdentityNotice: ''
+    });
+    if (material.is_test_material) {
+      this.loadTestMaterialIdentityOptions(material);
+    }
+  },
+
+  async loadTestMaterialIdentityOptions(material) {
+    if (!material || !material.is_test_material) {
+      return;
+    }
+    this.setData({
+      testMaterialIdentityLoading: true,
+      testMaterialIdentityNotice: ''
+    });
+    try {
+      const result = await listTestMaterialIdentities({
+        material_id: material._id,
+        product_code: material.product_code,
+        includeDisabled: false,
+        pageSize: 100
+      });
+      const actions = buildTestMaterialIdentityActions(result.list || []);
+      this.setData({
+        testMaterialIdentityActions: actions,
+        testMaterialIdentityNotice: actions.length
+          ? ''
+          : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库'
+      });
+    } catch (err) {
+      this.setData({
+        testMaterialIdentityActions: [],
+        testMaterialIdentityNotice: err.message || '加载测试料型号失败'
+      });
+    } finally {
+      this.setData({ testMaterialIdentityLoading: false });
+    }
+  },
+
+  async showTestMaterialIdentitySheet() {
+    const material = this.data.preprintForm.selectedMaterial;
+    if (!material || !material.is_test_material) {
+      return;
+    }
+    if (!this.data.testMaterialIdentityActions.length) {
+      await this.loadTestMaterialIdentityOptions(material);
+    }
+    if (!this.data.testMaterialIdentityActions.length) {
+      Toast.fail(this.data.testMaterialIdentityNotice || '请先维护测试料型号库');
+      return;
+    }
+    this.setData({ showTestMaterialIdentitySheet: true });
+  },
+
+  onTestMaterialIdentityClose() {
+    this.setData({ showTestMaterialIdentitySheet: false });
+  },
+
+  onTestMaterialIdentitySelect(e) {
+    const item = e.detail || {};
+    this.setData({
+      'preprintForm.supplier_model': item.supplier_model || item.name || '',
+      'preprintForm.supplier_model_key': item.supplier_model_key || '',
+      showTestMaterialIdentitySheet: false,
+      testMaterialIdentityNotice: ''
     });
   },
 
@@ -362,6 +444,7 @@ Page({
       count: countOverride || preprintForm.count,
       form: {
         supplier_model: preprintForm.supplier_model,
+        supplier_model_key: preprintForm.supplier_model_key,
         thickness_um: preprintForm.thickness_um,
         width_mm: preprintForm.width_mm,
         supplier: preprintForm.supplier,
@@ -445,8 +528,11 @@ Page({
       Toast.fail('请先从搜索结果中选择物料');
       return;
     }
-    if (selectedMaterial.is_test_material && !String(preprintForm.supplier_model || '').trim()) {
-      Toast.fail('测试料必须填写原厂型号');
+    if (
+      selectedMaterial.is_test_material
+      && (!String(preprintForm.supplier_model || '').trim() || !String(preprintForm.supplier_model_key || '').trim())
+    ) {
+      Toast.fail('测试料必须选择已维护原厂型号');
       return;
     }
     if (templateType === 'film') {

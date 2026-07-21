@@ -62,7 +62,7 @@ test('material add submit validation requires supplier model for test materials'
       is_test_material: true,
       supplier_model: ''
     }),
-    '测试料请填写原厂型号'
+    '测试料请选择已维护原厂型号'
   );
 
   assert.equal(
@@ -70,7 +70,8 @@ test('material add submit validation requires supplier model for test materials'
       batch_number: '20260523',
       zone_key: 'builtin:chemical:safe-cabinet-02',
       is_test_material: true,
-      supplier_model: 'TEST-IPA-01'
+      supplier_model: 'TEST-IPA-01',
+      supplier_model_key: 'TEST-IPA-01'
     }),
     ''
   );
@@ -204,7 +205,8 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /bindblur="onProductCodeBlur"/);
   assert.match(materialAddWxml, /bindconfirm="onProductCodeConfirm"/);
   assert.match(materialAddWxml, /confirm-type="done"/);
-  assert.match(materialAddWxml, /label="原厂型号"[\s\S]*required="\{\{ form\.is_test_material \}\}"/);
+  assert.match(materialAddWxml, /wx:if="\{\{ form\.is_test_material \}\}"/);
+  assert.match(materialAddWxml, /label="原厂型号"[\s\S]*placeholder="\{\{ testMaterialIdentityLoading \? '型号加载中\.\.\.' : '请选择已维护型号' \}\}"[\s\S]*readonly/);
   assert.match(materialAddWxml, /title="子类别"/);
   assert.equal(
     fs.existsSync(path.join(__dirname, '../miniprogram/pages/stock-in-out/index.js')),
@@ -234,14 +236,18 @@ test('manual stock-in keeps test-material hints lightweight and remark label sta
     path.join(__dirname, '../miniprogram/pages/material-add/index.wxml'),
     'utf8'
   );
+  const materialAddJs = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/index.js'),
+    'utf8'
+  );
   const materialAddWxss = fs.readFileSync(
     path.join(__dirname, '../miniprogram/pages/material-add/index.wxss'),
     'utf8'
   );
 
   assert.doesNotMatch(materialAddWxml, /测试料入库必须填写原厂型号和生产批号/);
-  assert.match(materialAddWxml, /required="\{\{ form\.is_test_material \}\}"/);
-  assert.match(materialAddWxml, /placeholder="\{\{ form\.is_test_material \? '测试料必填' : '请输入 \(选填\)' \}\}"/);
+  assert.match(materialAddWxml, /请选择已维护型号/);
+  assert.match(materialAddJs, /测试料型号库/);
   assert.match(materialAddWxml, /label="备注"/);
   assert.doesNotMatch(materialAddWxml, /样品说明/);
   assert.doesNotMatch(materialAddWxml, /sample-note-label/);

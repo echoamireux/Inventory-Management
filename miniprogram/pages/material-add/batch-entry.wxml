@@ -152,6 +152,17 @@
         right-icon="edit"
      />
      <van-cell
+        wx:if="{{ selectedMaterial && selectedMaterial.is_test_material }}"
+        title="测试料原厂型号"
+        value="{{ selectedTestMaterialIdentity && selectedTestMaterialIdentity.supplier_model ? selectedTestMaterialIdentity.supplier_model : (testMaterialIdentityLoading ? '加载中...' : '请选择') }}"
+        is-link
+        required
+        bind:click="showTestMaterialIdentitySheet"
+     />
+     <view wx:if="{{ selectedMaterial && selectedMaterial.is_test_material && testMaterialIdentityNotice }}" class="entry-inline-notice">
+       {{ testMaterialIdentityNotice }}
+     </view>
+     <van-cell
         title="默认存储区域"
         value="{{ defaultLocationDisplay || '请选择' }}"
         is-link
@@ -212,6 +223,9 @@
                 <view class="text-sm mt-1">
                     <text>库位: {{ item.location || defaultLocationDisplay || '--' }}</text>
                 </view>
+                <view wx:if="{{ item.is_test_material && item.supplier_model }}" class="text-sm mt-1 text-secondary">
+                    型号: {{ item.supplier_model }}
+                </view>
                 <view wx:if="{{ item.pending_notice }}" class="entry-notice entry-notice--refill mt-1">
                     {{ item.pending_notice }}
                 </view>
@@ -268,6 +282,13 @@
     actions="{{ codePrefixOptions }}"
     bind:close="onCodePrefixClose"
     bind:select="onCodePrefixSelect"
+  />
+
+  <van-action-sheet
+    show="{{ showTestMaterialIdentitySheet }}"
+    actions="{{ testMaterialIdentityActions }}"
+    bind:close="onTestMaterialIdentityClose"
+    bind:select="onTestMaterialIdentitySelect"
   />
 
   <van-toast id="van-toast" />

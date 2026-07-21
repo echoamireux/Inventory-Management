@@ -484,3 +484,9 @@
   background: #C8D2E6;
   color: rgba(255, 255, 255, 0.92);
 }
+.field-inline-notice {
+  padding: 8rpx 16rpx 0;
+  color: #64748b;
+  font-size: 22rpx;
+  line-height: 1.45;
+}

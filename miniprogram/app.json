@@ -17,6 +17,7 @@
     "pages/admin/subcategory-manage/index",
     "pages/admin/project-code-manage/index",
     "pages/admin/product-code-prefix-manage/index",
+    "pages/admin/test-material-identity-manage/index",
     "pages/project-usage/index",
     "pages/admin/material-import/index",
     "pages/admin/label-export/index",

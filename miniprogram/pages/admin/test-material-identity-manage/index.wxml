@@ -1,0 +1,119 @@
+<view class="identity-page">
+  <view class="identity-header">
+    <view class="identity-header__text">
+      <view class="identity-title">测试料型号库</view>
+      <view class="identity-hint">测试料入库、预打印和模板导入只能选择已启用型号；停用不影响历史库存查询。</view>
+    </view>
+    <view class="identity-actions">
+      <van-button size="small" round type="primary" bind:click="onCreateIdentity">新增型号</van-button>
+      <van-button size="small" round plain type="primary" bind:click="onChooseImportFile">批量导入</van-button>
+    </view>
+  </view>
+
+  <van-search
+    value="{{ searchVal }}"
+    placeholder="搜索产品代码、原厂型号或物料名称"
+    shape="round"
+    bind:change="onSearchChange"
+    bind:search="onSearchConfirm"
+    bind:clear="onClearSearch"
+  />
+
+  <view wx:if="{{ loading }}" class="identity-loading">
+    <van-loading type="spinner" vertical>加载中...</van-loading>
+  </view>
+
+  <van-empty wx:elif="{{ identities.length === 0 }}" description="暂无测试料型号" />
+
+  <view wx:else class="identity-list">
+    <view
+      wx:for="{{ identities }}"
+      wx:key="identity_key"
+      class="identity-card {{ item.status === 'disabled' ? 'identity-card--disabled' : '' }}"
+    >
+      <view class="identity-card__main">
+        <view class="identity-card__top">
+          <text class="identity-code">{{ item.product_code }}</text>
+          <van-tag wx:if="{{ item.category === 'chemical' }}" plain type="primary">化材</van-tag>
+          <van-tag wx:else plain type="success">膜材</van-tag>
+          <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
+        </view>
+        <view class="identity-model">{{ item.supplier_model }}</view>
+        <view class="identity-meta">{{ item.material_name || '测试料主数据' }}</view>
+      </view>
+      <van-button size="mini" plain bind:click="onToggleStatus" data-index="{{ index }}">
+        {{ item.status === 'disabled' ? '启用' : '停用' }}
+      </van-button>
+    </view>
+  </view>
+
+  <view wx:if="{{ importPreviewData.length > 0 }}" class="import-panel">
+    <view class="import-panel__title">待导入 {{ importPreviewData.length }} 条</view>
+    <view class="import-preview">
+      <view wx:for="{{ importPreviewData }}" wx:key="previewKey" class="import-row {{ item.hasError ? 'import-row--error' : '' }}">
+        <text>{{ item.product_code || '-' }}</text>
+        <text>{{ item.supplier_model || '-' }}</text>
+        <text wx:if="{{ item.hasError }}">{{ item.error }}</text>
+      </view>
+    </view>
+    <van-button type="primary" round block loading="{{ importing }}" bind:click="onImportPreviewRows">
+      确认导入
+    </van-button>
+  </view>
+
+  <view class="template-copy" bindtap="onCopyTemplateStructure">
+    复制两列表格结构
+  </view>
+
+  <van-popup show="{{ formVisible }}" position="bottom" round closeable bind:close="onCloseForm">
+    <view class="identity-form">
+      <view class="identity-form__title">新增测试料型号</view>
+      <view class="identity-form__hint">先搜索并选择已建档的测试料代码壳，再录入真实原厂型号。</view>
+
+      <van-field
+        label="测试料主数据"
+        value="{{ form.materialSearchVal }}"
+        placeholder="搜索 J-999 或物料名称"
+        clearable
+        required
+        bind:change="onMaterialSearchInput"
+      />
+
+      <view wx:if="{{ materialSearching }}" class="material-searching">
+        <van-loading size="18px" /> <text>查询中...</text>
+      </view>
+
+      <view wx:if="{{ materialSuggestions.length > 0 }}" class="material-suggestions">
+        <view
+          wx:for="{{ materialSuggestions }}"
+          wx:key="_id"
+          class="material-suggestion"
+          bindtap="onSelectMaterial"
+          data-item="{{ item }}"
+        >
+          <view class="material-suggestion__code">{{ item.product_code }}</view>
+          <view class="material-suggestion__name">{{ item.material_name }}</view>
+        </view>
+      </view>
+
+      <van-field
+        label="原厂型号"
+        value="{{ form.supplier_model }}"
+        placeholder="例如 A-100"
+        required
+        error-message="{{ formSupplierModelError }}"
+        bind:change="onSupplierModelInput"
+      />
+
+      <view class="identity-form__example">保留大小写差异；系统会整理全角字符和横杠/斜杠两侧空格。</view>
+
+      <view class="identity-form__actions">
+        <van-button plain round block bind:click="onCloseForm" disabled="{{ formSubmitting }}">取消</van-button>
+        <van-button type="primary" round block loading="{{ formSubmitting }}" bind:click="onSubmitForm">创建</van-button>
+      </view>
+    </view>
+  </van-popup>
+
+  <van-toast id="van-toast" />
+  <van-dialog id="van-dialog" />
+</view>

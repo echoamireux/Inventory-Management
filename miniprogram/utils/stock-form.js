@@ -14,8 +14,8 @@ function getMaterialSubmitValidationMessage(form = {}) {
     return '请选择详细坐标';
   }
 
-  if (form.is_test_material && !hasFilledValue(form.supplier_model)) {
-    return '测试料请填写原厂型号';
+  if (form.is_test_material && (!hasFilledValue(form.supplier_model) || !hasFilledValue(form.supplier_model_key))) {
+    return '测试料请选择已维护原厂型号';
   }
 
   return '';

@@ -363,3 +363,10 @@
   font-size: 28rpx;
   color: var(--color-text-primary);
 }
+.form-inline-notice {
+  padding: 8rpx 32rpx 16rpx 204rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  line-height: 1.45;
+  background: #ffffff;
+}
