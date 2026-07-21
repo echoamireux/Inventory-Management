@@ -115,7 +115,8 @@ function assertSharedSync() {
     'inventory-quantity.js',
     'preprint-jobs.js',
     'search.js',
-    'warehouse-zones.js'
+    'warehouse-zones.js',
+    'test-material-identities.js'
   ];
   for (const fileName of sharedFiles) {
     if (!exists(`cloudfunctions/_shared/${fileName}`)) {
@@ -150,6 +151,9 @@ function assertReadmeDeploymentChecklist() {
     'operation_receipts',
     'audit_events',
     'preprint_daily_usage',
+    'test_material_identities',
+    'test_material_identities.identity_key',
+    'test_material_identities.product_code + status + supplier_model_key',
     'inventory.status + identity_key',
     'audit_events.timestamp desc',
     'audit_events.actor_id + timestamp desc',

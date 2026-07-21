@@ -332,6 +332,7 @@ npm test
 - `batchAddInventory`
 - `importInventoryTemplate`
 - `manageMaterial`
+- `manageTestMaterialIdentity`
 - `editInventory`
 - `removeInventory`
 - `approveMaterialRequest`
@@ -354,7 +355,7 @@ npm test
 
 旧的 `login` 和 `initMDMCollection` 已从仓库移除。部署前请在云开发控制台同步删除云端 `login`，并删除云端 `initMDMCollection`，避免废弃入口继续被误调用。
 
-首次部署本版本前，先在云数据库创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
+首次部署本版本前，先在云数据库创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`、`test_material_identities` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
 
 `removeInventory` 安全部署要求：仓库内该函数已停用数据库写入，只保留“删除入口已停用”的兼容响应。云端必须重新部署新版 `removeInventory`，并确认日常页面没有库存删除入口。库存减少只能通过领用或盘点纠错审批链路完成。
 
@@ -369,6 +370,9 @@ npm test
 | `materials` | `materials.product_code` | 唯一索引，升序 | 确保标准物料代码全库唯一 |
 | `product_code_prefixes` | `product_code_prefixes.prefix` | 唯一索引，升序 | 确保产品代码前缀不重复，例如 `J` 和 `S` 作为不同前缀维护 |
 | `product_code_prefixes` | `product_code_prefixes.category + status + sort_order` | 复合索引，升序 + 升序 + 升序 | 支持前缀管理页和模板导出按类别加载启用前缀 |
+| `test_material_identities` | `test_material_identities.identity_key` | 唯一索引，升序 | 确保同一测试料代码壳下的同一规范原厂型号不重复 |
+| `test_material_identities` | `test_material_identities.product_code + status + supplier_model_key` | 复合索引，升序 + 升序 + 升序 | 支持测试料入库、预打印和领用按产品代码快速校验启用型号 |
+| `test_material_identities` | `test_material_identities.material_id + status + updated_at desc` | 复合索引，升序 + 升序 + 降序 | 支持业务页按测试料主数据加载可选型号 |
 | `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
 | `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
@@ -407,7 +411,7 @@ npm test
 3. 进入“数据库”，选择需要配置的集合，例如 `inventory`。
 4. 打开“索引”页签，点击“新建索引”。
 5. 按上表字段顺序添加字段，并选择升序或降序。
-6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`product_code_prefixes.prefix`、`preprinted_labels.unique_code`、`project_codes.project_code`、`material_subcategories.subcategory_key`、`warehouse_zones.zone_key` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
+6. 对 `users._openid`、`inventory.unique_code`、`materials.product_code`、`product_code_prefixes.prefix`、`test_material_identities.identity_key`、`preprinted_labels.unique_code`、`project_codes.project_code`、`material_subcategories.subcategory_key`、`warehouse_zones.zone_key` 和 `warehouse_location_details.detail_key` 勾选“唯一索引”。
 7. 保存后等待索引构建完成，再继续大量导入或正式使用。
 
 注意：
@@ -424,7 +428,7 @@ npm test
 - `material_requests`、`inventory_correction_requests`
 - `preprinted_labels`、`preprint_jobs`、`preprint_daily_usage`、`system_counters`
 - `operation_receipts`
-- `project_codes`、`material_subcategories`、`product_code_prefixes`
+- `project_codes`、`material_subcategories`、`product_code_prefixes`、`test_material_identities`
 - `warehouse_zones`、`warehouse_location_details`
 
 在云开发控制台逐个检查集合权限；如果仍保留“所有用户可读”或“小程序端可写”，视为投产阻断项。
@@ -437,7 +441,7 @@ npm test
 
 以下项目未完成时不要上传正式版小程序：
 
-1. 已创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
+1. 已创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`、`test_material_identities`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
 2. 本节要求的唯一索引和复合索引均已构建成功。
 3. 核心集合权限均已收紧为仅云函数可读写。
 4. 旧云端 `login`、`initMDMCollection` 已删除。
