@@ -175,17 +175,19 @@ exports.main = async () => {
     });
     const workbook = await buildInventoryTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();
+    const contentBuffer = Buffer.from(fileBuffer);
     const exportedAt = new Date();
     const fileName = buildInventoryTemplateFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
       cloudPath: `templates/${OPENID}/inventory-import/current.xlsx`,
-      fileContent: Buffer.from(fileBuffer)
+      fileContent: contentBuffer
     });
 
     return {
       success: true,
       fileID: uploadRes.fileID,
       fileName,
+      fileContentBase64: contentBuffer.toString('base64'),
       msg: '模板生成成功'
     };
   } catch (error) {

@@ -33,8 +33,12 @@
 .identity-actions,
 .identity-form__actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16rpx;
+}
+
+.identity-form__actions {
+  grid-template-columns: 1fr 1fr;
 }
 
 .identity-loading {
@@ -120,7 +124,7 @@
 
 .import-row {
   display: grid;
-  grid-template-columns: 140rpx 1fr;
+  grid-template-columns: 140rpx 1fr 1fr;
   gap: 12rpx;
   padding: 12rpx 0;
   border-bottom: 1rpx solid #edf2f7;
@@ -129,7 +133,7 @@
 }
 
 .import-row--error {
-  grid-template-columns: 140rpx 1fr 1fr;
+  grid-template-columns: 140rpx 1fr 1fr 1.2fr;
   color: #b91c1c;
 }
 

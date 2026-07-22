@@ -39,6 +39,7 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/manageMaterial/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProductCodePrefix/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageTestMaterialIdentity/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
+cp cloudfunctions/_shared/auth.js cloudfunctions/exportTestMaterialIdentityTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportInventoryTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportData/auth.js

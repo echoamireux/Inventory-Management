@@ -1,0 +1,13 @@
+{
+  "name": "exportTestMaterialIdentityTemplate",
+  "version": "1.0.0",
+  "description": "Export governed test material identity import template",
+  "main": "index.js",
+  "engines": {
+    "node": ">=10.15.0"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "wx-server-sdk": "3.0.4"
+  }
+}

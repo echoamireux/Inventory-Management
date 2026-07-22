@@ -137,6 +137,80 @@ test('test material identity management is registered for admins and shared to w
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/manageTestMaterialIdentity/package-lock.json')), true);
 });
 
+test('test material identity template export is registered and opened from inline workbook content', () => {
+  const appJson = read('miniprogram/app.json');
+  const manifest = read('scripts/cloudfunctions-manifest.json');
+  const managePageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
+  const managePageWxml = read('miniprogram/pages/admin/test-material-identity-manage/index.wxml');
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+
+  assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
+  assert.match(manifest, /exportTestMaterialIdentityTemplate/);
+  assert.match(managePageJs, /exportTestMaterialIdentityTemplate/);
+  assert.match(managePageJs, /persistBase64File/);
+  assert.match(managePageJs, /fileContentBase64/);
+  assert.match(managePageWxml, /导出模板/);
+  assert.match(managePageWxml, /上传导入/);
+  assert.match(materialListJs, /onManageTestMaterialIdentities/);
+  assert.match(materialListWxml, /测试料型号/);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), true);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/package-lock.json')), true);
+});
+
+test('test material identity workbook template uses active test material codes as the product code dropdown', async () => {
+  const {
+    TEMPLATE_HEADERS,
+    DATA_SHEET_NAME,
+    CONFIG_SHEET_NAME,
+    buildTestMaterialIdentityTemplateSpec,
+    buildTestMaterialIdentityWorkbook
+  } = require('../cloudfunctions/exportTestMaterialIdentityTemplate/identity-template-workbook');
+
+  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*']);
+
+  const spec = buildTestMaterialIdentityTemplateSpec({
+    testMaterials: [
+      { product_code: 'J-999', material_name: '测试料化材', status: 'active', is_test_material: true },
+      { product_code: 'S-999', material_name: '测试料S', status: 'active', is_test_material: true },
+      { product_code: 'J-001', material_name: '正式料', status: 'active', is_test_material: false },
+      { product_code: 'Y-999', material_name: '已停用测试料', status: 'archived', is_test_material: true }
+    ]
+  });
+
+  assert.equal(spec.dataSheetName, DATA_SHEET_NAME);
+  assert.deepEqual(spec.testMaterialCodes, ['J-999', 'S-999']);
+  assert.equal(spec.definedNames.testMaterialCodes.name, '测试料_产品代码');
+  assert.match(spec.validationRanges.productCode, /^A3:A\d+$/);
+
+  const workbook = await buildTestMaterialIdentityWorkbook(spec);
+  const dataSheet = workbook.getWorksheet(DATA_SHEET_NAME);
+  const configSheet = workbook.getWorksheet(CONFIG_SHEET_NAME);
+  assert.equal(dataSheet.getRow(1).getCell(1).value, '测试料产品代码*');
+  assert.equal(dataSheet.getRow(2).getCell(1).value, '必填，从下拉选择已启用测试料主数据');
+  assert.equal(configSheet.getRow(2).getCell(1).value, 'J-999');
+  assert.equal(configSheet.getRow(2).getCell(2).value, '测试料化材');
+
+  dataSheet.getRow(3).getCell(1).value = 'J-999';
+  dataSheet.getRow(3).getCell(3).value = 'A-100';
+  const buffer = await workbook.xlsx.writeBuffer();
+  const {
+    getParsedTemplateMeta,
+    parseImportTemplateFileBuffer
+  } = require('../miniprogram/utils/import-file-parser');
+  const rows = parseImportTemplateFileBuffer(buffer, {
+    fileName: '测试料型号库导入模板.xlsx',
+    sheetName: DATA_SHEET_NAME,
+    expectedHeaderRows: [
+      ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'],
+      ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格']
+    ]
+  });
+  assert.equal(getParsedTemplateMeta(rows).templateKind, 'test_material_identity_import');
+  assert.equal(rows.find(row => row.rowIndex === 3).values[0], 'J-999');
+  assert.equal(rows.find(row => row.rowIndex === 3).values[2], 'A-100');
+});
+
 test('test material identity enforcement reaches labels, stock-in and inventory imports', () => {
   const labelPreprint = read('cloudfunctions/exportLabelData/preprint-labels.js');
   const addMaterial = read('cloudfunctions/addMaterial/index.js');

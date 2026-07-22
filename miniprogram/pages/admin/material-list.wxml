@@ -23,6 +23,7 @@
   <view class="top-bar">
     <text class="count-text">{{ total }} 种{{ activeTab === 'archived' ? ' (已归档)' : '' }}</text>
     <view class="top-btns" wx:if="{{ !isEditMode && activeTab === 'active' }}">
+      <van-button type="default" size="small" round plain icon="bookmark-o" custom-style="margin-right: 8px;" bind:click="onManageTestMaterialIdentities">测试料型号</van-button>
       <van-button type="default" size="small" round icon="upgrade" custom-style="margin-right: 8px;" bind:click="onImport">导入</van-button>
       <van-button type="primary" size="small" round icon="plus" bind:click="onAdd">新增</van-button>
     </view>

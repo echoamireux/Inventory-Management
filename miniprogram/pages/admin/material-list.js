@@ -509,5 +509,10 @@ Page({
   // 导入
   onImport() {
     wx.navigateTo({ url: '/pages/admin/material-import/index' });
+  },
+
+  // 测试料型号库
+  onManageTestMaterialIdentities() {
+    wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index' });
   }
 });

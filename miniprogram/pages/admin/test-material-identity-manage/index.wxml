@@ -6,7 +6,8 @@
     </view>
     <view class="identity-actions">
       <van-button size="small" round type="primary" bind:click="onCreateIdentity">新增型号</van-button>
-      <van-button size="small" round plain type="primary" bind:click="onChooseImportFile">批量导入</van-button>
+      <van-button size="small" round plain type="primary" loading="{{ exportingTemplate }}" bind:click="onExportLatestTemplate">导出模板</van-button>
+      <van-button size="small" round plain type="primary" bind:click="onChooseImportFile">上传导入</van-button>
     </view>
   </view>
 
@@ -52,6 +53,7 @@
     <view class="import-preview">
       <view wx:for="{{ importPreviewData }}" wx:key="previewKey" class="import-row {{ item.hasError ? 'import-row--error' : '' }}">
         <text>{{ item.product_code || '-' }}</text>
+        <text>{{ item.material_name_ref || '-' }}</text>
         <text>{{ item.supplier_model || '-' }}</text>
         <text wx:if="{{ item.hasError }}">{{ item.error }}</text>
       </view>
@@ -59,10 +61,6 @@
     <van-button type="primary" round block loading="{{ importing }}" bind:click="onImportPreviewRows">
       确认导入
     </van-button>
-  </view>
-
-  <view class="template-copy" bindtap="onCopyTemplateStructure">
-    复制两列表格结构
   </view>
 
   <van-popup show="{{ formVisible }}" position="bottom" round closeable bind:close="onCloseForm">

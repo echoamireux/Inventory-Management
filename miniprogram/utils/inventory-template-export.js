@@ -11,11 +11,16 @@ function normalizeInventoryTemplateExportResult(res) {
     throw new Error(LEGACY_INVENTORY_TEMPLATE_EXPORT_HINT);
   }
 
-  return {
+  const normalized = {
     success: true,
     fileID: result.fileID,
     fileName: String(result.fileName || '').trim()
   };
+  const fileContentBase64 = String(result.fileContentBase64 || '').trim();
+  if (fileContentBase64) {
+    normalized.fileContentBase64 = fileContentBase64;
+  }
+  return normalized;
 }
 
 module.exports = {

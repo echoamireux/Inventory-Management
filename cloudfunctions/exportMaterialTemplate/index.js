@@ -91,17 +91,19 @@ exports.main = async (event, context) => {
     });
     const workbook = await buildTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();
+    const contentBuffer = Buffer.from(fileBuffer);
     const exportedAt = new Date();
     const fileName = buildMaterialTemplateFileName(exportedAt);
     const uploadRes = await cloud.uploadFile({
       cloudPath: `templates/${OPENID}/material-import/current.xlsx`,
-      fileContent: Buffer.from(fileBuffer)
+      fileContent: contentBuffer
     });
 
     return {
       success: true,
       fileID: uploadRes.fileID,
       fileName,
+      fileContentBase64: contentBuffer.toString('base64'),
       msg: '模板生成成功'
     };
   } catch (error) {

@@ -227,14 +227,15 @@ async function batchCreateIdentities(event, openid) {
   const results = [];
   for (let index = 0; index < rows.length; index += 1) {
     const row = rows[index] || {};
-    const rowLabel = `第${index + 1}行`;
+    const rowIndex = Math.max(1, Number(row.rowIndex) || (index + 1));
+    const rowLabel = `第${rowIndex}行`;
     try {
       const created = await createIdentity({
         ...row,
         confirmSimilar: !!event.confirmSimilar
       }, openid);
       results.push({
-        rowIndex: index + 1,
+        rowIndex,
         status: created.success ? 'created' : 'error',
         msg: created.msg,
         code: created.code || '',
@@ -242,7 +243,7 @@ async function batchCreateIdentities(event, openid) {
       });
     } catch (error) {
       results.push({
-        rowIndex: index + 1,
+        rowIndex,
         status: 'error',
         msg: `${rowLabel}${error.message || '导入失败'}`
       });

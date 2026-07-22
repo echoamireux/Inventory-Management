@@ -36,6 +36,8 @@ test('inventory template import page only accepts xlsx uploads and keeps preview
   assert.match(pageJs, /仅已激活用户可访问/);
   assert.match(pageJs, /name:\s*'exportInventoryTemplate'/);
   assert.match(pageJs, /name:\s*'importInventoryTemplate'/);
+  assert.match(pageJs, /persistBase64File/);
+  assert.match(pageJs, /fileContentBase64/);
   assert.match(pageJs, /action:\s*'preview'/);
   assert.match(pageJs, /action:\s*'submit'/);
   assert.match(pageJs, /extension:\s*\['xlsx'\]/);
@@ -75,6 +77,8 @@ test('material import page only accepts xlsx uploads while preserving local prev
 
   assert.match(pageJs, /parseImportTemplateFileBuffer/);
   assert.match(pageJs, /resolveImportTemplateErrorMessage/);
+  assert.match(pageJs, /persistBase64File/);
+  assert.match(pageJs, /fileContentBase64/);
   assert.match(pageJs, /extension:\s*\['xlsx'\]/);
   assert.match(pageJs, /sheetName:\s*'物料导入表'/);
   assert.match(pageJs, /\['代码前缀', '产品编号', '物料名称', '类别'/);

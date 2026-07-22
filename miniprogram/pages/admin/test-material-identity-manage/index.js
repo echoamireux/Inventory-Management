@@ -7,14 +7,20 @@ const {
   setTestMaterialIdentityStatus
 } = require('../../../utils/test-material-identity-service');
 const {
+  persistBase64File,
+  resolveOpenDocumentPath
+} = require('../../../utils/download-file');
+const {
   parseImportTemplateFileBuffer,
   resolveImportTemplateErrorMessage
 } = require('../../../utils/import-file-parser');
 
 const IDENTITY_TEMPLATE_HEADER_ROWS = [
-  ['产品代码*', '原厂型号*'],
-  ['必填，例如 J-999', '必填；保留大小写，系统会整理全角和多余空格']
+  ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'],
+  ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格']
 ];
+const INVALID_IDENTITY_TEMPLATE_MESSAGE = '请上传系统导出的测试料型号库模板';
+const IDENTITY_TEMPLATE_BINARY_HINT = '当前运行环境未正确识别文件内容，请重新选择文件后再试';
 const MAX_IMPORT_ROWS = 100;
 
 function getInputValue(e) {
@@ -46,10 +52,11 @@ function buildPreviewRows(rows = []) {
     .filter(item => item.rowIndex >= 3)
     .map((item) => {
       const productCode = normalizeProductCode(item.values[0]);
-      const supplierModel = normalizeSupplierModel(item.values[1]);
+      const materialNameRef = String(item.values[1] || '').trim();
+      const supplierModel = normalizeSupplierModel(item.values[2]);
       let error = '';
       if (!productCode) {
-        error = '产品代码必填';
+        error = '测试料产品代码必填';
       } else if (!/^[A-Z]{1,4}-\d{3}$/u.test(productCode)) {
         error = '产品代码格式应为 J-999';
       } else if (!supplierModel) {
@@ -58,10 +65,11 @@ function buildPreviewRows(rows = []) {
       return {
         rowIndex: item.rowIndex,
         product_code: productCode,
+        material_name_ref: materialNameRef,
         supplier_model: supplierModel,
         error,
         hasError: !!error,
-        previewKey: `${item.rowIndex}:${productCode}:${supplierModel}:${error || 'ok'}`
+        previewKey: `${item.rowIndex}:${productCode}:${materialNameRef}:${supplierModel}:${error || 'ok'}`
       };
     })
     .filter(item => item.product_code || item.supplier_model);
@@ -103,7 +111,8 @@ Page({
     },
     selectedFile: null,
     importPreviewData: [],
-    importing: false
+    importing: false,
+    exportingTemplate: false
   },
 
   onLoad() {
@@ -309,11 +318,81 @@ Page({
   onCopyTemplateStructure() {
     wx.setClipboardData({
       data: [
-        ['产品代码*', '原厂型号*'].join('\t'),
-        ['必填，例如 J-999', '必填；保留大小写，系统会整理全角和多余空格'].join('\t'),
-        ['J-999', 'MODEL-A'].join('\t')
+        ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'].join('\t'),
+        ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格'].join('\t'),
+        ['J-999', '测试料主数据', 'MODEL-A'].join('\t')
       ].join('\n')
     });
+  },
+
+  async onExportLatestTemplate() {
+    if (this.data.exportingTemplate) {
+      return;
+    }
+
+    this.setData({ exportingTemplate: true });
+    Toast.loading({ message: '正在生成模板...', forbidClick: true, duration: 0 });
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'exportTestMaterialIdentityTemplate'
+      });
+      const result = res && res.result ? res.result : {};
+      if (!result.success) {
+        throw new Error(result.msg || '导出模板失败');
+      }
+      if (!result.fileID) {
+        throw new Error('当前云函数版本过旧，请部署最新版 exportTestMaterialIdentityTemplate');
+      }
+
+      Toast.loading({ message: '正在打开模板...', forbidClick: true, duration: 0 });
+      let localFilePath = '';
+      if (result.fileContentBase64) {
+        localFilePath = await persistBase64File({
+          fileContentBase64: result.fileContentBase64,
+          fileName: result.fileName || '测试料型号库导入模板.xlsx',
+          fileSystemManager: wx.getFileSystemManager(),
+          userDataPath: wx.env.USER_DATA_PATH,
+          fallbackFileName: '测试料型号库导入模板.xlsx'
+        });
+      } else {
+        const downRes = await wx.cloud.downloadFile({
+          fileID: result.fileID
+        });
+
+        if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
+          throw new Error('模板下载失败');
+        }
+
+        localFilePath = await resolveOpenDocumentPath({
+          tempFilePath: downRes.tempFilePath,
+          fileName: result.fileName || '测试料型号库导入模板.xlsx',
+          fileSystemManager: wx.getFileSystemManager(),
+          userDataPath: wx.env.USER_DATA_PATH,
+          fallbackFileName: '测试料型号库导入模板.xlsx'
+        });
+      }
+
+      Toast.clear();
+      await wx.openDocument({
+        filePath: localFilePath,
+        showMenu: true,
+        fileType: 'xlsx'
+      });
+
+      await Dialog.alert({
+        title: '模板已打开',
+        message: '请在 A 列从下拉选择测试料产品代码，在 C 列填写真实原厂型号；完成后回到本页上传导入。',
+        messageAlign: 'left',
+        confirmButtonText: '我知道了'
+      });
+    } catch (err) {
+      console.error('导出测试料型号库模板失败', err);
+      Toast.fail(err.message || '导出模板失败');
+    } finally {
+      Toast.clear();
+      this.setData({ exportingTemplate: false });
+    }
   },
 
   onChooseImportFile() {
@@ -339,8 +418,9 @@ Page({
             fileName: file.name || file.path || '',
             sheetName: '测试料型号库',
             expectedHeaderRows: IDENTITY_TEMPLATE_HEADER_ROWS,
-            invalidTemplateMessage: '请上传测试料型号库模板',
-            binaryPayloadMessage: '文件内容读取失败，请重新选择 .xlsx 文件'
+            invalidTemplateMessage: INVALID_IDENTITY_TEMPLATE_MESSAGE,
+            binaryPayloadMessage: IDENTITY_TEMPLATE_BINARY_HINT,
+            legacyRuntimeMessage: '当前前端与测试料型号库模板协议不一致，请更新小程序后重试'
           });
           const previewData = buildPreviewRows(rows);
           if (previewData.length > MAX_IMPORT_ROWS) {
@@ -356,8 +436,9 @@ Page({
           Toast.fail(resolveImportTemplateErrorMessage(err, {
             fallbackMessage: '文件解析失败',
             sheetName: '测试料型号库',
-            invalidTemplateMessage: '请上传测试料型号库模板',
-            binaryPayloadMessage: '文件内容读取失败，请重新选择 .xlsx 文件'
+            invalidTemplateMessage: INVALID_IDENTITY_TEMPLATE_MESSAGE,
+            binaryPayloadMessage: IDENTITY_TEMPLATE_BINARY_HINT,
+            legacyRuntimeMessage: '当前前端与测试料型号库模板协议不一致，请更新小程序后重试'
           }));
         }
       },

@@ -32,6 +32,25 @@ test('inventory template export result accepts successful responses with a file 
   );
 });
 
+test('inventory template export result preserves inline workbook content for direct local opening', () => {
+  assert.deepEqual(
+    normalizeInventoryTemplateExportResult({
+      result: {
+        success: true,
+        fileID: 'cloud://inventory-template.xlsx',
+        fileName: '库存入库模板_20260324_1200.xlsx',
+        fileContentBase64: 'eGxzeA=='
+      }
+    }),
+    {
+      success: true,
+      fileID: 'cloud://inventory-template.xlsx',
+      fileName: '库存入库模板_20260324_1200.xlsx',
+      fileContentBase64: 'eGxzeA=='
+    }
+  );
+});
+
 test('inventory template export surfaces a deploy hint when the cloud function is outdated', () => {
   assert.throws(
     () => normalizeInventoryTemplateExportResult({

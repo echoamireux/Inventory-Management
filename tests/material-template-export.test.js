@@ -23,6 +23,25 @@ test('template export result accepts successful responses with a file id', () =>
   );
 });
 
+test('template export result preserves inline workbook content for direct local opening', () => {
+  assert.deepEqual(
+    normalizeTemplateExportResult({
+      result: {
+        success: true,
+        fileID: 'cloud://template.xlsx',
+        fileName: '标准物料导入模板.xlsx',
+        fileContentBase64: 'eGxzeA=='
+      }
+    }),
+    {
+      success: true,
+      fileID: 'cloud://template.xlsx',
+      fileName: '标准物料导入模板.xlsx',
+      fileContentBase64: 'eGxzeA=='
+    }
+  );
+});
+
 test('template export result surfaces a deploy hint when the cloud function is outdated', () => {
   assert.throws(
     () => normalizeTemplateExportResult({

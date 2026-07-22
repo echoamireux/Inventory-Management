@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   sanitizeDownloadFileName,
   buildUserDataFilePath,
+  persistBase64File,
   persistDownloadedFile,
   getOpenDocumentPath,
   resolveOpenDocumentPath
@@ -61,6 +62,34 @@ test('download helper overwrites old local files and resolves the readable desti
   assert.deepEqual(calls, [
     ['unlink', '/user/data/标准物料导入模板_20260322_1530.xlsx'],
     ['copyFile', '/tmp/random-name', '/user/data/标准物料导入模板_20260322_1530.xlsx']
+  ]);
+});
+
+test('download helper writes base64 workbooks directly to a readable local path', async () => {
+  const calls = [];
+  const fileSystemManager = {
+    unlink({ filePath, fail }) {
+      calls.push(['unlink', filePath]);
+      fail(new Error('not found'));
+    },
+    writeFile({ filePath, data, encoding, success }) {
+      calls.push(['writeFile', filePath, data, encoding]);
+      success();
+    }
+  };
+
+  const savedPath = await persistBase64File({
+    fileContentBase64: Buffer.from('xlsx-content').toString('base64'),
+    fileName: '库存入库模板_20260322_1530.xlsx',
+    fileSystemManager,
+    userDataPath: '/user/data',
+    fallbackFileName: '库存入库模板.xlsx'
+  });
+
+  assert.equal(savedPath, '/user/data/库存入库模板_20260322_1530.xlsx');
+  assert.deepEqual(calls, [
+    ['unlink', '/user/data/库存入库模板_20260322_1530.xlsx'],
+    ['writeFile', '/user/data/库存入库模板_20260322_1530.xlsx', Buffer.from('xlsx-content').toString('base64'), 'base64']
   ]);
 });
 
@@ -136,5 +165,66 @@ test('download helper can require readable file names instead of opening random 
       allowTempFallback: false
     }),
     /本地重命名失败/
+  );
+});
+
+test('download helper re-downloads remote temp paths before opening them locally', async () => {
+  const calls = [];
+  const fileSystemManager = {
+    unlink({ filePath, fail }) {
+      calls.push(['unlink', filePath]);
+      fail(new Error('not found'));
+    },
+    copyFile({ srcPath, destPath, success }) {
+      calls.push(['copyFile', srcPath, destPath]);
+      success();
+    }
+  };
+  const downloadFile = ({ url, success }) => {
+    calls.push(['downloadFile', url]);
+    success({
+      statusCode: 200,
+      tempFilePath: '/tmp/local-downloaded.xlsx'
+    });
+  };
+
+  const openPath = await resolveOpenDocumentPath({
+    tempFilePath: 'https://example.com/template.xlsx',
+    fileName: '标准物料导入模板_20260322_1530.xlsx',
+    fileSystemManager,
+    userDataPath: '/user/data',
+    downloadFile
+  });
+
+  assert.equal(openPath, '/user/data/标准物料导入模板_20260322_1530.xlsx');
+  assert.deepEqual(calls, [
+    ['downloadFile', 'https://example.com/template.xlsx'],
+    ['unlink', '/user/data/标准物料导入模板_20260322_1530.xlsx'],
+    ['copyFile', '/tmp/local-downloaded.xlsx', '/user/data/标准物料导入模板_20260322_1530.xlsx']
+  ]);
+});
+
+test('download helper never returns a remote path to openDocument when local download fails', async () => {
+  const fileSystemManager = {
+    unlink({ fail }) {
+      fail(new Error('not found'));
+    },
+    copyFile({ fail }) {
+      fail(new Error('copy not supported'));
+    }
+  };
+  const downloadFile = ({ fail }) => {
+    fail(new Error('download domain blocked'));
+  };
+
+  await assert.rejects(
+    () => resolveOpenDocumentPath({
+      tempFilePath: 'https://example.com/template.xlsx',
+      fileName: '库存入库模板_20260322_1530.xlsx',
+      fileSystemManager,
+      userDataPath: '/user/data',
+      downloadFile
+    }),
+    /本地下载失败/
   );
 });

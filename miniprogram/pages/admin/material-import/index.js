@@ -14,6 +14,7 @@ const {
   normalizeTemplateExportResult
 } = require('../../../utils/material-template-export');
 const {
+  persistBase64File,
   resolveOpenDocumentPath
 } = require('../../../utils/download-file');
 const {
@@ -110,22 +111,33 @@ Page({
         name: 'exportMaterialTemplate'
       }));
 
-      Toast.loading({ message: '正在下载模板...', forbidClick: true, duration: 0 });
-      const downRes = await wx.cloud.downloadFile({
-        fileID: result.fileID
-      });
+      Toast.loading({ message: '正在打开模板...', forbidClick: true, duration: 0 });
+      let localFilePath = '';
+      if (result.fileContentBase64) {
+        localFilePath = await persistBase64File({
+          fileContentBase64: result.fileContentBase64,
+          fileName: result.fileName || '标准物料导入模板.xlsx',
+          fileSystemManager: wx.getFileSystemManager(),
+          userDataPath: wx.env.USER_DATA_PATH,
+          fallbackFileName: '标准物料导入模板.xlsx'
+        });
+      } else {
+        const downRes = await wx.cloud.downloadFile({
+          fileID: result.fileID
+        });
 
-      if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
-        throw new Error('模板下载失败');
+        if (downRes.statusCode !== 200 || !downRes.tempFilePath) {
+          throw new Error('模板下载失败');
+        }
+
+        localFilePath = await resolveOpenDocumentPath({
+          tempFilePath: downRes.tempFilePath,
+          fileName: result.fileName || '标准物料导入模板.xlsx',
+          fileSystemManager: wx.getFileSystemManager(),
+          userDataPath: wx.env.USER_DATA_PATH,
+          fallbackFileName: '标准物料导入模板.xlsx'
+        });
       }
-
-      const localFilePath = await resolveOpenDocumentPath({
-        tempFilePath: downRes.tempFilePath,
-        fileName: result.fileName || '标准物料导入模板.xlsx',
-        fileSystemManager: wx.getFileSystemManager(),
-        userDataPath: wx.env.USER_DATA_PATH,
-        fallbackFileName: '标准物料导入模板.xlsx'
-      });
 
       Toast.clear();
       await wx.openDocument({
