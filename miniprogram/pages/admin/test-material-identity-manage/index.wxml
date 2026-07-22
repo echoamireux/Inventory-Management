@@ -53,7 +53,6 @@
     <view class="import-preview">
       <view wx:for="{{ importPreviewData }}" wx:key="previewKey" class="import-row {{ item.hasError ? 'import-row--error' : '' }}">
         <text>{{ item.product_code || '-' }}</text>
-        <text>{{ item.material_name_ref || '-' }}</text>
         <text>{{ item.supplier_model || '-' }}</text>
         <text wx:if="{{ item.hasError }}">{{ item.error }}</text>
       </view>

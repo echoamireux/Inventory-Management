@@ -124,7 +124,7 @@
 
 .import-row {
   display: grid;
-  grid-template-columns: 140rpx 1fr 1fr;
+  grid-template-columns: 160rpx 1fr;
   gap: 12rpx;
   padding: 12rpx 0;
   border-bottom: 1rpx solid #edf2f7;
@@ -133,7 +133,7 @@
 }
 
 .import-row--error {
-  grid-template-columns: 140rpx 1fr 1fr 1.2fr;
+  grid-template-columns: 160rpx 1fr 1.2fr;
   color: #b91c1c;
 }
 

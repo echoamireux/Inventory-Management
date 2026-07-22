@@ -10,10 +10,9 @@ const CONFIG_SHEET_NAME = 'Config';
 const HELP_SHEET_NAME = '【必看】填写说明';
 const TEMPLATE_KIND = 'test_material_identity_import';
 const TEMPLATE_SCHEMA_VERSION = 'test-material-identity-import-v1';
-const TEMPLATE_HEADERS = ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'];
+const TEMPLATE_HEADERS = ['测试料产品代码*', '原厂型号*'];
 const TEMPLATE_INLINE_HINTS = [
   '必填，从下拉选择已启用测试料主数据',
-  '系统参考，随产品代码自动带出',
   '必填；保留大小写，系统会整理全角和多余空格'
 ];
 const TEMPLATE_DATA_START_ROW = 3;
@@ -119,7 +118,7 @@ function buildTestMaterialIdentityTemplateSpec({ testMaterials = [] } = {}) {
     testMaterialCodes,
     validationRanges: {
       productCode: `A${TEMPLATE_DATA_START_ROW}:A${TEMPLATE_MAX_ROW}`,
-      supplierModel: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`
+      supplierModel: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`
     },
     definedNames: {
       testMaterialCodes: {
@@ -132,9 +131,8 @@ function buildTestMaterialIdentityTemplateSpec({ testMaterials = [] } = {}) {
       '',
       '1. 请先在物料主数据中维护并启用测试料代码壳，再导出本模板。',
       '2. A 列必须从下拉中选择已启用测试料产品代码，不能手输未建档代码。',
-      '3. B 列为系统参考名称，导入时不作为业务依据。',
-      '4. C 列填写真实原厂型号；系统保留大小写差异，但会整理全角字符、常见横杠和多余空格。',
-      '5. 同一测试料产品代码下可维护多个原厂型号；单次上传最多 100 行，可分批多次上传。',
+      '3. B 列填写真实原厂型号；系统保留大小写差异，但会整理全角字符、常见横杠和多余空格。',
+      '4. 同一测试料产品代码下可维护多个原厂型号；单次上传最多 100 行，可分批多次上传。',
       '',
       `当前可选测试料产品代码：${testMaterialCodes.length ? testMaterialCodes.join(' / ') : '无'}`
     ]
@@ -183,7 +181,7 @@ function applyRangeValidations(sheet, spec) {
     errorStyle: 'stop',
     errorTitle: '原厂型号缺失',
     error: '测试料原厂型号必填。',
-    formulae: [`LEN(TRIM(C${TEMPLATE_DATA_START_ROW}))>0`]
+    formulae: [`LEN(TRIM(B${TEMPLATE_DATA_START_ROW}))>0`]
   });
 }
 
@@ -198,8 +196,7 @@ async function buildTestMaterialIdentityWorkbook(specInput) {
 
   sheet.columns = [
     { header: TEMPLATE_HEADERS[0], key: 'product_code', width: 20 },
-    { header: TEMPLATE_HEADERS[1], key: 'material_name', width: 28 },
-    { header: TEMPLATE_HEADERS[2], key: 'supplier_model', width: 34 }
+    { header: TEMPLATE_HEADERS[1], key: 'supplier_model', width: 34 }
   ];
   helpSheet.columns = sheet.columns.map(column => ({ width: column.width }));
   decorateHeaderRow(sheet.getRow(1));
@@ -210,23 +207,19 @@ async function buildTestMaterialIdentityWorkbook(specInput) {
   });
   decorateInlineHintRow(hintRow);
   sheet.getColumn(1).numFmt = '@';
-  sheet.getColumn(3).numFmt = '@';
+  sheet.getColumn(2).numFmt = '@';
   sheet.views = [{ state: 'frozen', ySplit: 2 }];
 
   defineConfigRanges(workbook, configSheet, spec);
   applyRangeValidations(sheet, spec);
 
   for (let rowIndex = TEMPLATE_DATA_START_ROW; rowIndex <= spec.previewStyledRowCount; rowIndex += 1) {
-    const row = sheet.getRow(rowIndex);
-    row.getCell(2).value = {
-      formula: `IFERROR(VLOOKUP(A${rowIndex},Config!$A:$B,2,FALSE),"")`
-    };
     applyPreviewRowStyle(sheet, rowIndex, TEMPLATE_HEADERS.length);
   }
 
   spec.helpLines.forEach((line, index) => {
     const rowNumber = index + 1;
-    helpSheet.mergeCells(`A${rowNumber}:C${rowNumber}`);
+    helpSheet.mergeCells(`A${rowNumber}:B${rowNumber}`);
     const cell = helpSheet.getRow(rowNumber).getCell(1);
     cell.value = line;
     cell.font = line && line.startsWith('【')
@@ -240,7 +233,6 @@ async function buildTestMaterialIdentityWorkbook(specInput) {
   const example = spec.selectableMaterials[0] || { product_code: 'J-999', material_name: '测试料主数据' };
   const exampleRow = helpSheet.addRow([
     example.product_code,
-    example.material_name,
     'MODEL-A'
   ]);
   exampleRow.eachCell((cell) => {

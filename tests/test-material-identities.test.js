@@ -167,7 +167,7 @@ test('test material identity workbook template uses active test material codes a
     buildTestMaterialIdentityWorkbook
   } = require('../cloudfunctions/exportTestMaterialIdentityTemplate/identity-template-workbook');
 
-  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*']);
+  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '原厂型号*']);
 
   const spec = buildTestMaterialIdentityTemplateSpec({
     testMaterials: [
@@ -192,7 +192,7 @@ test('test material identity workbook template uses active test material codes a
   assert.equal(configSheet.getRow(2).getCell(2).value, '测试料化材');
 
   dataSheet.getRow(3).getCell(1).value = 'J-999';
-  dataSheet.getRow(3).getCell(3).value = 'A-100';
+  dataSheet.getRow(3).getCell(2).value = 'A-100';
   const buffer = await workbook.xlsx.writeBuffer();
   const {
     getParsedTemplateMeta,
@@ -202,13 +202,13 @@ test('test material identity workbook template uses active test material codes a
     fileName: '测试料型号库导入模板.xlsx',
     sheetName: DATA_SHEET_NAME,
     expectedHeaderRows: [
-      ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'],
-      ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格']
+      ['测试料产品代码*', '原厂型号*'],
+      ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格']
     ]
   });
   assert.equal(getParsedTemplateMeta(rows).templateKind, 'test_material_identity_import');
   assert.equal(rows.find(row => row.rowIndex === 3).values[0], 'J-999');
-  assert.equal(rows.find(row => row.rowIndex === 3).values[2], 'A-100');
+  assert.equal(rows.find(row => row.rowIndex === 3).values[1], 'A-100');
 });
 
 test('test material identity enforcement reaches labels, stock-in and inventory imports', () => {

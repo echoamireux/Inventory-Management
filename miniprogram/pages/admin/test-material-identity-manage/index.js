@@ -16,8 +16,8 @@ const {
 } = require('../../../utils/import-file-parser');
 
 const IDENTITY_TEMPLATE_HEADER_ROWS = [
-  ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'],
-  ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格']
+  ['测试料产品代码*', '原厂型号*'],
+  ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格']
 ];
 const INVALID_IDENTITY_TEMPLATE_MESSAGE = '请上传系统导出的测试料型号库模板';
 const IDENTITY_TEMPLATE_BINARY_HINT = '当前运行环境未正确识别文件内容，请重新选择文件后再试';
@@ -52,8 +52,7 @@ function buildPreviewRows(rows = []) {
     .filter(item => item.rowIndex >= 3)
     .map((item) => {
       const productCode = normalizeProductCode(item.values[0]);
-      const materialNameRef = String(item.values[1] || '').trim();
-      const supplierModel = normalizeSupplierModel(item.values[2]);
+      const supplierModel = normalizeSupplierModel(item.values[1]);
       let error = '';
       if (!productCode) {
         error = '测试料产品代码必填';
@@ -65,11 +64,10 @@ function buildPreviewRows(rows = []) {
       return {
         rowIndex: item.rowIndex,
         product_code: productCode,
-        material_name_ref: materialNameRef,
         supplier_model: supplierModel,
         error,
         hasError: !!error,
-        previewKey: `${item.rowIndex}:${productCode}:${materialNameRef}:${supplierModel}:${error || 'ok'}`
+        previewKey: `${item.rowIndex}:${productCode}:${supplierModel}:${error || 'ok'}`
       };
     })
     .filter(item => item.product_code || item.supplier_model);
@@ -318,9 +316,9 @@ Page({
   onCopyTemplateStructure() {
     wx.setClipboardData({
       data: [
-        ['测试料产品代码*', '物料名称（系统参考）', '原厂型号*'].join('\t'),
-        ['必填，从下拉选择已启用测试料主数据', '系统参考，随产品代码自动带出', '必填；保留大小写，系统会整理全角和多余空格'].join('\t'),
-        ['J-999', '测试料主数据', 'MODEL-A'].join('\t')
+        ['测试料产品代码*', '原厂型号*'].join('\t'),
+        ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格'].join('\t'),
+        ['J-999', 'MODEL-A'].join('\t')
       ].join('\n')
     });
   },
