@@ -1,6 +1,9 @@
 // pages/admin/material-list.js
 import Dialog from '@vant/weapp/dialog/dialog';
 import Toast from '@vant/weapp/toast/toast';
+const {
+  listTestMaterialIdentities
+} = require('../../utils/test-material-identity-service');
 
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -11,15 +14,22 @@ function resolveSearchValue(detail) {
 
 Page({
   data: {
-    activeTab: 'active', // active | archived
+    activeTab: 'active', // active | testIdentity | archived
     list: [],
+    identityList: [],
     searchVal: '',
     loading: false,
+    identityLoading: false,
     page: 1,
     pageSize: 20,
     total: 0,
+    identityPage: 1,
+    identityPageSize: 20,
+    identityTotal: 0,
+    identityIsEnd: false,
     isEnd: false,
     requestId: 0,
+    identityRequestId: 0,
 
     // 批量管理模式
     isEditMode: false,
@@ -44,17 +54,31 @@ Page({
 
   onShow() {
     // 仅当已有数据时才刷新，避免 onLoad 和 onShow 重复加载
-    if (this.data.list.length > 0) {
+    if (this.data.activeTab === 'testIdentity' && this.data.identityList.length > 0) {
+      this.loadIdentityResults({ refresh: true });
+      return;
+    }
+    if (this.data.activeTab !== 'testIdentity' && this.data.list.length > 0) {
       this.getList(true);
     }
   },
 
   onPullDownRefresh() {
-    this.getList(true);
+    if (this.data.activeTab === 'testIdentity') {
+      this.loadIdentityResults({ refresh: true });
+    } else {
+      this.getList(true);
+    }
     wx.stopPullDownRefresh();
   },
 
   onReachBottom() {
+    if (this.data.activeTab === 'testIdentity') {
+      if (!this.data.identityIsEnd && !this.data.identityLoading) {
+        this.loadIdentityResults();
+      }
+      return;
+    }
     if (!this.data.isEnd && !this.data.loading) {
       this.loadMore();
     }
@@ -68,17 +92,27 @@ Page({
       page: 1,
       isEnd: false,
       total: 0,
+      identityPage: 1,
+      identityIsEnd: false,
+      identityTotal: 0,
        // 切换 Tab 时退出编辑模式
       isEditMode: false,
       selectedIds: [],
       selectedCount: 0,
       isAllSelected: false
     }, () => {
-      this.getList(true);
+      if (this.data.activeTab === 'testIdentity') {
+        this.loadIdentityResults({ refresh: true });
+      } else {
+        this.getList(true);
+      }
     });
   },
 
   async getList(refresh = false) {
+    if (this.data.activeTab === 'testIdentity') {
+      return this.loadIdentityResults({ refresh });
+    }
     if (!refresh && this.data.loading) return;
 
     const currentRequestId = this.data.requestId + 1;
@@ -128,6 +162,17 @@ Page({
           total: res.result.total,
           isEnd
         });
+
+        if (activeTab === 'active' && String(searchVal || '').trim()) {
+          await this.loadIdentityResults({ refresh: true, compact: true });
+        } else if (activeTab !== 'testIdentity') {
+          this.setData({
+            identityList: [],
+            identityTotal: 0,
+            identityPage: 1,
+            identityIsEnd: false
+          });
+        }
       } else {
         Toast.fail(res.result.msg || '加载失败');
       }
@@ -148,26 +193,105 @@ Page({
     this.getList(false);
   },
 
+  async loadIdentityResults({ refresh = false, compact = false } = {}) {
+    if (!refresh && this.data.identityLoading) return;
+
+    const currentRequestId = this.data.identityRequestId + 1;
+    this.setData({
+      identityLoading: true,
+      identityRequestId: currentRequestId
+    });
+
+    try {
+      const page = refresh || compact ? 1 : this.data.identityPage;
+      const pageSize = compact ? 5 : this.data.identityPageSize;
+      const result = await listTestMaterialIdentities({
+        page,
+        pageSize,
+        includeDisabled: this.data.activeTab === 'testIdentity',
+        searchVal: this.data.searchVal
+      });
+
+      if (this.data.identityRequestId !== currentRequestId) {
+        return;
+      }
+
+      const newList = result.list || [];
+      const identityList = refresh || compact
+        ? newList
+        : [...this.data.identityList, ...newList];
+      const identityTotal = Number(result.total) || 0;
+      this.setData({
+        identityList,
+        identityTotal,
+        identityPage: page + 1,
+        identityIsEnd: compact ? true : identityList.length >= identityTotal
+      });
+    } catch (err) {
+      if (this.data.identityRequestId !== currentRequestId) {
+        return;
+      }
+      console.error(err);
+      Toast.fail(err.message || '加载测试料型号失败');
+    } finally {
+      if (this.data.identityRequestId === currentRequestId) {
+        this.setData({ identityLoading: false });
+      }
+    }
+  },
+
   onSearch(e) {
     const searchVal = resolveSearchValue(e && e.detail);
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal, page: 1, isEnd: false });
-    this.getList(true);
+    this.setData({
+      searchVal,
+      page: 1,
+      isEnd: false,
+      identityPage: 1,
+      identityIsEnd: false
+    });
+    if (this.data.activeTab === 'testIdentity') {
+      this.loadIdentityResults({ refresh: true });
+    } else {
+      this.getList(true);
+    }
   },
 
   onSearchChange(e) {
     const searchVal = resolveSearchValue(e && e.detail);
-    this.setData({ searchVal, page: 1, isEnd: false });
+    this.setData({
+      searchVal,
+      page: 1,
+      isEnd: false,
+      identityPage: 1,
+      identityIsEnd: false
+    });
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => {
-      this.getList(true);
+      if (this.data.activeTab === 'testIdentity') {
+        this.loadIdentityResults({ refresh: true });
+      } else {
+        this.getList(true);
+      }
     }, 500);
   },
 
   onSearchClear() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal: '', page: 1, isEnd: false });
-    this.getList(true);
+    this.setData({
+      searchVal: '',
+      page: 1,
+      isEnd: false,
+      identityPage: 1,
+      identityIsEnd: false,
+      identityList: [],
+      identityTotal: 0
+    });
+    if (this.data.activeTab === 'testIdentity') {
+      this.loadIdentityResults({ refresh: true });
+    } else {
+      this.getList(true);
+    }
   },
 
   onUnload() {
@@ -511,8 +635,8 @@ Page({
     wx.navigateTo({ url: '/pages/admin/material-import/index' });
   },
 
-  // 测试料型号库
-  onManageTestMaterialIdentities() {
+  // 进入测试料型号库维护页
+  onOpenTestMaterialIdentityManage() {
     wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index' });
   }
 });

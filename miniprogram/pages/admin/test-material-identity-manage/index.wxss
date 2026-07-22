@@ -30,15 +30,24 @@
   line-height: 1.6;
 }
 
-.identity-actions,
-.identity-form__actions {
+.identity-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 16rpx;
 }
 
+.identity-action {
+  min-width: 0;
+}
+
+.identity-action--main {
+  grid-column: 1 / -1;
+}
+
 .identity-form__actions {
+  display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
 }
 
 .identity-loading {

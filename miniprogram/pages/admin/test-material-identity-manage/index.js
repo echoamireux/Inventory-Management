@@ -386,7 +386,13 @@ Page({
       });
     } catch (err) {
       console.error('导出测试料型号库模板失败', err);
-      Toast.fail(err.message || '导出模板失败');
+      Toast.clear();
+      await Dialog.alert({
+        title: '无法导出模板',
+        message: err.message || '导出模板失败',
+        messageAlign: 'left',
+        confirmButtonText: '我知道了'
+      });
     } finally {
       Toast.clear();
       this.setData({ exportingTemplate: false });

@@ -128,7 +128,8 @@ test('test material identity management is registered for admins and shared to w
   const readme = read('README.md');
 
   assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
-  assert.match(homeWxml, /测试料型号库/);
+  assert.doesNotMatch(homeWxml, /title="测试料型号库"/);
+  assert.match(homeWxml, /title="物料管理"/);
   assert.match(manifest, /manageTestMaterialIdentity/);
   assert.match(syncScript, /test-material-identities\.js/);
   assert.match(preflight, /test-material-identities\.js/);
@@ -150,10 +151,16 @@ test('test material identity template export is registered and opened from inlin
   assert.match(managePageJs, /exportTestMaterialIdentityTemplate/);
   assert.match(managePageJs, /persistBase64File/);
   assert.match(managePageJs, /fileContentBase64/);
+  assert.match(managePageJs, /无法导出模板/);
   assert.match(managePageWxml, /导出模板/);
   assert.match(managePageWxml, /上传导入/);
-  assert.match(materialListJs, /onManageTestMaterialIdentities/);
-  assert.match(materialListWxml, /测试料型号/);
+  assert.match(managePageWxml, /identity-action--main/);
+  assert.doesNotMatch(materialListJs, /onManageTestMaterialIdentities/);
+  assert.match(materialListJs, /listTestMaterialIdentities/);
+  assert.match(materialListJs, /loadIdentityResults/);
+  assert.match(materialListWxml, /name="testIdentity"/);
+  assert.match(materialListWxml, /测试料型号匹配/);
+  assert.doesNotMatch(materialListWxml, /bind:click="onManageTestMaterialIdentities"/);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), true);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/package-lock.json')), true);
 });

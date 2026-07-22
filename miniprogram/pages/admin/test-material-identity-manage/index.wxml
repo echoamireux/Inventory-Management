@@ -5,9 +5,15 @@
       <view class="identity-hint">测试料入库、预打印和模板导入只能选择已启用型号；停用不影响历史库存查询。</view>
     </view>
     <view class="identity-actions">
-      <van-button size="small" round type="primary" bind:click="onCreateIdentity">新增型号</van-button>
-      <van-button size="small" round plain type="primary" loading="{{ exportingTemplate }}" bind:click="onExportLatestTemplate">导出模板</van-button>
-      <van-button size="small" round plain type="primary" bind:click="onChooseImportFile">上传导入</van-button>
+      <view class="identity-action identity-action--main">
+        <van-button block size="small" round type="primary" bind:click="onCreateIdentity">新增型号</van-button>
+      </view>
+      <view class="identity-action">
+        <van-button block size="small" round plain type="primary" loading="{{ exportingTemplate }}" bind:click="onExportLatestTemplate">导出模板</van-button>
+      </view>
+      <view class="identity-action">
+        <van-button block size="small" round plain type="primary" bind:click="onChooseImportFile">上传导入</van-button>
+      </view>
     </view>
   </view>
 

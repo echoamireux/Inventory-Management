@@ -3,6 +3,7 @@
   <!-- 顶部状态筛选 -->
   <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
     <van-tab title="活跃物料" name="active"></van-tab>
+    <van-tab title="测试料型号" name="testIdentity"></van-tab>
     <van-tab title="已归档" name="archived"></van-tab>
   </van-tabs>
 
@@ -21,11 +22,14 @@
 
   <!-- 顶部统计与操作按钮 -->
   <view class="top-bar">
-    <text class="count-text">{{ total }} 种{{ activeTab === 'archived' ? ' (已归档)' : '' }}</text>
+    <text wx:if="{{ activeTab !== 'testIdentity' }}" class="count-text">{{ total }} 种{{ activeTab === 'archived' ? ' (已归档)' : '' }}</text>
+    <text wx:else class="count-text">{{ identityTotal }} 个型号</text>
     <view class="top-btns" wx:if="{{ !isEditMode && activeTab === 'active' }}">
-      <van-button type="default" size="small" round plain icon="bookmark-o" custom-style="margin-right: 8px;" bind:click="onManageTestMaterialIdentities">测试料型号</van-button>
       <van-button type="default" size="small" round icon="upgrade" custom-style="margin-right: 8px;" bind:click="onImport">导入</van-button>
       <van-button type="primary" size="small" round icon="plus" bind:click="onAdd">新增</van-button>
+    </view>
+    <view class="top-btns" wx:if="{{ !isEditMode && activeTab === 'testIdentity' }}">
+      <van-button type="primary" size="small" round icon="setting-o" bind:click="onOpenTestMaterialIdentityManage">维护型号库</van-button>
     </view>
     <view class="top-btns" wx:if="{{ isEditMode }}">
       <van-button type="default" size="small" round plain bind:click="toggleEditMode">取消</van-button>
@@ -33,7 +37,7 @@
   </view>
 
   <!-- 物料列表 -->
-  <view class="list-wrapper" wx:if="{{ list.length > 0 }}">
+  <view class="list-wrapper" wx:if="{{ activeTab !== 'testIdentity' && list.length > 0 }}">
     <block wx:for="{{ list }}" wx:key="_id">
       <view
         class="card {{ item.checked ? 'card-selected' : '' }}"
@@ -64,13 +68,45 @@
     </block>
   </view>
 
+  <view
+    wx:if="{{ (activeTab === 'testIdentity' && identityList.length > 0) || (activeTab === 'active' && searchVal && identityList.length > 0) }}"
+    class="identity-result-section"
+  >
+    <view wx:if="{{ activeTab === 'active' }}" class="section-title-row">
+      <text class="section-title">测试料型号匹配</text>
+      <text class="section-count">{{ identityTotal }} 个</text>
+    </view>
+    <view
+      wx:for="{{ identityList }}"
+      wx:key="identity_key"
+      class="identity-card {{ item.status === 'disabled' ? 'identity-card--disabled' : '' }}"
+      bindtap="onOpenTestMaterialIdentityManage"
+    >
+      <view class="identity-card__main">
+        <view class="identity-card__top">
+          <text class="identity-code">{{ item.product_code }}</text>
+          <van-tag type="{{ item.category === 'film' ? 'success' : 'primary' }}" plain size="medium">{{ item.category === 'film' ? '膜材' : '化材' }}</van-tag>
+          <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
+        </view>
+        <text class="identity-model">{{ item.supplier_model }}</text>
+        <text class="identity-meta">{{ item.material_name || '测试料主数据' }}</text>
+      </view>
+      <van-icon name="arrow" color="#9ca3af" />
+    </view>
+  </view>
+
   <!-- 空状态 -->
-  <van-empty wx:if="{{ !loading && list.length === 0 }}" description="{{ activeTab === 'archived' ? '暂无归档物料' : '暂无物料数据' }}" />
+  <van-empty
+    wx:if="{{ !loading && activeTab !== 'testIdentity' && list.length === 0 && !(searchVal && identityList.length > 0) }}"
+    description="{{ activeTab === 'archived' ? '暂无归档物料' : '暂无物料数据' }}"
+  />
+  <van-empty wx:if="{{ !identityLoading && activeTab === 'testIdentity' && identityList.length === 0 }}" description="暂无测试料型号" />
 
   <view class="list-end-state" wx:if="{{ isEnd && list.length > 0 }}">已无更多</view>
+  <view class="list-end-state" wx:if="{{ activeTab === 'testIdentity' && identityIsEnd && identityList.length > 0 }}">已无更多型号</view>
 
   <!-- 底部批量操作栏 -->
-  <view class="batch-bar" wx:if="{{ isEditMode }}">
+  <view class="batch-bar" wx:if="{{ isEditMode && activeTab !== 'testIdentity' }}">
     <view class="batch-left" bindtap="onSelectAll">
       <van-checkbox value="{{ isAllSelected }}" catch:tap="noop" />
       <text class="batch-text">全选</text>
