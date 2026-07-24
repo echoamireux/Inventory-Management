@@ -49,6 +49,8 @@ npm-debug.log*
 
 # Testing
 coverage/
+__pycache__/
+*.py[cod]
 
 # Temporary
 tmp/
