@@ -93,3 +93,73 @@ if (!keyword) {
 // List pages refresh after debounce; homepage waits for explicit search action.
 loadListWithRequestGuard({ searchVal });
 ```
+
+## Scenario: Label preprint selector safety
+
+### 1. Scope / Trigger
+
+- Trigger: the label export page pre-generates printable label records from a selected material.
+- This is a selector workflow, not free-form material creation. The UI, payload, and `exportLabelData` cloud function must all preserve the same selected material boundary.
+- The reprint workflow is different: it exports existing `inventory` rows selected from the in-stock list and must not accept free-form label fields from the page.
+
+### 2. Signatures
+
+- Frontend page state: `preprintForm.selectedMaterial` is required before print settings and preprint actions are shown.
+- Preprint payload: `{ templateType, materialId, count, form: { supplier_model, supplier_model_key, thickness_um, width_mm, supplier, sample_note } }`.
+- Backend material lookup: `loadMaterialForPreprint(data) -> active material record` by `materialId` or `productCode`.
+- Backend label row builder: `buildPreprintLabelRecords({ templateType, labelCodes, material, form, ... }) -> preprinted label records`.
+- Reprint export payload: `{ templateType, selectedIds }`, where `selectedIds` are existing `inventory` document ids.
+
+### 3. Contracts
+
+- The preprint UI must hide or disable generation settings until the user taps a concrete material suggestion. Search text alone is never a selected material.
+- Test-material preprints must use an enabled `test_material_identities` record. The UI shows a readonly model field and opens a chooser; the backend revalidates the `supplier_model_key`.
+- Formal-material preprints must use `material.supplier_model` as the printable supplier model. Request-provided `form.supplier_model` and `form.supplier_model_key` must not override master data for formal materials.
+- If a formal material has no supplier model in master data, the printable model is blank and the UI tells the operator to update master data first.
+- Film preprints still require thickness and width after a material is selected. Governed formal-film specs may be readonly when master data supplies them; test-film batch specs may be entered as the label snapshot.
+- Reprint exports must load selected in-stock inventory rows by id and category, then build labels from inventory/material snapshots. Reprint must not take free-form material, supplier model, batch, or location fields from the client.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+| --- | --- |
+| No selected material when preprint action is tapped | Frontend rejects with "请先从搜索结果中选择物料"; backend rejects missing material id/product code. |
+| Material id no longer exists | Backend rejects with "未找到对应物料主数据". |
+| Material is archived/disabled | Backend rejects with "所选物料未启用，不能预生成标签". |
+| Test material has no selected enabled identity | Frontend rejects before submit; backend rejects with the test-material identity error. |
+| Formal material payload includes ad-hoc supplier model | Backend ignores it and uses `material.supplier_model` only. |
+| Reprint selected inventory is no longer in stock or category mismatches the template | Backend rejects and asks the operator to refresh. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: operator searches `J-999`, taps the test material, chooses `TEST-CHEM-01` from the enabled identity sheet, then generates labels.
+- Good: operator selects a formal material with `supplier_model = MASTER-MODEL`; even if the client sends `TEMP-MODEL`, exported labels use `MASTER-MODEL`.
+- Base: formal material has no supplier model; generated labels leave the model cell blank and the UI points the operator to master-data maintenance.
+- Bad: showing editable print settings before any material is selected, because it suggests a label can be generated from free text.
+- Bad: reprint export accepts client-provided supplier model instead of reading existing inventory rows.
+
+### 6. Tests Required
+
+- Page tests assert that preprint settings are gated by `preprintForm.selectedMaterial`.
+- Page tests assert formal-material supplier model input is readonly and has no `data-field="supplier_model"` free-form binding.
+- Backend tests assert formal-material preprint records and request signatures ignore request-provided `supplier_model` / `supplier_model_key`.
+- Backend tests assert test-material preprints still require maintained and enabled identity records.
+- Reprint tests assert selected ids are filtered by `status: "in_stock"` and template category before export.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```js
+// Formal material preprint accepts ad-hoc label model from the page.
+const supplierModel = form.supplier_model || material.supplier_model;
+```
+
+#### Correct
+
+```js
+// Formal material labels are governed by master data; test materials use the identity chooser.
+const supplierModel = material.is_test_material
+  ? selectedIdentity.supplier_model
+  : material.supplier_model;
+```

@@ -431,6 +431,14 @@ Page({
       }
   },
 
+  onIdentityItemClick(e) {
+    const keyword = String(e.currentTarget.dataset.keyword || '').trim();
+    const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+    wx.navigateTo({
+      url: `/pages/admin/test-material-identity-manage/index${query}`
+    });
+  },
+
   // 选中/取消单个
   toggleSelection(id) {
       let ids = [...this.data.selectedIds];
@@ -716,7 +724,7 @@ Page({
   },
 
   onImportTestMaterialIdentity() {
-    wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index?action=import' });
+    wx.navigateTo({ url: '/pages/admin/test-material-identity-import/index' });
   },
 
   onOpenTestMaterialIdentityManage() {

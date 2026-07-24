@@ -31,7 +31,10 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /onCreatePreprintJob/);
   assert.match(pageJs, /onExportPreprintJob/);
   assert.match(pageJs, /onVoidPreprintLabels/);
-  assert.match(pageJs, /templateType:/);
+  assert.match(pageJs, /const DEFAULT_TEMPLATE_TYPE = 'chemical'/);
+  assert.match(pageJs, /templateType:\s*DEFAULT_TEMPLATE_TYPE/);
+  assert.match(pageJs, /\|\|\s*DEFAULT_TEMPLATE_TYPE/);
+  assert.doesNotMatch(pageJs, /templateType:\s*'film'/);
   assert.match(pageJs, /selectedIds:/);
   assert.match(pageJs, /requestId:/);
   assert.match(pageJs, /thickness_um:/);
@@ -48,6 +51,10 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /补打已入库标签/);
   assert.match(pageWxml, /膜材信息标签/);
   assert.match(pageWxml, /化材标签/);
+  assert.ok(
+    pageWxml.indexOf('化材标签') < pageWxml.indexOf('膜材信息标签'),
+    '化材标签应排在膜材信息标签左侧'
+  );
   assert.doesNotMatch(pageWxml, /化材标准瓶信息标签/);
   assert.doesNotMatch(pageWxml, /化材小瓶信息标签/);
   assert.doesNotMatch(pageWxml, /name="chemical_std"/);
@@ -60,6 +67,13 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /正在查询物料/);
   assert.match(pageWxml, /未找到匹配物料，请确认产品代码\/物料名称\/原厂型号，或先维护物料主数据/);
   assert.match(pageWxml, /查询物料失败，请稍后重试/);
+  assert.match(pageWxml, /请先搜索并选择物料/);
+  assert.match(
+    pageWxml,
+    /<block wx:if="\{\{ preprintForm\.selectedMaterial \}\}">[\s\S]*<view class="form-section-title">打印设置<\/view>/
+  );
+  assert.doesNotMatch(pageWxml, /data-field="supplier_model"/);
+  assert.match(pageWxml, /正式料原厂型号只从物料主数据带出/);
   assert.match(pageWxml, /二维码内容/);
   assert.match(pageWxml, /生成并导出标签 Excel/);
   assert.match(pageWxml, /重新导出本批 Excel/);
@@ -97,6 +111,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxss, /\.inline-refresh-state[\s\S]*align-items:\s*center/);
   assert.match(pageWxss, /\.template-fields-preview/);
   assert.match(pageWxss, /\.material-search-state/);
+  assert.match(pageWxss, /\.preprint-selection-empty/);
   assert.match(pageWxss, /\.field-required[\s\S]*color:\s*#ee0a24/);
 });
 

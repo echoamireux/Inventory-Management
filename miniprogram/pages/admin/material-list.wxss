@@ -18,30 +18,45 @@
 /* 顶部栏 */
 .top-bar {
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16rpx;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14rpx;
   padding: 16rpx 24rpx;
+  overflow: hidden;
+}
+
+.count-wrap {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .count-text {
-  flex-shrink: 0;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 26rpx;
+  line-height: 40rpx;
   color: #969799;
   font-weight: bold;
 }
 
-.top-btns {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-end;
+.top-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+  width: 100%;
   min-width: 0;
 }
 
-.top-btns--identity {
-  flex: 1;
+.top-actions--single {
+  grid-template-columns: minmax(0, 220rpx);
+  justify-content: end;
+}
+
+.top-action {
+  min-width: 0;
 }
 
 
@@ -146,7 +161,12 @@
 }
 
 .loading-state {
-  padding: 80rpx 24rpx;
+  min-height: calc(100vh - 360rpx);
+  box-sizing: border-box;
+  padding: 48rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 卡片 */

@@ -1,0 +1,106 @@
+<view class="identity-import-page">
+  <view class="guide-card">
+    <view class="guide-title-row">
+      <van-icon name="info-o" color="#4F46E5" size="18px" class="mr-8" />
+      <view class="guide-title">使用说明</view>
+    </view>
+    <view class="guide-content">
+      <view>1. 请先导出测试料型号库的<text class="strong">最新模板（.xlsx）</text></view>
+      <view>2. 模板中的产品代码来自已启用的测试料主数据</view>
+      <view>3. 在原厂型号列填写真实型号后，<text class="strong">直接上传 .xlsx</text></view>
+      <view>4. 单次最多导入 <text class="strong">100</text> 条测试料型号</view>
+    </view>
+  </view>
+
+  <view class="action-section">
+    <view class="action-card" bind:tap="onExportLatestTemplate">
+      <view class="icon-circle icon-circle--template">
+        <van-icon name="description" size="20px" color="#4F46E5" />
+      </view>
+      <view class="action-card__body">
+        <view class="action-card__title">第一步：导出最新模板</view>
+        <view class="action-card__desc">{{ exportingTemplate ? '正在生成并下载最新 .xlsx 模板...' : '获取带测试料产品代码下拉的正式模板（.xlsx）' }}</view>
+      </view>
+      <van-icon name="arrow" color="#C8C9CC" />
+    </view>
+
+    <view class="action-card" bind:tap="onChooseImportFile">
+      <view class="icon-circle icon-circle--upload">
+        <van-icon name="add-o" size="20px" color="#10B981" />
+      </view>
+      <view class="action-card__body">
+        <view class="action-card__title">第二步：上传文件</view>
+        <view class="action-card__desc">{{ selectedFile ? selectedFile.name : '选择编辑好的 .xlsx 文件导入' }}</view>
+      </view>
+      <van-icon name="arrow" color="#C8C9CC" />
+    </view>
+
+    <view class="template-fallback" bind:tap="onCopyTemplateStructure">
+      仅在无法使用正式模板时，复制简易结构应急创建
+    </view>
+  </view>
+
+  <view wx:if="{{ parsing }}" class="parsing-card">
+    <van-loading size="24px" />
+    <text class="ml-12">正在解析文件...</text>
+  </view>
+
+  <view wx:if="{{ importPreviewData.length > 0 }}" class="preview-section">
+    <view class="section-header">
+      <text class="section-title">数据预览</text>
+      <text class="section-count">共 {{ importPreviewData.length }} 条</text>
+    </view>
+
+    <view class="stats-row">
+      <view class="stat-item success">
+        <text class="stat-num">{{ validCount }}</text>
+        <text class="stat-label">有效</text>
+      </view>
+      <view class="stat-item error" wx:if="{{ errorCount > 0 }}">
+        <text class="stat-num">{{ errorCount }}</text>
+        <text class="stat-label">错误</text>
+      </view>
+    </view>
+
+    <view class="preview-list">
+      <view
+        wx:for="{{ importPreviewData }}"
+        wx:key="previewKey"
+        class="preview-item {{ item.hasError ? 'preview-item--error' : '' }}"
+      >
+        <view class="preview-row">
+          <text class="preview-code">{{ item.product_code || '-' }}</text>
+          <van-tag wx:if="{{ !item.hasError }}" type="primary" plain>测试料型号</van-tag>
+        </view>
+        <view class="preview-model">{{ item.supplier_model || '-' }}</view>
+        <view wx:if="{{ item.hasError }}" class="preview-error">
+          <van-icon name="warning-o" size="12px" /> {{ item.error }}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <van-empty
+    wx:if="{{ !selectedFile && !parsing }}"
+    image="search"
+    description="请先导出模板并上传 .xlsx 文件"
+    custom-class="empty-state"
+  />
+</view>
+
+<view wx:if="{{ importPreviewData.length > 0 }}" class="footer-bar safe-area-bottom">
+  <van-button
+    type="primary"
+    block
+    round
+    size="large"
+    loading="{{ importing }}"
+    disabled="{{ importing || validCount === 0 }}"
+    bind:click="onImportPreviewRows"
+  >
+    确认导入 ({{ validCount }} 条)
+  </van-button>
+</view>
+
+<van-toast id="van-toast" />
+<van-dialog id="van-dialog" />

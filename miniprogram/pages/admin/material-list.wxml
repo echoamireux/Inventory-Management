@@ -1,17 +1,5 @@
 <!--pages/admin/material-list.wxml-->
 <view class="container pb-100">
-  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
-    <van-tab title="物料主数据" name="materials"></van-tab>
-    <van-tab title="测试料型号库" name="testIdentity"></van-tab>
-  </van-tabs>
-
-  <view wx:if="{{ activeTab === 'materials' && !hasSearchKeyword }}" class="status-tabs">
-    <van-tabs active="{{ materialStatus }}" bind:change="onMaterialStatusChange" color="#1989fa" line-width="28px">
-      <van-tab title="在用" name="active"></van-tab>
-      <van-tab title="已归档" name="archived"></van-tab>
-    </van-tabs>
-  </view>
-
   <view class="search-transparent bg-white">
     <van-search
       value="{{ searchVal }}"
@@ -24,6 +12,18 @@
     />
   </view>
 
+  <van-tabs wx:if="{{ !hasSearchKeyword }}" active="{{ activeTab }}" bind:change="onTabChange" color="#1989fa" sticky>
+    <van-tab title="物料主数据" name="materials"></van-tab>
+    <van-tab title="测试料型号库" name="testIdentity"></van-tab>
+  </van-tabs>
+
+  <view wx:if="{{ activeTab === 'materials' && !hasSearchKeyword }}" class="status-tabs">
+    <van-tabs active="{{ materialStatus }}" bind:change="onMaterialStatusChange" color="#1989fa" line-width="28px">
+      <van-tab title="在用" name="active"></van-tab>
+      <van-tab title="已归档" name="archived"></van-tab>
+    </van-tabs>
+  </view>
+
   <van-notice-bar
     wx:if="{{ searchNoticeText }}"
     left-icon="info-o"
@@ -33,22 +33,24 @@
   />
 
   <view class="top-bar">
-    <text wx:if="{{ hasSearchKeyword }}" class="count-text">{{ total }} 项物料 · {{ identityTotal }} 个型号</text>
-    <text wx:elif="{{ activeTab === 'materials' }}" class="count-text">
-      {{ total }} 种{{ materialStatus === 'archived' ? '已归档物料' : '在用物料' }}
-    </text>
-    <text wx:else class="count-text">{{ identityTotal }} 个型号</text>
+    <view class="count-wrap">
+      <text wx:if="{{ hasSearchKeyword }}" class="count-text">全局搜索结果：{{ total }} 项物料 · {{ identityTotal }} 个型号</text>
+      <text wx:elif="{{ activeTab === 'materials' }}" class="count-text">
+        {{ total }} 种{{ materialStatus === 'archived' ? '已归档物料' : '在用物料' }}
+      </text>
+      <text wx:else class="count-text">{{ identityTotal }} 个型号</text>
+    </view>
 
-    <view class="top-btns" wx:if="{{ !isEditMode && activeTab === 'materials' && materialStatus === 'active' && !hasSearchKeyword }}">
-      <van-button type="default" size="small" round icon="upgrade" custom-style="margin-right: 8px;" bind:click="onImport">导入</van-button>
-      <van-button type="primary" size="small" round icon="plus" bind:click="onAdd">新增</van-button>
+    <view class="top-actions" wx:if="{{ !isEditMode && activeTab === 'materials' && materialStatus === 'active' && !hasSearchKeyword }}">
+      <view class="top-action"><van-button block type="default" size="small" round icon="upgrade" bind:click="onImport">导入</van-button></view>
+      <view class="top-action"><van-button block type="primary" size="small" round icon="plus" bind:click="onAdd">新增</van-button></view>
     </view>
-    <view class="top-btns top-btns--identity" wx:if="{{ !isEditMode && activeTab === 'testIdentity' && !hasSearchKeyword }}">
-      <van-button type="default" size="small" round icon="upgrade" custom-style="margin-right: 8px;" bind:click="onImportTestMaterialIdentity">批量导入</van-button>
-      <van-button type="primary" size="small" round icon="plus" bind:click="onCreateTestMaterialIdentity">新增型号</van-button>
+    <view class="top-actions" wx:if="{{ !isEditMode && activeTab === 'testIdentity' && !hasSearchKeyword }}">
+      <view class="top-action"><van-button block type="default" size="small" round icon="upgrade" bind:click="onImportTestMaterialIdentity">导入</van-button></view>
+      <view class="top-action"><van-button block type="primary" size="small" round icon="plus" bind:click="onCreateTestMaterialIdentity">新增</van-button></view>
     </view>
-    <view class="top-btns" wx:if="{{ isEditMode }}">
-      <van-button type="default" size="small" round plain bind:click="toggleEditMode">取消</van-button>
+    <view class="top-actions top-actions--single" wx:if="{{ isEditMode }}">
+      <view class="top-action"><van-button block type="default" size="small" round plain bind:click="toggleEditMode">取消</van-button></view>
     </view>
   </view>
 
@@ -101,6 +103,8 @@
       wx:for="{{ identityList }}"
       wx:key="identity_key"
       class="identity-card {{ item.status === 'disabled' ? 'identity-card--disabled' : '' }}"
+      bind:tap="onIdentityItemClick"
+      data-keyword="{{ item.supplier_model || item.product_code }}"
     >
       <view class="identity-card__main">
         <view class="identity-card__top">

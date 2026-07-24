@@ -364,6 +364,68 @@ test('preprint label records snapshot material fields, film specs, and require m
   });
 });
 
+test('formal material preprint labels only use supplier model from master data', () => {
+  const formalMaterial = {
+    _id: 'mat-formal',
+    product_code: 'J-001',
+    material_name: '正式料-化材',
+    category: 'chemical',
+    is_test_material: false,
+    supplier_model: 'MASTER-MODEL'
+  };
+  const records = buildPreprintLabelRecords({
+    templateType: 'chemical',
+    labelCodes: ['L000012'],
+    material: formalMaterial,
+    form: {
+      supplier_model: 'TEMP-FORM-MODEL',
+      supplier_model_key: 'TEMP-FORM-KEY'
+    },
+    operatorOpenid: 'openid-1',
+    operatorName: '张三',
+    now: new Date('2026-06-25T02:00:00.000Z')
+  });
+
+  assert.equal(records[0].supplier_model, 'MASTER-MODEL');
+  assert.equal(records[0].supplier_model_key, '');
+  assert.equal(
+    buildPreprintRequestSignature({
+      templateType: 'chemical',
+      count: 1,
+      material: formalMaterial,
+      form: {
+        supplier_model: 'TEMP-FORM-MODEL',
+        supplier_model_key: 'TEMP-FORM-KEY'
+      }
+    }),
+    buildPreprintRequestSignature({
+      templateType: 'chemical',
+      count: 1,
+      material: formalMaterial,
+      form: {}
+    })
+  );
+
+  const blankMasterRecords = buildPreprintLabelRecords({
+    templateType: 'chemical',
+    labelCodes: ['L000013'],
+    material: {
+      ...formalMaterial,
+      supplier_model: ''
+    },
+    form: {
+      supplier_model: 'TEMP-FORM-MODEL',
+      supplier_model_key: 'TEMP-FORM-KEY'
+    },
+    operatorOpenid: 'openid-1',
+    operatorName: '张三',
+    now: new Date('2026-06-25T02:00:00.000Z')
+  });
+
+  assert.equal(blankMasterRecords[0].supplier_model, '');
+  assert.equal(blankMasterRecords[0].supplier_model_key, '');
+});
+
 test('preprint request signature only treats identical generation parameters as reusable', () => {
   const material = {
     _id: 'mat-test',

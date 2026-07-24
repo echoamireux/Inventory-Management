@@ -389,16 +389,44 @@ test('master data page groups material and test-model search results with status
   assert.match(materialListWxml, /title="测试料型号库"/);
   assert.match(materialListWxml, /title="在用"/);
   assert.match(materialListWxml, /title="已归档"/);
+  assert.ok(
+    materialListWxml.indexOf('class="search-transparent bg-white"') < materialListWxml.indexOf('active="{{ activeTab }}"'),
+    'global search should be visually above browse tabs'
+  );
+  assert.match(materialListWxml, /<van-tabs wx:if="\{\{ !hasSearchKeyword \}\}" active="\{\{ activeTab \}\}"/);
   assert.match(materialListJs, /status:\s*normalizedSearchVal \? 'all' : materialStatus/);
   assert.match(materialListJs, /includeDisabled:\s*this\.data\.activeTab === 'testIdentity' \|\| !!normalizeSearchKeyword/);
   assert.match(materialListJs, /Promise\.all\(\[[\s\S]*this\.getList\(true\)[\s\S]*this\.loadIdentityResults\(\{ refresh: true \}\)/);
+  assert.match(materialListJs, /onIdentityItemClick/);
+  assert.match(materialListJs, /test-material-identity-manage\/index\$\{query\}/);
   assert.match(materialListWxml, /物料主数据[\s\S]*测试料型号/);
   assert.match(materialListWxml, /所属物料：/);
   assert.match(materialListWxml, /产品代码：/);
+  assert.match(materialListWxml, /全局搜索结果：\{\{ total \}\} 项物料 · \{\{ identityTotal \}\} 个型号/);
+  assert.match(materialListWxml, /bind:tap="onIdentityItemClick"/);
+  assert.match(materialListWxml, /class="count-wrap"/);
+  assert.match(materialListWxml, /class="top-actions"/);
+  assert.match(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
+  assert.match(materialListWxml, /bind:click="onCreateTestMaterialIdentity"[\s\S]*新增/);
+  assert.doesNotMatch(materialListWxml, /批量导入|新增型号/);
   assert.match(materialListWxml, /已归档/);
   assert.match(materialListWxml, /已停用/);
   assert.match(materialListWxml, /match-reason/);
   assert.doesNotMatch(materialListWxml, /维护型号库/);
+});
+
+test('master data and test identity pages keep count/actions and loading states visually separated', () => {
+  const materialListWxss = read('miniprogram/pages/admin/material-list.wxss');
+  const identityManageWxss = read('miniprogram/pages/admin/test-material-identity-manage/index.wxss');
+
+  assert.match(materialListWxss, /\.top-bar[\s\S]*flex-direction:\s*column/);
+  assert.match(materialListWxss, /\.count-text[\s\S]*text-overflow:\s*ellipsis/);
+  assert.match(materialListWxss, /\.top-actions[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(materialListWxss, /\.top-actions[\s\S]*width:\s*100%/);
+  assert.match(materialListWxss, /\.loading-state[\s\S]*align-items:\s*center/);
+  assert.match(materialListWxss, /\.loading-state[\s\S]*justify-content:\s*center/);
+  assert.match(identityManageWxss, /\.identity-loading[\s\S]*align-items:\s*center/);
+  assert.match(identityManageWxss, /\.identity-loading[\s\S]*justify-content:\s*center/);
 });
 
 test('inventory and master data pages surface broad-search guidance from cloud functions', () => {

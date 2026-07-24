@@ -15,6 +15,8 @@ const TEMPLATE_CATEGORY_MAP = {
   chemical: 'chemical'
 };
 
+const DEFAULT_TEMPLATE_TYPE = 'chemical';
+
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
     return detail.value;
@@ -75,7 +77,7 @@ function decorateMaterial(item = {}) {
   };
 }
 
-function buildPreprintFormSnapshot(preprintForm = {}, templateType = 'film') {
+function buildPreprintFormSnapshot(preprintForm = {}, templateType = DEFAULT_TEMPLATE_TYPE) {
   const material = preprintForm.selectedMaterial || {};
   return JSON.stringify({
     templateType,
@@ -102,7 +104,7 @@ Page({
 
   data: {
     mode: 'preprint',
-    templateType: 'film',
+    templateType: DEFAULT_TEMPLATE_TYPE,
     preprintForm: {
       materialSearchVal: '',
       selectedMaterial: null,
@@ -201,7 +203,7 @@ Page({
   },
 
   onTemplateChange(e) {
-    const templateType = (e.detail && e.detail.name) || e.detail || 'film';
+    const templateType = (e.detail && e.detail.name) || e.detail || DEFAULT_TEMPLATE_TYPE;
     if (templateType === this.data.templateType) {
       return;
     }

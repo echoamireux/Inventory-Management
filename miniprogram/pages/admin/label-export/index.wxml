@@ -21,8 +21,8 @@
         line-width="48px"
         border="{{ false }}"
       >
-        <van-tab title="膜材信息标签" name="film"></van-tab>
         <van-tab title="化材标签" name="chemical"></van-tab>
+        <van-tab title="膜材信息标签" name="film"></van-tab>
       </van-tabs>
       <view class="template-fields-preview">
         <view class="template-fields-preview__label">本模板将打印字段</view>
@@ -87,110 +87,122 @@
         </view>
       </view>
 
-      <view class="form-section-title">打印设置</view>
-      <view class="form-grid">
-        <view class="form-item">
-          <view class="field-label">本次生成数量</view>
-          <van-field
-            value="{{ preprintForm.count }}"
-            type="number"
-            placeholder="请输入数量"
-            bind:change="onPreprintCountChange"
-          />
+      <view wx:if="{{ !preprintForm.selectedMaterial }}" class="preprint-selection-empty">
+        <view class="preprint-selection-empty__title">请先搜索并选择物料</view>
+        <view class="preprint-selection-empty__desc">
+          选择物料后才能填写生成数量和打印参数；测试料原厂型号必须从已维护型号库中选择，正式料原厂型号只从物料主数据带出。
         </view>
-        <view class="form-item">
-          <view class="field-label">
-            原厂型号
-            <text wx:if="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material }}" class="field-required">*</text>
-          </view>
-          <block wx:if="{{ preprintForm.selectedMaterial && preprintForm.selectedMaterial.is_test_material }}">
+      </view>
+
+      <block wx:if="{{ preprintForm.selectedMaterial }}">
+        <view class="form-section-title">打印设置</view>
+        <view class="form-grid">
+          <view class="form-item">
+            <view class="field-label">本次生成数量</view>
             <van-field
-              value="{{ preprintForm.supplier_model }}"
-              placeholder="{{ testMaterialIdentityLoading ? '型号加载中...' : '请选择已维护型号' }}"
-              readonly
-              right-icon="arrow"
-              bind:tap="showTestMaterialIdentitySheet"
+              value="{{ preprintForm.count }}"
+              type="number"
+              placeholder="请输入数量"
+              bind:change="onPreprintCountChange"
             />
-            <view wx:if="{{ testMaterialIdentityNotice }}" class="field-inline-notice">
-              {{ testMaterialIdentityNotice }}
+          </view>
+          <view class="form-item">
+            <view class="field-label">
+              原厂型号
+              <text wx:if="{{ preprintForm.selectedMaterial.is_test_material }}" class="field-required">*</text>
             </view>
-          </block>
-          <van-field
-            wx:else
-            value="{{ preprintForm.supplier_model }}"
-            placeholder="选填"
-            data-field="supplier_model"
-            bind:change="onPreprintFieldChange"
-          />
-        </view>
-        <view wx:if="{{ templateType === 'film' && preprintForm.selectedMaterial }}" class="form-item">
-          <view class="field-label">
-            厚度(μm)
-            <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+            <block wx:if="{{ preprintForm.selectedMaterial.is_test_material }}">
+              <van-field
+                value="{{ preprintForm.supplier_model }}"
+                placeholder="{{ testMaterialIdentityLoading ? '型号加载中...' : '请选择已维护型号' }}"
+                readonly
+                right-icon="arrow"
+                bind:tap="showTestMaterialIdentitySheet"
+              />
+              <view wx:if="{{ testMaterialIdentityNotice }}" class="field-inline-notice">
+                {{ testMaterialIdentityNotice }}
+              </view>
+            </block>
+            <block wx:else>
+              <van-field
+                value="{{ preprintForm.supplier_model }}"
+                placeholder="{{ preprintForm.supplier_model ? '由物料主数据带出' : '主数据未维护，标签留空' }}"
+                readonly
+              />
+              <view class="field-inline-notice">
+                正式料原厂型号只从物料主数据带出；如需修改，请先维护物料主数据。
+              </view>
+            </block>
           </view>
-          <van-field
-            value="{{ preprintForm.thickness_um }}"
-            placeholder="{{ preprintForm.filmThicknessLocked ? '由物料主数据带出' : '请输入厚度' }}"
-            type="digit"
-            readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmThicknessLocked }}"
-            data-field="thickness_um"
-            bind:change="onPreprintFieldChange"
-          />
-        </view>
-        <view wx:if="{{ templateType === 'film' && preprintForm.selectedMaterial }}" class="form-item">
-          <view class="field-label">
-            本批次实际幅宽(mm)
-            <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+          <view wx:if="{{ templateType === 'film' }}" class="form-item">
+            <view class="field-label">
+              厚度(μm)
+              <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+            </view>
+            <van-field
+              value="{{ preprintForm.thickness_um }}"
+              placeholder="{{ preprintForm.filmThicknessLocked ? '由物料主数据带出' : '请输入厚度' }}"
+              type="digit"
+              readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmThicknessLocked }}"
+              data-field="thickness_um"
+              bind:change="onPreprintFieldChange"
+            />
           </view>
-          <van-field
-            value="{{ preprintForm.width_mm }}"
-            placeholder="{{ preprintForm.filmWidthLocked ? '由物料主数据带出' : '请输入本批次实际幅宽' }}"
-            type="digit"
-            readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmWidthLocked }}"
-            data-field="width_mm"
-            bind:change="onPreprintFieldChange"
-          />
+          <view wx:if="{{ templateType === 'film' }}" class="form-item">
+            <view class="field-label">
+              本批次实际幅宽(mm)
+              <text wx:if="{{ templateType === 'film' }}" class="field-required">*</text>
+            </view>
+            <van-field
+              value="{{ preprintForm.width_mm }}"
+              placeholder="{{ preprintForm.filmWidthLocked ? '由物料主数据带出' : '请输入本批次实际幅宽' }}"
+              type="digit"
+              readonly="{{ !preprintForm.selectedMaterial.is_test_material && preprintForm.filmWidthLocked }}"
+              data-field="width_mm"
+              bind:change="onPreprintFieldChange"
+            />
+          </view>
         </view>
-      </view>
 
-      <view class="form-section-title">可选补充信息</view>
-      <view class="optional-info-hint">
-        供应商和备注会保存到系统快照，用于扫码入库自动带出和追溯，不打印在标签上。
-      </view>
-      <view class="form-grid optional-grid">
-        <view class="form-item">
-          <view class="field-label">供应商</view>
-          <van-field
-            value="{{ preprintForm.supplier }}"
-            placeholder="选填"
-            data-field="supplier"
-            bind:change="onPreprintFieldChange"
-          />
+        <view class="form-section-title">可选补充信息</view>
+        <view class="optional-info-hint">
+          供应商和备注会保存到系统快照，用于扫码入库自动带出和追溯，不打印在标签上。
         </view>
-        <view class="form-item">
-          <view class="field-label">备注</view>
-          <van-field
-            value="{{ preprintForm.sample_note }}"
-            placeholder="选填，用于入库追溯"
-            data-field="sample_note"
-            bind:change="onPreprintFieldChange"
-          />
+        <view class="form-grid optional-grid">
+          <view class="form-item">
+            <view class="field-label">供应商</view>
+            <van-field
+              value="{{ preprintForm.supplier }}"
+              placeholder="选填"
+              data-field="supplier"
+              bind:change="onPreprintFieldChange"
+            />
+          </view>
+          <view class="form-item">
+            <view class="field-label">备注</view>
+            <van-field
+              value="{{ preprintForm.sample_note }}"
+              placeholder="选填，用于入库追溯"
+              data-field="sample_note"
+              bind:change="onPreprintFieldChange"
+            />
+          </view>
         </view>
-      </view>
 
-      <view class="print-hint">
-        点击后会生成标签编号并立即导出 Excel。二维码内容默认等于标签编号；生产批号/批次、库位、数量和过期日期在扫码入库或批量入库时填写。
-      </view>
-
-      <view class="preprint-actions">
-        <view
-          class="action-button primary {{ creatingPreprint ? 'is-disabled' : '' }}"
-          bindtap="onCreatePreprintJob"
-        >
-          <van-loading wx:if="{{ creatingPreprint }}" color="#FFFFFF" size="18px" />
-          <text wx:else>生成并导出标签 Excel</text>
+        <view class="print-hint">
+          点击后会生成标签编号并立即导出 Excel。二维码内容默认等于标签编号；生产批号/批次、库位、数量和过期日期在扫码入库或批量入库时填写。
         </view>
-      </view>
+
+        <view class="preprint-actions">
+          <view
+            class="action-button primary {{ creatingPreprint ? 'is-disabled' : '' }}"
+            bindtap="onCreatePreprintJob"
+          >
+            <van-loading wx:if="{{ creatingPreprint }}" color="#FFFFFF" size="18px" />
+            <text wx:else>生成并导出标签 Excel</text>
+          </view>
+        </view>
+      </block>
     </view>
 
     <view wx:if="{{ preprintForm.lastRecords.length > 0 }}" class="preprint-result">

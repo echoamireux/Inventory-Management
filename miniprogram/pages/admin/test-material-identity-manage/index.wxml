@@ -4,15 +4,9 @@
       <view class="identity-title">测试料型号库</view>
       <view class="identity-hint">测试料入库、预打印和模板导入只能选择已启用型号；停用不影响历史库存查询。</view>
     </view>
-    <view class="identity-actions">
-      <view class="identity-action identity-action--main">
-        <van-button block size="small" round type="primary" bind:click="onCreateIdentity">新增型号</van-button>
-      </view>
+    <view class="identity-actions identity-actions--single">
       <view class="identity-action">
-        <van-button block size="small" round plain type="primary" loading="{{ exportingTemplate }}" bind:click="onExportLatestTemplate">导出模板</van-button>
-      </view>
-      <view class="identity-action">
-        <van-button block size="small" round plain type="primary" bind:click="onChooseImportFile">上传导入</van-button>
+        <van-button block size="small" round type="primary" bind:click="onCreateIdentity">新增</van-button>
       </view>
     </view>
   </view>
@@ -61,20 +55,6 @@
         {{ item.status === 'disabled' ? '启用' : '停用' }}
       </van-button>
     </view>
-  </view>
-
-  <view wx:if="{{ importPreviewData.length > 0 }}" class="import-panel">
-    <view class="import-panel__title">待导入 {{ importPreviewData.length }} 条</view>
-    <view class="import-preview">
-      <view wx:for="{{ importPreviewData }}" wx:key="previewKey" class="import-row {{ item.hasError ? 'import-row--error' : '' }}">
-        <text>{{ item.product_code || '-' }}</text>
-        <text>{{ item.supplier_model || '-' }}</text>
-        <text wx:if="{{ item.hasError }}">{{ item.error }}</text>
-      </view>
-    </view>
-    <van-button type="primary" round block loading="{{ importing }}" bind:click="onImportPreviewRows">
-      确认导入
-    </van-button>
   </view>
 
   <van-popup show="{{ formVisible }}" position="bottom" round closeable bind:close="onCloseForm">

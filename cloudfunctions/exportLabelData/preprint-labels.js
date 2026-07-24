@@ -100,6 +100,9 @@ function resolveMaterialName(material = {}) {
 }
 
 function resolveSupplierModel(material = {}, form = {}) {
+  if (!material.is_test_material) {
+    return normalizeText(material.supplier_model);
+  }
   const fromForm = normalizeText(form.supplier_model);
   if (fromForm) {
     return fromForm;
@@ -120,6 +123,13 @@ function resolveSupplierModelPayload(material = {}, form = {}) {
     return {
       supplierModel: validation.supplier_model,
       supplierModelKey: validation.supplier_model_key
+    };
+  }
+
+  if (!material.is_test_material) {
+    return {
+      supplierModel: resolveSupplierModel(material, form),
+      supplierModelKey: ''
     };
   }
 

@@ -40,8 +40,9 @@
   min-width: 0;
 }
 
-.identity-action--main {
-  grid-column: 1 / -1;
+.identity-actions--single {
+  grid-template-columns: minmax(160rpx, 260rpx);
+  justify-content: end;
 }
 
 .identity-form__actions {
@@ -51,8 +52,11 @@
 }
 
 .identity-loading {
-  padding: 120rpx 0;
+  min-height: calc(100vh - 360rpx);
+  box-sizing: border-box;
+  padding: 48rpx 0;
   display: flex;
+  align-items: center;
   justify-content: center;
 }
 
@@ -119,48 +123,6 @@
   background: #eef6ff;
   color: #1d4ed8;
   font-size: 22rpx;
-}
-
-.import-panel {
-  margin-top: 24rpx;
-  padding: 24rpx;
-  border-radius: 20rpx;
-  background: #ffffff;
-}
-
-.import-panel__title {
-  margin-bottom: 16rpx;
-  color: #111827;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.import-preview {
-  max-height: 360rpx;
-  margin-bottom: 18rpx;
-  overflow: hidden;
-}
-
-.import-row {
-  display: grid;
-  grid-template-columns: 160rpx 1fr;
-  gap: 12rpx;
-  padding: 12rpx 0;
-  border-bottom: 1rpx solid #edf2f7;
-  color: #334155;
-  font-size: 24rpx;
-}
-
-.import-row--error {
-  grid-template-columns: 160rpx 1fr 1.2fr;
-  color: #b91c1c;
-}
-
-.template-copy {
-  margin-top: 18rpx;
-  color: #2563eb;
-  font-size: 24rpx;
-  text-align: center;
 }
 
 .identity-form {

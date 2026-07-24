@@ -1,3 +1,12 @@
+function normalizeTestMaterialSupplierModel(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .trim()
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/gu, '-')
+    .replace(/\s+/gu, ' ')
+    .replace(/\s*([-/])\s*/gu, '$1');
+}
+
 async function callTestMaterialIdentity(action, payload = {}) {
   const res = await wx.cloud.callFunction({
     name: 'manageTestMaterialIdentity',
@@ -70,6 +79,7 @@ function buildTestMaterialIdentityActions(records = []) {
 }
 
 module.exports = {
+  normalizeTestMaterialSupplierModel,
   listTestMaterialIdentities,
   createTestMaterialIdentity,
   batchCreateTestMaterialIdentities,
