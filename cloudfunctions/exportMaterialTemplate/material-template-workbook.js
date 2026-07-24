@@ -18,8 +18,8 @@ const IMPORT_TEMPLATE_COLUMNS = [
   { header: TEMPLATE_HEADERS[7], key: 'thickness_um', width: 18 },
   { header: TEMPLATE_HEADERS[8], key: 'standard_width_mm', width: 18 },
   { header: TEMPLATE_HEADERS[9], key: 'supplier', width: 20 },
-  { header: TEMPLATE_HEADERS[10], key: 'supplier_model', width: 25 },
-  { header: TEMPLATE_HEADERS[11], key: 'is_test_material', width: 14 }
+  { header: TEMPLATE_HEADERS[10], key: 'supplier_model', width: 30 },
+  { header: TEMPLATE_HEADERS[11], key: 'is_test_material', width: 22 }
 ];
 
 function buildHeaderFill() {
@@ -225,6 +225,18 @@ function applyRangeValidations(sheet, spec) {
     errorStyle: 'stop',
     errorTitle: '默认幅宽无效',
     error: '若填写默认幅宽，请输入大于 0 的数值。'
+  });
+  sheet.dataValidations.add(`K${spec.maxRow ? 3 : 3}:K${spec.maxRow || 3000}`, {
+    type: 'custom',
+    allowBlank: false,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '测试料原厂型号必填',
+    error: '当“是否测试料”为“是”时，原厂型号必须填写。',
+    formulae: [`OR($L3<>"是",LEN(TRIM(K3))>0)`]
   });
   sheet.dataValidations.add(`L${spec.maxRow ? 3 : 3}:L${spec.maxRow || 3000}`, {
     type: 'list',

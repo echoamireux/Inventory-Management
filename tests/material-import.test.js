@@ -250,7 +250,11 @@ test('import validation ignores film-only columns for chemicals and chemical-onl
   assert.equal(film.standard_width_mm, 1240);
 });
 
-test('template inline hint row detection follows the current concise hint wording', () => {
+test('template inline hint row detection follows the current material import hint wording', () => {
+  assert.equal(
+    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '正式选填/测试必填', '是/否，空白=否']),
+    true
+  );
   assert.equal(
     isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']),
     true

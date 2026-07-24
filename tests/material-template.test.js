@@ -145,6 +145,8 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /当前膜材子类别：基材-PET \/ 基材-BOPP \/ 保护膜/);
   assert.doesNotMatch(helpText, /CSV/);
   assert.match(helpText, /直接上传 \.xlsx/);
+  assert.match(helpText, /单次最多导入 100 行/);
+  assert.match(helpText, /系统不再提供独立测试料型号导入模板/);
   assert.match(helpText, /代码前缀\*：必填/);
   assert.match(helpText, /产品编号\*：必填/);
   assert.match(helpText, /化材包装形式：选填/);
@@ -169,8 +171,8 @@ test('template spec keeps representative example rows aligned with the new gover
     '膜材必填',
     '膜材选填',
     '选填',
-    '选填',
-    '选填'
+    '正式选填/测试必填',
+    '是/否，空白=否'
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [

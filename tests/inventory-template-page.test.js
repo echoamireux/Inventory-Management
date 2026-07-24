@@ -87,6 +87,9 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /decorateImportPreviewRows/);
   assert.match(pageJs, /manageMaterial/);
   assert.match(pageJs, /batchCreate/);
+  assert.match(pageJs, /MAX_IMPORT_ROWS\s*=\s*100/);
+  assert.match(pageJs, /单次最多导入 \$\{MAX_IMPORT_ROWS\} 条物料数据/);
+  assert.match(pageJs, /测试料请填“是否测试料=是”，且原厂型号必填/);
   assert.match(pageJs, /代码前缀\*：必填。请先填写类别，再选择该类别可用前缀/);
   assert.match(pageJs, /\['J', '001', '异丙醇', '化材'/);
   assert.doesNotMatch(pageJs, /'测试料必填'/);
@@ -100,7 +103,10 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.doesNotMatch(pageJs, /兼容旧流程/);
 
   assert.match(pageWxml, /填写完成后/);
-  assert.match(pageWxml, /直接上传 \.xlsx/);
+  assert.match(pageWxml, /单次最多导入/);
+  assert.match(pageWxml, /100 行/);
+  assert.match(pageWxml, /原厂型号必填/);
+  assert.match(pageWxml, /直接上传系统导出的[\s\S]*\.xlsx/);
   assert.match(pageWxml, /选择编辑好的 \.xlsx 文件导入/);
   assert.match(pageWxml, /确认导入/);
   assert.doesNotMatch(pageWxml, /\.csv/);

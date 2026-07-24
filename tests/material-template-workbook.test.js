@@ -91,7 +91,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
   const helpSheet = workbook.getWorksheet('【必看】填写指导与示例');
   const widths = Array.from({ length: 12 }, (_, index) => helpSheet.getColumn(index + 1).width);
 
-  assert.deepEqual(widths, [12, 12, 30, 10, 22, 12, 18, 18, 18, 20, 25, 14]);
+  assert.deepEqual(widths, [12, 12, 30, 10, 22, 12, 18, 18, 18, 20, 30, 22]);
   assert.equal(helpSheet.getCell('A1').isMerged, true);
   assert.equal(helpSheet.getCell('L1').isMerged, true);
 });
@@ -99,7 +99,7 @@ test('help sheet keeps example columns aligned with the actual import table', as
 test('data sheet adds inline hint row, freezes the first two rows, and exposes input prompts', async () => {
   const workbook = await buildTemplateWorkbook({
     headers: ['代码前缀', '产品编号', '物料名称', '类别', '子类别', '默认单位', '化材包装形式', '膜材厚度(μm)', '默认幅宽(mm)', '供应商', '原厂型号', '是否测试料'],
-    inlineHints: ['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填'],
+    inlineHints: ['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '正式选填/测试必填', '是/否，空白=否'],
     previewStyledRowCount: 50,
     validationRanges: {
       codePrefix: 'A3:A3000',
@@ -141,7 +141,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
 
   const sheet = workbook.getWorksheet('物料导入表');
 
-  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']);
+  assert.deepEqual(sheet.getRow(2).values.slice(1), ['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '正式选填/测试必填', '是/否，空白=否']);
   assert.equal(sheet.views[0].state, 'frozen');
   assert.equal(sheet.views[0].ySplit, 2);
   assert.equal(sheet.getRow(2).height, 22);
@@ -152,4 +152,9 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.equal(sheet.dataValidations.model['G3:G3000'].formulae[0], '化材_包装形式');
   assert.match(sheet.dataValidations.model['G3:G3000'].prompt, /仅化材选填/);
   assert.match(sheet.dataValidations.model['I3:I3000'].prompt, /仅膜材选填/);
+  assert.equal(sheet.dataValidations.model['K3:K3000'].type, 'custom');
+  assert.equal(sheet.dataValidations.model['K3:K3000'].formulae[0], 'OR($L3<>"是",LEN(TRIM(K3))>0)');
+  assert.match(sheet.dataValidations.model['K3:K3000'].prompt, /正式物料选填；测试料必填/);
+  assert.match(sheet.dataValidations.model['K3:K3000'].error, /原厂型号必须填写/);
+  assert.equal(sheet.dataValidations.model['L3:L3000'].formulae[0], '"是,否"');
 });
