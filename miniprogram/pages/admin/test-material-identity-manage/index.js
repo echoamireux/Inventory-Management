@@ -47,10 +47,6 @@ Page({
       });
       return;
     }
-    if (options.action === 'import') {
-      wx.redirectTo({ url: '/pages/admin/test-material-identity-import/index' });
-      return;
-    }
     if (options.keyword) {
       this.setData({
         searchVal: decodeOptionValue(options.keyword)

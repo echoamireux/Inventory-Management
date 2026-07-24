@@ -57,6 +57,15 @@ function normalizeOptionalNumber(value) {
   return normalized;
 }
 
+function normalizeTestMaterialSupplierModel(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .trim()
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/gu, '-')
+    .replace(/\s+/gu, ' ')
+    .replace(/\s*([-/])\s*/gu, '$1');
+}
+
 function isTemplateInlineHintRow(row = []) {
   return String(row[0] || '').trim() === '必填'
     && String(row[6] || '').includes('化材选填')
@@ -89,8 +98,8 @@ function buildComparableSignature(item = {}) {
     package_type: String(item.package_type || '').trim(),
     thickness_um: item.thickness_um == null ? null : Number(item.thickness_um),
     standard_width_mm: item.standard_width_mm == null ? null : Number(item.standard_width_mm),
-    supplier: isTestMaterial ? '' : String(item.supplier || '').trim(),
-    supplier_model: isTestMaterial ? '' : String(item.supplier_model || '').trim(),
+    supplier: String(item.supplier || '').trim(),
+    supplier_model: String(item.supplier_model || '').trim(),
     is_test_material: isTestMaterial
   });
 }
@@ -99,7 +108,7 @@ function applyImportDuplicateGuards(rows = []) {
   const nextRows = Array.isArray(rows)
     ? rows.map(item => ({ ...item }))
     : [];
-  const rowsByProductCode = new Map();
+  const rowsByIdentityKey = new Map();
   const rowsByNumericCode = new Map();
 
   nextRows.forEach((item, index) => {
@@ -108,11 +117,16 @@ function applyImportDuplicateGuards(rows = []) {
     }
     const productCode = String(item.product_code).trim();
     const productCodeNumber = String(item.product_code_number || '').trim();
+    const isTestMaterial = !!item.is_test_material;
+    const supplierModel = normalizeTestMaterialSupplierModel(item.supplier_model);
+    const identityKey = isTestMaterial
+      ? `${productCode}::test-model::${supplierModel}`
+      : productCode;
 
-    if (!rowsByProductCode.has(productCode)) {
-      rowsByProductCode.set(productCode, []);
+    if (!rowsByIdentityKey.has(identityKey)) {
+      rowsByIdentityKey.set(identityKey, []);
     }
-    rowsByProductCode.get(productCode).push(index);
+    rowsByIdentityKey.get(identityKey).push(index);
 
     if (productCodeNumber) {
       if (!rowsByNumericCode.has(productCodeNumber)) {
@@ -122,7 +136,7 @@ function applyImportDuplicateGuards(rows = []) {
     }
   });
 
-  rowsByProductCode.forEach((indexes, productCode) => {
+  rowsByIdentityKey.forEach((indexes) => {
     if (indexes.length < 2) {
       return;
     }
@@ -133,15 +147,20 @@ function applyImportDuplicateGuards(rows = []) {
     }
 
     const signatures = new Set(validIndexes.map(index => buildComparableSignature(nextRows[index])));
+    const firstRow = nextRows[validIndexes[0]] || {};
+    const identityLabel = firstRow.is_test_material
+      ? `测试料 ${firstRow.product_code} + 原厂型号 ${firstRow.supplier_model || '-'}`
+      : `产品代码 ${firstRow.product_code}`;
     if (signatures.size === 1) {
-      const warning = `产品代码 ${productCode} 在本次导入文件中重复，导入时将仅保留第一条，其余重复行自动跳过`;
+      const warning = `${identityLabel} 在本次导入文件中重复，导入时将仅保留第一条，其余重复行自动跳过`;
       validIndexes.forEach((index) => {
         nextRows[index].warning = appendWarning(nextRows[index].warning, warning);
       });
       return;
     }
 
-    const error = `产品代码 ${productCode} 在本次导入文件中重复，且主数据字段不一致，请统一后再导入`;
+    const conflictFieldLabel = firstRow.is_test_material ? '字段' : '主数据字段';
+    const error = `${identityLabel} 在本次导入文件中重复，且${conflictFieldLabel}不一致，请统一后再导入`;
     validIndexes.forEach((index) => {
       nextRows[index].error = error;
       nextRows[index].warning = '';
@@ -284,6 +303,9 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
   if (!error && !testMaterialFlag.ok) {
     error = testMaterialFlag.msg;
   }
+  if (!error && testMaterialFlag.value && !normalizeTestMaterialSupplierModel(supplierModel)) {
+    error = '测试料原厂型号必填';
+  }
 
   return {
     rowIndex: index + 2,
@@ -297,8 +319,8 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
     package_type: category === 'chemical' ? packageType : '',
     thickness_um: category === 'film' ? thicknessUm : null,
     standard_width_mm: category === 'film' ? standardWidthMm : null,
-    supplier: testMaterialFlag.value ? '' : supplier,
-    supplier_model: testMaterialFlag.value ? '' : supplierModel,
+    supplier,
+    supplier_model: testMaterialFlag.value ? normalizeTestMaterialSupplierModel(supplierModel) : supplierModel,
     is_test_material: testMaterialFlag.value,
     warning,
     error

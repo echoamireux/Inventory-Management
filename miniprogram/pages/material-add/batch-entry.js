@@ -423,7 +423,11 @@ Page({
               supplier_model: item.supplier_model || item.name || '',
               supplier_model_key: item.supplier_model_key || '',
               supplier: item.supplier || '',
-              identity_key: item.identity_key || ''
+              identity_key: item.identity_key || '',
+              label_material_name: item.label_material_name || item.material_name || '',
+              material_name: item.label_material_name || item.material_name || '',
+              subcategory_key: item.subcategory_key || '',
+              sub_category: item.sub_category || ''
           },
           showTestMaterialIdentitySheet: false,
           testMaterialIdentityNotice: ''
@@ -444,6 +448,9 @@ Page({
       }
       return {
           ...overrides,
+          material_name: overrides.material_name || identity.label_material_name || identity.material_name || '',
+          subcategory_key: overrides.subcategory_key || identity.subcategory_key || '',
+          sub_category: overrides.sub_category || identity.sub_category || '',
           supplier: overrides.supplier || identity.supplier || '',
           supplier_model: identity.supplier_model,
           supplier_model_key: identity.supplier_model_key

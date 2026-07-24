@@ -1,6 +1,6 @@
 <view class="identity-edit-page">
   <view class="edit-header">
-    <view class="edit-hint">真实原厂型号维护在这里；物料主数据只维护 J-999 / M-999 这类测试料代码壳。</view>
+    <view class="edit-hint">这里维护测试料的真实物料名称、子类别和原厂型号；J-999 / M-999 这类产品代码只作为测试料代码壳。</view>
   </view>
 
   <view wx:if="{{ loading }}" class="loading-state">
@@ -9,8 +9,8 @@
 
   <view wx:elif="{{ materialOptions.length === 0 }}" class="empty-card">
     <van-empty description="暂无已启用测试料主数据">
-      <view class="empty-tip">请先新增并启用测试料代码壳，再回来维护原厂型号。</view>
-      <view class="empty-actions">
+      <view class="empty-tip">请先新增并启用测试料代码壳，再回来维护具体测试料。</view>
+      <view class="empty-actions" wx:if="{{ canManageSubcategories }}">
         <van-button round type="primary" size="small" bind:click="onManageMaterialMaster">去维护测试料主数据</van-button>
       </view>
     </van-empty>
@@ -28,7 +28,34 @@
           bind:click="onShowMaterialPicker"
         />
         <view wx:if="{{ selectedMaterial }}" class="selected-material-summary">
-          所属物料：{{ selectedMaterial.material_name || '测试料主数据' }}｜{{ selectedMaterial.category === 'film' ? '膜材' : '化材' }}
+          所属代码壳：{{ selectedMaterial.product_code }}｜{{ selectedMaterial.category === 'film' ? '膜材' : '化材' }}
+        </view>
+
+        <van-field
+          label="物料名称"
+          value="{{ form.material_name }}"
+          placeholder="例如 环氧树脂样品"
+          required
+          clearable
+          error-message="{{ materialNameError }}"
+          bind:change="onMaterialNameInput"
+        />
+        <view class="field-guide field-guide--inside">
+          用于标签、入库、库存查询和导出的“物料名称”列。
+        </view>
+
+        <van-cell
+          title="子类别"
+          required
+          is-link
+          value="{{ form.sub_category || '请选择' }}"
+          bind:click="onShowSubCategoryPicker"
+        />
+        <view class="subcategory-manage-entry" wx:if="{{ form.category && canManageSubcategories }}">
+          <text class="subcategory-manage-link" bindtap="onManageSubcategories">管理子类别</text>
+        </view>
+        <view wx:if="{{ hasInvalidSubcategory }}" class="identity-warning">
+          当前子类别已不在现行词表中，请重新选择有效子类别后再保存。
         </view>
 
         <van-field
@@ -65,7 +92,7 @@
       disabled="{{ submitting }}"
       bind:click="onSubmit"
     >
-      创建测试料型号
+      {{ isEdit ? '保存测试料型号' : '创建测试料型号' }}
     </van-button>
   </view>
 
@@ -76,6 +103,16 @@
       show-toolbar
       bind:confirm="onMaterialPickerConfirm"
       bind:cancel="onMaterialPickerCancel"
+    />
+  </van-popup>
+
+  <van-popup show="{{ showSubCategoryPicker }}" position="bottom" round bind:close="onSubCategoryCancel">
+    <van-picker
+      columns="{{ subCategoryOptions }}"
+      default-index="{{ subCategoryIndex || 0 }}"
+      show-toolbar
+      bind:confirm="onSubCategoryConfirm"
+      bind:cancel="onSubCategoryCancel"
     />
   </van-popup>
 

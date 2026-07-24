@@ -11,10 +11,18 @@ const {
   normalizeCategory,
   normalizeProductCode,
   normalizeTestMaterialSupplier,
+  normalizeTestMaterialLabelName,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialIdentityRecord,
   findTestMaterialIdentityConflict
 } = require('./test-material-identities');
+const {
+  ensureBuiltinSubcategories,
+  sortSubcategoryRecords,
+  filterSubcategoryRecordsByCategory,
+  buildSubcategoryMap,
+  resolveSubcategorySelection
+} = require('./material-subcategories');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -22,7 +30,6 @@ cloud.init({
 
 const db = cloud.database();
 const _ = db.command;
-const MAX_BATCH_IDENTITY_IMPORT_ROWS = 100;
 const MAX_SEARCH_CANDIDATES = 200;
 
 function parseMutationStatus(status) {
@@ -91,6 +98,37 @@ async function loadRelatedIdentities(category, productCode, collectionOwner = db
   return res.data || [];
 }
 
+async function loadSubcategoryContext(category = '', collectionOwner = db) {
+  const allRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(collectionOwner === db ? db : collectionOwner));
+  const records = category
+    ? filterSubcategoryRecordsByCategory(allRecords, category, { includeDisabled: true })
+    : allRecords;
+  return {
+    records,
+    map: buildSubcategoryMap(records)
+  };
+}
+
+async function resolveIdentitySubcategory(source = {}, category = '') {
+  const context = await loadSubcategoryContext(category);
+  const resolved = resolveSubcategorySelection({
+    category,
+    subcategory_key: source.subcategory_key || source.subcategoryKey,
+    sub_category: source.sub_category || source.subCategory
+  }, context.records, context.map);
+
+  if (!resolved.subcategory_key) {
+    return {
+      ok: false,
+      msg: '请选择有效子类别'
+    };
+  }
+  return {
+    ok: true,
+    ...resolved
+  };
+}
+
 async function writeIdentityAudit(collectionOwner, action, operator, openid, record = {}, detail = {}) {
   await writeAuditEvent(collectionOwner, db, {
     domain: 'test_material_identity',
@@ -139,7 +177,10 @@ async function listIdentities(event, openid) {
       { supplier_model: searchRegex },
       { supplier_model_key: searchRegex },
       { supplier: searchRegex },
-      { material_name: searchRegex }
+      { label_material_name: searchRegex },
+      { material_name: searchRegex },
+      { subcategory_key: searchRegex },
+      { sub_category: searchRegex }
     ]));
   }
 
@@ -158,8 +199,8 @@ async function listIdentities(event, openid) {
     list = rankSearchResults(candidates.slice(0, MAX_SEARCH_CANDIDATES), normalizedKeyword, {
       codeFields: ['product_code'],
       modelFields: ['supplier_model', 'supplier_model_key'],
-      nameFields: ['material_name'],
-      auxiliaryFields: ['supplier', 'category', 'material_id'],
+      nameFields: ['label_material_name', 'material_name'],
+      auxiliaryFields: ['supplier', 'category', 'material_id', 'subcategory_key', 'sub_category'],
       stableFields: ['product_code', 'supplier_model', '_id']
     }).slice((page - 1) * pageSize, page * pageSize);
   } else {
@@ -185,6 +226,31 @@ async function listIdentities(event, openid) {
   };
 }
 
+async function getIdentity(event, openid) {
+  const operator = await loadOperator(openid);
+  const activeResult = assertActiveUserAccess(operator, '仅已激活用户可查看测试料型号库');
+  if (!activeResult.ok) {
+    return { success: false, msg: activeResult.msg };
+  }
+
+  await ensureCollection();
+  const id = String(event.id || event._id || '').trim();
+  const identityKey = String(event.identity_key || event.identityKey || '').trim();
+  if (!id && !identityKey) {
+    return { success: false, msg: '缺少测试料型号标识' };
+  }
+  const query = id ? { _id: id } : { identity_key: identityKey };
+  const res = await db.collection('test_material_identities').where(query).limit(1).get();
+  const record = res.data && res.data[0];
+  if (!record) {
+    return { success: false, msg: '测试料型号不存在' };
+  }
+  return {
+    success: true,
+    data: normalizeTestMaterialIdentityRecord(record)
+  };
+}
+
 async function createIdentity(event, openid) {
   const operator = await loadOperator(openid);
   const authResult = assertAdminMutationAccess(operator, '仅管理员可维护测试料型号库');
@@ -194,11 +260,22 @@ async function createIdentity(event, openid) {
 
   await ensureCollection();
   const material = await loadMaterialForIdentity(event);
+  const labelMaterialName = normalizeTestMaterialLabelName(event.label_material_name || event.material_name || event.materialName);
+  if (!labelMaterialName) {
+    return { success: false, msg: '请输入物料名称' };
+  }
+  const resolvedSubcategory = await resolveIdentitySubcategory(event, material.category);
+  if (!resolvedSubcategory.ok) {
+    return { success: false, msg: resolvedSubcategory.msg };
+  }
   const candidate = normalizeTestMaterialIdentityRecord({
     category: material.category,
     material_id: material._id,
     product_code: material.product_code,
-    material_name: material.material_name || material.name || '',
+    label_material_name: labelMaterialName,
+    material_name: labelMaterialName,
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category,
     supplier: event.supplier,
     supplier_model: event.supplier_model || event.supplierModel,
     status: 'active'
@@ -226,7 +303,10 @@ async function createIdentity(event, openid) {
     category: candidate.category,
     material_id: material._id,
     product_code: candidate.product_code,
-    material_name: candidate.material_name,
+    label_material_name: candidate.label_material_name,
+    material_name: candidate.label_material_name,
+    subcategory_key: candidate.subcategory_key,
+    sub_category: candidate.sub_category,
     supplier: candidate.supplier,
     supplier_model: candidate.supplier_model,
     supplier_model_key: candidate.supplier_model_key,
@@ -262,67 +342,138 @@ async function createIdentity(event, openid) {
   };
 }
 
-async function batchCreateIdentities(event, openid) {
+async function updateIdentity(event, openid) {
   const operator = await loadOperator(openid);
   const authResult = assertAdminMutationAccess(operator, '仅管理员可维护测试料型号库');
   if (!authResult.ok) {
     return { success: false, msg: authResult.msg };
   }
 
-  const rows = Array.isArray(event.rows) ? event.rows : [];
-  if (!rows.length) {
-    return { success: false, msg: '未检测到可导入的型号数据' };
-  }
-  if (rows.length > MAX_BATCH_IDENTITY_IMPORT_ROWS) {
-    return { success: false, msg: `单次最多导入 ${MAX_BATCH_IDENTITY_IMPORT_ROWS} 条测试料型号` };
-  }
-
-  const results = [];
-  for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index] || {};
-    const rowIndex = Math.max(1, Number(row.rowIndex) || (index + 1));
-    const rowLabel = `第${rowIndex}行`;
-    try {
-      const created = await createIdentity({
-        ...row,
-        confirmSimilar: !!event.confirmSimilar
-      }, openid);
-      results.push({
-        rowIndex,
-        status: created.success ? 'created' : 'error',
-        msg: created.msg,
-        code: created.code || '',
-        product_code: normalizeProductCode(row.product_code || row.productCode),
-        supplier: normalizeTestMaterialSupplier(row.supplier),
-        supplier_model: normalizeTestMaterialSupplierModel(row.supplier_model || row.supplierModel)
-      });
-    } catch (error) {
-      results.push({
-        rowIndex,
-        status: 'error',
-        msg: `${rowLabel}${error.message || '导入失败'}`
-      });
-    }
+  await ensureCollection();
+  const id = String(event.id || event._id || '').trim();
+  const identityKey = String(event.identity_key || event.identityKey || '').trim();
+  if (!id && !identityKey) {
+    return { success: false, msg: '缺少测试料型号标识' };
   }
 
-  const createdCount = results.filter(item => item.status === 'created').length;
+  const query = id ? { _id: id } : { identity_key: identityKey };
+  const oldRes = await db.collection('test_material_identities').where(query).limit(1).get();
+  const oldRecord = oldRes.data && oldRes.data[0];
+  if (!oldRecord || !oldRecord._id) {
+    return { success: false, msg: '测试料型号不存在' };
+  }
+
+  const productCode = normalizeProductCode(event.product_code || event.productCode || oldRecord.product_code);
+  const material = await loadMaterialForIdentity({
+    material_id: event.material_id || event.materialId || oldRecord.material_id,
+    product_code: productCode
+  });
+  const labelMaterialName = normalizeTestMaterialLabelName(
+    event.label_material_name || event.material_name || event.materialName || oldRecord.label_material_name || oldRecord.material_name
+  );
+  if (!labelMaterialName) {
+    return { success: false, msg: '请输入物料名称' };
+  }
+  const resolvedSubcategory = await resolveIdentitySubcategory({
+    subcategory_key: event.subcategory_key || event.subcategoryKey || oldRecord.subcategory_key,
+    sub_category: event.sub_category || event.subCategory || oldRecord.sub_category
+  }, material.category);
+  if (!resolvedSubcategory.ok) {
+    return { success: false, msg: resolvedSubcategory.msg };
+  }
+
+  const candidate = normalizeTestMaterialIdentityRecord({
+    ...oldRecord,
+    category: material.category,
+    material_id: material._id,
+    product_code: material.product_code,
+    label_material_name: labelMaterialName,
+    material_name: labelMaterialName,
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category,
+    supplier: Object.prototype.hasOwnProperty.call(event, 'supplier') ? event.supplier : oldRecord.supplier,
+    supplier_model: event.supplier_model || event.supplierModel || oldRecord.supplier_model,
+    supplier_model_key: event.supplier_model_key || event.supplierModelKey || oldRecord.supplier_model_key,
+    status: oldRecord.status || 'active'
+  });
+  if (!candidate.supplier_model_key) {
+    return { success: false, msg: '请输入原厂型号' };
+  }
+
+  const related = await loadRelatedIdentities(candidate.category, candidate.product_code);
+  const conflict = findTestMaterialIdentityConflict(
+    related.filter(item => item._id !== oldRecord._id),
+    candidate
+  );
+  if (conflict.type === 'exact') {
+    return { success: false, msg: '该测试料原厂型号已存在' };
+  }
+  if (conflict.type === 'similar' && !event.confirmSimilar) {
+    return {
+      success: false,
+      code: 'SIMILAR_TEST_MATERIAL_IDENTITY',
+      msg: `已存在相似型号 ${conflict.record.supplier_model}，请确认是否仍要保存`,
+      similar: conflict.record
+    };
+  }
+
+  const updateData = {
+    category: candidate.category,
+    material_id: material._id,
+    product_code: candidate.product_code,
+    label_material_name: candidate.label_material_name,
+    material_name: candidate.label_material_name,
+    subcategory_key: candidate.subcategory_key,
+    sub_category: candidate.sub_category,
+    supplier: candidate.supplier,
+    supplier_model: candidate.supplier_model,
+    supplier_model_key: candidate.supplier_model_key,
+    identity_key: candidate.identity_key,
+    updated_by: openid,
+    updated_at: db.serverDate()
+  };
+
   await db.runTransaction(async transaction => {
-    await writeIdentityAudit(transaction, 'batch_create', operator, openid, {
-      identity_key: 'batch',
-      product_code: ''
+    const currentRes = await transaction.collection('test_material_identities')
+      .where({ _id: oldRecord._id })
+      .limit(1)
+      .get();
+    const current = currentRes.data && currentRes.data[0];
+    if (!current || !current._id) {
+      throw new Error('测试料型号不存在');
+    }
+    if (candidate.identity_key !== current.identity_key) {
+      const duplicateRes = await transaction.collection('test_material_identities')
+        .where({ identity_key: candidate.identity_key })
+        .limit(1)
+        .get();
+      const duplicate = duplicateRes.data && duplicateRes.data[0];
+      if (duplicate && duplicate._id !== current._id) {
+        throw new Error('该测试料原厂型号已存在');
+      }
+    }
+    await transaction.collection('test_material_identities').doc(current._id).update({
+      data: updateData
+    });
+    await writeIdentityAudit(transaction, 'update', operator, openid, {
+      _id: current._id,
+      ...current,
+      ...updateData
     }, {
-      total: rows.length,
-      created: createdCount,
-      errors: results.length - createdCount
+      before: current,
+      after: updateData
     });
   });
 
   return {
     success: true,
-    msg: `导入完成，新增 ${createdCount} 条`,
-    results,
-    created: createdCount,
-    errors: results.length - createdCount
+    msg: '保存成功',
+    id: oldRecord._id,
+    data: {
+      _id: oldRecord._id,
+      ...oldRecord,
+      ...updateData
+    }
   };
 }
 
@@ -380,11 +531,14 @@ exports.main = async (event = {}) => {
     if (action === 'list') {
       return await listIdentities(event, OPENID);
     }
+    if (action === 'get') {
+      return await getIdentity(event, OPENID);
+    }
     if (action === 'create') {
       return await createIdentity(event, OPENID);
     }
-    if (action === 'batchCreate') {
-      return await batchCreateIdentities(event, OPENID);
+    if (action === 'update') {
+      return await updateIdentity(event, OPENID);
     }
     if (action === 'setStatus') {
       return await setIdentityStatus(event, OPENID);

@@ -446,14 +446,23 @@ exports.main = async (event, context) => {
       const supplier = isTest
         ? (requestedSupplier || identityValidation.supplier || '')
         : requestedSupplier;
+      const effectiveMaterialName = isTest && identityValidation.label_material_name
+        ? identityValidation.label_material_name
+        : materialName;
+      const effectiveSubcategoryKey = isTest && identityValidation.subcategory_key
+        ? identityValidation.subcategory_key
+        : (materialRecord.subcategory_key || '');
+      const effectiveSubCategory = isTest && identityValidation.sub_category
+        ? identityValidation.sub_category
+        : (materialRecord.sub_category || '');
 
       // 4. 写入 Inventory 集合
       const invData = {
         material_id: materialId,
-        material_name: materialName,
+        material_name: effectiveMaterialName,
         category,
-        subcategory_key: materialRecord.subcategory_key || '',
-        sub_category: materialRecord.sub_category || '',
+        subcategory_key: effectiveSubcategoryKey,
+        sub_category: effectiveSubCategory,
         product_code: productCode,
         unique_code: normalizedUniqueCode, // 使用传入的 code
         supplier,

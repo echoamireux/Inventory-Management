@@ -14,6 +14,13 @@ function normalizeTestMaterialSupplier(value) {
     .replace(/\s+/gu, ' ');
 }
 
+function normalizeTestMaterialLabelName(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/gu, ' ');
+}
+
 async function callTestMaterialIdentity(action, payload = {}) {
   const res = await wx.cloud.callFunction({
     name: 'manageTestMaterialIdentity',
@@ -56,11 +63,13 @@ async function createTestMaterialIdentity(payload = {}) {
   return callTestMaterialIdentity('create', payload);
 }
 
-async function batchCreateTestMaterialIdentities(rows = [], options = {}) {
-  return callTestMaterialIdentity('batchCreate', {
-    rows,
-    confirmSimilar: !!options.confirmSimilar
-  });
+async function getTestMaterialIdentity(payload = {}) {
+  const result = await callTestMaterialIdentity('get', payload);
+  return result.data || null;
+}
+
+async function updateTestMaterialIdentity(payload = {}) {
+  return callTestMaterialIdentity('update', payload);
 }
 
 async function setTestMaterialIdentityStatus(record, status) {
@@ -79,6 +88,10 @@ function buildTestMaterialIdentityActions(records = []) {
       return {
         name: supplier ? `${item.supplier_model}｜${supplier}` : item.supplier_model,
         value: item.supplier_model,
+        label_material_name: item.label_material_name || item.material_name || '',
+        material_name: item.label_material_name || item.material_name || '',
+        subcategory_key: item.subcategory_key || '',
+        sub_category: item.sub_category || '',
         supplier_model: item.supplier_model,
         supplier_model_key: item.supplier_model_key,
         supplier,
@@ -92,9 +105,11 @@ function buildTestMaterialIdentityActions(records = []) {
 module.exports = {
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialSupplier,
+  normalizeTestMaterialLabelName,
   listTestMaterialIdentities,
+  getTestMaterialIdentity,
   createTestMaterialIdentity,
-  batchCreateTestMaterialIdentities,
+  updateTestMaterialIdentity,
   setTestMaterialIdentityStatus,
   buildTestMaterialIdentityActions
 };

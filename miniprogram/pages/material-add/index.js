@@ -1145,6 +1145,13 @@ Page({
       this.setData({
         'form.supplier_model': item.supplier_model || item.name || '',
         'form.supplier_model_key': item.supplier_model_key || '',
+        ...(item.label_material_name || item.material_name ? {
+          'form.name': item.label_material_name || item.material_name
+        } : {}),
+        ...(item.subcategory_key || item.sub_category ? {
+          'form.subcategory_key': item.subcategory_key || '',
+          'form.sub_category': item.sub_category || ''
+        } : {}),
         ...(!currentSupplier && item.supplier ? {
           'form.supplier': item.supplier
         } : {}),

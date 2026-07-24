@@ -432,10 +432,11 @@ Page({
   },
 
   onIdentityItemClick(e) {
-    const keyword = String(e.currentTarget.dataset.keyword || '').trim();
-    const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+    const id = String(e.currentTarget.dataset.id || '').trim();
     wx.navigateTo({
-      url: `/pages/admin/test-material-identity-manage/index${query}`
+      url: id
+        ? `/pages/admin/test-material-identity-edit/index?id=${encodeURIComponent(id)}`
+        : '/pages/admin/test-material-identity-edit/index'
     });
   },
 
@@ -721,10 +722,6 @@ Page({
 
   onCreateTestMaterialIdentity() {
     wx.navigateTo({ url: '/pages/admin/test-material-identity-edit/index' });
-  },
-
-  onImportTestMaterialIdentity() {
-    wx.navigateTo({ url: '/pages/admin/test-material-identity-import/index' });
   },
 
   onOpenTestMaterialIdentityManage() {

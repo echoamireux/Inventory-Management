@@ -49,6 +49,7 @@ test('unused direct database wrapper and retired cloud functions are removed', (
   assert.doesNotMatch(read('miniprogram/pages/register/index.js'), /utils\/db/);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/login')), false);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/initMDMCollection')), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate')), false);
 });
 
 test('reports and dynamic templates overwrite operator-scoped stable cloud paths', () => {
@@ -87,7 +88,8 @@ test('README documents production permissions, required indexes and retired clou
     '审计写入失败时，业务事务必须一并回滚',
     'npm run preflight:deploy',
     '删除云端 `login`',
-    '删除云端 `initMDMCollection`'
+    '删除云端 `initMDMCollection`',
+    '删除云端 `exportTestMaterialIdentityTemplate`'
   ]) {
     assert.match(readme, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
@@ -98,6 +100,7 @@ test('README documents production permissions, required indexes and retired clou
 test('deployment preflight script verifies cloud functions, shared copies and stable query sorts', () => {
   const script = read('scripts/deploy-preflight.js');
   assert.doesNotMatch(script, /预期 34 个可部署云函数目录/);
+  assert.match(script, /删除云端 `exportTestMaterialIdentityTemplate`/);
   assert.match(script, /cloudfunctions-manifest\.json/);
   assert.match(script, /新增未登记云函数/);
   assert.match(script, /清单登记但目录缺失/);

@@ -1032,6 +1032,11 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   }
   row.supplier_model = row.is_test_material ? identityValidation.supplier_model : row.supplier_model;
   row.supplier_model_key = row.is_test_material ? identityValidation.supplier_model_key : '';
+  if (row.is_test_material) {
+    row.material_name = identityValidation.label_material_name || row.material_name;
+    row.subcategory_key = identityValidation.subcategory_key || row.subcategory_key || '';
+    row.sub_category = identityValidation.sub_category || row.sub_category || '';
+  }
   if (row.is_test_material && !normalizeText(row.supplier)) {
     row.supplier = identityValidation.supplier || '';
   }
@@ -1247,6 +1252,15 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const supplier = isTest
     ? (requestedSupplier || identityValidation.supplier || '')
     : requestedSupplier;
+  const effectiveMaterialName = isTest && identityValidation.label_material_name
+    ? identityValidation.label_material_name
+    : materialName;
+  const effectiveSubcategoryKey = isTest && identityValidation.subcategory_key
+    ? identityValidation.subcategory_key
+    : normalizeText(material.subcategory_key);
+  const effectiveSubCategory = isTest && identityValidation.sub_category
+    ? identityValidation.sub_category
+    : subCategory;
   const sampleNote = normalizeText(sourceItem.sample_note);
   const batchNumber = normalizeText(sourceItem.batch_number);
   const zoneKey = normalizeText(sourceItem.zone_key);
@@ -1291,10 +1305,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
 
   const inventoryData = {
     material_id: material._id,
-    material_name: materialName,
+    material_name: effectiveMaterialName,
     category,
-    subcategory_key: normalizeText(material.subcategory_key),
-    sub_category: subCategory,
+    subcategory_key: effectiveSubcategoryKey,
+    sub_category: effectiveSubCategory,
     product_code: productCode,
     unique_code: uniqueCode,
     supplier,

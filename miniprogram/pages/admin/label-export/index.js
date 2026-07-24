@@ -430,6 +430,13 @@ Page({
     this.setData({
       'preprintForm.supplier_model': item.supplier_model || item.name || '',
       'preprintForm.supplier_model_key': item.supplier_model_key || '',
+      ...(item.label_material_name || item.material_name ? {
+        'preprintForm.material_name': item.label_material_name || item.material_name
+      } : {}),
+      ...(item.subcategory_key || item.sub_category ? {
+        'preprintForm.subcategory_key': item.subcategory_key || '',
+        'preprintForm.sub_category': item.sub_category || ''
+      } : {}),
       ...(!currentSupplier && item.supplier ? {
         'preprintForm.supplier': item.supplier
       } : {}),

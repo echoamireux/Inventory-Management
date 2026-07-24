@@ -28,6 +28,10 @@ function normalizeTestMaterialSupplier(value) {
   return normalizeText(value).replace(/\s+/gu, ' ');
 }
 
+function normalizeTestMaterialLabelName(value) {
+  return normalizeText(value).replace(/\s+/gu, ' ');
+}
+
 function buildTestMaterialSupplierModelKey(value) {
   return normalizeTestMaterialSupplierModel(value);
 }
@@ -52,6 +56,10 @@ function buildTestMaterialIdentityKey(source = {}) {
 function normalizeTestMaterialIdentityRecord(record = {}) {
   const category = normalizeCategory(record.category);
   const productCode = normalizeProductCode(record.product_code);
+  const rawLabelMaterialName = record.label_material_name !== undefined
+    ? record.label_material_name
+    : (record.material_name !== undefined ? record.material_name : record.name);
+  const labelMaterialName = normalizeTestMaterialLabelName(rawLabelMaterialName);
   const supplierModel = normalizeTestMaterialSupplierModel(record.supplier_model);
   const supplierModelKey = buildTestMaterialSupplierModelKey(
     record.supplier_model_key || supplierModel
@@ -66,6 +74,10 @@ function normalizeTestMaterialIdentityRecord(record = {}) {
     ...record,
     category,
     product_code: productCode,
+    label_material_name: labelMaterialName,
+    material_name: labelMaterialName || normalizeTestMaterialLabelName(record.material_name || record.name),
+    subcategory_key: normalizeText(record.subcategory_key),
+    sub_category: normalizeText(record.sub_category),
     supplier: normalizeTestMaterialSupplier(record.supplier),
     supplier_model: supplierModel,
     supplier_model_key: supplierModelKey,
@@ -150,6 +162,10 @@ function validateTestMaterialIdentitySelection({
   return {
     ok: true,
     supplier: matched.supplier,
+    label_material_name: matched.label_material_name,
+    material_name: matched.label_material_name || matched.material_name,
+    subcategory_key: matched.subcategory_key,
+    sub_category: matched.sub_category,
     supplier_model: matched.supplier_model,
     supplier_model_key: matched.supplier_model_key
   };
@@ -203,6 +219,7 @@ module.exports = {
   normalizeProductCode,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialSupplier,
+  normalizeTestMaterialLabelName,
   buildTestMaterialSupplierModelKey,
   buildSimilarSupplierModelKey,
   buildTestMaterialIdentityKey,

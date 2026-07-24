@@ -169,6 +169,8 @@
   审批中心
 - `pages/admin/material-import/index`
   物料导入
+- `pages/admin/test-material-identity-edit/index`
+  新增/编辑测试料型号
 - `pages/admin/zone-manage/index`
   库区与详细坐标管理
 - `pages/admin/subcategory-manage/index`
@@ -356,7 +358,7 @@ npm run release:check
 - `approveInventoryCorrectionRequest`
 - `submitInventoryCorrectionRequest`
 
-旧的 `login` 和 `initMDMCollection` 已从仓库移除。部署前请在云开发控制台同步删除云端 `login`，并删除云端 `initMDMCollection`，避免废弃入口继续被误调用。
+旧的 `login`、`initMDMCollection` 和独立测试料模板导出函数 `exportTestMaterialIdentityTemplate` 已从仓库移除。部署前请在云开发控制台逐项确认：删除云端 `login`、删除云端 `initMDMCollection`、删除云端 `exportTestMaterialIdentityTemplate`，避免旧入口继续被误调用。
 
 首次部署本版本前，先在云数据库创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`、`test_material_identities` 集合。不要清空或重建 `preprinted_labels`、`system_counters`，历史标签编号必须永久保留且不得复用。
 
@@ -364,7 +366,11 @@ npm run release:check
 
 权限例外：管理员继续可以直接执行盘点调整，也允许审批自己提交的纠错申请，当前不实施四眼审批。上述库存变更仍必须写入库存流水和 `audit_events`；审计写入失败时，业务事务必须一并回滚。
 
-测试料型号库说明：`test_material_identities.supplier` 为选填默认供应商，只用于入库和标签预打印时帮用户带出默认值；唯一身份仍由 `identity_key`（类别 + 测试料产品代码 + 规范原厂型号）决定，不因供应商不同拆分记录，也不需要新增集合或额外唯一索引。
+测试料型号库说明：测试料在 `materials` 中仍只保存测试料产品代码壳，例如 `J-999`；真实现场显示信息保存在 `test_material_identities`。其中 `label_material_name` 是标签、入库、库存查询和导出里的“物料名称”，`sub_category` / `subcategory_key` 是测试料型号自己的子类别快照，`supplier` 为选填默认供应商，只用于入库和标签预打印时帮用户带出默认值；唯一身份仍由 `identity_key`（类别 + 测试料产品代码 + 规范原厂型号）决定，不因供应商不同拆分记录，也不需要新增集合或额外唯一索引。
+
+物料主数据导入支持正式料和测试料同模板维护：`是否测试料=否` 时按正式物料处理，唯一性为产品代码；`是否测试料=是` 时系统确保对应测试料代码壳存在，并按“产品代码 + 原厂型号”创建或跳过 `test_material_identities` 记录，模板中的“物料名称”和“子类别”会作为测试料标签/库存展示值。系统不再提供独立的测试料型号导入页面、导入模板或模板导出云函数；批量维护统一走物料主数据导入。库存入库模板导入和扫码批量入库的最多 100 行、每 10 行一批、失败批次可重试协议不变。
+
+标签导出、库存导出和报表表头保持现有列名；正式料的“物料名称”取 `materials.material_name`，测试料的“物料名称”取入库或预打印时保存的快照，快照来源为 `test_material_identities.label_material_name`。
 
 ### 6. 生产索引配置建议
 
@@ -462,7 +468,7 @@ npm run release:check
 1. 已创建 `operation_receipts`、`audit_events`、`preprint_jobs`、`preprint_daily_usage`、`test_material_identities`，且保留原 `preprinted_labels` 与 `system_counters` 数据。
 2. 本节要求的唯一索引和复合索引均已构建成功。
 3. 核心集合权限均已收紧为仅云函数可读写。
-4. 旧云端 `login`、`initMDMCollection` 已删除。
+4. 旧云端 `login`、`initMDMCollection`、`exportTestMaterialIdentityTemplate` 已删除。
 5. 本次涉及的库存写入、标签、审批、项目报表、主数据与查询云函数均已重新部署。
 6. 已执行 `npm run sync:shared` 和 `npm run release:check`，且正式库确认文件全部为 true。
 7. 已在开发版完成 100 行分批入库及失败重试、并发申请、禁用用户写入拦截、日志和项目报表跨页、库存导出、模板导入和管理员盘点调整审计。
@@ -532,6 +538,11 @@ npm test
   - `exportMaterialTemplate`
   - 导入解析与校验逻辑
   - 对应测试
+- 修改测试料型号字段时，请同步更新：
+  - `manageTestMaterialIdentity`
+  - 物料主数据导入中的测试料行分流逻辑（不再维护独立测试料型号导入模板）
+  - `cloudfunctions/_shared/test-material-identities.js` 及 `npm run sync:shared` 后的云函数副本
+  - 入库、批量入库、库存模板导入和标签预生成的快照写入测试
 - 新增页面或路由后，请同步更新 `miniprogram/app.json` 与本 README
 
 ## License

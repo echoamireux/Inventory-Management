@@ -615,6 +615,9 @@ async function submitRows(items = [], openid, operatorName, operationId) {
         item.supplier = String(item.supplier || '').trim() || identityValidation.supplier || '';
         item.supplier_model = identityValidation.supplier_model;
         item.supplier_model_key = identityValidation.supplier_model_key;
+        item.material_name = identityValidation.label_material_name || item.material_name;
+        item.subcategory_key = identityValidation.subcategory_key || item.subcategory_key || '';
+        item.sub_category = identityValidation.sub_category || item.sub_category || '';
       }
 
       if (submitAction === 'refill') {
@@ -650,7 +653,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
             type: 'refill',
             inventory_id: currentInventory._id,
             material_id: material && material._id,
-            material_name: String(material && (material.material_name || material.name) || item.material_name || '').trim(),
+            material_name: String(item.material_name || material && (material.material_name || material.name) || '').trim(),
             category: item.category === 'film' ? 'film' : 'chemical',
             product_code: String(item.product_code || '').trim(),
             unique_code: uniqueCode,

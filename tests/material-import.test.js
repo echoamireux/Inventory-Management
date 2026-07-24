@@ -146,10 +146,40 @@ test('import validation supports the new prefix-plus-number master-data template
   assert.equal(result.product_code, 'J-001');
   assert.equal(result.default_unit, 'L');
   assert.equal(result.package_type, '桶装');
-  assert.equal(result.supplier, '');
-  assert.equal(result.supplier_model, '');
+  assert.equal(result.supplier, '国药');
+  assert.equal(result.supplier_model, 'IPA-99');
   assert.equal(result.is_test_material, true);
   assert.equal('shelf_life_days' in result, false);
+});
+
+test('import validation requires test-material supplier model and keeps label fields for identity import', () => {
+  const missingModel = validateImportRow(
+    chemicalRow({ isTestMaterial: '是', supplierModel: '' }),
+    0,
+    subcategoriesByCategory
+  );
+  const keptIdentityFields = validateImportRow(
+    chemicalRow({
+      prefix: 'J',
+      number: '999',
+      name: '环氧树脂样品',
+      subCategory: '树脂',
+      supplier: '供应商A',
+      supplierModel: ' Ａ - １００ ',
+      isTestMaterial: '是'
+    }),
+    1,
+    subcategoriesByCategory
+  );
+
+  assert.equal(missingModel.error, '测试料原厂型号必填');
+  assert.equal(keptIdentityFields.error, null);
+  assert.equal(keptIdentityFields.product_code, 'J-999');
+  assert.equal(keptIdentityFields.material_name, '环氧树脂样品');
+  assert.equal(keptIdentityFields.sub_category, '树脂');
+  assert.equal(keptIdentityFields.supplier, '供应商A');
+  assert.equal(keptIdentityFields.supplier_model, 'A-100');
+  assert.equal(keptIdentityFields.is_test_material, true);
 });
 
 test('import validation treats blank test-material flag as formal material and rejects unclear values', () => {
@@ -271,6 +301,67 @@ test('duplicate guard warns when identical rows share the same normalized produc
   assert.match(rows[1].warning, /产品代码 J-001 在本次导入文件中重复/);
   assert.equal(rows[0].error, null);
   assert.equal(rows[1].error, null);
+});
+
+test('duplicate guard separates test-material identities by product code and supplier model', () => {
+  const rows = applyImportDuplicateGuards([
+    {
+      rowIndex: 2,
+      product_code: 'J-999',
+      product_code_number: '999',
+      material_name: '环氧树脂样品',
+      category: 'chemical',
+      sub_category: '树脂',
+      default_unit: 'kg',
+      package_type: '瓶装',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '供应商A',
+      supplier_model: 'MODEL-A',
+      is_test_material: true,
+      error: null,
+      warning: ''
+    },
+    {
+      rowIndex: 3,
+      product_code: 'J-999',
+      product_code_number: '999',
+      material_name: '丙烯酸样品',
+      category: 'chemical',
+      sub_category: '主胶',
+      default_unit: 'kg',
+      package_type: '瓶装',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '供应商B',
+      supplier_model: 'MODEL-B',
+      is_test_material: true,
+      error: null,
+      warning: ''
+    },
+    {
+      rowIndex: 4,
+      product_code: 'J-999',
+      product_code_number: '999',
+      material_name: '环氧树脂样品',
+      category: 'chemical',
+      sub_category: '树脂',
+      default_unit: 'kg',
+      package_type: '瓶装',
+      thickness_um: null,
+      standard_width_mm: null,
+      supplier: '另一个供应商',
+      supplier_model: 'ＭＯＤＥＬ－Ａ',
+      is_test_material: true,
+      error: null,
+      warning: ''
+    }
+  ]);
+
+  assert.equal(rows[1].error, null);
+  assert.equal(rows[0].error, '测试料 J-999 + 原厂型号 MODEL-A 在本次导入文件中重复，且字段不一致，请统一后再导入');
+  assert.equal(rows[1].warning, '');
+  assert.equal(rows[2].error, '测试料 J-999 + 原厂型号 MODEL-A 在本次导入文件中重复，且字段不一致，请统一后再导入');
 });
 
 test('duplicate guard blocks same-category rows that reuse one product code with conflicting master-data fields', () => {

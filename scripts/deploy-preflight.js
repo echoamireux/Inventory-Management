@@ -224,6 +224,7 @@ function assertReadmeDeploymentChecklist() {
     '仅云函数可读写',
     '删除云端 `login`',
     '删除云端 `initMDMCollection`',
+    '删除云端 `exportTestMaterialIdentityTemplate`',
     '`removeInventory` 安全部署'
   ];
   for (const text of requiredTexts) {

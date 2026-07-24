@@ -154,16 +154,25 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex, options = {}) {
   const supplier = isTest
     ? (requestedSupplier || identityValidation.supplier || '')
     : requestedSupplier;
+  const effectiveMaterialName = isTest && identityValidation.label_material_name
+    ? identityValidation.label_material_name
+    : materialName;
+  const effectiveSubcategoryKey = isTest && identityValidation.subcategory_key
+    ? identityValidation.subcategory_key
+    : (material.subcategory_key || '');
+  const effectiveSubCategory = isTest && identityValidation.sub_category
+    ? identityValidation.sub_category
+    : (material.sub_category || '');
   if (!location) {
     throw new Error(`${rowLabel}缺少存储区域`);
   }
 
   const inventoryData = {
     material_id: material._id,
-    material_name: materialName,
+    material_name: effectiveMaterialName,
     category: material.category,
-    subcategory_key: material.subcategory_key || '',
-    sub_category: material.sub_category || '',
+    subcategory_key: effectiveSubcategoryKey,
+    sub_category: effectiveSubCategory,
     product_code: material.product_code,
     unique_code: uniqueCode,
     supplier,

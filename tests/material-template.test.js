@@ -153,10 +153,11 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /当前化材包装形式：瓶装 \/ 桶装 \/ 袋装 \/ 卷装 \/ 盒装/);
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
-  assert.match(helpText, /供应商：选填/);
-  assert.match(helpText, /原厂型号：选填；仅用于正式物料。测试料真实原厂型号和可选供应商请在“测试料型号库”维护/);
+  assert.match(helpText, /供应商：选填。正式物料写主数据供应商；测试料写该型号默认供应商/);
+  assert.match(helpText, /原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品/);
+  assert.match(helpText, /选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示/);
   assert.doesNotMatch(helpText, /供应商、原厂型号：选填/);
-  assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
+  assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号/);
   assert.deepEqual(spec.inlineHints, [
     '必填',
     '必填',
@@ -174,6 +175,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
     ['J', '001', '异丙醇', '化材', '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否'],
+    ['J', '999', '环氧树脂样品', '化材', '溶剂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A', '是'],
     ['M', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
 });

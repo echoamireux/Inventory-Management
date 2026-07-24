@@ -386,7 +386,7 @@ test('master data page groups material and test-model search results with status
 
   assert.match(materialListJson, /"navigationBarTitleText":\s*"主数据管理"/);
   assert.match(materialListWxml, /title="物料主数据"/);
-  assert.match(materialListWxml, /title="测试料型号库"/);
+  assert.match(materialListWxml, /title="测试料"/);
   assert.match(materialListWxml, /title="在用"/);
   assert.match(materialListWxml, /title="已归档"/);
   assert.ok(
@@ -398,15 +398,17 @@ test('master data page groups material and test-model search results with status
   assert.match(materialListJs, /includeDisabled:\s*this\.data\.activeTab === 'testIdentity' \|\| !!normalizeSearchKeyword/);
   assert.match(materialListJs, /Promise\.all\(\[[\s\S]*this\.getList\(true\)[\s\S]*this\.loadIdentityResults\(\{ refresh: true \}\)/);
   assert.match(materialListJs, /onIdentityItemClick/);
-  assert.match(materialListJs, /test-material-identity-manage\/index\$\{query\}/);
-  assert.match(materialListWxml, /物料主数据[\s\S]*测试料型号/);
-  assert.match(materialListWxml, /所属物料：/);
+  assert.match(materialListJs, /test-material-identity-edit\/index\?id=/);
+  assert.match(materialListWxml, /物料主数据[\s\S]*测试料/);
+  assert.match(materialListWxml, /item\.label_material_name \|\| item\.material_name/);
+  assert.match(materialListWxml, /原厂型号：/);
   assert.match(materialListWxml, /产品代码：/);
+  assert.match(materialListWxml, /子类别：/);
   assert.match(materialListWxml, /全局搜索结果：\{\{ total \}\} 项物料 · \{\{ identityTotal \}\} 个型号/);
   assert.match(materialListWxml, /bind:tap="onIdentityItemClick"/);
   assert.match(materialListWxml, /class="count-wrap"/);
   assert.match(materialListWxml, /class="top-actions"/);
-  assert.match(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
+  assert.doesNotMatch(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
   assert.match(materialListWxml, /bind:click="onCreateTestMaterialIdentity"[\s\S]*新增/);
   assert.doesNotMatch(materialListWxml, /批量导入|新增型号/);
   assert.match(materialListWxml, /已归档/);

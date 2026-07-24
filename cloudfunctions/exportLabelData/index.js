@@ -127,6 +127,18 @@ function normalizeText(value) {
   return String(value === undefined || value === null ? '' : value).trim();
 }
 
+function buildEffectiveTestMaterialSnapshot(material = {}, identityValidation = {}) {
+  if (!material || !material.is_test_material || !identityValidation || !identityValidation.ok) {
+    return material;
+  }
+  return {
+    ...material,
+    material_name: identityValidation.label_material_name || material.material_name || material.name || '',
+    subcategory_key: identityValidation.subcategory_key || material.subcategory_key || '',
+    sub_category: identityValidation.sub_category || material.sub_category || ''
+  };
+}
+
 function isRetryablePreprintTransactionConflict(error) {
   const message = String((error && (error.errMsg || error.message)) || error || '').toLowerCase();
   return /transaction|conflict|version|事务|冲突|版本/.test(message);
@@ -469,10 +481,11 @@ async function reservePreprintJob({
         supplier_model_key: identityValidation.supplier_model_key
       }
       : form;
+    const currentEffectiveMaterial = buildEffectiveTestMaterialSnapshot(currentMaterial, identityValidation);
     const currentSignature = buildPreprintRequestSignature({
       templateType,
       count,
-      material: currentMaterial,
+      material: currentEffectiveMaterial,
       form: currentForm
     });
     if (currentSignature !== requestSignature) {
@@ -488,12 +501,12 @@ async function reservePreprintJob({
       operator_name: operator.name || operator.nickname || '',
       job_id: jobId,
       template_type: templateType,
-      material_id: currentMaterial._id,
-      product_code: currentMaterial.product_code,
-      material_name: currentMaterial.material_name || currentMaterial.name || '',
-      category: currentMaterial.category,
-      subcategory_key: currentMaterial.subcategory_key || '',
-      sub_category: currentMaterial.sub_category || '',
+      material_id: currentEffectiveMaterial._id,
+      product_code: currentEffectiveMaterial.product_code,
+      material_name: currentEffectiveMaterial.material_name || currentEffectiveMaterial.name || '',
+      category: currentEffectiveMaterial.category,
+      subcategory_key: currentEffectiveMaterial.subcategory_key || '',
+      sub_category: currentEffectiveMaterial.sub_category || '',
       is_test_material: !!currentMaterial.is_test_material,
       material_specs: currentMaterial.specs || {},
       form_snapshot: {
@@ -620,11 +633,12 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
       supplier_model_key: identityValidation.supplier_model_key
     }
     : form;
+  const effectiveMaterial = buildEffectiveTestMaterialSnapshot(material, identityValidation);
   const preprintMode = normalizeText(data.preprintMode || data.preprint_mode || 'normal') || 'normal';
   const requestSignature = buildPreprintRequestSignature({
     templateType,
     count,
-    material,
+    material: effectiveMaterial,
     form: normalizedForm
   });
 
@@ -645,7 +659,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
     requestSignature,
     templateType,
     count,
-    material,
+    material: effectiveMaterial,
     form: normalizedForm,
     operator,
     operatorOpenid

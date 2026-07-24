@@ -242,6 +242,243 @@ test('material import batchCreate keeps create-only semantics while writing gove
   assert.equal(batchAuditEvents.length, 1);
 });
 
+test('material import batchCreate routes test-material rows into identity records with effective names', async () => {
+  const addedMaterials = [];
+  const addedIdentities = [];
+  const auditEvents = [];
+  const materialsByCode = new Map();
+
+  function buildCollection(name) {
+    if (name === 'materials') {
+      return {
+        where(query = {}) {
+          return {
+            limit() {
+              return this;
+            },
+            async get() {
+              if (query.product_code) {
+                const matched = materialsByCode.get(query.product_code);
+                return { data: matched ? [matched] : [] };
+              }
+              return { data: [] };
+            },
+            async count() {
+              return {
+                total: query.product_code && materialsByCode.has(query.product_code) ? 1 : 0
+              };
+            }
+          };
+        },
+        async add({ data }) {
+          const record = { _id: `mat-${addedMaterials.length + 1}`, ...data };
+          addedMaterials.push(record);
+          materialsByCode.set(record.product_code, record);
+          return { _id: record._id };
+        }
+      };
+    }
+
+    if (name === 'test_material_identities') {
+      return {
+        where(query = {}) {
+          return {
+            limit() {
+              return this;
+            },
+            async get() {
+              if (query.identity_key) {
+                return { data: addedIdentities.filter(item => item.identity_key === query.identity_key) };
+              }
+              if (query.category && query.product_code) {
+                return {
+                  data: addedIdentities.filter(item => (
+                    item.category === query.category && item.product_code === query.product_code
+                  ))
+                };
+              }
+              return { data: [] };
+            }
+          };
+        },
+        async add({ data }) {
+          const record = { _id: `identity-${addedIdentities.length + 1}`, ...data };
+          addedIdentities.push(record);
+          return { _id: record._id };
+        }
+      };
+    }
+
+    if (name === 'material_log' || name === 'audit_events') {
+      return {
+        async add({ data }) {
+          auditEvents.push(data);
+          return { _id: `audit-${auditEvents.length}` };
+        }
+      };
+    }
+
+    if (name === 'users') {
+      return {
+        where() {
+          return {
+            limit() {
+              return this;
+            },
+            async get() {
+              return {
+                data: [{ _openid: 'openid-admin', role: 'admin', status: 'active' }]
+              };
+            }
+          };
+        }
+      };
+    }
+
+    throw new Error(`unexpected collection: ${name}`);
+  }
+
+  const db = {
+    command: {
+      remove() {
+        return { __remove: true };
+      }
+    },
+    serverDate() {
+      return { $date: true };
+    },
+    async createCollection() {},
+    collection: buildCollection
+  };
+
+  const cloudStub = {
+    init() {},
+    getWXContext() {
+      return { OPENID: 'openid-admin' };
+    },
+    database() {
+      return db;
+    }
+  };
+
+  const manageMaterial = loadModuleWithMocks('../cloudfunctions/manageMaterial/index.js', {
+    'wx-server-sdk': cloudStub,
+    './material-units': {
+      normalizeUnitInput(_category, unit) {
+        return { ok: true, unit };
+      }
+    },
+    './product-code': {
+      validateStandardProductCode(category, code) {
+        const prefix = category === 'film' ? 'M' : 'J';
+        const number = String(code).replace(/^[A-Z]{1,4}-/i, '').padStart(3, '0');
+        return {
+          ok: true,
+          product_code: `${prefix}-${number}`
+        };
+      }
+    },
+    './import-batch-results': {
+      createImportResultTracker() {
+        const results = [];
+        return {
+          recordCreated(rowIndex, productCode) {
+            results.push({ rowIndex, product_code: productCode, status: 'created' });
+          },
+          recordSkipped(rowIndex, productCode, reason) {
+            results.push({ rowIndex, product_code: productCode, status: 'skipped', reason });
+          },
+          recordError(rowIndex, productCode, reason) {
+            results.push({ rowIndex, product_code: productCode, status: 'error', reason });
+          },
+          toResponse() {
+            return {
+              skipped: results.filter(item => item.status === 'skipped').length,
+              errors: results.filter(item => item.status === 'error').length,
+              results
+            };
+          }
+        };
+      }
+    },
+    './material-subcategories': {
+      async ensureBuiltinSubcategories() {
+        return [
+          { subcategory_key: 'builtin:chemical:test-material', name: '测试料', parent_category: 'chemical', status: 'active' },
+          { subcategory_key: 'builtin:chemical:solvent', name: '溶剂', parent_category: 'chemical', status: 'active' },
+          { subcategory_key: 'custom:chemical:resin', name: '树脂', parent_category: 'chemical', status: 'active' },
+          { subcategory_key: 'builtin:film:protective-film', name: '保护膜', parent_category: 'film', status: 'active' }
+        ];
+      },
+      sortSubcategoryRecords(records) {
+        return records;
+      },
+      filterSubcategoryRecordsByCategory(records, category) {
+        return records.filter(item => item.parent_category === category);
+      },
+      buildSubcategoryMap(records) {
+        return new Map(records.map(item => [item.subcategory_key, item]));
+      },
+      resolveSubcategoryDisplay(item) {
+        return item.sub_category || '';
+      },
+      resolveSubcategorySelection(payload, records) {
+        const matched = records.find(item => item.name === payload.sub_category)
+          || records.find(item => item.subcategory_key === payload.subcategory_key);
+        return matched
+          ? { subcategory_key: matched.subcategory_key, sub_category: matched.name }
+          : { subcategory_key: '', sub_category: '' };
+      }
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'batchCreate',
+    data: {
+      items: [
+        {
+          rowIndex: 2,
+          product_code: '001',
+          material_name: '异丙醇',
+          category: 'chemical',
+          sub_category: '溶剂',
+          default_unit: 'L',
+          package_type: '铁桶',
+          is_test_material: false
+        },
+        {
+          rowIndex: 3,
+          product_code: '999',
+          material_name: '环氧树脂样品',
+          category: 'chemical',
+          sub_category: '树脂',
+          default_unit: 'g',
+          package_type: '瓶装',
+          supplier: '供应商A',
+          supplier_model: ' TEST - 01 ',
+          is_test_material: true
+        }
+      ]
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.created, 2);
+  assert.equal(addedMaterials.length, 2);
+  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').material_name, '测试料');
+  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').sub_category, '测试料');
+  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').supplier_model, '');
+  assert.equal(addedIdentities.length, 1);
+  assert.equal(addedIdentities[0].product_code, 'J-999');
+  assert.equal(addedIdentities[0].label_material_name, '环氧树脂样品');
+  assert.equal(addedIdentities[0].material_name, '环氧树脂样品');
+  assert.equal(addedIdentities[0].sub_category, '树脂');
+  assert.equal(addedIdentities[0].supplier, '供应商A');
+  assert.equal(addedIdentities[0].supplier_model, 'TEST-01');
+  assert.equal(addedIdentities[0].identity_key, 'chemical::J-999::TEST-01');
+  assert.ok(auditEvents.some(item => item.domain === 'test_material_identity' && item.action === 'create'));
+});
+
 test('material import batchCreate returns success with warning when summary audit fails after row audits', async () => {
   const addedMaterials = [];
   const materialLogs = [];

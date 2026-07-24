@@ -39,7 +39,6 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/manageMaterial/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProductCodePrefix/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageTestMaterialIdentity/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportMaterialTemplate/auth.js
-cp cloudfunctions/_shared/auth.js cloudfunctions/exportTestMaterialIdentityTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportInventoryTemplate/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportLabelData/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportData/auth.js
@@ -142,6 +141,7 @@ cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/getInventoryG
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/exportData/material-subcategories.js
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/exportMaterialTemplate/material-subcategories.js
 cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/getApprovalCenterData/material-subcategories.js
+cp cloudfunctions/_shared/material-subcategories.js cloudfunctions/manageTestMaterialIdentity/material-subcategories.js
 
 echo "   -> Updating material-units.js..."
 cp cloudfunctions/_shared/material-units.js cloudfunctions/manageMaterial/material-units.js
@@ -218,6 +218,7 @@ cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/updateInven
 cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/getInventoryGrouped/test-material-identities.js
 cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/getInventoryBatches/test-material-identities.js
 cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/exportData/test-material-identities.js
+cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/manageMaterial/test-material-identities.js
 cp cloudfunctions/_shared/test-material-identities.js cloudfunctions/manageTestMaterialIdentity/test-material-identities.js
 
 echo "   -> Updating label-code.js..."

@@ -19,7 +19,6 @@
     "pages/admin/product-code-prefix-manage/index",
     "pages/admin/test-material-identity-manage/index",
     "pages/admin/test-material-identity-edit/index",
-    "pages/admin/test-material-identity-import/index",
     "pages/project-usage/index",
     "pages/admin/material-import/index",
     "pages/admin/label-export/index",

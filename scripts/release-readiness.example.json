@@ -22,5 +22,9 @@
     "inventory_correction_requests.pending_key unique": false
   },
   "aclCloudFunctionOnly": false,
-  "removedCloudFunctions": []
+  "removedCloudFunctions": [
+    "login",
+    "initMDMCollection",
+    "exportTestMaterialIdentityTemplate"
+  ]
 }

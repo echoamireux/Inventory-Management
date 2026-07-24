@@ -50,6 +50,9 @@ test('test material identity validation depends on material master flag, not pro
     {
       category: 'chemical',
       product_code: 'J-001',
+      label_material_name: '环氧树脂样品',
+      subcategory_key: 'chemical_resin',
+      sub_category: '树脂',
       supplier_model: 'A-100',
       supplier_model_key: 'A-100',
       supplier: '供应商A',
@@ -81,7 +84,16 @@ test('test material identity validation depends on material master flag, not pro
       source: { supplier_model: ' A - 100 ' },
       identities: activeIdentities
     }),
-    { ok: true, supplier: '供应商A', supplier_model: 'A-100', supplier_model_key: 'A-100' }
+    {
+      ok: true,
+      supplier: '供应商A',
+      label_material_name: '环氧树脂样品',
+      material_name: '环氧树脂样品',
+      subcategory_key: 'chemical_resin',
+      sub_category: '树脂',
+      supplier_model: 'A-100',
+      supplier_model_key: 'A-100'
+    }
   );
 
   assert.match(
@@ -164,14 +176,18 @@ test('test material identity management is registered for admins and shared to w
   assert.doesNotMatch(homeWxml, /title="测试料型号库"/);
   assert.match(homeWxml, /title="主数据管理"/);
   assert.match(manifest, /manageTestMaterialIdentity/);
+  assert.doesNotMatch(appJson, /pages\/admin\/test-material-identity-import\/index/);
+  assert.doesNotMatch(manifest, /exportTestMaterialIdentityTemplate/);
   assert.match(syncScript, /test-material-identities\.js/);
   assert.match(preflight, /test-material-identities\.js/);
   assert.match(readme, /test_material_identities\.identity_key/);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/manageTestMaterialIdentity/index.js')), true);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/manageTestMaterialIdentity/package-lock.json')), true);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'miniprogram/pages/admin/test-material-identity-import/index.js')), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), false);
 });
 
-test('test material identity template export is registered and opened from inline workbook content', () => {
+test('test material identity manual edit stays registered while independent import path is removed', () => {
   const appJson = read('miniprogram/app.json');
   const manifest = read('scripts/cloudfunctions-manifest.json');
   const managePageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
@@ -180,16 +196,17 @@ test('test material identity template export is registered and opened from inlin
   const editPageWxml = read('miniprogram/pages/admin/test-material-identity-edit/index.wxml');
   const editPageJson = read('miniprogram/pages/admin/test-material-identity-edit/index.json');
   const editPageWxss = read('miniprogram/pages/admin/test-material-identity-edit/index.wxss');
-  const importPageJs = read('miniprogram/pages/admin/test-material-identity-import/index.js');
-  const importPageWxml = read('miniprogram/pages/admin/test-material-identity-import/index.wxml');
   const materialListJs = read('miniprogram/pages/admin/material-list.js');
   const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+  const identityService = read('miniprogram/utils/test-material-identity-service.js');
+  const parser = read('miniprogram/utils/import-file-parser.js');
+  const manageFunction = read('cloudfunctions/manageTestMaterialIdentity/index.js');
 
   assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
   assert.match(appJson, /pages\/admin\/test-material-identity-edit\/index/);
-  assert.match(appJson, /pages\/admin\/test-material-identity-import\/index/);
-  assert.match(manifest, /exportTestMaterialIdentityTemplate/);
-  assert.match(managePageJs, /action === 'import'[\s\S]*test-material-identity-import/);
+  assert.doesNotMatch(appJson, /pages\/admin\/test-material-identity-import\/index/);
+  assert.doesNotMatch(manifest, /exportTestMaterialIdentityTemplate/);
+  assert.doesNotMatch(managePageJs, /action === 'import'[\s\S]*test-material-identity-import/);
   assert.match(managePageJs, /options\.keyword/);
   assert.match(managePageJs, /decodeOptionValue/);
   assert.match(managePageJs, /test-material-identity-edit\/index/);
@@ -208,102 +225,41 @@ test('test material identity template export is registered and opened from inlin
   assert.match(editPageJs, /normalizeTestMaterialSupplier/);
   assert.match(editPageJson, /"navigationBarTitleText":\s*"新增测试料型号"/);
   assert.doesNotMatch(editPageWxml, /<view class="edit-title">新增测试料型号<\/view>/);
-  assert.match(editPageWxml, /真实原厂型号维护在这里/);
+  assert.match(editPageWxml, /真实物料名称、子类别和原厂型号/);
   assert.match(editPageWxml, /测试料产品代码/);
-  assert.match(editPageWxml, /所属物料：/);
+  assert.match(editPageWxml, /所属代码壳：/);
+  assert.match(editPageWxml, /label="物料名称"/);
+  assert.match(editPageWxml, /title="子类别"/);
+  assert.match(editPageWxml, /管理子类别/);
   assert.doesNotMatch(editPageWxml, /selected-material-card/);
   assert.match(editPageWxss, /\.selected-material-summary/);
   assert.match(editPageWxml, /van-picker/);
   assert.match(editPageWxml, /label="供应商"/);
   assert.match(editPageWxml, /class="empty-actions"/);
   assert.match(editPageWxss, /\.empty-actions[\s\S]*justify-content:\s*center/);
-  assert.match(importPageJs, /exportTestMaterialIdentityTemplate/);
-  assert.match(importPageJs, /persistBase64File/);
-  assert.match(importPageJs, /fileContentBase64/);
-  assert.match(importPageJs, /无法导出模板/);
-  assert.match(importPageJs, /parseImportTemplateFileBuffer/);
-  assert.match(importPageJs, /sheetName:\s*'测试料型号库'/);
-  assert.match(importPageJs, /MAX_IMPORT_ROWS\s*=\s*100/);
-  assert.match(importPageWxml, /第一步：导出最新模板/);
-  assert.match(importPageWxml, /第二步：上传文件/);
-  assert.match(importPageWxml, /请先导出模板并上传 \.xlsx 文件/);
   assert.doesNotMatch(materialListJs, /onManageTestMaterialIdentities/);
+  assert.doesNotMatch(materialListJs, /onImportTestMaterialIdentity/);
   assert.match(materialListJs, /listTestMaterialIdentities/);
   assert.match(materialListJs, /loadIdentityResults/);
   assert.match(materialListJs, /test-material-identity-edit\/index/);
   assert.doesNotMatch(materialListJs, /test-material-identity-manage\/index\?action=create/);
-  assert.match(materialListJs, /test-material-identity-import\/index/);
+  assert.doesNotMatch(materialListJs, /test-material-identity-import\/index/);
   assert.match(materialListWxml, /name="testIdentity"/);
-  assert.match(materialListWxml, /测试料型号库/);
-  assert.match(materialListWxml, /所属物料：/);
+  assert.match(materialListWxml, /测试料/);
+  assert.match(materialListWxml, /原厂型号：/);
+  assert.match(materialListWxml, /子类别：/);
   assert.match(materialListWxml, /供应商：\{\{ item\.supplier \}\}/);
-  assert.match(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
+  assert.doesNotMatch(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
   assert.match(materialListWxml, /bind:click="onCreateTestMaterialIdentity"[\s\S]*新增/);
   assert.doesNotMatch(materialListWxml, /批量导入|新增型号/);
   assert.doesNotMatch(materialListWxml, /bind:click="onManageTestMaterialIdentities"/);
-  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), true);
-  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/package-lock.json')), true);
-});
-
-test('test material identity workbook template uses active test material codes as the product code dropdown', async () => {
-  const {
-    TEMPLATE_HEADERS,
-    DATA_SHEET_NAME,
-    CONFIG_SHEET_NAME,
-    buildTestMaterialIdentityTemplateSpec,
-    buildTestMaterialIdentityWorkbook
-  } = require('../cloudfunctions/exportTestMaterialIdentityTemplate/identity-template-workbook');
-
-  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '原厂型号*', '供应商（选填）']);
-
-  const spec = buildTestMaterialIdentityTemplateSpec({
-    testMaterials: [
-      { product_code: 'J-999', material_name: '测试料化材', status: 'active', is_test_material: true },
-      { product_code: 'S-999', material_name: '测试料S', status: 'active', is_test_material: true },
-      { product_code: 'J-001', material_name: '正式料', status: 'active', is_test_material: false },
-      { product_code: 'Y-999', material_name: '已停用测试料', status: 'archived', is_test_material: true }
-    ]
-  });
-
-  assert.equal(spec.dataSheetName, DATA_SHEET_NAME);
-  assert.deepEqual(spec.testMaterialCodes, ['J-999', 'S-999']);
-  assert.equal(spec.definedNames.testMaterialCodes.name, '测试料_产品代码');
-  assert.match(spec.validationRanges.productCode, /^A3:A\d+$/);
-
-  const workbook = await buildTestMaterialIdentityWorkbook(spec);
-  const dataSheet = workbook.getWorksheet(DATA_SHEET_NAME);
-  const configSheet = workbook.getWorksheet(CONFIG_SHEET_NAME);
-  assert.equal(dataSheet.getRow(1).getCell(1).value, '测试料产品代码*');
-  assert.equal(dataSheet.getRow(1).getCell(3).value, '供应商（选填）');
-  assert.equal(dataSheet.getRow(2).getCell(1).value, '必填，从下拉选择已启用测试料主数据');
-  assert.equal(dataSheet.getRow(2).getCell(3).value, '选填；作为入库和预打印默认供应商');
-  assert.ok(dataSheet.getColumn(1).width >= 34);
-  assert.ok(dataSheet.getColumn(2).width >= 56);
-  assert.ok(dataSheet.getColumn(3).width >= 44);
-  assert.ok(dataSheet.getRow(2).height >= 40);
-  assert.equal(configSheet.getRow(2).getCell(1).value, 'J-999');
-  assert.equal(configSheet.getRow(2).getCell(2).value, '测试料化材');
-
-  dataSheet.getRow(3).getCell(1).value = 'J-999';
-  dataSheet.getRow(3).getCell(2).value = 'A-100';
-  dataSheet.getRow(3).getCell(3).value = '供应商A';
-  const buffer = await workbook.xlsx.writeBuffer();
-  const {
-    getParsedTemplateMeta,
-    parseImportTemplateFileBuffer
-  } = require('../miniprogram/utils/import-file-parser');
-  const rows = parseImportTemplateFileBuffer(buffer, {
-    fileName: '测试料型号库导入模板.xlsx',
-    sheetName: DATA_SHEET_NAME,
-    expectedHeaderRows: [
-      ['测试料产品代码*', '原厂型号*', '供应商（选填）'],
-      ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格', '选填；作为入库和预打印默认供应商']
-    ]
-  });
-  assert.equal(getParsedTemplateMeta(rows).templateKind, 'test_material_identity_import');
-  assert.equal(rows.find(row => row.rowIndex === 3).values[0], 'J-999');
-  assert.equal(rows.find(row => row.rowIndex === 3).values[1], 'A-100');
-  assert.equal(rows.find(row => row.rowIndex === 3).values[2], '供应商A');
+  assert.doesNotMatch(identityService, /batchCreateTestMaterialIdentities/);
+  assert.doesNotMatch(manageFunction, /batchCreateIdentities/);
+  assert.doesNotMatch(manageFunction, /action === 'batchCreate'/);
+  assert.doesNotMatch(parser, /test_material_identity_import/);
+  assert.doesNotMatch(parser, /测试料型号库/);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'miniprogram/pages/admin/test-material-identity-import/index.js')), false);
 });
 
 test('test material identity enforcement reaches labels, stock-in and inventory imports', () => {
@@ -322,10 +278,13 @@ test('test material identity enforcement reaches labels, stock-in and inventory 
 
   assert.match(labelPreprint, /validateTestMaterialIdentitySelection/);
   assert.match(addMaterial, /supplier_model_key/);
+  assert.match(addMaterial, /label_material_name/);
   assert.match(addMaterial, /requestedSupplier \|\| identityValidation\.supplier/);
   assert.match(batchAdd, /supplier_model_key/);
+  assert.match(batchAdd, /label_material_name/);
   assert.match(batchAdd, /requestedSupplier \|\| identityValidation\.supplier/);
   assert.match(importTemplate, /supplier_model_key/);
+  assert.match(importTemplate, /label_material_name/);
   assert.match(importTemplate, /row\.supplier = identityValidation\.supplier/);
   assert.match(updateInventory, /supplier_model_key/);
   assert.match(manageIdentity, /\{ supplier: searchRegex \}/);

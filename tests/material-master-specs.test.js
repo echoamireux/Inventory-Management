@@ -90,8 +90,8 @@ test('admin material edit page hides and clears supplier fields for test materia
   assert.match(wxml, /wx:if="\{\{ !form\.is_test_material \}\}"[\s\S]*label="原厂型号"/);
   assert.doesNotMatch(wxml, /label="原厂型号"[\s\S]*?required="\{\{ form\.is_test_material \}\}"/);
   assert.match(wxml, /label="原厂型号"[\s\S]*?placeholder="请输入 \(选填\)"/);
-  assert.match(wxml, /真实原厂型号和可选供应商请到“测试料型号库”维护/);
-  assert.match(wxml, /测试料默认使用“测试料”/);
+  assert.match(wxml, /真实物料名称、子类别、原厂型号和可选供应商请到主数据管理的“测试料”页维护/);
+  assert.match(wxml, /测试料代码壳默认使用“测试料”/);
   assert.doesNotMatch(js, /测试料请填写原厂型号/);
   assert.doesNotMatch(js, /form\.is_test_material[\s\S]*?!String\(form\.supplier_model \|\| ''\)\.trim\(\)/);
   assert.match(js, /TEST_MATERIAL_DEFAULT_NAME\s*=\s*'测试料'/);

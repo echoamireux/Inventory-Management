@@ -23,6 +23,13 @@ const {
   ensureBuiltinProductCodePrefixes,
   filterProductCodePrefixRecordsByCategory
 } = require('./product-code-prefixes');
+const {
+  normalizeTestMaterialSupplier,
+  normalizeTestMaterialLabelName,
+  normalizeTestMaterialSupplierModel,
+  normalizeTestMaterialIdentityRecord,
+  findTestMaterialIdentityConflict
+} = require('./test-material-identities');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -48,6 +55,7 @@ const MATERIAL_EDITABLE_FIELDS = new Set([
 ]);
 
 const MAX_SEARCH_CANDIDATES = 200;
+const TEST_MATERIAL_SHELL_NAME = '测试料';
 
 function pickEditableMaterialFields(data = {}) {
   return Object.keys(data).reduce((result, key) => {
@@ -203,6 +211,39 @@ async function writeMaterialAuditEvent(collectionOwner, openid, logData = {}) {
   });
 }
 
+async function writeTestMaterialIdentityAuditEvent(collectionOwner, openid, operator, action, record = {}, detail = {}) {
+  await writeAuditEvent(collectionOwner, db, {
+    domain: 'test_material_identity',
+    action,
+    operator: Object.assign({}, operator || {}, { _openid: openid }),
+    target: {
+      type: 'test_material_identity',
+      id: record.identity_key || record._id || '',
+      label: [record.product_code, record.supplier_model].filter(Boolean).join(' ')
+    },
+    after: record,
+    detail
+  });
+}
+
+function isCollectionExistsError(error) {
+  const message = String((error && (error.errMsg || error.message)) || error || '');
+  return /DATABASE_COLLECTION_ALREADY_EXIST|DATABASE_COLLECTION_ALREADY_EXISTS|ResourceExist|Table exist/i.test(message);
+}
+
+async function ensureTestMaterialIdentityCollection() {
+  if (typeof db.createCollection !== 'function') {
+    return;
+  }
+  try {
+    await db.createCollection('test_material_identities');
+  } catch (error) {
+    if (!isCollectionExistsError(error)) {
+      throw error;
+    }
+  }
+}
+
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
   const removeIrrelevant = !!options.removeIrrelevant;
   const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
@@ -305,14 +346,14 @@ function buildBatchCreateComparableSignature(payload = {}) {
     package_type: sanitizeText(payload.package_type),
     thickness_um: payload.thickness_um == null ? null : Number(payload.thickness_um),
     standard_width_mm: payload.standard_width_mm == null ? null : Number(payload.standard_width_mm),
-    supplier: isTestMaterial ? '' : sanitizeText(payload.supplier),
-    supplier_model: isTestMaterial ? '' : sanitizeText(payload.supplier_model),
+    supplier: sanitizeText(payload.supplier),
+    supplier_model: sanitizeText(payload.supplier_model),
     is_test_material: isTestMaterial
   });
 }
 
 function buildBatchCreateConflictMap(preparedItems = []) {
-  const rowsByProductCode = new Map();
+  const rowsByIdentity = new Map();
   const conflictMap = new Map();
 
   preparedItems.forEach((prepared) => {
@@ -321,13 +362,17 @@ function buildBatchCreateConflictMap(preparedItems = []) {
       return;
     }
 
-    if (!rowsByProductCode.has(productCode)) {
-      rowsByProductCode.set(productCode, []);
+    const isTestMaterial = normalizeTestMaterialFlag(prepared.item && prepared.item.is_test_material).value;
+    const identityKey = isTestMaterial
+      ? `${productCode}::test-model::${normalizeTestMaterialSupplierModel(prepared.item && prepared.item.supplier_model)}`
+      : productCode;
+    if (!rowsByIdentity.has(identityKey)) {
+      rowsByIdentity.set(identityKey, []);
     }
-    rowsByProductCode.get(productCode).push(prepared);
+    rowsByIdentity.get(identityKey).push(prepared);
   });
 
-  rowsByProductCode.forEach((groupedItems, productCode) => {
+  rowsByIdentity.forEach((groupedItems) => {
     if (groupedItems.length < 2) {
       return;
     }
@@ -344,12 +389,19 @@ function buildBatchCreateConflictMap(preparedItems = []) {
       supplier_model: item.item.supplier_model,
       is_test_material: normalizeTestMaterialFlag(item.item.is_test_material).value
     })));
+    const first = groupedItems[0] || {};
+    const firstItem = first.item || {};
+    const isTestMaterial = normalizeTestMaterialFlag(firstItem.is_test_material).value;
+    const identityLabel = isTestMaterial
+      ? `测试料 ${first.normalizedCode} + 原厂型号 ${firstItem.supplier_model || '-'}`
+      : `产品代码 ${first.normalizedCode}`;
 
     if (signatures.size === 1) {
       return;
     }
 
-    const error = `产品代码 ${productCode} 在本次导入文件中重复，且主数据字段不一致，请统一后再导入`;
+    const conflictFieldLabel = isTestMaterial ? '字段' : '主数据字段';
+    const error = `${identityLabel} 在本次导入文件中重复，且${conflictFieldLabel}不一致，请统一后再导入`;
     groupedItems.forEach((item) => {
       conflictMap.set(item.rowIndex, error);
     });
@@ -369,6 +421,14 @@ async function materialExistsByProductCode(collectionOwner, productCode) {
     return Number(res.total) > 0;
   }
   throw new Error('当前数据库接口不支持物料查重');
+}
+
+async function loadMaterialByProductCode(collectionOwner, productCode) {
+  const res = await collectionOwner.collection('materials')
+    .where({ product_code: productCode })
+    .limit(1)
+    .get();
+  return res.data && res.data[0] ? res.data[0] : null;
 }
 
 async function createBatchMaterialWithAudit(newMaterial, openid) {
@@ -392,6 +452,160 @@ async function createBatchMaterialWithAudit(newMaterial, openid) {
     return {
       status: 'created',
       id: res._id
+    };
+  });
+}
+
+function findTestMaterialShellSubcategory(category, subcategoryContexts = {}) {
+  const context = subcategoryContexts[category === 'film' ? 'film' : 'chemical'] || {};
+  const records = context.records || [];
+  const matched = records.find(item => (
+    item
+    && item.name === TEST_MATERIAL_SHELL_NAME
+    && item.status !== 'disabled'
+  ));
+  return matched
+    ? {
+      subcategory_key: matched.subcategory_key,
+      sub_category: matched.name
+    }
+    : null;
+}
+
+function buildTestMaterialShellRecord(prepared, shellSubcategory, openid, now) {
+  const { item, category, normalizedCode, normalizedUnit } = prepared;
+  return {
+    product_code: normalizedCode,
+    category,
+    subcategory_key: shellSubcategory.subcategory_key,
+    sub_category: shellSubcategory.sub_category,
+    ...buildGovernedMaterialMasterFields({
+      ...item,
+      material_name: TEST_MATERIAL_SHELL_NAME,
+      category,
+      default_unit: normalizedUnit,
+      supplier: '',
+      supplier_model: '',
+      is_test_material: true,
+      subcategory_key: shellSubcategory.subcategory_key,
+      sub_category: shellSubcategory.sub_category
+    }, category),
+    status: 'active',
+    created_by: openid,
+    created_at: now,
+    updated_by: openid,
+    updated_at: now
+  };
+}
+
+function buildBatchTestMaterialIdentityRecord(prepared, material, openid, operator, now) {
+  const { item, category, normalizedCode, resolvedSubcategory } = prepared;
+  const candidate = normalizeTestMaterialIdentityRecord({
+    category,
+    material_id: material._id,
+    product_code: normalizedCode,
+    label_material_name: normalizeTestMaterialLabelName(item.material_name),
+    material_name: normalizeTestMaterialLabelName(item.material_name),
+    subcategory_key: resolvedSubcategory.subcategory_key,
+    sub_category: resolvedSubcategory.sub_category,
+    supplier: normalizeTestMaterialSupplier(item.supplier),
+    supplier_model: item.supplier_model,
+    status: 'active'
+  });
+  return {
+    category: candidate.category,
+    material_id: material._id,
+    product_code: candidate.product_code,
+    label_material_name: candidate.label_material_name,
+    material_name: candidate.label_material_name,
+    subcategory_key: candidate.subcategory_key,
+    sub_category: candidate.sub_category,
+    supplier: candidate.supplier,
+    supplier_model: candidate.supplier_model,
+    supplier_model_key: candidate.supplier_model_key,
+    identity_key: candidate.identity_key,
+    status: 'active',
+    created_by: openid,
+    updated_by: openid,
+    created_at: now,
+    updated_at: now,
+    _operator: operator
+  };
+}
+
+async function createBatchTestMaterialIdentityWithAudit({ prepared, shellMaterial, openid, operator, now }) {
+  return runMaterialTransaction(async (transaction) => {
+    let material = await loadMaterialByProductCode(transaction, prepared.normalizedCode);
+    let shellCreated = false;
+    if (material) {
+      if (!material.is_test_material) {
+        throw new Error(`产品代码 ${prepared.normalizedCode} 已作为正式物料存在，不能导入为测试料`);
+      }
+      if (material.status !== 'active') {
+        throw new Error(`测试料产品代码 ${prepared.normalizedCode} 未启用`);
+      }
+    } else {
+      const shellRes = await transaction.collection('materials').add({ data: shellMaterial });
+      material = {
+        _id: shellRes._id,
+        ...shellMaterial
+      };
+      shellCreated = true;
+      await writeMaterialAuditEvent(transaction, openid, {
+        material_id: shellRes._id,
+        product_code: shellMaterial.product_code,
+        action: 'create_test_material_shell',
+        changes: shellMaterial
+      });
+    }
+
+    const identityData = buildBatchTestMaterialIdentityRecord(prepared, material, openid, operator, now);
+    if (!identityData.label_material_name) {
+      throw new Error('测试料物料名称必填');
+    }
+    if (!identityData.supplier_model_key) {
+      throw new Error('测试料原厂型号必填');
+    }
+
+    const duplicateRes = await transaction.collection('test_material_identities')
+      .where({ identity_key: identityData.identity_key })
+      .limit(1)
+      .get();
+    if (duplicateRes.data && duplicateRes.data.length) {
+      return {
+        status: 'skipped',
+        reason: '测试料产品代码和原厂型号已存在',
+        shellCreated
+      };
+    }
+
+    const relatedRes = await transaction.collection('test_material_identities')
+      .where({
+        category: identityData.category,
+        product_code: identityData.product_code
+      })
+      .limit(100)
+      .get();
+    const conflict = findTestMaterialIdentityConflict(relatedRes.data || [], identityData);
+    if (conflict.type === 'similar') {
+      throw new Error(`已存在相似型号 ${conflict.record.supplier_model}，请先在测试料型号库确认后再导入`);
+    }
+
+    const identityPayload = { ...identityData };
+    delete identityPayload._operator;
+    const addRes = await transaction.collection('test_material_identities').add({
+      data: identityPayload
+    });
+    await writeTestMaterialIdentityAuditEvent(transaction, openid, operator, 'create', {
+      _id: addRes._id,
+      ...identityPayload
+    }, {
+      source: 'material_import'
+    });
+    return {
+      status: 'created',
+      id: addRes._id,
+      shellCreated
     };
   });
 }
@@ -854,6 +1068,7 @@ async function batchCreateMaterials(data, openid) {
   let created = 0;
   const now = db.serverDate();
   const tracker = createImportResultTracker();
+  await ensureTestMaterialIdentityCollection();
   const subcategoryContexts = {
     chemical: await loadSubcategoryContext('chemical'),
     film: await loadSubcategoryContext('film')
@@ -894,6 +1109,19 @@ async function batchCreateMaterials(data, openid) {
       tracker.recordError(item.rowIndex, normalizedCode.product_code, '子类别无效');
       continue;
     }
+    const isTestMaterial = normalizeTestMaterialFlag(item.is_test_material).value;
+    if (isTestMaterial && !normalizeTestMaterialSupplierModel(item.supplier_model)) {
+      tracker.recordError(item.rowIndex, normalizedCode.product_code, '测试料原厂型号必填');
+      continue;
+    }
+    const shellSubcategory = isTestMaterial
+      ? findTestMaterialShellSubcategory(category, subcategoryContexts)
+      : null;
+    if (isTestMaterial && !shellSubcategory) {
+      tracker.recordError(item.rowIndex, normalizedCode.product_code, '测试料代码壳子类别缺失，请先维护“测试料”子类别');
+      continue;
+    }
+
     const governedValidation = validateBatchCreateMasterFields(item, category);
     if (!governedValidation.ok) {
       tracker.recordError(item.rowIndex, normalizedCode.product_code, governedValidation.msg);
@@ -907,7 +1135,9 @@ async function batchCreateMaterials(data, openid) {
       category,
       normalizedCode: normalizedCode.product_code,
       normalizedUnit: normalizedUnit.unit,
-      resolvedSubcategory
+      resolvedSubcategory,
+      isTestMaterial,
+      shellSubcategory
     });
   }
 
@@ -922,30 +1152,35 @@ async function batchCreateMaterials(data, openid) {
         continue;
       }
 
-      // 创建物料
-      const newMaterial = {
-        product_code: normalizedCode,
-        category,
-        subcategory_key: resolvedSubcategory.subcategory_key,
-        sub_category: resolvedSubcategory.sub_category,
-        ...buildGovernedMaterialMasterFields({
-          ...item,
-          material_name,
+      const createOutcome = prepared.isTestMaterial
+        ? await createBatchTestMaterialIdentityWithAudit({
+          prepared,
+          shellMaterial: buildTestMaterialShellRecord(prepared, prepared.shellSubcategory, openid, now),
+          openid,
+          operator: authResult.operator,
+          now
+        })
+        : await createBatchMaterialWithAudit({
+          product_code: normalizedCode,
           category,
-          default_unit: normalizedUnit,
-          supplier: item.supplier || '',
-          supplier_model: item.supplier_model || '',
           subcategory_key: resolvedSubcategory.subcategory_key,
-          sub_category: resolvedSubcategory.sub_category
-        }, category),
-        status: 'active',
-        created_by: openid,
-        created_at: now,
-        updated_by: openid,
-        updated_at: now
-      };
-
-      const createOutcome = await createBatchMaterialWithAudit(newMaterial, openid);
+          sub_category: resolvedSubcategory.sub_category,
+          ...buildGovernedMaterialMasterFields({
+            ...item,
+            material_name,
+            category,
+            default_unit: normalizedUnit,
+            supplier: item.supplier || '',
+            supplier_model: item.supplier_model || '',
+            subcategory_key: resolvedSubcategory.subcategory_key,
+            sub_category: resolvedSubcategory.sub_category
+          }, category),
+          status: 'active',
+          created_by: openid,
+          created_at: now,
+          updated_by: openid,
+          updated_at: now
+        }, openid);
       if (createOutcome.status === 'skipped') {
         tracker.recordSkipped(rowIndex, normalizedCode, createOutcome.reason);
         continue;

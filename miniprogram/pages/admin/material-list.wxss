@@ -55,6 +55,10 @@
   justify-content: end;
 }
 
+.top-actions--wide-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .top-action {
   min-width: 0;
 }
