@@ -31,6 +31,14 @@ const DEFAULT_PREFIX_OPTIONS = [
   { prefix: 'M', category: 'film', status: 'active' }
 ];
 
+const TEST_MATERIAL_DEFAULT_NAME = '测试料';
+const TEST_MATERIAL_SUBCATEGORY_NAME = '测试料';
+
+function isTestMaterialDefaultName(value) {
+  const text = String(value || '').trim();
+  return !text || text === TEST_MATERIAL_DEFAULT_NAME || /^测试料[-－—–]/u.test(text);
+}
+
 Page({
   data: {
     id: null,
@@ -117,6 +125,12 @@ Page({
       : '';
 
     await this.updateOptionsForCategory(inferredCategory, {});
+    const isTestMaterial = options.is_test_material === '1' || options.is_test_material === 'true'
+      ? true
+      : this.data.form.is_test_material;
+    const testSubcategoryState = isTestMaterial
+      ? this.buildTestMaterialSubcategoryState()
+      : {};
 
     this.setData({
       categoryIndex,
@@ -124,10 +138,18 @@ Page({
       form: {
         ...this.data.form,
         category: inferredCategory,
+        is_test_material: isTestMaterial,
+        ...(isTestMaterial ? {
+          material_name: TEST_MATERIAL_DEFAULT_NAME,
+          supplier: '',
+          supplier_model: ''
+        } : {}),
         default_unit: getDefaultUnit(inferredCategory),
         product_code: normalizedCode && normalizedCode.ok ? normalizedCode.product_code : '',
-        product_code_number: codeNumber
-      }
+        product_code_number: codeNumber,
+        ...(testSubcategoryState.form || {})
+      },
+      ...(testSubcategoryState.page || {})
     });
 
     if (normalizedCode && normalizedCode.ok) {
@@ -182,8 +204,56 @@ Page({
       this.loadMaterial(options.id);
     } else {
       wx.setNavigationBarTitle({ title: '新增物料' });
+      if (options.is_test_material === '1' || options.is_test_material === 'true') {
+        this.setData({
+          'form.is_test_material': true,
+          'form.material_name': TEST_MATERIAL_DEFAULT_NAME
+        });
+      }
       await this.initializeCreatePrefill(options);
     }
+  },
+
+  buildTestMaterialSubcategoryState() {
+    const index = this.data.subCategoryPickerRecords.findIndex((item) => (
+      item && item.name === TEST_MATERIAL_SUBCATEGORY_NAME && isSelectableSubcategoryRecord(item)
+    ));
+    if (index < 0) {
+      return {};
+    }
+    const record = this.data.subCategoryPickerRecords[index];
+    return {
+      form: {
+        subcategory_key: record.subcategory_key,
+        sub_category: record.name
+      },
+      page: {
+        subCategoryIndex: index,
+        hasInvalidSubcategory: false
+      }
+    };
+  },
+
+  applyTestMaterialDefaults(options = {}) {
+    const forceName = !!options.forceName;
+    const patch = {
+      'form.supplier': '',
+      'form.supplier_model': ''
+    };
+    if (forceName || isTestMaterialDefaultName(this.data.form.material_name)) {
+      patch['form.material_name'] = TEST_MATERIAL_DEFAULT_NAME;
+    }
+
+    const subcategoryState = this.buildTestMaterialSubcategoryState();
+    if (subcategoryState.form) {
+      patch['form.subcategory_key'] = subcategoryState.form.subcategory_key;
+      patch['form.sub_category'] = subcategoryState.form.sub_category;
+    }
+    if (subcategoryState.page) {
+      Object.assign(patch, subcategoryState.page);
+    }
+
+    this.setData(patch);
   },
 
   onShow() {
@@ -339,10 +409,28 @@ Page({
     });
   },
 
-  onTestMaterialChange(e) {
-    this.setData({
-      'form.is_test_material': !!e.detail
-    });
+  async onTestMaterialChange(e) {
+    const isTestMaterial = !!e.detail;
+    const patch = { 'form.is_test_material': isTestMaterial };
+
+    if (!isTestMaterial) {
+      if (isTestMaterialDefaultName(this.data.form.material_name)) {
+        patch['form.material_name'] = '';
+      }
+      if (String(this.data.form.sub_category || '').trim() === TEST_MATERIAL_SUBCATEGORY_NAME) {
+        patch['form.subcategory_key'] = '';
+        patch['form.sub_category'] = '';
+        patch.subCategoryIndex = 0;
+      }
+      this.setData(patch);
+      return;
+    }
+
+    this.setData(patch);
+    if (this.data.form.category && this.data.subCategoryPickerRecords.length === 0) {
+      await this.updateOptionsForCategory(this.data.form.category);
+    }
+    this.applyTestMaterialDefaults({ forceName: true });
   },
 
   // 产品代码数字部分输入
@@ -450,7 +538,10 @@ Page({
       duplicateStatus: '',  // 重置检查状态
       existingMaterial: null
     });
-    this.updateOptionsForCategory(category);
+    await this.updateOptionsForCategory(category);
+    if (this.data.form.is_test_material) {
+      this.applyTestMaterialDefaults();
+    }
 
     // 如果已有数字，重新检查重复
     if (number) {
@@ -630,9 +721,12 @@ Page({
 
     try {
       const action = isEdit ? 'update' : 'create';
+      const isTestMaterial = !!form.is_test_material;
       const data = {
         ...form,
         product_code: normalizedCode.product_code,
+        supplier: isTestMaterial ? '' : form.supplier,
+        supplier_model: isTestMaterial ? '' : form.supplier_model,
         default_unit: normalizedUnit.unit,
         package_type: form.category === 'chemical' ? form.package_type : '',
         thickness_um: form.category === 'film' && form.thickness_um !== ''

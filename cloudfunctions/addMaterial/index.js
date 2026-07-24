@@ -420,7 +420,9 @@ exports.main = async (event, context) => {
           sample_note: preprintLabel.sample_note || base.sample_note
         }
         : base;
-      const supplier = resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier' });
+      const requestedSupplier = isTest
+        ? String((sourceBase && sourceBase.supplier) || '').trim()
+        : resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier' });
       const sampleNote = String((inventory && inventory.sample_note) || (sourceBase && sourceBase.sample_note) || '').trim();
       const testMaterialValidation = buildTestMaterialStockInValidation({
         ...sourceBase,
@@ -441,6 +443,9 @@ exports.main = async (event, context) => {
         ? identityValidation.supplier_model
         : resolveInventorySourceText({ material: materialRecord, item: sourceBase, field: 'supplier_model' });
       const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
+      const supplier = isTest
+        ? (requestedSupplier || identityValidation.supplier || '')
+        : requestedSupplier;
 
       // 4. 写入 Inventory 集合
       const invData = {

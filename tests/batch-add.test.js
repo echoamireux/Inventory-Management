@@ -121,13 +121,14 @@ test('batch add requires inventory-level model for test materials and keeps opti
       category: 'chemical',
       product_code: 'J-999',
       supplier_model: 'SAMPLE-X',
+      supplier: '型号库供应商',
       status: 'active'
     }]
   });
 
   assert.equal(payload.inventoryData.is_test_material, true);
   assert.equal(payload.inventoryData.sample_note, '');
-  assert.equal(payload.inventoryData.supplier, '主数据供应商');
+  assert.equal(payload.inventoryData.supplier, '型号库供应商');
   assert.equal(payload.inventoryData.supplier_model, 'SAMPLE-X');
   assert.equal(payload.inventoryData.identity_key, 'J-999::SAMPLE-X');
 });

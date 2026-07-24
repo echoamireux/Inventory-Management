@@ -117,6 +117,7 @@
         </view>
         <text class="identity-parent">所属物料：{{ item.material_name || '测试料主数据' }}</text>
         <text class="identity-meta">产品代码：{{ item.product_code }}</text>
+        <text class="identity-meta" wx:if="{{ item.supplier }}">供应商：{{ item.supplier }}</text>
         <text class="match-reason" wx:if="{{ hasSearchKeyword && item.match_reason }}">{{ item.match_reason }}</text>
       </view>
     </view>

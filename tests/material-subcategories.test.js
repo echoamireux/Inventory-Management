@@ -80,6 +80,7 @@ test('subcategory seeds cover both chemical and film defaults', () => {
     'builtin:chemical:additive',
     'builtin:chemical:pigment',
     'builtin:chemical:hardener',
+    'builtin:chemical:test-material',
     'builtin:film:pet',
     'builtin:film:pp-pe',
     'builtin:film:pe',
@@ -88,7 +89,8 @@ test('subcategory seeds cover both chemical and film defaults', () => {
     'builtin:film:release-film',
     'builtin:film:protective-film',
     'builtin:film:tape',
-    'builtin:film:hard-coat'
+    'builtin:film:hard-coat',
+    'builtin:film:test-material'
   ]);
 });
 

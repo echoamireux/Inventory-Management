@@ -3,6 +3,7 @@ import Toast from '@vant/weapp/toast/toast';
 import Dialog from '@vant/weapp/dialog/dialog';
 const {
   batchCreateTestMaterialIdentities,
+  normalizeTestMaterialSupplier,
   normalizeTestMaterialSupplierModel
 } = require('../../../utils/test-material-identity-service');
 const { normalizeSearchKeyword } = require('../../../utils/search');
@@ -17,8 +18,8 @@ const {
 } = require('../../../utils/import-file-parser');
 
 const IDENTITY_TEMPLATE_HEADER_ROWS = [
-  ['测试料产品代码*', '原厂型号*'],
-  ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格']
+  ['测试料产品代码*', '原厂型号*', '供应商（选填）'],
+  ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格', '选填；作为入库和预打印默认供应商']
 ];
 const INVALID_IDENTITY_TEMPLATE_MESSAGE = '请上传系统导出的测试料型号库模板';
 const IDENTITY_TEMPLATE_BINARY_HINT = '当前运行环境未正确识别文件内容，请重新选择文件后再试';
@@ -34,6 +35,7 @@ function buildPreviewRows(dataRows = []) {
   return (Array.isArray(dataRows) ? dataRows : []).map((row, index) => {
     const productCode = normalizeProductCode(row.values && row.values[0]);
     const supplierModel = normalizeTestMaterialSupplierModel(row.values && row.values[1]);
+    const supplier = normalizeTestMaterialSupplier(row.values && row.values[2]);
     const rowIndex = Number(row.rowIndex) || (index + 1);
     const errors = [];
 
@@ -62,6 +64,7 @@ function buildPreviewRows(dataRows = []) {
       rowIndex,
       product_code: productCode,
       supplier_model: supplierModel,
+      supplier,
       hasError: !!error,
       error
     };
@@ -127,14 +130,14 @@ Page({
     const templateRows = [
       IDENTITY_TEMPLATE_HEADER_ROWS[0],
       IDENTITY_TEMPLATE_HEADER_ROWS[1],
-      ['J-999', 'MODEL-A']
+      ['J-999', 'MODEL-A', '供应商A']
     ];
     wx.setClipboardData({
       data: templateRows.map(row => row.join('\t')).join('\n'),
       success: () => {
         Dialog.alert({
           title: '简易结构已复制',
-          message: '此内容只适合应急创建，不带系统下拉和模板协议。\n\n建议优先使用“导出最新模板”，按 B 列填写原厂型号后上传 .xlsx。',
+        message: '此内容只适合应急创建，不带系统下拉和模板协议。\n\n建议优先使用“导出最新模板”，按 B 列填写原厂型号，C 列可填写供应商后上传 .xlsx。',
           messageAlign: 'left',
           confirmButtonText: '我知道了'
         });
@@ -201,7 +204,7 @@ Page({
 
       await Dialog.alert({
         title: '模板已打开',
-        message: '已生成并打开最新模板。\n\n请在 B 列填写原厂型号，保存后回到本页上传 .xlsx 文件预览并导入。',
+        message: '已生成并打开最新模板。\n\n请在 B 列填写原厂型号，C 列可选填供应商，保存后回到本页上传 .xlsx 文件预览并导入。',
         messageAlign: 'left',
         confirmButtonText: '我知道了'
       });
@@ -323,7 +326,8 @@ Page({
       .map(item => ({
         rowIndex: item.rowIndex,
         product_code: item.product_code,
-        supplier_model: item.supplier_model
+        supplier_model: item.supplier_model,
+        supplier: item.supplier
       }));
 
     if (validRows.length === 0) {

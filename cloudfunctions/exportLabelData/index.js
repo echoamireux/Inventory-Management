@@ -464,6 +464,7 @@ async function reservePreprintJob({
     const currentForm = currentMaterial.is_test_material
       ? {
         ...form,
+        supplier: normalizeText(form.supplier) || identityValidation.supplier || '',
         supplier_model: identityValidation.supplier_model,
         supplier_model_key: identityValidation.supplier_model_key
       }
@@ -614,6 +615,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   const normalizedForm = material.is_test_material
     ? {
       ...form,
+      supplier: normalizeText(form.supplier) || identityValidation.supplier || '',
       supplier_model: identityValidation.supplier_model,
       supplier_model_key: identityValidation.supplier_model_key
     }

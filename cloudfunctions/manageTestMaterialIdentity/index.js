@@ -10,6 +10,7 @@ const {
 const {
   normalizeCategory,
   normalizeProductCode,
+  normalizeTestMaterialSupplier,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialIdentityRecord,
   findTestMaterialIdentityConflict
@@ -137,6 +138,7 @@ async function listIdentities(event, openid) {
       { product_code: searchRegex },
       { supplier_model: searchRegex },
       { supplier_model_key: searchRegex },
+      { supplier: searchRegex },
       { material_name: searchRegex }
     ]));
   }
@@ -157,7 +159,7 @@ async function listIdentities(event, openid) {
       codeFields: ['product_code'],
       modelFields: ['supplier_model', 'supplier_model_key'],
       nameFields: ['material_name'],
-      auxiliaryFields: ['category', 'material_id'],
+      auxiliaryFields: ['supplier', 'category', 'material_id'],
       stableFields: ['product_code', 'supplier_model', '_id']
     }).slice((page - 1) * pageSize, page * pageSize);
   } else {
@@ -197,6 +199,7 @@ async function createIdentity(event, openid) {
     material_id: material._id,
     product_code: material.product_code,
     material_name: material.material_name || material.name || '',
+    supplier: event.supplier,
     supplier_model: event.supplier_model || event.supplierModel,
     status: 'active'
   });
@@ -224,6 +227,7 @@ async function createIdentity(event, openid) {
     material_id: material._id,
     product_code: candidate.product_code,
     material_name: candidate.material_name,
+    supplier: candidate.supplier,
     supplier_model: candidate.supplier_model,
     supplier_model_key: candidate.supplier_model_key,
     identity_key: candidate.identity_key,
@@ -288,6 +292,8 @@ async function batchCreateIdentities(event, openid) {
         status: created.success ? 'created' : 'error',
         msg: created.msg,
         code: created.code || '',
+        product_code: normalizeProductCode(row.product_code || row.productCode),
+        supplier: normalizeTestMaterialSupplier(row.supplier),
         supplier_model: normalizeTestMaterialSupplierModel(row.supplier_model || row.supplierModel)
       });
     } catch (error) {

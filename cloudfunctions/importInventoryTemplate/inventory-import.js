@@ -1032,6 +1032,9 @@ function buildInventoryImportPreviewRow(rawRow = {}, context = {}) {
   }
   row.supplier_model = row.is_test_material ? identityValidation.supplier_model : row.supplier_model;
   row.supplier_model_key = row.is_test_material ? identityValidation.supplier_model_key : '';
+  if (row.is_test_material && !normalizeText(row.supplier)) {
+    row.supplier = identityValidation.supplier || '';
+  }
 
   const testMaterialValidation = buildTestMaterialStockInValidation(row, material);
   if (!testMaterialValidation.ok) {
@@ -1225,8 +1228,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
   const uniqueCode = normalizeLabelCodeInput(sourceItem.unique_code);
   const materialName = normalizeText(material.material_name || material.name || sourceItem.material_name);
   const subCategory = normalizeText(material.sub_category || sourceItem.sub_category);
-  const supplier = resolveInventorySourceText({ material, item: sourceItem, field: 'supplier' });
   const isTest = isTestMaterial(material, sourceItem);
+  const requestedSupplier = isTest
+    ? normalizeText(sourceItem.supplier)
+    : resolveInventorySourceText({ material, item: sourceItem, field: 'supplier' });
   const identityValidation = validateTestMaterialIdentitySelection({
     material,
     source: sourceItem,
@@ -1239,6 +1244,9 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
     ? identityValidation.supplier_model
     : resolveInventorySourceText({ material, item: sourceItem, field: 'supplier_model' });
   const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
+  const supplier = isTest
+    ? (requestedSupplier || identityValidation.supplier || '')
+    : requestedSupplier;
   const sampleNote = normalizeText(sourceItem.sample_note);
   const batchNumber = normalizeText(sourceItem.batch_number);
   const zoneKey = normalizeText(sourceItem.zone_key);

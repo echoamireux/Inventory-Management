@@ -112,6 +112,26 @@
   line-height: 1.6;
 }
 
+.test-material-guide {
+  margin: 0 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.test-material-guide__title {
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.test-material-guide__text {
+  color: #475569;
+}
+
 .zone-manage-entry {
   display: flex;
   justify-content: flex-end;

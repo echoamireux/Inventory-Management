@@ -90,7 +90,7 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /代码前缀\*：必填。请先填写类别，再选择该类别可用前缀/);
   assert.match(pageJs, /\['J', '001', '异丙醇', '化材'/);
   assert.doesNotMatch(pageJs, /'测试料必填'/);
-  assert.match(pageJs, /原厂型号：选填；测试料真实原厂型号请在库存入库或标签预打印时填写/);
+  assert.match(pageJs, /原厂型号：选填；仅用于正式物料。测试料真实原厂型号和可选供应商请在“测试料型号库”维护/);
   assert.match(pageJs, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
   assert.doesNotMatch(pageJs, /供应商、原厂型号：选填/);
   assert.doesNotMatch(pageJs, /请使用 CSV 格式文件/);

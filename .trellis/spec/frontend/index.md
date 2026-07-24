@@ -21,6 +21,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 | [Search UX Contracts](./search-ux-contracts.md) | Mini-program search normalization, trigger modes, ranking, and backend response contracts | Active |
+| [Test Material Identity Contracts](./test-material-identity-contracts.md) | Test-material master-data code shell, identity supplier, template, and stock-in/preprint boundary contracts | Active |
 
 ---
 

@@ -102,9 +102,11 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex, options = {}) {
   const uniqueCode = normalizeLabelCodeInput((rawItem && rawItem.unique_code) || '');
   const batchNumber = String((rawItem && rawItem.batch_number) || '').trim();
   const location = String((rawItem && rawItem.location) || '').trim();
-  const supplier = resolveInventorySourceText({ material, item: rawItem, field: 'supplier' });
   const sampleNote = String((rawItem && rawItem.sample_note) || '').trim();
   const isTest = isTestMaterial(material, rawItem);
+  const requestedSupplier = isTest
+    ? String((rawItem && rawItem.supplier) || '').trim()
+    : resolveInventorySourceText({ material, item: rawItem, field: 'supplier' });
 
   if (!material || !material._id) {
     throw new Error(`${rowLabel}对应的物料主数据不存在`);
@@ -149,6 +151,9 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex, options = {}) {
     ? identityValidation.supplier_model
     : resolveInventorySourceText({ material, item: rawItem, field: 'supplier_model' });
   const supplierModelKey = isTest ? identityValidation.supplier_model_key : '';
+  const supplier = isTest
+    ? (requestedSupplier || identityValidation.supplier || '')
+    : requestedSupplier;
   if (!location) {
     throw new Error(`${rowLabel}缺少存储区域`);
   }

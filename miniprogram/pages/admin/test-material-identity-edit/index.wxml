@@ -1,0 +1,84 @@
+<view class="identity-edit-page">
+  <view class="edit-header">
+    <view class="edit-hint">真实原厂型号维护在这里；物料主数据只维护 J-999 / M-999 这类测试料代码壳。</view>
+  </view>
+
+  <view wx:if="{{ loading }}" class="loading-state">
+    <van-loading type="spinner" vertical>加载测试料主数据...</van-loading>
+  </view>
+
+  <view wx:elif="{{ materialOptions.length === 0 }}" class="empty-card">
+    <van-empty description="暂无已启用测试料主数据">
+      <view class="empty-tip">请先新增并启用测试料代码壳，再回来维护原厂型号。</view>
+      <view class="empty-actions">
+        <van-button round type="primary" size="small" bind:click="onManageMaterialMaster">去维护测试料主数据</van-button>
+      </view>
+    </van-empty>
+  </view>
+
+  <block wx:else>
+    <view class="form-section">
+      <view class="section-title">基础信息</view>
+      <van-cell-group inset>
+        <van-cell
+          title="测试料产品代码"
+          required
+          is-link
+          value="{{ form.product_code || '请选择' }}"
+          bind:click="onShowMaterialPicker"
+        />
+        <view wx:if="{{ selectedMaterial }}" class="selected-material-summary">
+          所属物料：{{ selectedMaterial.material_name || '测试料主数据' }}｜{{ selectedMaterial.category === 'film' ? '膜材' : '化材' }}
+        </view>
+
+        <van-field
+          label="原厂型号"
+          value="{{ form.supplier_model }}"
+          placeholder="例如 TEST-CHEM-01"
+          required
+          clearable
+          error-message="{{ supplierModelError }}"
+          bind:change="onSupplierModelInput"
+        />
+
+        <van-field
+          label="供应商"
+          value="{{ form.supplier }}"
+          placeholder="选填；作为入库和预打印默认供应商"
+          clearable
+          bind:change="onSupplierInput"
+        />
+      </van-cell-group>
+      <view class="field-guide">
+        供应商不会参与重复判断。同一测试料产品代码下，相同原厂型号只能维护一条，避免库存身份被拆散。
+      </view>
+    </view>
+  </block>
+
+  <view class="submit-btn-container" wx:if="{{ !loading && materialOptions.length > 0 }}">
+    <van-button
+      type="primary"
+      block
+      round
+      size="large"
+      loading="{{ submitting }}"
+      disabled="{{ submitting }}"
+      bind:click="onSubmit"
+    >
+      创建测试料型号
+    </van-button>
+  </view>
+
+  <van-popup show="{{ showMaterialPicker }}" position="bottom" round bind:close="onMaterialPickerCancel">
+    <van-picker
+      columns="{{ materialOptionLabels }}"
+      default-index="{{ materialIndex || 0 }}"
+      show-toolbar
+      bind:confirm="onMaterialPickerConfirm"
+      bind:cancel="onMaterialPickerCancel"
+    />
+  </van-popup>
+
+  <van-toast id="van-toast" />
+  <van-dialog id="van-dialog" />
+</view>

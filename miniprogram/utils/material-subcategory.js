@@ -5,6 +5,7 @@ const BUILTIN_SUBCATEGORY_SEEDS = [
   { subcategory_key: 'builtin:chemical:additive', name: '助剂', parent_category: 'chemical', is_builtin: true, status: 'active', sort_order: 40 },
   { subcategory_key: 'builtin:chemical:pigment', name: '色浆', parent_category: 'chemical', is_builtin: true, status: 'active', sort_order: 50 },
   { subcategory_key: 'builtin:chemical:hardener', name: '固化剂', parent_category: 'chemical', is_builtin: true, status: 'active', sort_order: 60 },
+  { subcategory_key: 'builtin:chemical:test-material', name: '测试料', parent_category: 'chemical', is_builtin: true, status: 'active', sort_order: 70 },
   { subcategory_key: 'builtin:film:pet', name: '基材-PET', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 110 },
   { subcategory_key: 'builtin:film:pp-pe', name: '基材-BOPP', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 120 },
   { subcategory_key: 'builtin:film:pe', name: '基材-PE', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 130 },
@@ -13,7 +14,8 @@ const BUILTIN_SUBCATEGORY_SEEDS = [
   { subcategory_key: 'builtin:film:release-film', name: '离型膜', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 160 },
   { subcategory_key: 'builtin:film:protective-film', name: '保护膜', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 170 },
   { subcategory_key: 'builtin:film:tape', name: '胶带', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 180 },
-  { subcategory_key: 'builtin:film:hard-coat', name: '硬化膜', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 190 }
+  { subcategory_key: 'builtin:film:hard-coat', name: '硬化膜', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 190 },
+  { subcategory_key: 'builtin:film:test-material', name: '测试料', parent_category: 'film', is_builtin: true, status: 'active', sort_order: 200 }
 ];
 
 const DEPRECATED_SUBCATEGORY_KEYS = [

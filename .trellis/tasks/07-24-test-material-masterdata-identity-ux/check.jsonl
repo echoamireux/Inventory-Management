@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify supplier survives create/import/list/select flows without stale cross-layer assumptions."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify shared helper copies are synchronized and no private duplicate normalization is introduced."}
+{"file": ".trellis/spec/frontend/search-ux-contracts.md", "reason": "Verify supplier search remains auxiliary-ranked and list/selector trigger behavior stays consistent."}

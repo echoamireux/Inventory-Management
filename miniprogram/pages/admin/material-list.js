@@ -720,7 +720,7 @@ Page({
   },
 
   onCreateTestMaterialIdentity() {
-    wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index?action=create' });
+    wx.navigateTo({ url: '/pages/admin/test-material-identity-edit/index' });
   },
 
   onImportTestMaterialIdentity() {

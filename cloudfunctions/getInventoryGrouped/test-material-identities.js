@@ -24,12 +24,18 @@ function normalizeTestMaterialSupplierModel(value) {
     .trim();
 }
 
+function normalizeTestMaterialSupplier(value) {
+  return normalizeText(value).replace(/\s+/gu, ' ');
+}
+
 function buildTestMaterialSupplierModelKey(value) {
   return normalizeTestMaterialSupplierModel(value);
 }
 
 function buildSimilarSupplierModelKey(value) {
-  return buildTestMaterialSupplierModelKey(value).toLowerCase();
+  return buildTestMaterialSupplierModelKey(value)
+    .replace(/\s+/gu, '')
+    .toLowerCase();
 }
 
 function buildTestMaterialIdentityKey(source = {}) {
@@ -60,6 +66,7 @@ function normalizeTestMaterialIdentityRecord(record = {}) {
     ...record,
     category,
     product_code: productCode,
+    supplier: normalizeTestMaterialSupplier(record.supplier),
     supplier_model: supplierModel,
     supplier_model_key: supplierModelKey,
     identity_key: identityKey,
@@ -102,7 +109,7 @@ function validateTestMaterialIdentitySelection({
   identities = []
 } = {}) {
   if (!isTestMaterialRecord(material, source)) {
-    return { ok: true, supplier_model: '', supplier_model_key: '' };
+    return { ok: true, supplier: '', supplier_model: '', supplier_model_key: '' };
   }
 
   const category = normalizeCategory(source.category || material.category);
@@ -142,6 +149,7 @@ function validateTestMaterialIdentitySelection({
 
   return {
     ok: true,
+    supplier: matched.supplier,
     supplier_model: matched.supplier_model,
     supplier_model_key: matched.supplier_model_key
   };
@@ -149,7 +157,7 @@ function validateTestMaterialIdentitySelection({
 
 async function loadTestMaterialIdentityForSelection(collectionOwner, material = {}, source = {}) {
   if (!isTestMaterialRecord(material, source)) {
-    return { ok: true, supplier_model: '', supplier_model_key: '' };
+    return { ok: true, supplier: '', supplier_model: '', supplier_model_key: '' };
   }
 
   const category = normalizeCategory(source.category || material.category);
@@ -194,6 +202,7 @@ module.exports = {
   normalizeStatus,
   normalizeProductCode,
   normalizeTestMaterialSupplierModel,
+  normalizeTestMaterialSupplier,
   buildTestMaterialSupplierModelKey,
   buildSimilarSupplierModelKey,
   buildTestMaterialIdentityKey,

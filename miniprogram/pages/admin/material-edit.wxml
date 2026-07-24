@@ -50,16 +50,25 @@
         新物料，请完善信息后创建
       </view>
 
+      <van-cell title="测试料" label="供应商送样、未细分正式代码时启用">
+        <van-switch
+          slot="right-icon"
+          checked="{{ form.is_test_material }}"
+          size="24px"
+          bind:change="onTestMaterialChange"
+        />
+      </van-cell>
+
       <van-field
         label="物料名称"
-        placeholder="请输入物料名称"
+        placeholder="{{ form.is_test_material ? '测试料' : '请输入物料名称' }}"
         required
         value="{{ form.material_name }}"
         data-field="material_name"
         bind:change="onInputChange"
       />
       <view class="field-guide">
-        物料名称用于现场识别。正式料写稳定标准名称，如 PET离型膜 50um；测试料可写测试料-化材或测试料-膜材。批号、库位、数量、项目编号不要写入物料名称。
+        物料名称用于现场识别。正式料写稳定标准名称，如 PET离型膜 50um；测试料默认使用“测试料”，真实原厂型号在测试料型号库维护。批号、库位、数量、项目编号不要写入物料名称。
       </view>
       <van-cell
         title="子类别"
@@ -74,18 +83,10 @@
       <view wx:if="{{ hasInvalidSubcategory }}" class="duplicate-hint info">
         当前物料的历史子类别已不在现行正式词表中，请重新选择有效子类别后再保存
       </view>
-      <van-cell title="测试料" label="供应商送样、未细分正式代码时启用">
-        <van-switch
-          slot="right-icon"
-          checked="{{ form.is_test_material }}"
-          size="24px"
-          bind:change="onTestMaterialChange"
-        />
-      </van-cell>
     </van-cell-group>
   </view>
 
-  <view class="form-section">
+  <view class="form-section" wx:if="{{ !form.is_test_material }}">
     <view class="section-title">供应商信息</view>
 
     <van-cell-group inset>
@@ -103,10 +104,17 @@
         data-field="supplier_model"
         bind:change="onInputChange"
       />
-      <view wx:if="{{ form.is_test_material }}" class="field-guide">
-        测试料真实原厂型号请在入库或标签预打印时填写；这里可留空，用于 J-999/M-999 这类统一测试代码。
-      </view>
     </van-cell-group>
+  </view>
+
+  <view class="form-section" wx:else>
+    <view class="section-title">测试料型号维护说明</view>
+    <view class="test-material-guide">
+      <view class="test-material-guide__title">这里仅维护测试料代码壳</view>
+      <view class="test-material-guide__text">
+        真实原厂型号和可选供应商请到“测试料型号库”维护。入库、批量导入和标签预打印时，系统只能选择已启用的测试料型号。
+      </view>
+    </view>
   </view>
 
   <view class="form-section">

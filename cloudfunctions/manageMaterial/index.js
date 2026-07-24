@@ -206,13 +206,14 @@ async function writeMaterialAuditEvent(collectionOwner, openid, logData = {}) {
 function buildGovernedMaterialMasterFields(source = {}, category, options = {}) {
   const removeIrrelevant = !!options.removeIrrelevant;
   const testMaterialFlag = normalizeTestMaterialFlag(source.is_test_material);
+  const isTestMaterial = !!testMaterialFlag.value;
   const fields = {
     material_name: sanitizeText(source.material_name),
     category,
-    supplier: sanitizeText(source.supplier),
-    supplier_model: sanitizeText(source.supplier_model),
+    supplier: isTestMaterial ? '' : sanitizeText(source.supplier),
+    supplier_model: isTestMaterial ? '' : sanitizeText(source.supplier_model),
     default_unit: sanitizeText(source.default_unit),
-    is_test_material: testMaterialFlag.value
+    is_test_material: isTestMaterial
   };
 
   if (category === 'chemical') {
@@ -295,6 +296,7 @@ function validateBatchCreateMasterFields(item = {}, category = '') {
 }
 
 function buildBatchCreateComparableSignature(payload = {}) {
+  const isTestMaterial = normalizeTestMaterialFlag(payload.is_test_material).value;
   return JSON.stringify({
     material_name: sanitizeText(payload.material_name),
     category: sanitizeText(payload.category),
@@ -303,9 +305,9 @@ function buildBatchCreateComparableSignature(payload = {}) {
     package_type: sanitizeText(payload.package_type),
     thickness_um: payload.thickness_um == null ? null : Number(payload.thickness_um),
     standard_width_mm: payload.standard_width_mm == null ? null : Number(payload.standard_width_mm),
-    supplier: sanitizeText(payload.supplier),
-    supplier_model: sanitizeText(payload.supplier_model),
-    is_test_material: !!payload.is_test_material
+    supplier: isTestMaterial ? '' : sanitizeText(payload.supplier),
+    supplier_model: isTestMaterial ? '' : sanitizeText(payload.supplier_model),
+    is_test_material: isTestMaterial
   });
 }
 

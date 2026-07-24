@@ -154,7 +154,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /膜材厚度\(μm\)\*：膜材必填/);
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
   assert.match(helpText, /供应商：选填/);
-  assert.match(helpText, /原厂型号：选填；测试料真实原厂型号请在库存入库或标签预打印时填写/);
+  assert.match(helpText, /原厂型号：选填；仅用于正式物料。测试料真实原厂型号和可选供应商请在“测试料型号库”维护/);
   assert.doesNotMatch(helpText, /供应商、原厂型号：选填/);
   assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
   assert.deepEqual(spec.inlineHints, [

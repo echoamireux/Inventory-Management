@@ -11,11 +11,14 @@ function read(relativePath) {
 
 test('test material identity normalization keeps case but removes noisy spacing and full-width forms', () => {
   const {
+    normalizeTestMaterialSupplier,
     normalizeTestMaterialSupplierModel,
     buildTestMaterialSupplierModelKey,
+    buildSimilarSupplierModelKey,
     buildTestMaterialIdentityKey
   } = require('../cloudfunctions/_shared/test-material-identities');
 
+  assert.equal(normalizeTestMaterialSupplier('  供应商　A  '), '供应商 A');
   assert.equal(normalizeTestMaterialSupplierModel('  A - 100  '), 'A-100');
   assert.equal(normalizeTestMaterialSupplierModel('Ａ－１００'), 'A-100');
   assert.equal(normalizeTestMaterialSupplierModel('abc100'), 'abc100');
@@ -23,6 +26,8 @@ test('test material identity normalization keeps case but removes noisy spacing 
     buildTestMaterialSupplierModelKey('abc100'),
     buildTestMaterialSupplierModelKey('ABC100')
   );
+  assert.equal(buildSimilarSupplierModelKey('A C'), buildSimilarSupplierModelKey('AC'));
+  assert.equal(buildSimilarSupplierModelKey(' Ａ　Ｃ '), buildSimilarSupplierModelKey('ac'));
   assert.equal(
     buildTestMaterialIdentityKey({
       category: 'chemical',
@@ -47,6 +52,7 @@ test('test material identity validation depends on material master flag, not pro
       product_code: 'J-001',
       supplier_model: 'A-100',
       supplier_model_key: 'A-100',
+      supplier: '供应商A',
       status: 'active'
     },
     {
@@ -64,7 +70,7 @@ test('test material identity validation depends on material master flag, not pro
       source: { supplier_model: '' },
       identities: activeIdentities
     }),
-    { ok: true, supplier_model: '', supplier_model_key: '' }
+    { ok: true, supplier: '', supplier_model: '', supplier_model_key: '' }
   );
   assert.equal(isTestMaterial({ is_test_material: false }, { is_test_material: true }), false);
   assert.equal(isTestMaterial({ is_test_material: true }, { is_test_material: false }), true);
@@ -75,7 +81,7 @@ test('test material identity validation depends on material master flag, not pro
       source: { supplier_model: ' A - 100 ' },
       identities: activeIdentities
     }),
-    { ok: true, supplier_model: 'A-100', supplier_model_key: 'A-100' }
+    { ok: true, supplier: '供应商A', supplier_model: 'A-100', supplier_model_key: 'A-100' }
   );
 
   assert.match(
@@ -91,7 +97,8 @@ test('test material identity validation depends on material master flag, not pro
 test('test material identity records reject exact duplicates and flag similar values for admin confirmation', () => {
   const {
     normalizeTestMaterialIdentityRecord,
-    findTestMaterialIdentityConflict
+    findTestMaterialIdentityConflict,
+    buildTestMaterialIdentityKey
   } = require('../cloudfunctions/_shared/test-material-identities');
 
   const existing = [
@@ -99,6 +106,7 @@ test('test material identity records reject exact duplicates and flag similar va
       category: 'chemical',
       product_code: 'J-999',
       supplier_model: 'A-100',
+      supplier: '供应商A',
       status: 'active'
     })
   ];
@@ -114,9 +122,33 @@ test('test material identity records reject exact duplicates and flag similar va
     supplier_model: 'a-100',
     status: 'active'
   });
+  const spaceDifferent = normalizeTestMaterialIdentityRecord({
+    category: 'chemical',
+    product_code: 'J-999',
+    supplier_model: 'A 100',
+    status: 'active'
+  });
 
   assert.equal(findTestMaterialIdentityConflict(existing, exact).type, 'exact');
   assert.equal(findTestMaterialIdentityConflict(existing, caseDifferent).type, 'similar');
+  assert.equal(findTestMaterialIdentityConflict([
+    normalizeTestMaterialIdentityRecord({
+      category: 'chemical',
+      product_code: 'J-999',
+      supplier_model: 'A100',
+      status: 'active'
+    })
+  ], spaceDifferent).type, 'similar');
+  assert.equal(existing[0].supplier, '供应商A');
+  assert.equal(
+    buildTestMaterialIdentityKey({
+      category: 'chemical',
+      product_code: 'J-999',
+      supplier_model: 'A-100',
+      supplier: '另一个供应商'
+    }),
+    'chemical::J-999::A-100'
+  );
 });
 
 test('test material identity management is registered for admins and shared to write functions', () => {
@@ -128,6 +160,7 @@ test('test material identity management is registered for admins and shared to w
   const readme = read('README.md');
 
   assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
+  assert.match(appJson, /pages\/admin\/test-material-identity-edit\/index/);
   assert.doesNotMatch(homeWxml, /title="测试料型号库"/);
   assert.match(homeWxml, /title="主数据管理"/);
   assert.match(manifest, /manageTestMaterialIdentity/);
@@ -143,22 +176,47 @@ test('test material identity template export is registered and opened from inlin
   const manifest = read('scripts/cloudfunctions-manifest.json');
   const managePageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
   const managePageWxml = read('miniprogram/pages/admin/test-material-identity-manage/index.wxml');
+  const editPageJs = read('miniprogram/pages/admin/test-material-identity-edit/index.js');
+  const editPageWxml = read('miniprogram/pages/admin/test-material-identity-edit/index.wxml');
+  const editPageJson = read('miniprogram/pages/admin/test-material-identity-edit/index.json');
+  const editPageWxss = read('miniprogram/pages/admin/test-material-identity-edit/index.wxss');
   const importPageJs = read('miniprogram/pages/admin/test-material-identity-import/index.js');
   const importPageWxml = read('miniprogram/pages/admin/test-material-identity-import/index.wxml');
   const materialListJs = read('miniprogram/pages/admin/material-list.js');
   const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
 
   assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
+  assert.match(appJson, /pages\/admin\/test-material-identity-edit\/index/);
   assert.match(appJson, /pages\/admin\/test-material-identity-import\/index/);
   assert.match(manifest, /exportTestMaterialIdentityTemplate/);
   assert.match(managePageJs, /action === 'import'[\s\S]*test-material-identity-import/);
   assert.match(managePageJs, /options\.keyword/);
   assert.match(managePageJs, /decodeOptionValue/);
+  assert.match(managePageJs, /test-material-identity-edit\/index/);
+  assert.doesNotMatch(managePageJs, /createTestMaterialIdentity/);
+  assert.doesNotMatch(managePageJs, /formVisible/);
   assert.doesNotMatch(managePageJs, /exportTestMaterialIdentityTemplate/);
   assert.doesNotMatch(managePageJs, /persistBase64File/);
   assert.doesNotMatch(managePageJs, /fileContentBase64/);
   assert.doesNotMatch(managePageWxml, /导出模板|上传导入|批量导入/);
   assert.match(managePageWxml, /bind:click="onCreateIdentity"[\s\S]*新增/);
+  assert.match(managePageWxml, /供应商：\{\{ item\.supplier \}\}/);
+  assert.match(editPageJs, /loadTestMaterialOptions/);
+  assert.match(editPageJs, /status:\s*'active'/);
+  assert.match(editPageJs, /item\.is_test_material/);
+  assert.match(editPageJs, /createTestMaterialIdentity/);
+  assert.match(editPageJs, /normalizeTestMaterialSupplier/);
+  assert.match(editPageJson, /"navigationBarTitleText":\s*"新增测试料型号"/);
+  assert.doesNotMatch(editPageWxml, /<view class="edit-title">新增测试料型号<\/view>/);
+  assert.match(editPageWxml, /真实原厂型号维护在这里/);
+  assert.match(editPageWxml, /测试料产品代码/);
+  assert.match(editPageWxml, /所属物料：/);
+  assert.doesNotMatch(editPageWxml, /selected-material-card/);
+  assert.match(editPageWxss, /\.selected-material-summary/);
+  assert.match(editPageWxml, /van-picker/);
+  assert.match(editPageWxml, /label="供应商"/);
+  assert.match(editPageWxml, /class="empty-actions"/);
+  assert.match(editPageWxss, /\.empty-actions[\s\S]*justify-content:\s*center/);
   assert.match(importPageJs, /exportTestMaterialIdentityTemplate/);
   assert.match(importPageJs, /persistBase64File/);
   assert.match(importPageJs, /fileContentBase64/);
@@ -172,10 +230,13 @@ test('test material identity template export is registered and opened from inlin
   assert.doesNotMatch(materialListJs, /onManageTestMaterialIdentities/);
   assert.match(materialListJs, /listTestMaterialIdentities/);
   assert.match(materialListJs, /loadIdentityResults/);
+  assert.match(materialListJs, /test-material-identity-edit\/index/);
+  assert.doesNotMatch(materialListJs, /test-material-identity-manage\/index\?action=create/);
   assert.match(materialListJs, /test-material-identity-import\/index/);
   assert.match(materialListWxml, /name="testIdentity"/);
   assert.match(materialListWxml, /测试料型号库/);
   assert.match(materialListWxml, /所属物料：/);
+  assert.match(materialListWxml, /供应商：\{\{ item\.supplier \}\}/);
   assert.match(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
   assert.match(materialListWxml, /bind:click="onCreateTestMaterialIdentity"[\s\S]*新增/);
   assert.doesNotMatch(materialListWxml, /批量导入|新增型号/);
@@ -193,7 +254,7 @@ test('test material identity workbook template uses active test material codes a
     buildTestMaterialIdentityWorkbook
   } = require('../cloudfunctions/exportTestMaterialIdentityTemplate/identity-template-workbook');
 
-  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '原厂型号*']);
+  assert.deepEqual(TEMPLATE_HEADERS, ['测试料产品代码*', '原厂型号*', '供应商（选填）']);
 
   const spec = buildTestMaterialIdentityTemplateSpec({
     testMaterials: [
@@ -213,12 +274,19 @@ test('test material identity workbook template uses active test material codes a
   const dataSheet = workbook.getWorksheet(DATA_SHEET_NAME);
   const configSheet = workbook.getWorksheet(CONFIG_SHEET_NAME);
   assert.equal(dataSheet.getRow(1).getCell(1).value, '测试料产品代码*');
+  assert.equal(dataSheet.getRow(1).getCell(3).value, '供应商（选填）');
   assert.equal(dataSheet.getRow(2).getCell(1).value, '必填，从下拉选择已启用测试料主数据');
+  assert.equal(dataSheet.getRow(2).getCell(3).value, '选填；作为入库和预打印默认供应商');
+  assert.ok(dataSheet.getColumn(1).width >= 34);
+  assert.ok(dataSheet.getColumn(2).width >= 56);
+  assert.ok(dataSheet.getColumn(3).width >= 44);
+  assert.ok(dataSheet.getRow(2).height >= 40);
   assert.equal(configSheet.getRow(2).getCell(1).value, 'J-999');
   assert.equal(configSheet.getRow(2).getCell(2).value, '测试料化材');
 
   dataSheet.getRow(3).getCell(1).value = 'J-999';
   dataSheet.getRow(3).getCell(2).value = 'A-100';
+  dataSheet.getRow(3).getCell(3).value = '供应商A';
   const buffer = await workbook.xlsx.writeBuffer();
   const {
     getParsedTemplateMeta,
@@ -228,13 +296,14 @@ test('test material identity workbook template uses active test material codes a
     fileName: '测试料型号库导入模板.xlsx',
     sheetName: DATA_SHEET_NAME,
     expectedHeaderRows: [
-      ['测试料产品代码*', '原厂型号*'],
-      ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格']
+      ['测试料产品代码*', '原厂型号*', '供应商（选填）'],
+      ['必填，从下拉选择已启用测试料主数据', '必填；保留大小写，系统会整理全角和多余空格', '选填；作为入库和预打印默认供应商']
     ]
   });
   assert.equal(getParsedTemplateMeta(rows).templateKind, 'test_material_identity_import');
   assert.equal(rows.find(row => row.rowIndex === 3).values[0], 'J-999');
   assert.equal(rows.find(row => row.rowIndex === 3).values[1], 'A-100');
+  assert.equal(rows.find(row => row.rowIndex === 3).values[2], '供应商A');
 });
 
 test('test material identity enforcement reaches labels, stock-in and inventory imports', () => {
@@ -243,16 +312,30 @@ test('test material identity enforcement reaches labels, stock-in and inventory 
   const batchAdd = read('cloudfunctions/batchAddInventory/batch-add.js');
   const importTemplate = read('cloudfunctions/importInventoryTemplate/inventory-import.js');
   const updateInventory = read('cloudfunctions/updateInventory/index.js');
+  const manageIdentity = read('cloudfunctions/manageTestMaterialIdentity/index.js');
+  const identityService = read('miniprogram/utils/test-material-identity-service.js');
   const materialAddPage = read('miniprogram/pages/material-add/index.wxml');
+  const materialAddJs = read('miniprogram/pages/material-add/index.js');
   const batchEntryPage = read('miniprogram/pages/material-add/batch-entry.wxml');
+  const batchEntryJs = read('miniprogram/pages/material-add/batch-entry.js');
   const labelExportPage = read('miniprogram/pages/admin/label-export/index.js');
 
   assert.match(labelPreprint, /validateTestMaterialIdentitySelection/);
   assert.match(addMaterial, /supplier_model_key/);
+  assert.match(addMaterial, /requestedSupplier \|\| identityValidation\.supplier/);
   assert.match(batchAdd, /supplier_model_key/);
+  assert.match(batchAdd, /requestedSupplier \|\| identityValidation\.supplier/);
   assert.match(importTemplate, /supplier_model_key/);
+  assert.match(importTemplate, /row\.supplier = identityValidation\.supplier/);
   assert.match(updateInventory, /supplier_model_key/);
+  assert.match(manageIdentity, /\{ supplier: searchRegex \}/);
+  assert.match(manageIdentity, /supplier:\s*candidate\.supplier/);
+  assert.match(identityService, /const supplier = normalizeTestMaterialSupplier\(item\.supplier\)/);
+  assert.match(identityService, /supplier,/);
   assert.match(materialAddPage, /showTestMaterialIdentitySheet/);
+  assert.match(materialAddJs, /'form\.supplier': item\.supplier/);
   assert.match(batchEntryPage, /测试料原厂型号/);
+  assert.match(batchEntryJs, /supplier:\s*overrides\.supplier \|\| identity\.supplier/);
   assert.match(labelExportPage, /supplier_model_key/);
+  assert.match(labelExportPage, /'preprintForm\.supplier': item\.supplier/);
 });

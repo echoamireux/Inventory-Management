@@ -422,6 +422,7 @@ Page({
           selectedTestMaterialIdentity: {
               supplier_model: item.supplier_model || item.name || '',
               supplier_model_key: item.supplier_model_key || '',
+              supplier: item.supplier || '',
               identity_key: item.identity_key || ''
           },
           showTestMaterialIdentitySheet: false,
@@ -443,6 +444,7 @@ Page({
       }
       return {
           ...overrides,
+          supplier: overrides.supplier || identity.supplier || '',
           supplier_model: identity.supplier_model,
           supplier_model_key: identity.supplier_model_key
       };

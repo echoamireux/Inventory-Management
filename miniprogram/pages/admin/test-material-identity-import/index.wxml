@@ -7,7 +7,7 @@
     <view class="guide-content">
       <view>1. 请先导出测试料型号库的<text class="strong">最新模板（.xlsx）</text></view>
       <view>2. 模板中的产品代码来自已启用的测试料主数据</view>
-      <view>3. 在原厂型号列填写真实型号后，<text class="strong">直接上传 .xlsx</text></view>
+      <view>3. 在原厂型号列填写真实型号，供应商列可选填，然后<text class="strong">直接上传 .xlsx</text></view>
       <view>4. 单次最多导入 <text class="strong">100</text> 条测试料型号</view>
     </view>
   </view>
@@ -73,6 +73,7 @@
           <van-tag wx:if="{{ !item.hasError }}" type="primary" plain>测试料型号</van-tag>
         </view>
         <view class="preview-model">{{ item.supplier_model || '-' }}</view>
+        <view wx:if="{{ item.supplier }}" class="preview-supplier">供应商：{{ item.supplier }}</view>
         <view wx:if="{{ item.hasError }}" class="preview-error">
           <van-icon name="warning-o" size="12px" /> {{ item.error }}
         </view>

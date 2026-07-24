@@ -426,9 +426,13 @@ Page({
 
   onTestMaterialIdentitySelect(e) {
     const item = e.detail || {};
+    const currentSupplier = String(this.data.preprintForm.supplier || '').trim();
     this.setData({
       'preprintForm.supplier_model': item.supplier_model || item.name || '',
       'preprintForm.supplier_model_key': item.supplier_model_key || '',
+      ...(!currentSupplier && item.supplier ? {
+        'preprintForm.supplier': item.supplier
+      } : {}),
       showTestMaterialIdentitySheet: false,
       testMaterialIdentityNotice: ''
     });

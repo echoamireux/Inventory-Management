@@ -612,6 +612,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
         throw new Error(`第${Number(item.rowIndex) || 0}行${identityValidation.msg}`);
       }
       if (material.is_test_material) {
+        item.supplier = String(item.supplier || '').trim() || identityValidation.supplier || '';
         item.supplier_model = identityValidation.supplier_model;
         item.supplier_model_key = identityValidation.supplier_model_key;
       }

@@ -76,17 +76,32 @@ test('admin material edit page exposes governed master spec fields for chemical 
   assert.match(js, /packageTypeOptions/);
 });
 
-test('admin material edit page keeps supplier model optional for test material master records', () => {
+test('admin material edit page hides and clears supplier fields for test material master records', () => {
   const wxml = read('miniprogram/pages/admin/material-edit.wxml');
   const js = read('miniprogram/pages/admin/material-edit.js');
+  const cloudFunction = read('cloudfunctions/manageMaterial/index.js');
 
   assert.doesNotMatch(wxml, /label="厂家型号"/);
-  assert.match(wxml, /label="原厂型号"/);
+  assert.ok(
+    wxml.indexOf('title="测试料"') > -1
+      && wxml.indexOf('title="测试料"') < wxml.indexOf('label="物料名称"'),
+    '测试料开关应位于物料名称上方，先确定维护类型再填写名称'
+  );
+  assert.match(wxml, /wx:if="\{\{ !form\.is_test_material \}\}"[\s\S]*label="原厂型号"/);
   assert.doesNotMatch(wxml, /label="原厂型号"[\s\S]*?required="\{\{ form\.is_test_material \}\}"/);
   assert.match(wxml, /label="原厂型号"[\s\S]*?placeholder="请输入 \(选填\)"/);
-  assert.match(wxml, /测试料真实原厂型号请在入库或标签预打印时填写/);
+  assert.match(wxml, /真实原厂型号和可选供应商请到“测试料型号库”维护/);
+  assert.match(wxml, /测试料默认使用“测试料”/);
   assert.doesNotMatch(js, /测试料请填写原厂型号/);
   assert.doesNotMatch(js, /form\.is_test_material[\s\S]*?!String\(form\.supplier_model \|\| ''\)\.trim\(\)/);
+  assert.match(js, /TEST_MATERIAL_DEFAULT_NAME\s*=\s*'测试料'/);
+  assert.match(js, /TEST_MATERIAL_SUBCATEGORY_NAME\s*=\s*'测试料'/);
+  assert.match(js, /buildTestMaterialSubcategoryState/);
+  assert.match(js, /applyTestMaterialDefaults\(\{\s*forceName:\s*true\s*\}\)/);
+  assert.match(js, /'form\.supplier':\s*''/);
+  assert.match(js, /supplier:\s*isTestMaterial \? '' : form\.supplier/);
+  assert.match(cloudFunction, /supplier:\s*isTestMaterial \? '' : sanitizeText\(source\.supplier\)/);
+  assert.match(cloudFunction, /supplier_model:\s*isTestMaterial \? '' : sanitizeText\(source\.supplier_model\)/);
 });
 
 test('admin material edit page supports prefilling category and product code for manager-led direct creation', () => {

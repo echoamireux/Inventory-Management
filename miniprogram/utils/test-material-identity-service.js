@@ -7,6 +7,13 @@ function normalizeTestMaterialSupplierModel(value) {
     .replace(/\s*([-/])\s*/gu, '$1');
 }
 
+function normalizeTestMaterialSupplier(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/gu, ' ');
+}
+
 async function callTestMaterialIdentity(action, payload = {}) {
   const res = await wx.cloud.callFunction({
     name: 'manageTestMaterialIdentity',
@@ -67,19 +74,24 @@ async function setTestMaterialIdentityStatus(record, status) {
 function buildTestMaterialIdentityActions(records = []) {
   return (records || [])
     .filter(item => item.status !== 'disabled')
-    .map(item => ({
-      name: item.supplier_model,
-      value: item.supplier_model,
-      supplier_model: item.supplier_model,
-      supplier_model_key: item.supplier_model_key,
-      identity_key: item.identity_key,
-      material_id: item.material_id,
-      product_code: item.product_code
-    }));
+    .map((item) => {
+      const supplier = normalizeTestMaterialSupplier(item.supplier);
+      return {
+        name: supplier ? `${item.supplier_model}｜${supplier}` : item.supplier_model,
+        value: item.supplier_model,
+        supplier_model: item.supplier_model,
+        supplier_model_key: item.supplier_model_key,
+        supplier,
+        identity_key: item.identity_key,
+        material_id: item.material_id,
+        product_code: item.product_code
+      };
+    });
 }
 
 module.exports = {
   normalizeTestMaterialSupplierModel,
+  normalizeTestMaterialSupplier,
   listTestMaterialIdentities,
   createTestMaterialIdentity,
   batchCreateTestMaterialIdentities,

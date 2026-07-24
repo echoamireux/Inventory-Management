@@ -48,6 +48,14 @@ const BUILTIN_SUBCATEGORY_SEEDS = [
     sort_order: 60
   },
   {
+    subcategory_key: 'builtin:chemical:test-material',
+    name: '测试料',
+    parent_category: 'chemical',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 70
+  },
+  {
     subcategory_key: 'builtin:film:pet',
     name: '基材-PET',
     parent_category: 'film',
@@ -118,6 +126,14 @@ const BUILTIN_SUBCATEGORY_SEEDS = [
     is_builtin: true,
     status: 'active',
     sort_order: 190
+  },
+  {
+    subcategory_key: 'builtin:film:test-material',
+    name: '测试料',
+    parent_category: 'film',
+    is_builtin: true,
+    status: 'active',
+    sort_order: 200
   }
 ];
 

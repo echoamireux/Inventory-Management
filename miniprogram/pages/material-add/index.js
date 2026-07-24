@@ -1141,9 +1141,13 @@ Page({
 
   onTestMaterialIdentitySelect(e) {
       const item = e.detail || {};
+      const currentSupplier = String(this.data.form.supplier || '').trim();
       this.setData({
         'form.supplier_model': item.supplier_model || item.name || '',
         'form.supplier_model_key': item.supplier_model_key || '',
+        ...(!currentSupplier && item.supplier ? {
+          'form.supplier': item.supplier
+        } : {}),
         showTestMaterialIdentitySheet: false,
         testMaterialIdentityNotice: ''
       });

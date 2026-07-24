@@ -12,7 +12,7 @@ const IMPORT_TEMPLATE_ERROR_CODES = {
 const TEMPLATE_PROTOCOLS = {
   inventory_import: ['inventory-import-v2'],
   material_import: ['material-import-v2'],
-  test_material_identity_import: ['test-material-identity-import-v1']
+  test_material_identity_import: ['test-material-identity-import-v2']
 };
 
 function buildImportTemplateError(code, message, details) {

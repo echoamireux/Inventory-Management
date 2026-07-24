@@ -115,6 +115,12 @@
   font-size: 24rpx;
 }
 
+.identity-supplier {
+  margin-top: 6rpx;
+  color: #475569;
+  font-size: 24rpx;
+}
+
 .identity-match-reason {
   display: inline-block;
   margin-top: 8rpx;
@@ -123,61 +129,4 @@
   background: #eef6ff;
   color: #1d4ed8;
   font-size: 22rpx;
-}
-
-.identity-form {
-  padding: 36rpx 28rpx calc(36rpx + env(safe-area-inset-bottom));
-  background: #ffffff;
-}
-
-.identity-form__title {
-  color: #111827;
-  font-size: 34rpx;
-  font-weight: 700;
-}
-
-.identity-form__hint,
-.identity-form__example {
-  margin: 12rpx 0 20rpx;
-  color: #64748b;
-  font-size: 24rpx;
-  line-height: 1.6;
-}
-
-.material-searching {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  padding: 16rpx 24rpx;
-  color: #64748b;
-  font-size: 24rpx;
-}
-
-.material-suggestions {
-  margin: 8rpx 0 18rpx;
-  border: 1rpx solid #e5e7eb;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.material-suggestion {
-  padding: 18rpx 22rpx;
-  border-bottom: 1rpx solid #edf2f7;
-  background: #ffffff;
-}
-
-.material-suggestion:last-child {
-  border-bottom: 0;
-}
-
-.material-suggestion__code {
-  color: #2563eb;
-  font-size: 28rpx;
-  font-weight: 700;
-}
-
-.material-suggestion__name {
-  margin-top: 6rpx;
-  color: #475569;
-  font-size: 24rpx;
 }

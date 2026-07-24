@@ -146,8 +146,8 @@ test('import validation supports the new prefix-plus-number master-data template
   assert.equal(result.product_code, 'J-001');
   assert.equal(result.default_unit, 'L');
   assert.equal(result.package_type, '桶装');
-  assert.equal(result.supplier, '国药');
-  assert.equal(result.supplier_model, 'IPA-99');
+  assert.equal(result.supplier, '');
+  assert.equal(result.supplier_model, '');
   assert.equal(result.is_test_material, true);
   assert.equal('shelf_life_days' in result, false);
 });

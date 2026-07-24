@@ -211,6 +211,12 @@
   word-break: break-all;
 }
 
+.preview-supplier {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 24rpx;
+}
+
 .preview-error {
   display: flex;
   align-items: center;

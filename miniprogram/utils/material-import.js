@@ -80,6 +80,7 @@ function appendWarning(existingWarning = '', nextWarning = '') {
 }
 
 function buildComparableSignature(item = {}) {
+  const isTestMaterial = !!item.is_test_material;
   return JSON.stringify({
     material_name: String(item.material_name || '').trim(),
     category: item.category || '',
@@ -88,9 +89,9 @@ function buildComparableSignature(item = {}) {
     package_type: String(item.package_type || '').trim(),
     thickness_um: item.thickness_um == null ? null : Number(item.thickness_um),
     standard_width_mm: item.standard_width_mm == null ? null : Number(item.standard_width_mm),
-    supplier: String(item.supplier || '').trim(),
-    supplier_model: String(item.supplier_model || '').trim(),
-    is_test_material: !!item.is_test_material
+    supplier: isTestMaterial ? '' : String(item.supplier || '').trim(),
+    supplier_model: isTestMaterial ? '' : String(item.supplier_model || '').trim(),
+    is_test_material: isTestMaterial
   });
 }
 
@@ -296,8 +297,8 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
     package_type: category === 'chemical' ? packageType : '',
     thickness_um: category === 'film' ? thicknessUm : null,
     standard_width_mm: category === 'film' ? standardWidthMm : null,
-    supplier,
-    supplier_model: supplierModel,
+    supplier: testMaterialFlag.value ? '' : supplier,
+    supplier_model: testMaterialFlag.value ? '' : supplierModel,
     is_test_material: testMaterialFlag.value,
     warning,
     error

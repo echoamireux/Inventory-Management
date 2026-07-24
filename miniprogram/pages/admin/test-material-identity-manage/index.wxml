@@ -49,6 +49,7 @@
         </view>
         <view class="identity-model">{{ item.supplier_model }}</view>
         <view class="identity-meta">{{ item.material_name || '测试料主数据' }}</view>
+        <view wx:if="{{ item.supplier }}" class="identity-supplier">供应商：{{ item.supplier }}</view>
         <view wx:if="{{ item.match_reason }}" class="identity-match-reason">{{ item.match_reason }}</view>
       </view>
       <van-button size="mini" plain bind:click="onToggleStatus" data-index="{{ index }}">
@@ -57,55 +58,5 @@
     </view>
   </view>
 
-  <van-popup show="{{ formVisible }}" position="bottom" round closeable bind:close="onCloseForm">
-    <view class="identity-form">
-      <view class="identity-form__title">新增测试料型号</view>
-      <view class="identity-form__hint">先搜索并选择已建档的测试料代码壳，再录入真实原厂型号。</view>
-
-      <van-field
-        label="测试料主数据"
-        value="{{ form.materialSearchVal }}"
-        placeholder="搜索 J-999 或物料名称"
-        clearable
-        required
-        bind:change="onMaterialSearchInput"
-      />
-
-      <view wx:if="{{ materialSearching }}" class="material-searching">
-        <van-loading size="18px" /> <text>查询中...</text>
-      </view>
-
-      <view wx:if="{{ materialSuggestions.length > 0 }}" class="material-suggestions">
-        <view
-          wx:for="{{ materialSuggestions }}"
-          wx:key="_id"
-          class="material-suggestion"
-          bindtap="onSelectMaterial"
-          data-item="{{ item }}"
-        >
-          <view class="material-suggestion__code">{{ item.product_code }}</view>
-          <view class="material-suggestion__name">{{ item.material_name }}</view>
-        </view>
-      </view>
-
-      <van-field
-        label="原厂型号"
-        value="{{ form.supplier_model }}"
-        placeholder="例如 A-100"
-        required
-        error-message="{{ formSupplierModelError }}"
-        bind:change="onSupplierModelInput"
-      />
-
-      <view class="identity-form__example">保留大小写差异；系统会整理全角字符和横杠/斜杠两侧空格。</view>
-
-      <view class="identity-form__actions">
-        <van-button plain round block bind:click="onCloseForm" disabled="{{ formSubmitting }}">取消</van-button>
-        <van-button type="primary" round block loading="{{ formSubmitting }}" bind:click="onSubmitForm">创建</van-button>
-      </view>
-    </view>
-  </van-popup>
-
   <van-toast id="van-toast" />
-  <van-dialog id="van-dialog" />
 </view>
