@@ -71,3 +71,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: 统一物料管理与导入模板收尾
+
+**Date**: 2026-07-25
+**Task**: 统一物料管理与导入模板收尾
+**Branch**: `codex/test-material-identity-governance`
+
+### Summary
+
+统一物料管理入口与测试料有效名称维护；补齐测试料入库/标签/库存展示快照规则；移除独立测试料型号批量导入路径；完善物料主数据导入页面、Excel 模板说明和测试料原厂型号必填提示；通过 npm test、git diff --check 与 npm run preflight:deploy。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `60e3502` | (see git log) |
+| `2590b60` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
