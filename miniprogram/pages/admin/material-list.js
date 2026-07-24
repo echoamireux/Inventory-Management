@@ -4,6 +4,7 @@ import Toast from '@vant/weapp/toast/toast';
 const {
   listTestMaterialIdentities
 } = require('../../utils/test-material-identity-service');
+const { normalizeSearchKeyword } = require('../../utils/search');
 
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
@@ -12,12 +13,25 @@ function resolveSearchValue(detail) {
   return typeof detail === 'string' ? detail : '';
 }
 
+function buildSearchNoticeText(...messages) {
+  return Array.from(new Set(
+    messages
+      .map(message => String(message || '').trim())
+      .filter(Boolean)
+  )).join('；');
+}
+
 Page({
   data: {
-    activeTab: 'active', // active | testIdentity | archived
+    activeTab: 'materials', // materials | testIdentity
+    materialStatus: 'active', // active | archived
     list: [],
     identityList: [],
     searchVal: '',
+    hasSearchKeyword: false,
+    materialSearchMessage: '',
+    identitySearchMessage: '',
+    searchNoticeText: '',
     loading: false,
     identityLoading: false,
     page: 1,
@@ -54,6 +68,10 @@ Page({
 
   onShow() {
     // 仅当已有数据时才刷新，避免 onLoad 和 onShow 重复加载
+    if (normalizeSearchKeyword(this.data.searchVal)) {
+      this.refreshSearchResults();
+      return;
+    }
     if (this.data.activeTab === 'testIdentity' && this.data.identityList.length > 0) {
       this.loadIdentityResults({ refresh: true });
       return;
@@ -64,15 +82,30 @@ Page({
   },
 
   onPullDownRefresh() {
-    if (this.data.activeTab === 'testIdentity') {
-      this.loadIdentityResults({ refresh: true });
-    } else {
-      this.getList(true);
+    if (normalizeSearchKeyword(this.data.searchVal)) {
+      Promise.all([
+        this.getList(true),
+        this.loadIdentityResults({ refresh: true })
+      ]).finally(() => wx.stopPullDownRefresh());
+      return;
     }
-    wx.stopPullDownRefresh();
+    if (this.data.activeTab === 'testIdentity') {
+      this.loadIdentityResults({ refresh: true }).finally(() => wx.stopPullDownRefresh());
+    } else {
+      this.getList(true).finally(() => wx.stopPullDownRefresh());
+    }
   },
 
   onReachBottom() {
+    if (normalizeSearchKeyword(this.data.searchVal)) {
+      if (!this.data.isEnd && !this.data.loading) {
+        this.getList(false);
+      }
+      if (!this.data.identityIsEnd && !this.data.identityLoading) {
+        this.loadIdentityResults();
+      }
+      return;
+    }
     if (this.data.activeTab === 'testIdentity') {
       if (!this.data.identityIsEnd && !this.data.identityLoading) {
         this.loadIdentityResults();
@@ -101,16 +134,12 @@ Page({
       selectedCount: 0,
       isAllSelected: false
     }, () => {
-      if (this.data.activeTab === 'testIdentity') {
-        this.loadIdentityResults({ refresh: true });
-      } else {
-        this.getList(true);
-      }
+      this.refreshSearchResults();
     });
   },
 
   async getList(refresh = false) {
-    if (this.data.activeTab === 'testIdentity') {
+    if (this.data.activeTab === 'testIdentity' && !normalizeSearchKeyword(this.data.searchVal)) {
       return this.loadIdentityResults({ refresh });
     }
     if (!refresh && this.data.loading) return;
@@ -123,7 +152,8 @@ Page({
 
     try {
       const page = refresh ? 1 : this.data.page;
-      const { searchVal, pageSize, activeTab } = this.data;
+      const { searchVal, pageSize, materialStatus } = this.data;
+      const normalizedSearchVal = normalizeSearchKeyword(searchVal);
 
       const res = await wx.cloud.callFunction({
         name: 'manageMaterial',
@@ -134,7 +164,7 @@ Page({
             page,
             pageSize,
             // 传递状态筛选参数
-            status: activeTab
+            status: normalizedSearchVal ? 'all' : materialStatus
           }
         }
       });
@@ -160,17 +190,21 @@ Page({
           list,
           page: page + 1,
           total: res.result.total,
-          isEnd
+          isEnd,
+          materialSearchMessage: normalizedSearchVal ? (res.result.searchMessage || '') : '',
+          searchNoticeText: normalizedSearchVal
+            ? buildSearchNoticeText(res.result.searchMessage, this.data.identitySearchMessage)
+            : ''
         });
 
-        if (activeTab === 'active' && String(searchVal || '').trim()) {
-          await this.loadIdentityResults({ refresh: true, compact: true });
-        } else if (activeTab !== 'testIdentity') {
+        if (!normalizedSearchVal && this.data.activeTab !== 'testIdentity') {
           this.setData({
             identityList: [],
             identityTotal: 0,
             identityPage: 1,
-            identityIsEnd: false
+            identityIsEnd: false,
+            identitySearchMessage: '',
+            searchNoticeText: ''
           });
         }
       } else {
@@ -208,7 +242,7 @@ Page({
       const result = await listTestMaterialIdentities({
         page,
         pageSize,
-        includeDisabled: this.data.activeTab === 'testIdentity',
+        includeDisabled: this.data.activeTab === 'testIdentity' || !!normalizeSearchKeyword(this.data.searchVal),
         searchVal: this.data.searchVal
       });
 
@@ -221,11 +255,16 @@ Page({
         ? newList
         : [...this.data.identityList, ...newList];
       const identityTotal = Number(result.total) || 0;
+      const normalizedSearchVal = normalizeSearchKeyword(this.data.searchVal);
       this.setData({
         identityList,
         identityTotal,
         identityPage: page + 1,
-        identityIsEnd: compact ? true : identityList.length >= identityTotal
+        identityIsEnd: compact ? true : identityList.length >= identityTotal,
+        identitySearchMessage: normalizedSearchVal ? (result.searchMessage || '') : '',
+        searchNoticeText: normalizedSearchVal
+          ? buildSearchNoticeText(this.data.materialSearchMessage, result.searchMessage)
+          : ''
       });
     } catch (err) {
       if (this.data.identityRequestId !== currentRequestId) {
@@ -242,56 +281,89 @@ Page({
 
   onSearch(e) {
     const searchVal = resolveSearchValue(e && e.detail);
+    const hasSearchKeyword = !!normalizeSearchKeyword(searchVal);
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.setData({
       searchVal,
+      hasSearchKeyword,
       page: 1,
       isEnd: false,
       identityPage: 1,
-      identityIsEnd: false
+      identityIsEnd: false,
+      materialSearchMessage: '',
+      identitySearchMessage: '',
+      searchNoticeText: ''
     });
-    if (this.data.activeTab === 'testIdentity') {
-      this.loadIdentityResults({ refresh: true });
-    } else {
-      this.getList(true);
-    }
+    this.refreshSearchResults();
   },
 
   onSearchChange(e) {
     const searchVal = resolveSearchValue(e && e.detail);
+    const hasSearchKeyword = !!normalizeSearchKeyword(searchVal);
     this.setData({
       searchVal,
+      hasSearchKeyword,
       page: 1,
       isEnd: false,
       identityPage: 1,
-      identityIsEnd: false
+      identityIsEnd: false,
+      materialSearchMessage: '',
+      identitySearchMessage: '',
+      searchNoticeText: ''
     });
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => {
-      if (this.data.activeTab === 'testIdentity') {
-        this.loadIdentityResults({ refresh: true });
-      } else {
-        this.getList(true);
-      }
-    }, 500);
+    this.searchTimer = setTimeout(() => this.refreshSearchResults(), 400);
   },
 
   onSearchClear() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.setData({
       searchVal: '',
+      hasSearchKeyword: false,
       page: 1,
       isEnd: false,
       identityPage: 1,
       identityIsEnd: false,
       identityList: [],
-      identityTotal: 0
+      identityTotal: 0,
+      materialSearchMessage: '',
+      identitySearchMessage: '',
+      searchNoticeText: ''
     });
+    this.refreshSearchResults();
+  },
+
+  refreshSearchResults() {
+    if (normalizeSearchKeyword(this.data.searchVal)) {
+      Promise.all([
+        this.getList(true),
+        this.loadIdentityResults({ refresh: true })
+      ]);
+      return;
+    }
     if (this.data.activeTab === 'testIdentity') {
       this.loadIdentityResults({ refresh: true });
     } else {
       this.getList(true);
     }
+  },
+
+  onMaterialStatusChange(e) {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    const materialStatus = (e && e.detail && e.detail.name) || 'active';
+    this.setData({
+      materialStatus,
+      page: 1,
+      isEnd: false,
+      isEditMode: false,
+      selectedIds: [],
+      selectedCount: 0,
+      isAllSelected: false
+    }, () => {
+      if (!normalizeSearchKeyword(this.data.searchVal)) {
+        this.getList(true);
+      }
+    });
   },
 
   onUnload() {
@@ -306,7 +378,11 @@ Page({
 
   // 长按进入编辑模式
   onLongPress(e) {
-      if (this.data.isEditMode) return;
+      if (
+        this.data.isEditMode
+        || this.data.activeTab !== 'materials'
+        || normalizeSearchKeyword(this.data.searchVal)
+      ) return;
 
       const id = e.currentTarget.dataset.id;
       // 震动反馈
@@ -635,7 +711,14 @@ Page({
     wx.navigateTo({ url: '/pages/admin/material-import/index' });
   },
 
-  // 进入测试料型号库维护页
+  onCreateTestMaterialIdentity() {
+    wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index?action=create' });
+  },
+
+  onImportTestMaterialIdentity() {
+    wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index?action=import' });
+  },
+
   onOpenTestMaterialIdentityManage() {
     wx.navigateTo({ url: '/pages/admin/test-material-identity-manage/index' });
   }

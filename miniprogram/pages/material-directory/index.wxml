@@ -17,6 +17,14 @@
     />
   </view>
 
+  <van-notice-bar
+    wx:if="{{ searchMessage }}"
+    left-icon="info-o"
+    text="{{ searchMessage }}"
+    color="#1d4ed8"
+    background="#eef6ff"
+  />
+
   <view class="px-15 py-10 text-secondary text-sm">
     <text>共找到 {{ total }} 种物料</text>
   </view>

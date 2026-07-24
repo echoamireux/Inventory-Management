@@ -1,10 +1,14 @@
 const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 const { writeAuditEvent } = require('./audit-events');
-const { buildContainsRegExp } = require('./search');
+const { handleCloudError } = require('./error-response');
+const {
+  buildContainsRegExp,
+  normalizeSearchKeyword,
+  rankSearchResults
+} = require('./search');
 const {
   normalizeCategory,
-  normalizeStatus,
   normalizeProductCode,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialIdentityRecord,
@@ -18,6 +22,12 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const MAX_BATCH_IDENTITY_IMPORT_ROWS = 100;
+const MAX_SEARCH_CANDIDATES = 200;
+
+function parseMutationStatus(status) {
+  const normalized = String(status || '').trim();
+  return normalized === 'active' || normalized === 'disabled' ? normalized : '';
+}
 
 function isCollectionExistsError(error) {
   const message = String((error && (error.errMsg || error.message)) || error || '');
@@ -42,7 +52,7 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
-async function loadMaterialForIdentity(source = {}) {
+async function loadMaterialForIdentity(source = {}, collectionOwner = db) {
   const materialId = String(source.material_id || source.materialId || '').trim();
   const productCode = normalizeProductCode(source.product_code || source.productCode);
   let query = null;
@@ -55,7 +65,7 @@ async function loadMaterialForIdentity(source = {}) {
     throw new Error('请选择测试料主数据');
   }
 
-  const res = await db.collection('materials').where(query).limit(1).get();
+  const res = await collectionOwner.collection('materials').where(query).limit(1).get();
   const material = res.data && res.data[0];
   if (!material) {
     throw new Error('测试料主数据不存在');
@@ -69,8 +79,8 @@ async function loadMaterialForIdentity(source = {}) {
   return material;
 }
 
-async function loadRelatedIdentities(category, productCode) {
-  const res = await db.collection('test_material_identities')
+async function loadRelatedIdentities(category, productCode, collectionOwner = db) {
+  const res = await collectionOwner.collection('test_material_identities')
     .where({
       category,
       product_code: productCode
@@ -120,7 +130,8 @@ async function listIdentities(event, openid) {
     conditions.push({ material_id: String(event.material_id || event.materialId || '').trim() });
   }
 
-  const searchRegex = buildContainsRegExp(db, event.searchVal || event.keyword);
+  const normalizedKeyword = normalizeSearchKeyword(event.searchVal || event.keyword);
+  const searchRegex = buildContainsRegExp(db, normalizedKeyword);
   if (searchRegex) {
     conditions.push(_.or([
       { product_code: searchRegex },
@@ -132,19 +143,43 @@ async function listIdentities(event, openid) {
 
   const where = conditions.length ? _.and(conditions) : {};
   const totalRes = await db.collection('test_material_identities').where(where).count();
-  const res = await db.collection('test_material_identities')
-    .where(where)
-    .orderBy('updated_at', 'desc')
-    .skip((page - 1) * pageSize)
-    .limit(pageSize)
-    .get();
+  let list = [];
+  let searchTruncated = false;
+  if (normalizedKeyword) {
+    const candidateRes = await db.collection('test_material_identities')
+      .where(where)
+      .orderBy('updated_at', 'desc')
+      .limit(MAX_SEARCH_CANDIDATES + 1)
+      .get();
+    const candidates = (candidateRes.data || []).map(normalizeTestMaterialIdentityRecord);
+    searchTruncated = candidates.length > MAX_SEARCH_CANDIDATES;
+    list = rankSearchResults(candidates.slice(0, MAX_SEARCH_CANDIDATES), normalizedKeyword, {
+      codeFields: ['product_code'],
+      modelFields: ['supplier_model', 'supplier_model_key'],
+      nameFields: ['material_name'],
+      auxiliaryFields: ['category', 'material_id'],
+      stableFields: ['product_code', 'supplier_model', '_id']
+    }).slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    const res = await db.collection('test_material_identities')
+      .where(where)
+      .orderBy('updated_at', 'desc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get();
+    list = (res.data || []).map(normalizeTestMaterialIdentityRecord);
+  }
 
   return {
     success: true,
-    list: (res.data || []).map(normalizeTestMaterialIdentityRecord),
+    list,
     total: Number(totalRes.total) || 0,
     page,
-    pageSize
+    pageSize,
+    ...(normalizedKeyword ? {
+      searchTruncated,
+      searchMessage: searchTruncated ? '结果较多，请继续输入关键词' : ''
+    } : {})
   };
 }
 
@@ -199,8 +234,22 @@ async function createIdentity(event, openid) {
     updated_at: now
   };
 
-  const res = await db.collection('test_material_identities').add({ data });
-  await writeIdentityAudit(db, 'create', operator, openid, { _id: res._id, ...data });
+  const res = await db.runTransaction(async transaction => {
+    const currentMaterial = await loadMaterialForIdentity(event, transaction);
+    if (currentMaterial._id !== material._id || currentMaterial.product_code !== material.product_code) {
+      throw new Error('测试料主数据已变化，请刷新后重试');
+    }
+    const duplicateRes = await transaction.collection('test_material_identities')
+      .where({ identity_key: candidate.identity_key })
+      .limit(1)
+      .get();
+    if (duplicateRes.data && duplicateRes.data.length) {
+      throw new Error('该测试料原厂型号已存在');
+    }
+    const created = await transaction.collection('test_material_identities').add({ data });
+    await writeIdentityAudit(transaction, 'create', operator, openid, { _id: created._id, ...data });
+    return created;
+  });
   return {
     success: true,
     msg: '创建成功',
@@ -251,13 +300,15 @@ async function batchCreateIdentities(event, openid) {
   }
 
   const createdCount = results.filter(item => item.status === 'created').length;
-  await writeIdentityAudit(db, 'batch_create', operator, openid, {
-    identity_key: 'batch',
-    product_code: ''
-  }, {
-    total: rows.length,
-    created: createdCount,
-    errors: results.length - createdCount
+  await db.runTransaction(async transaction => {
+    await writeIdentityAudit(transaction, 'batch_create', operator, openid, {
+      identity_key: 'batch',
+      product_code: ''
+    }, {
+      total: rows.length,
+      created: createdCount,
+      errors: results.length - createdCount
+    });
   });
 
   return {
@@ -278,31 +329,36 @@ async function setIdentityStatus(event, openid) {
 
   const identityKey = String(event.identity_key || event.identityKey || '').trim();
   const id = String(event.id || event._id || '').trim();
-  const status = normalizeStatus(event.status);
+  const status = parseMutationStatus(event.status);
+  if (!status) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   if (!identityKey && !id) {
     return { success: false, msg: '缺少测试料型号标识' };
   }
 
   const query = id ? { _id: id } : { identity_key: identityKey };
-  const res = await db.collection('test_material_identities').where(query).limit(1).get();
-  const record = res.data && res.data[0];
-  if (!record || !record._id) {
-    return { success: false, msg: '测试料型号不存在' };
-  }
-
-  await db.collection('test_material_identities').doc(record._id).update({
-    data: {
-      status,
-      updated_by: openid,
-      updated_at: db.serverDate()
+  await db.runTransaction(async transaction => {
+    const res = await transaction.collection('test_material_identities').where(query).limit(1).get();
+    const record = res.data && res.data[0];
+    if (!record || !record._id) {
+      throw new Error('测试料型号不存在');
     }
-  });
-  await writeIdentityAudit(db, 'status', operator, openid, {
-    ...record,
-    status
-  }, {
-    previous_status: record.status,
-    next_status: status
+
+    await transaction.collection('test_material_identities').doc(record._id).update({
+      data: {
+        status,
+        updated_by: openid,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeIdentityAudit(transaction, 'status', operator, openid, {
+      ...record,
+      status
+    }, {
+      previous_status: record.status,
+      next_status: status
+    });
   });
 
   return {
@@ -329,7 +385,9 @@ exports.main = async (event = {}) => {
     }
     return { success: false, msg: `不支持的操作: ${action}` };
   } catch (error) {
-    console.error('manageTestMaterialIdentity error', error);
-    return { success: false, msg: error.message || '测试料型号库操作失败' };
+    return handleCloudError(error, {
+      scope: 'manageTestMaterialIdentity',
+      fallbackMessage: '测试料型号库操作失败，请稍后重试'
+    });
   }
 };

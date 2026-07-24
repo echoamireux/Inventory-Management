@@ -97,13 +97,13 @@ test('inventory template import preview result normalizes valid payloads and rej
   );
 });
 
-test('inventory template import enforces a 100-row submit limit in frontend and cloud guards', () => {
-  assert.equal(MAX_INVENTORY_TEMPLATE_IMPORT_ROWS, 100);
+test('inventory template import keeps a 100-row frontend task and ten-row cloud chunks', () => {
+  assert.equal(MAX_INVENTORY_TEMPLATE_IMPORT_ROWS, 10);
   assert.equal(FRONTEND_MAX_INVENTORY_TEMPLATE_IMPORT_ROWS, 100);
 
-  assert.doesNotThrow(() => assertInventoryTemplateImportLimit(100));
+  assert.doesNotThrow(() => assertInventoryTemplateImportLimit(10));
   assert.doesNotThrow(() => assertFrontendInventoryTemplateImportLimit(100));
-  assert.throws(() => assertInventoryTemplateImportLimit(101), /单次最多导入 100 条库存数据/);
+  assert.throws(() => assertInventoryTemplateImportLimit(11), /单个导入批次最多 10 条库存数据/);
   assert.throws(() => assertFrontendInventoryTemplateImportLimit(101), /单次最多导入 100 条库存数据/);
 
   const cloudIndex = require('node:fs').readFileSync(
@@ -117,6 +117,7 @@ test('inventory template import enforces a 100-row submit limit in frontend and 
 
   assert.match(cloudIndex, /assertInventoryTemplateImportLimit\(normalizedItems\.length\)/);
   assert.match(pageJs, /assertInventoryTemplateImportLimit\(validItems\.length\)/);
+  assert.match(pageJs, /runChunkedBatchTask/);
 });
 
 test('inventory template import uses an explicit empty-data message instead of a success empty list payload', () => {

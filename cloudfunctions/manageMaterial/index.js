@@ -4,7 +4,11 @@ const { normalizeUnitInput } = require('./material-units');
 const { normalizeTestMaterialFlag } = require('./test-material');
 const { validateStandardProductCode } = require('./product-code');
 const { createImportResultTracker } = require('./import-batch-results');
-const { buildContainsRegExp, normalizeSearchKeyword } = require('./search');
+const {
+  buildContainsRegExp,
+  normalizeSearchKeyword,
+  rankSearchResults
+} = require('./search');
 const { assertAdminMutationAccess, assertActiveUserAccess } = require('./auth');
 const { writeAuditEvent } = require('./audit-events');
 const {
@@ -42,6 +46,8 @@ const MATERIAL_EDITABLE_FIELDS = new Set([
   'width_mm',
   'standard_width_mm'
 ]);
+
+const MAX_SEARCH_CANDIDATES = 200;
 
 function pickEditableMaterialFields(data = {}) {
   return Object.keys(data).reduce((result, key) => {
@@ -459,15 +465,15 @@ exports.main = async (event, context) => {
 async function listMaterials(params = {}) {
   const { searchVal, category, status, page = 1, pageSize = 20 } = params;
 
-  // Default to non-archived if status not specified
-  // If status === 'archived', query archived
-  // If status === 'active', query active (which is status!=archived AND status!=deleted, but here assume 'active' or undefined for simplicity)
-
+  const requestedStatus = String(status || 'active').trim().toLowerCase();
+  const materialStatus = ['active', 'archived', 'all'].includes(requestedStatus)
+    ? requestedStatus
+    : 'active';
   let query = {};
-  if (status === 'archived') {
-      query.status = 'archived';
-  } else {
-      query.status = _.neq('archived');
+  if (materialStatus === 'archived') {
+    query.status = 'archived';
+  } else if (materialStatus === 'active') {
+    query.status = 'active';
   }
 
   if (category) {
@@ -483,28 +489,60 @@ async function listMaterials(params = {}) {
     ]);
   }
 
-  const countRes = await db.collection('materials').where(query).count();
-  const total = countRes.total;
-
-  const res = await db.collection('materials')
-    .where(query)
-    .orderBy('product_code', 'asc')
-    .skip((page - 1) * pageSize)
-    .limit(pageSize)
-    .get();
-
   const context = await loadSubcategoryContext();
-  const list = (res.data || []).map(item => ({
-    ...item,
-    sub_category: resolveSubcategoryDisplay(item, context.map)
-  }));
+  const countRes = await db.collection('materials').where(query).count();
+  const total = Number(countRes.total) || 0;
+  let list = [];
+  let searchTruncated = false;
+
+  if (normalizedKeyword) {
+    const candidatesRes = await db.collection('materials')
+      .where(query)
+      .orderBy('product_code', 'asc')
+      .limit(MAX_SEARCH_CANDIDATES + 1)
+      .get();
+    const candidates = (candidatesRes.data || []).map(item => ({
+      ...item,
+      sub_category: resolveSubcategoryDisplay(item, context.map)
+    }));
+    searchTruncated = candidates.length > MAX_SEARCH_CANDIDATES;
+    list = rankSearchResults(candidates.slice(0, MAX_SEARCH_CANDIDATES), normalizedKeyword, {
+      codeFields: ['product_code'],
+      modelFields: ['supplier_model'],
+      nameFields: ['material_name', 'name'],
+      auxiliaryFields: [
+        'supplier',
+        'subcategory_key',
+        'sub_category',
+        'package_type',
+        'specs.thickness_um',
+        'specs.standard_width_mm'
+      ],
+      stableFields: ['product_code', 'material_name', '_id']
+    }).slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    const res = await db.collection('materials')
+      .where(query)
+      .orderBy('product_code', 'asc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get();
+    list = (res.data || []).map(item => ({
+      ...item,
+      sub_category: resolveSubcategoryDisplay(item, context.map)
+    }));
+  }
 
   return {
     success: true,
     list,
     total,
     page,
-    pageSize
+    pageSize,
+    ...(normalizedKeyword ? {
+      searchTruncated,
+      searchMessage: searchTruncated ? '结果较多，请继续输入关键词' : ''
+    } : {})
   };
 }
 

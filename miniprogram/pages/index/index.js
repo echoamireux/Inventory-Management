@@ -31,6 +31,10 @@ Page({
       todayOut: 0,
     },
     homeSearchVal: '',
+    homeSearchSuggestions: [],
+    homeSearchLoading: false,
+    homeSearchMessage: '',
+    homeSearchRequestId: 0,
 
     // 领料弹窗
     showWithdrawDialog: false,
@@ -127,7 +131,7 @@ Page({
       clearTimeout(this.homeSearchTimer);
       this.homeSearchTimer = null;
     }
-    const val = resolveSearchValue(e && e.detail);
+    const val = resolveSearchValue(e && e.detail) || this.data.homeSearchVal;
     if (val) {
       this.navigateToInventorySearch(val);
     }
@@ -135,26 +139,61 @@ Page({
 
   onSearchChange(e) {
     const val = resolveSearchValue(e && e.detail);
-    this.setData({ homeSearchVal: val });
+    this.setData({ homeSearchVal: val, homeSearchMessage: '' });
 
     if (this.homeSearchTimer) {
       clearTimeout(this.homeSearchTimer);
     }
 
     if (!String(val || '').trim()) {
+      this.setData({ homeSearchSuggestions: [], homeSearchLoading: false, homeSearchMessage: '' });
       return;
     }
 
     this.homeSearchTimer = setTimeout(() => {
-      this.navigateToInventorySearch(val);
-    }, 500);
+      this.loadHomeSearchSuggestions(val);
+    }, 300);
   },
 
   onSearchClear() {
     if (this.homeSearchTimer) {
       clearTimeout(this.homeSearchTimer);
     }
-    this.setData({ homeSearchVal: '' });
+    this.homeSearchRequestId = (this.homeSearchRequestId || 0) + 1;
+    this.setData({ homeSearchVal: '', homeSearchSuggestions: [], homeSearchLoading: false, homeSearchMessage: '' });
+  },
+
+  async loadHomeSearchSuggestions(keyword) {
+    const value = String(keyword || '').trim();
+    if (!value) return;
+    const requestId = (this.homeSearchRequestId || 0) + 1;
+    this.homeSearchRequestId = requestId;
+    this.setData({ homeSearchLoading: true });
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'getInventoryGrouped',
+        data: { searchVal: value, page: 1, pageSize: 6 }
+      });
+      if (requestId !== this.homeSearchRequestId) return;
+      const result = res.result || {};
+      this.setData({
+        homeSearchSuggestions: result.list || [],
+        homeSearchLoading: false,
+        homeSearchMessage: result.searchMessage || ''
+      });
+    } catch (error) {
+      if (requestId === this.homeSearchRequestId) {
+        this.setData({ homeSearchSuggestions: [], homeSearchLoading: false, homeSearchMessage: '' });
+      }
+    }
+  },
+
+  onHomeSuggestionTap(e) {
+    const item = e.currentTarget.dataset.item || {};
+    const value = item.match_field === 'supplier_model'
+      ? item.supplier_model
+      : (item.product_code || this.data.homeSearchVal);
+    this.navigateToInventorySearch(value);
   },
 
   onJumpToInventory() {
@@ -541,7 +580,7 @@ Page({
     }
 
     this._homeSearchNavigating = true;
-    this.setData({ homeSearchVal: normalizedValue });
+    this.setData({ homeSearchVal: normalizedValue, homeSearchSuggestions: [], homeSearchMessage: '' });
     wx.navigateTo({
       url: `/pages/inventory/index?search=${encodeURIComponent(normalizedValue)}`,
       complete: () => {
@@ -697,6 +736,9 @@ Page({
   onUnload() {
     if (this.selectSearchTimer) {
       clearTimeout(this.selectSearchTimer);
+    }
+    if (this.homeSearchTimer) {
+      clearTimeout(this.homeSearchTimer);
     }
   },
 

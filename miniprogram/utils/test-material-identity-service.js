@@ -30,7 +30,9 @@ async function listTestMaterialIdentities(options = {}) {
     list: result.list || [],
     total: Number(result.total) || 0,
     page: Number(result.page) || 1,
-    pageSize: Number(result.pageSize) || 50
+    pageSize: Number(result.pageSize) || 50,
+    searchTruncated: !!result.searchTruncated,
+    searchMessage: result.searchMessage || ''
   };
 }
 

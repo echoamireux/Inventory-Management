@@ -2,6 +2,14 @@
 // 库存纠错申请：用户针对入库记录提交数量纠错
 const cloud = require('wx-server-sdk');
 const { assertActiveUserAccess } = require('./auth');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded,
+  markOperationReceiptFailed
+} = require('./operation-receipts');
+const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -9,9 +17,21 @@ cloud.init({
 
 const db = cloud.database();
 
+async function runWriteTransaction(handler) {
+  if (typeof db.runTransaction === 'function') {
+    return db.runTransaction(handler);
+  }
+  return handler(db);
+}
+
+function normalizeSourceLogId(value) {
+  return String(value == null ? '' : value).trim();
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
-  const { source_log_id, requested_quantity, reason } = event;
+  const source_log_id = normalizeSourceLogId(event.source_log_id);
+  const { requested_quantity, reason } = event;
 
   if (!source_log_id || requested_quantity == null) {
     return { success: false, msg: '缺少必填参数' };
@@ -54,44 +74,102 @@ exports.main = async (event, context) => {
       return { success: false, msg: '关联库存记录不存在' };
     }
 
-    const pendingRes = await db.collection('inventory_correction_requests')
-      .where({
-        source_log_id,
-        status: 'pending'
+    const operationContext = event.operation_id
+      ? buildOperationReceiptContext({
+        openid: OPENID,
+        operationId: event.operation_id,
+        requestPayload: {
+          source_log_id,
+          requested_quantity: normalizedRequestedQuantity,
+          reason: reason || ''
+        }
       })
-      .limit(1)
-      .get();
-    if (pendingRes.data && pendingRes.data.length > 0) {
-      return { success: false, msg: '该入库记录已有待审批纠错申请，请勿重复提交' };
-    }
+      : null;
 
-    // 4. 写入纠错申请
-    const correctionRequest = {
-      status: 'pending',
-      source_log_id: source_log_id,
-      inventory_id: sourceLog.inventory_id,
-      unique_code: sourceLog.unique_code || inventory.unique_code || '',
-      product_code: sourceLog.product_code || inventory.product_code || '',
-      category: sourceLog.category || inventory.category || '',
-      batch_number: sourceLog.batch_number || inventory.batch_number || '',
-      original_quantity: sourceLog.quantity_change,
-      requested_quantity: normalizedRequestedQuantity,
-      unit: sourceLog.unit || ((inventory.quantity && inventory.quantity.unit) || ''),
-      reason: reason || '',
-      applicant: OPENID,
-      applicant_name: (operator && operator.name) || '',
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    };
+    return await runWriteTransaction(async transaction => {
+      if (operationContext) {
+        const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+        if (operationReceipt.reused) {
+          return operationReceipt.response;
+        }
+      }
 
-    await db.collection('inventory_correction_requests').add({
-      data: correctionRequest
+      const currentLogRes = await transaction.collection('inventory_log').doc(source_log_id).get();
+      const currentLog = currentLogRes.data;
+      const currentInventoryRes = currentLog && currentLog.inventory_id
+        ? await transaction.collection('inventory').doc(currentLog.inventory_id).get()
+        : { data: null };
+      const currentInventory = currentInventoryRes.data;
+      if (!currentLog || currentLog.type !== 'inbound' || !currentInventory) {
+        const response = { success: false, msg: '源入库日志或关联库存记录已变化，请刷新后重试' };
+        if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
+      }
+
+      const pendingRes = await transaction.collection('inventory_correction_requests')
+        .where({ source_log_id, status: 'pending' })
+        .limit(1)
+        .get();
+      if (pendingRes.data && pendingRes.data.length > 0) {
+        const response = { success: false, msg: '该入库记录已有待审批纠错申请，请勿重复提交' };
+        if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
+      }
+
+      const correctionRequest = {
+        status: 'pending',
+        pending_key: source_log_id,
+        source_log_id,
+        inventory_id: currentLog.inventory_id,
+        unique_code: currentLog.unique_code || currentInventory.unique_code || '',
+        product_code: currentLog.product_code || currentInventory.product_code || '',
+        category: currentLog.category || currentInventory.category || '',
+        batch_number: currentLog.batch_number || currentInventory.batch_number || '',
+        original_quantity: currentLog.quantity_change,
+        requested_quantity: normalizedRequestedQuantity,
+        unit: currentLog.unit || ((currentInventory.quantity && currentInventory.quantity.unit) || ''),
+        reason: reason || '',
+        applicant: OPENID,
+        applicant_name: (operator && operator.name) || '',
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      };
+
+      let created;
+      try {
+        created = await transaction.collection('inventory_correction_requests').add({ data: correctionRequest });
+      } catch (error) {
+        if (/duplicate|unique|唯一|already exists|已存在/i.test(String(error && (error.errMsg || error.message) || ''))) {
+          const response = { success: false, msg: '该入库记录已有待审批纠错申请，请勿重复提交' };
+          if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+          return response;
+        }
+        throw error;
+      }
+
+      const response = { success: true, msg: '纠错申请已提交，请等待管理员审批', id: created._id };
+      await writeAuditEvent(transaction, db, {
+        domain: 'inventory_correction',
+        action: 'create',
+        operator: { _openid: OPENID, name: (operator && operator.name) || '' },
+        operationId: operationContext && operationContext.operationId,
+        target: { type: 'inventory_correction_request', id: created._id, label: correctionRequest.unique_code },
+        after: correctionRequest
+      });
+      if (operationContext) {
+        await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      }
+      return response;
     });
 
-    return { success: true, msg: '纠错申请已提交，请等待管理员审批' };
-
   } catch (err) {
-    console.error('SubmitInventoryCorrectionRequest Error:', err);
-    return { success: false, msg: '提交失败: ' + err.message };
+    if (/duplicate|unique|唯一|already exists|已存在/i.test(String(err && (err.errMsg || err.message) || ''))) {
+      return { success: false, msg: '该入库记录已有待审批纠错申请，请勿重复提交' };
+    }
+    return handleCloudError(err, {
+      scope: 'submitInventoryCorrectionRequest',
+      operationId: event && event.operation_id,
+      fallbackMessage: '提交纠错申请失败，请稍后重试'
+    });
   }
 };

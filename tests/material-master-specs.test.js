@@ -213,8 +213,9 @@ test('updateInventory rejects the retired quick stock-in-out payload explicitly 
   assert.match(file, /旧快捷出入库协议已停用|请使用正式入库流程或库存详情页领用/);
   assert.match(file, /withdraw_amount/);
   assert.match(file, /assertActiveUserAccess/);
-  assert.doesNotMatch(file, /transaction\.collection\('inventory'\)\.where/);
-  assert.match(file, /transaction\.collection\('inventory'\)\.doc\(/);
+  assert.match(file, /transaction\.collection\('inventory'\)\.where/);
+  assert.match(file, /\['expiry_date', 'asc'\][\s\S]*\['create_time', 'asc'\][\s\S]*\['_id', 'asc'\]/);
+  assert.match(file, /MAX_WITHDRAW_CANDIDATES\s*=\s*500/);
 });
 
 test('updateInventory retries transient transaction conflicts and then completes withdrawal', async () => {
@@ -587,7 +588,9 @@ test('updateInventory stops retrying transient transaction conflicts after three
   }
 
   assert.equal(result.success, false);
-  assert.match(result.msg, /事务冲突/);
+  assert.equal(result.code, 'INTERNAL_ERROR');
+  assert.equal(result.msg, '领用失败，请稍后重试');
+  assert.equal(result.request_id, 'op_withdraw_conflict_001');
   assert.equal(transactionAttempts, 3);
 });
 

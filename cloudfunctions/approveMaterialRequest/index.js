@@ -24,6 +24,10 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
+function clearPendingKeyUpdate() {
+  return typeof _?.remove === 'function' ? { pending_key: _.remove() } : {};
+}
+
 function sanitizeText(value) {
   return String(value || '').trim();
 }
@@ -121,6 +125,7 @@ async function updatePendingMaterialRequestStatus(requestId, status, data = {}, 
     await requestRef.update({
       data: {
         status,
+        ...clearPendingKeyUpdate(),
         ...data,
         updated_at: db.serverDate()
       }
@@ -240,6 +245,7 @@ exports.main = async (event, context) => {
                 await transaction.collection('material_requests').doc(request_id).update({
                     data: {
                         status: 'rejected',
+                        ...clearPendingKeyUpdate(),
                         reject_reason: 'System: Code already exists in library',
                         updated_at: db.serverDate()
                     }
@@ -295,6 +301,7 @@ exports.main = async (event, context) => {
             await transaction.collection('material_requests').doc(request_id).update({
                 data: {
                     status: 'approved',
+                    ...clearPendingKeyUpdate(),
                     material_id: addRes._id,
                     subcategory_key: resolvedSubcategory.subcategory_key,
                     sub_category: resolvedSubcategory.sub_category,

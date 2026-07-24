@@ -287,3 +287,23 @@ test('critical write cloud functions emit unified audit events', () => {
     assert.match(source, /writeAuditEvent|writePreprintAudit/);
   }
 });
+
+test('all governed master-data mutations write business changes and audit events through the same transaction', () => {
+  const masterWriters = [
+    'cloudfunctions/manageProjectCode/index.js',
+    'cloudfunctions/manageSubcategory/index.js',
+    'cloudfunctions/addWarehouseZone/index.js',
+    'cloudfunctions/manageTestMaterialIdentity/index.js',
+    'cloudfunctions/manageProductCodePrefix/index.js'
+  ];
+
+  for (const relPath of masterWriters) {
+    const source = read(relPath);
+    assert.match(source, /runTransaction/);
+    assert.match(source, /write(?:Project|Subcategory|Warehouse|Identity|Prefix)Audit\([^\n]*transaction|writeAuditEvent\(transaction/);
+    assert.equal(
+      source.includes("normalized === 'active' || normalized === 'disabled'"),
+      true
+    );
+  }
+});

@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const repoRoot = path.resolve(__dirname, '..');
+const SHARED_COPY_EXCEPTIONS = new Set([
+  'cloudfunctions/addMaterialRequest/material-units.js',
+  'cloudfunctions/approveMaterialRequest/material-units.js'
+]);
 
 function read(relPath) {
   return fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
@@ -111,6 +116,7 @@ function assertSharedSync() {
   const sharedFiles = [
     'auth.js',
     'audit-events.js',
+    'error-response.js',
     'operation-receipts.js',
     'inventory-quantity.js',
     'preprint-jobs.js',
@@ -143,6 +149,56 @@ function assertSharedSync() {
       fail(`${functionName} 缺少 audit-events.js 副本，请运行 npm run sync:shared`);
     }
   }
+
+  const requiredErrorResponseCopies = [
+    'addMaterial',
+    'batchAddInventory',
+    'importInventoryTemplate',
+    'updateInventory',
+    'addMaterialRequest',
+    'submitInventoryCorrectionRequest',
+    'manageProjectCode',
+    'manageSubcategory',
+    'addWarehouseZone',
+    'manageTestMaterialIdentity',
+    'manageProductCodePrefix',
+    'getLogs',
+    'getProjectUsageReport',
+    'exportProjectUsageReport'
+  ];
+  for (const functionName of requiredErrorResponseCopies) {
+    if (!exists(`cloudfunctions/${functionName}/error-response.js`)) {
+      fail(`${functionName} 缺少 error-response.js 副本，请运行 npm run sync:shared`);
+    }
+  }
+
+  const mappings = new Map();
+  const copyPattern = /^cp\s+(cloudfunctions\/_shared\/\S+)\s+(cloudfunctions\/\S+)$/gm;
+  let match;
+  while ((match = copyPattern.exec(syncScript))) {
+    mappings.set(match[2], match[1]);
+  }
+  const hash = relPath => crypto.createHash('sha256').update(fs.readFileSync(path.join(repoRoot, relPath))).digest('hex');
+  for (const [target, source] of mappings) {
+    if (!exists(target)) {
+      fail(`共享副本缺失: ${target}`);
+    }
+    if (hash(source) !== hash(target)) {
+      fail(`共享副本内容不一致: ${target}；请运行 npm run sync:shared`);
+    }
+  }
+
+  const sharedNames = new Set(fs.readdirSync(path.join(repoRoot, 'cloudfunctions', '_shared')));
+  for (const functionName of listCloudFunctionDirectories()) {
+    const functionDir = path.join(repoRoot, 'cloudfunctions', functionName);
+    for (const fileName of fs.readdirSync(functionDir)) {
+      if (!sharedNames.has(fileName)) continue;
+      const relPath = `cloudfunctions/${functionName}/${fileName}`;
+      if (!mappings.has(relPath) && !SHARED_COPY_EXCEPTIONS.has(relPath)) {
+        fail(`共享副本未登记同步或例外白名单: ${relPath}`);
+      }
+    }
+  }
 }
 
 function assertReadmeDeploymentChecklist() {
@@ -151,6 +207,10 @@ function assertReadmeDeploymentChecklist() {
     'operation_receipts',
     'audit_events',
     'preprint_daily_usage',
+    'material_requests.pending_key',
+    'inventory_correction_requests.pending_key',
+    'audit_events.timestamp desc + _id desc',
+    'npm run release:check',
     'test_material_identities',
     'test_material_identities.identity_key',
     'test_material_identities.product_code + status + supplier_model_key',
@@ -180,6 +240,8 @@ function assertStableQuerySorts() {
     'cloudfunctions/getInventoryBatches/index.js',
     'cloudfunctions/getDashboardStats/index.js',
     'cloudfunctions/getOperators/index.js'
+    , 'cloudfunctions/getProjectUsageReport/index.js'
+    , 'cloudfunctions/exportProjectUsageReport/index.js'
   ];
   for (const relPath of files) {
     const source = read(relPath);

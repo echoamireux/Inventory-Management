@@ -17,7 +17,8 @@ Page({
     pageSize: 20,
     total: 0,
     isEnd: false,
-    requestId: 0
+    requestId: 0,
+    searchMessage: ''
   },
 
   onLoad() {
@@ -40,7 +41,8 @@ Page({
       activeTab: e.detail.name,
       page: 1,
       isEnd: false,
-      total: 0
+      total: 0,
+      searchMessage: ''
     }, () => {
       this.getList(true);
     });
@@ -90,7 +92,8 @@ Page({
           list,
           page: page + 1,
           total: res.result.total,
-          isEnd
+          isEnd,
+          searchMessage: searchVal ? (res.result.searchMessage || '') : ''
         });
       } else {
         Toast.fail(res.result.msg || '加载失败');
@@ -117,22 +120,22 @@ Page({
   onSearch(e) {
     const searchVal = resolveSearchValue(e && e.detail);
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal, page: 1, isEnd: false });
+    this.setData({ searchVal, page: 1, isEnd: false, searchMessage: '' });
     this.getList(true);
   },
 
   onSearchChange(e) {
     const searchVal = resolveSearchValue(e && e.detail);
-    this.setData({ searchVal, page: 1, isEnd: false });
+    this.setData({ searchVal, page: 1, isEnd: false, searchMessage: '' });
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => {
       this.getList(true);
-    }, 500);
+    }, 400);
   },
 
   onSearchClear() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal: '', page: 1, isEnd: false });
+    this.setData({ searchVal: '', page: 1, isEnd: false, searchMessage: '' });
     this.getList(true);
   },
 

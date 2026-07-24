@@ -45,6 +45,14 @@ const {
   ensureOperationId,
   clearOperationId
 } = require('../../utils/operation-id');
+const {
+  runChunkedBatchTask,
+  saveBatchTask,
+  loadBatchTask,
+  clearBatchTask
+} = require('../../utils/batch-task');
+
+const BATCH_TASK_SCOPE = 'batchAddInventory:batch-entry';
 
 const DEFAULT_PREFIX_OPTIONS = [
   { prefix: 'J', category: 'chemical', status: 'active' },
@@ -164,6 +172,93 @@ Page({
       };
     }
     this._pageInitialized = true;
+    this.offerPendingBatchTask();
+  },
+
+  offerPendingBatchTask() {
+      const task = loadBatchTask(BATCH_TASK_SCOPE);
+      if (!task || !Array.isArray(task.items) || !task.items.length) {
+          return;
+      }
+
+      setTimeout(async () => {
+          const shouldResume = await Dialog.confirm({
+              title: '发现未完成入库任务',
+              message: `已完成 ${Number(task.succeeded) || 0}/${task.items.length} 条，是否继续重试未完成批次？`,
+              messageAlign: 'left',
+              confirmButtonText: '继续',
+              cancelButtonText: '取消任务'
+          }).then(() => true).catch(() => false);
+
+          if (!shouldResume) {
+              clearBatchTask(BATCH_TASK_SCOPE);
+              clearOperationId(BATCH_TASK_SCOPE);
+              return;
+          }
+
+          await this.executeBatchTask(task);
+      }, 0);
+  },
+
+  async executeBatchTask(task) {
+      const completedChunkIndexes = Array.isArray(task.completedChunkIndexes)
+          ? task.completedChunkIndexes.slice()
+          : [];
+      saveBatchTask(BATCH_TASK_SCOPE, task);
+      wx.showLoading({ title: '分批提交中...', mask: true });
+
+      const result = await runChunkedBatchTask({
+          items: task.items,
+          rootOperationId: task.rootOperationId,
+          completedChunkIndexes,
+          submitChunk: async ({ items, operationId }) => {
+              const res = await wx.cloud.callFunction({
+                  name: 'batchAddInventory',
+                  data: {
+                      items,
+                      operator_name: task.operatorName,
+                      operation_id: operationId
+                  }
+              });
+              return res.result;
+          },
+          onProgress: chunk => {
+              if (chunk.status === 'completed' && !completedChunkIndexes.includes(chunk.chunk_index)) {
+                  completedChunkIndexes.push(chunk.chunk_index);
+              }
+              saveBatchTask(BATCH_TASK_SCOPE, {
+                  ...task,
+                  completedChunkIndexes,
+                  succeeded: completedChunkIndexes.reduce((total, chunkIndex) => {
+                      const start = chunkIndex * 10;
+                      return total + task.items.slice(start, start + 10).length;
+                  }, 0)
+              });
+          }
+      });
+
+      wx.hideLoading();
+      if (result.status === 'completed') {
+          clearBatchTask(BATCH_TASK_SCOPE);
+          clearOperationId(BATCH_TASK_SCOPE);
+          Toast.success(`成功入库 ${result.succeeded} 条`);
+          this.setData({ list: [] });
+          setTimeout(() => wx.navigateBack(), 1500);
+          return result;
+      }
+
+      saveBatchTask(BATCH_TASK_SCOPE, {
+          ...task,
+          completedChunkIndexes,
+          succeeded: result.succeeded,
+          lastResult: result
+      });
+      const failure = result.failed[0] || {};
+      await this.showBusinessError(
+          `已成功 ${result.succeeded}/${result.total} 条。\n失败批次：第 ${Number(failure.chunk_index) + 1} 批\n失败行：${(failure.row_indexes || []).join('、')}\n原因：${failure.msg || '批次处理失败'}\n\n可稍后重新进入本页继续重试。`,
+          result.status === 'partial' ? '部分入库成功' : '入库失败'
+      );
+      return result;
   },
 
   onShow() {
@@ -1322,40 +1417,21 @@ Page({
               return;
           }
 
-          wx.showLoading({ title: '提交中...', mask: true });
-
           const payload = {
               items,
               operator_name: operator
           };
-          const operationScope = 'batchAddInventory:batch-entry';
-          const res = await wx.cloud.callFunction({
-              name: 'batchAddInventory',
-              data: {
-                  ...payload,
-                  operation_id: ensureOperationId(operationScope, payload, 'batchin')
-              }
-          });
+          const task = {
+              rootOperationId: ensureOperationId(BATCH_TASK_SCOPE, payload, 'batchin'),
+              items,
+              operatorName: operator,
+              completedChunkIndexes: [],
+              succeeded: 0
+          };
+          const result = await this.executeBatchTask(task);
 
-          if (res.result.success) {
-              clearOperationId(operationScope);
-              wx.hideLoading();
-              const successParts = [];
-              if (createCount > 0) {
-                  successParts.push(`新增 ${createCount} 条`);
-              }
-              if (refillCount > 0) {
-                  successParts.push(`补料 ${refillCount} 条`);
-              }
-              Toast.success(successParts.length ? successParts.join('，') : `成功入库 ${res.result.total} 项`);
-              this.setData({ list: [] });
-
-              // Navigate back or stay?
-              setTimeout(() => {
-                  wx.navigateBack();
-              }, 1500);
-          } else {
-              throw new Error(res.result.msg);
+          if (result.status !== 'completed') {
+              return;
           }
       } catch (err) {
           console.error(err);

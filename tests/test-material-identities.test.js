@@ -129,7 +129,7 @@ test('test material identity management is registered for admins and shared to w
 
   assert.match(appJson, /pages\/admin\/test-material-identity-manage\/index/);
   assert.doesNotMatch(homeWxml, /title="测试料型号库"/);
-  assert.match(homeWxml, /title="物料管理"/);
+  assert.match(homeWxml, /title="主数据管理"/);
   assert.match(manifest, /manageTestMaterialIdentity/);
   assert.match(syncScript, /test-material-identities\.js/);
   assert.match(preflight, /test-material-identities\.js/);
@@ -159,7 +159,8 @@ test('test material identity template export is registered and opened from inlin
   assert.match(materialListJs, /listTestMaterialIdentities/);
   assert.match(materialListJs, /loadIdentityResults/);
   assert.match(materialListWxml, /name="testIdentity"/);
-  assert.match(materialListWxml, /测试料型号匹配/);
+  assert.match(materialListWxml, /测试料型号库/);
+  assert.match(materialListWxml, /所属物料：/);
   assert.doesNotMatch(materialListWxml, /bind:click="onManageTestMaterialIdentities"/);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), true);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/package-lock.json')), true);

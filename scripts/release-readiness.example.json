@@ -1,0 +1,26 @@
+{
+  "environment": "production",
+  "collections": {
+    "operation_receipts": false,
+    "audit_events": false,
+    "material_requests": false,
+    "inventory_correction_requests": false,
+    "test_material_identities": false
+  },
+  "indexes": {
+    "inventory.unique_code": false,
+    "inventory.product_code + status + expiry_date + create_time + _id": false,
+    "inventory.product_code + status + batch_number + expiry_date + create_time + _id": false,
+    "inventory.product_code + status + supplier_model_key + expiry_date + create_time + _id": false,
+    "inventory.product_code + status + batch_number + supplier_model_key + expiry_date + create_time + _id": false,
+    "inventory_log.timestamp desc + _id desc": false,
+    "inventory_log.type + timestamp desc + _id desc": false,
+    "audit_events.timestamp desc + _id desc": false,
+    "material_requests.product_code + status": false,
+    "inventory_correction_requests.source_log_id + status": false,
+    "material_requests.pending_key unique": false,
+    "inventory_correction_requests.pending_key unique": false
+  },
+  "aclCloudFunctionOnly": false,
+  "removedCloudFunctions": []
+}

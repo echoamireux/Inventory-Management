@@ -3,17 +3,25 @@ const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 const {
   normalizeProjectCode,
   normalizeProjectName,
-  normalizeStatus,
   ensureBuiltinProjectCodes,
   sortProjectCodeRecords
 } = require('./project-codes');
 const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
 
 const db = cloud.database();
+
+async function runWriteTransaction(handler) {
+  if (typeof db.runTransaction === 'function') {
+    return db.runTransaction(handler);
+  }
+  // Test doubles and legacy local emulators may not expose transactions.
+  return handler(db);
+}
 
 async function loadOperator(openid) {
   const res = await db.collection('users')
@@ -33,8 +41,13 @@ async function findProjectByCode(projectCode) {
   return records.find(item => item.project_code === projectCode) || null;
 }
 
-async function writeProjectAudit(action, operator, openid, record = {}, detail = {}) {
-  await writeAuditEvent(db, db, {
+function parseMutationStatus(status) {
+  const normalized = String(status || '').trim();
+  return normalized === 'active' || normalized === 'disabled' ? normalized : '';
+}
+
+async function writeProjectAudit(transaction, action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(transaction, db, {
     domain: 'project_code',
     action,
     operator: Object.assign({}, operator || {}, { _openid: openid }),
@@ -82,22 +95,32 @@ async function createProject(event, openid) {
 
   const records = await getProjectRecords(true);
   const maxOrder = records.reduce((max, item) => Math.max(max, Number(item.sort_order) || 0), 0);
-  const res = await db.collection('project_codes').add({
-    data: {
+  const res = await runWriteTransaction(async transaction => {
+    const duplicateRes = await transaction.collection('project_codes')
+      .where({ project_code: projectCode })
+      .limit(1)
+      .get();
+    if (duplicateRes.data && duplicateRes.data.length) {
+      throw new Error('项目编码已存在');
+    }
+    const created = await transaction.collection('project_codes').add({
+      data: {
+        project_code: projectCode,
+        project_name: projectName,
+        status: 'active',
+        is_builtin: false,
+        sort_order: maxOrder + 10,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+    await writeProjectAudit(transaction, 'create', operator, openid, {
+      _id: created._id,
       project_code: projectCode,
       project_name: projectName,
-      status: 'active',
-      is_builtin: false,
-      sort_order: maxOrder + 10,
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    }
-  });
-  await writeProjectAudit('create', operator, openid, {
-    _id: res._id,
-    project_code: projectCode,
-    project_name: projectName,
-    status: 'active'
+      status: 'active'
+    });
+    return created;
   });
 
   return {
@@ -129,17 +152,23 @@ async function updateProject(event, openid) {
     return { success: false, msg: '项目编码不存在' };
   }
 
-  await db.collection('project_codes').doc(project._id).update({
-    data: {
-      project_name: projectName,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeProjectAudit('update', operator, openid, Object.assign({}, project, {
-    project_name: projectName
-  }), {
-    previous_name: project.project_name,
-    next_name: projectName
+  await runWriteTransaction(async transaction => {
+    const docRef = transaction.collection('project_codes').doc(project._id);
+    const currentRes = typeof docRef.get === 'function' ? await docRef.get() : { data: project };
+    const current = currentRes.data;
+    if (!current) throw new Error('项目编码不存在');
+    await docRef.update({
+      data: {
+        project_name: projectName,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeProjectAudit(transaction, 'update', operator, openid, Object.assign({}, current, {
+      project_name: projectName
+    }), {
+      previous_name: current.project_name,
+      next_name: projectName
+    });
   });
 
   return { success: true, msg: '保存成功' };
@@ -153,23 +182,32 @@ async function setProjectStatus(event, openid) {
   }
 
   const projectCode = normalizeProjectCode(event && event.project_code);
-  const nextStatus = normalizeStatus(event && event.status);
+  const nextStatus = parseMutationStatus(event && event.status);
+  if (!nextStatus) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   const project = await findProjectByCode(projectCode);
   if (!project || !project._id) {
     return { success: false, msg: '项目编码不存在' };
   }
 
-  await db.collection('project_codes').doc(project._id).update({
-    data: {
-      status: nextStatus,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeProjectAudit('status', operator, openid, Object.assign({}, project, {
-    status: nextStatus
-  }), {
-    previous_status: project.status,
-    next_status: nextStatus
+  await runWriteTransaction(async transaction => {
+    const docRef = transaction.collection('project_codes').doc(project._id);
+    const currentRes = typeof docRef.get === 'function' ? await docRef.get() : { data: project };
+    const current = currentRes.data;
+    if (!current) throw new Error('项目编码不存在');
+    await docRef.update({
+      data: {
+        status: nextStatus,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeProjectAudit(transaction, 'status', operator, openid, Object.assign({}, current, {
+      status: nextStatus
+    }), {
+      previous_status: current.status,
+      next_status: nextStatus
+    });
   });
 
   return {
@@ -199,17 +237,19 @@ async function reorderProjects(event, openid) {
     return { success: false, msg: '未找到可排序的项目编码' };
   }
 
-  for (let index = 0; index < validCodes.length; index += 1) {
-    const record = recordMap.get(validCodes[index]);
-    await db.collection('project_codes').doc(record._id).update({
-      data: {
-        sort_order: (index + 1) * 10,
-        updated_at: db.serverDate()
-      }
+  await runWriteTransaction(async transaction => {
+    for (let index = 0; index < validCodes.length; index += 1) {
+      const record = recordMap.get(validCodes[index]);
+      await transaction.collection('project_codes').doc(record._id).update({
+        data: {
+          sort_order: (index + 1) * 10,
+          updated_at: db.serverDate()
+        }
+      });
+    }
+    await writeProjectAudit(transaction, 'reorder', operator, openid, { project_code: validCodes.join(',') }, {
+      project_codes: validCodes
     });
-  }
-  await writeProjectAudit('reorder', operator, openid, { project_code: validCodes.join(',') }, {
-    project_codes: validCodes
   });
 
   return { success: true, msg: '排序已更新' };
@@ -238,7 +278,9 @@ exports.main = async (event, context) => {
 
     return { success: false, msg: `不支持的操作: ${action}` };
   } catch (err) {
-    console.error('manageProjectCode error', err);
-    return { success: false, msg: err.message };
+    return handleCloudError(err, {
+      scope: 'manageProjectCode',
+      fallbackMessage: '项目编码操作失败，请稍后重试'
+    });
   }
 };

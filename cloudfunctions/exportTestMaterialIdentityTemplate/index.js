@@ -78,7 +78,7 @@ exports.main = async () => {
     if (!spec.testMaterialCodes.length) {
       return {
         success: false,
-        msg: '当前没有已启用测试料主数据，请先在物料管理中新增测试料代码壳'
+        msg: '当前没有已启用测试料主数据，请先在主数据管理中新增测试料代码壳'
       };
     }
 

@@ -145,6 +145,7 @@ test('home risk entry routes into a real inventory filter instead of a dead stor
 test('home and search-driven pages expose consistent search trigger wiring and field descriptions', () => {
   const homeIndexJs = read('miniprogram/pages/index/index.js');
   const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+  const homeIndexWxss = read('miniprogram/pages/index/index.wxss');
   const inventoryIndexWxml = read('miniprogram/pages/inventory/index.wxml');
   const materialDirectoryWxml = read('miniprogram/pages/material-directory/index.wxml');
   const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
@@ -155,18 +156,43 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(homeIndexJs, /homeSearchVal:/);
   assert.match(homeIndexJs, /onSearchChange/);
   assert.match(homeIndexJs, /onSearchClear/);
+  assert.match(homeIndexJs, /loadHomeSearchSuggestions/);
+  assert.match(homeIndexJs, /navigateToInventorySearch/);
+  assert.doesNotMatch(homeIndexJs, /this\.homeSearchTimer\s*=\s*setTimeout\(\s*\(\)\s*=>\s*\{\s*this\.navigateToInventorySearch/);
   assert.match(homeIndexWxml, /value="\{\{ homeSearchVal \}\}"/);
+  assert.match(homeIndexWxml, /slot="action"[\s\S]*搜索/);
+  assert.match(homeIndexWxml, /home-search-suggestions/);
   assert.match(homeIndexWxml, /bind:change="onSearchChange"/);
   assert.match(homeIndexWxml, /bind:clear="onSearchClear"/);
   assert.match(homeIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(homeIndexWxss, /\.home-search-suggestions/);
+  assert.match(homeIndexWxss, /\.home-search-action/);
 
   assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
   assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
-  assert.match(materialListWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
+  assert.match(materialListWxml, /placeholder="搜索产品代码、物料名称或测试料型号"/);
   assert.match(logsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
   assert.match(adminLogsWxml, /placeholder="\{\{ searchPlaceholder \}\}"/);
   assert.match(adminLogsJs, /产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注/);
   assert.match(adminLogsJs, /领域\/动作\/操作人\/目标对象\/操作编号\/关键说明/);
+});
+
+test('search-driven list pages use the agreed debounce timing and stale-request protection', () => {
+  const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
+  const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const identityManageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
+  const labelExportJs = read('miniprogram/pages/admin/label-export/index.js');
+  const projectUsageJs = read('miniprogram/pages/project-usage/index.js');
+
+  assert.match(inventoryIndexJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.getList\(true\);?\s*\},\s*400\)/);
+  assert.match(materialDirectoryJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.getList\(true\);?\s*\},\s*400\)/);
+  assert.match(materialListJs, /setTimeout\(\(\)\s*=>\s*this\.refreshSearchResults\(\),\s*400\)/);
+  assert.match(identityManageJs, /setTimeout\(\(\)\s*=>\s*this\.loadIdentities\(\),\s*400\)/);
+  assert.match(labelExportJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.resetSelection\(\);[\s\S]*this\.getList\(true\);[\s\S]*\},\s*400\)/);
+  assert.match(projectUsageJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.loadReport\(true\);?\s*\},\s*600\)/);
+  assert.match(projectUsageJs, /_reportRequestKey/);
+  assert.match(projectUsageJs, /_reportRequestPromise/);
 });
 
 test('grouped inventory search keeps full product totals while using search only for matching', () => {
@@ -174,9 +200,12 @@ test('grouped inventory search keeps full product totals while using search only
 
   assert.match(groupedCf, /const baseConditions = \[\{ status: 'in_stock' \}\]/);
   assert.match(groupedCf, /const searchConditions = baseConditions\.slice\(\)/);
-  assert.match(groupedCf, /const matchedSourceItems = await loadInventoryGroupSourceItems\(where\)/);
+  assert.match(groupedCf, /const matchedSourceResult = await loadInventoryGroupSourceItems\(where,\s*100,\s*\{/);
+  assert.match(groupedCf, /maxRows:\s*regex \? MAX_SEARCH_CANDIDATES : 0/);
+  assert.match(groupedCf, /const matchedSourceItems = matchedSourceResult\.items \|\| \[\]/);
   assert.match(groupedCf, /const matchedGroupKeys = new Set/);
-  assert.match(groupedCf, /const groupSourceItems = regex \? await loadInventoryGroupSourceItems\(baseWhere\) : matchedSourceItems/);
+  assert.match(groupedCf, /const groupSourceResult = regex[\s\S]*await loadInventoryGroupSourceItems\(baseWhere\)[\s\S]*matchedSourceResult/);
+  assert.match(groupedCf, /const groupSourceItems = groupSourceResult\.items \|\| \[\]/);
   assert.match(groupedCf, /matchedGroupKeys\.has\(item\._groupKey\)/);
   assert.match(groupedCf, /loadInventoryItemsForGroups\(baseWhere, list\)/);
   assert.doesNotMatch(groupedCf, /loadInventoryItemsByProductCodes\(where, pageCodes\)/);
@@ -329,7 +358,7 @@ test('home shortcuts are grouped by usage frequency and permission level', () =>
     '物料查询',
     '管理维护',
     '审批中心',
-    '物料管理',
+    '主数据管理',
     '项目编码管理',
     '人员与权限',
     '日志追溯',
@@ -348,6 +377,55 @@ test('home shortcuts are grouped by usage frequency and permission level', () =>
   assert.match(homeIndexWxml, /wx:if="\{\{ isAdmin \|\| isSuperAdmin \}\}"/);
   assert.match(homeIndexWxml, /title="人员与权限"[\s\S]*wx:if="\{\{ isSuperAdmin \}\}"/);
   assert.match(homeIndexWxml, /title="审计日志"[\s\S]*wx:if="\{\{ isAdmin \}\}"/);
+});
+
+test('master data page groups material and test-model search results with status and parent context', () => {
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+  const materialListJson = read('miniprogram/pages/admin/material-list.json');
+
+  assert.match(materialListJson, /"navigationBarTitleText":\s*"主数据管理"/);
+  assert.match(materialListWxml, /title="物料主数据"/);
+  assert.match(materialListWxml, /title="测试料型号库"/);
+  assert.match(materialListWxml, /title="在用"/);
+  assert.match(materialListWxml, /title="已归档"/);
+  assert.match(materialListJs, /status:\s*normalizedSearchVal \? 'all' : materialStatus/);
+  assert.match(materialListJs, /includeDisabled:\s*this\.data\.activeTab === 'testIdentity' \|\| !!normalizeSearchKeyword/);
+  assert.match(materialListJs, /Promise\.all\(\[[\s\S]*this\.getList\(true\)[\s\S]*this\.loadIdentityResults\(\{ refresh: true \}\)/);
+  assert.match(materialListWxml, /物料主数据[\s\S]*测试料型号/);
+  assert.match(materialListWxml, /所属物料：/);
+  assert.match(materialListWxml, /产品代码：/);
+  assert.match(materialListWxml, /已归档/);
+  assert.match(materialListWxml, /已停用/);
+  assert.match(materialListWxml, /match-reason/);
+  assert.doesNotMatch(materialListWxml, /维护型号库/);
+});
+
+test('inventory and master data pages surface broad-search guidance from cloud functions', () => {
+  const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
+  const inventoryIndexJs = read('miniprogram/pages/inventory/index.js');
+  const inventoryIndexWxml = read('miniprogram/pages/inventory/index.wxml');
+  const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');
+  const materialDirectoryWxml = read('miniprogram/pages/material-directory/index.wxml');
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
+  const identityServiceJs = read('miniprogram/utils/test-material-identity-service.js');
+  const identityManageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
+  const identityManageWxml = read('miniprogram/pages/admin/test-material-identity-manage/index.wxml');
+
+  assert.match(groupedCf, /MAX_SEARCH_CANDIDATES/);
+  assert.match(groupedCf, /searchTruncated/);
+  assert.match(groupedCf, /结果较多，请继续输入关键词/);
+  assert.match(inventoryIndexJs, /searchMessage:/);
+  assert.match(inventoryIndexWxml, /text="\{\{ searchMessage \}\}"/);
+  assert.match(materialDirectoryJs, /searchMessage:/);
+  assert.match(materialDirectoryWxml, /text="\{\{ searchMessage \}\}"/);
+  assert.match(materialListJs, /searchNoticeText:/);
+  assert.match(materialListWxml, /text="\{\{ searchNoticeText \}\}"/);
+  assert.match(identityServiceJs, /searchTruncated/);
+  assert.match(identityServiceJs, /searchMessage/);
+  assert.match(identityManageJs, /searchMessage:/);
+  assert.match(identityManageWxml, /text="\{\{ searchMessage \}\}"/);
 });
 
 test('grouped inventory cards expose a compact match reason hint during searches', () => {

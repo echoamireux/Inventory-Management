@@ -38,7 +38,7 @@ function normalizeOperationId(operationId) {
   if (!normalized) {
     throw new Error('缺少操作编号，请刷新页面后重试');
   }
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(normalized)) {
+  if (!/^[A-Za-z0-9_:-]{8,100}$/.test(normalized)) {
     throw new Error('操作编号格式不正确，请刷新页面后重试');
   }
   return normalized;

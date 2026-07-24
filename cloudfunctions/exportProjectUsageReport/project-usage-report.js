@@ -1,3 +1,8 @@
+const {
+  normalizeSearchKeyword,
+  normalizeSearchText
+} = require('./search');
+
 function normalizeText(value) {
   return String(value == null ? '' : value).trim();
 }
@@ -94,7 +99,7 @@ function summarizeProjectUsageLogs(logs = []) {
 }
 
 function filterProjectUsageLogs(logs = [], filters = {}) {
-  const keyword = normalizeText(filters.keyword || filters.searchVal).toLowerCase();
+  const keyword = normalizeSearchKeyword(filters.keyword || filters.searchVal);
   const projectCode = normalizeText(filters.project_code || filters.projectCode);
   const operator = normalizeText(filters.operator || filters.operatorFilter);
   const startTime = filters.startTime || toTimestamp(filters.startDate);
@@ -129,10 +134,13 @@ function filterProjectUsageLogs(logs = [], filters = {}) {
         formatted.batch_number,
         formatted.operator_name,
         formatted.withdraw_note
-      ].join(' ').toLowerCase();
+      ].map(normalizeSearchText).join(' ');
       return searchable.includes(keyword);
     })
-    .sort((left, right) => toTimestamp(right.timestamp || right.create_time) - toTimestamp(left.timestamp || left.create_time));
+    .sort((left, right) => {
+      const timeDiff = toTimestamp(right.timestamp || right.create_time) - toTimestamp(left.timestamp || left.create_time);
+      return timeDiff || String(right._id || '').localeCompare(String(left._id || ''));
+    });
 }
 
 module.exports = {

@@ -82,6 +82,9 @@ test('README documents production permissions, required indexes and retired clou
     '`removeInventory`',
     '`removeInventory` 安全部署',
     '`editInventory`',
+    '管理员继续可以直接执行盘点调整',
+    '允许审批自己提交的纠错申请',
+    '审计写入失败时，业务事务必须一并回滚',
     'npm run preflight:deploy',
     '删除云端 `login`',
     '删除云端 `initMDMCollection`'
@@ -115,5 +118,22 @@ test('deployment preflight script verifies cloud functions, shared copies and st
     const source = read(relPath);
     assert.match(source, /_id/, `${relPath} should include _id in stable sorting`);
     assert.match(source, /orderBy|applyStableOrder/, `${relPath} should apply stable sorting`);
+  }
+});
+
+test('release gates reject placeholder environments and declare concurrency and FEFO indexes', () => {
+  const appSource = read('miniprogram/app.js');
+  const releaseCheck = read('scripts/release-check.js');
+  const readme = read('README.md');
+
+  assert.match(appSource, /REPLACE_WITH_WECHAT_CLOUD_ENV_ID/);
+  for (const requiredIndex of [
+    'material_requests.product_code + status',
+    'inventory_correction_requests.source_log_id + status',
+    'inventory.product_code + status + expiry_date + create_time + _id',
+    'audit_events.timestamp desc + _id desc'
+  ]) {
+    assert.equal(releaseCheck.includes(requiredIndex), true, `release-check missing ${requiredIndex}`);
+    assert.equal(readme.includes(requiredIndex), true, `README missing ${requiredIndex}`);
   }
 });

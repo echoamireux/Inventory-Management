@@ -36,6 +36,8 @@ test('batch entry page enforces a 100-row submit limit before cloud submit', () 
     'utf8'
   );
   assert.match(pageJs, /assertBatchEntryItemLimit\(this\.data\.list\.length\)/);
+  assert.match(pageJs, /runChunkedBatchTask/);
+  assert.match(pageJs, /name:\s*'batchAddInventory'/);
 });
 
 test('batch entry rejects scanned materials from the wrong category', () => {

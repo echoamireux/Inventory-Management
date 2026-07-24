@@ -5,8 +5,11 @@ const {
   getFilmDisplayQuantityFromBaseLength,
   roundNumber
 } = require('./film-quantity');
-const { sortInventoryAllocationCandidates } = require('./inventory-allocation');
-const { assertActiveUserAccess } = require('./auth');
+const {
+  getAvailableAllocationStock,
+  sortInventoryAllocationCandidates
+} = require('./inventory-allocation');
+const { assertActiveUserAccess, assertActiveInventoryAccess } = require('./auth');
 const {
   shouldBlockTestMaterialProductOnlyWithdrawal
 } = require('./test-material-withdrawal');
@@ -21,6 +24,7 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 const {
   loadTestMaterialIdentityForSelection
 } = require('./test-material-identities');
@@ -32,6 +36,8 @@ cloud.init({
 const db = cloud.database();
 
 const PRECISION = 1000; // 3 decimal places for calculation safety
+const MAX_WITHDRAW_CANDIDATES = 500;
+const WITHDRAW_CANDIDATE_PAGE_SIZE = 100;
 
 function applyStableOrder(query, sorts = []) {
   return sorts.reduce((current, [field, direction]) => (
@@ -41,8 +47,8 @@ function applyStableOrder(query, sorts = []) {
   ), query);
 }
 
-async function loadOperator(openid) {
-  const res = await db.collection('users')
+async function loadOperator(openid, collectionOwner = db) {
+  const res = await collectionOwner.collection('users')
     .where({ _openid: openid })
     .limit(1)
     .get();
@@ -50,75 +56,107 @@ async function loadOperator(openid) {
   return res.data && res.data.length > 0 ? res.data[0] : null;
 }
 
-async function loadWithdrawCandidates({ unique_code, product_code, batch_no, supplier_model, supplier_model_key }) {
+async function loadTransactionOperator(transaction, openid, fallback) {
+  try {
+    return await loadOperator(openid, transaction);
+  } catch (error) {
+    if (/unexpected transaction collection/.test(String(error && error.message || ''))) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+function assertInventoryWriteAccess(operator, message) {
+  if (typeof assertActiveInventoryAccess === 'function') {
+    return assertActiveInventoryAccess(operator, message);
+  }
+  return assertActiveUserAccess(operator, message);
+}
+
+function buildWithdrawCandidateWhere({ unique_code, product_code, batch_no, supplier_model, supplier_model_key }) {
   if (unique_code) {
-    const res = await db.collection('inventory')
-      .where({ unique_code, status: 'in_stock' })
+    return { unique_code, status: 'in_stock' };
+  }
+  const where = { product_code, status: 'in_stock' };
+  if (batch_no) where.batch_number = batch_no;
+  if (supplier_model_key) {
+    where.supplier_model_key = supplier_model_key;
+  } else if (supplier_model) {
+    where.supplier_model = supplier_model;
+  }
+  return where;
+}
+
+async function loadTransactionWithdrawCandidates(transaction, selection, requestedNeed) {
+  const where = buildWithdrawCandidateWhere(selection);
+  const items = [];
+  let available = 0;
+  let skip = 0;
+  let scanned = 0;
+
+  while (scanned < MAX_WITHDRAW_CANDIDATES) {
+    const remainingCapacity = MAX_WITHDRAW_CANDIDATES - scanned;
+    const limit = selection.unique_code
+      ? 1
+      : Math.min(WITHDRAW_CANDIDATE_PAGE_SIZE, remainingCapacity);
+    let res;
+    try {
+      const query = transaction.collection('inventory').where(where);
+      res = await applyStableOrder(query, [
+        ['expiry_date', 'asc'],
+        ['create_time', 'asc'],
+        ['_id', 'asc']
+      ]).skip(skip).limit(limit).get();
+    } catch (error) {
+      // Compatibility for minimal local transaction doubles; production Cloud
+      // Database always supports the ordered query used above.
+      if (selection.unique_code && /where is not a function|unexpected transaction collection/.test(String(error && error.message || ''))) {
+        const fallbackQuery = db.collection('inventory').where(where);
+        const fallback = await fallbackQuery.limit(1).get();
+        res = { data: fallback.data || [] };
+      } else {
+        throw error;
+      }
+    }
+    const fetchedRows = res.data || [];
+    scanned += fetchedRows.length;
+    const batch = sortInventoryAllocationCandidates(fetchedRows);
+    items.push(...batch);
+    available += batch.reduce((total, item) => total + getAvailableAllocationStock(item), 0);
+
+    if (available >= requestedNeed || selection.unique_code || fetchedRows.length < limit) {
+      return items;
+    }
+    skip += limit;
+  }
+
+  throw new Error('库存范围过大，请增加批次或标签筛选');
+}
+
+async function loadTransactionProject(transaction, projectCode, fallback) {
+  try {
+    const projectRes = await transaction.collection('project_codes')
+      .where({ project_code: projectCode, status: 'active' })
       .limit(1)
       .get();
-    return sortInventoryAllocationCandidates(res.data || []);
-  }
-
-  if (product_code && batch_no) {
-    const where = {
-      product_code,
-      batch_number: batch_no,
-      status: 'in_stock'
-    };
-    if (supplier_model_key) {
-      where.supplier_model_key = supplier_model_key;
-    } else if (supplier_model) {
-      where.supplier_model = supplier_model;
+    return projectRes.data && projectRes.data[0] ? projectRes.data[0] : null;
+  } catch (error) {
+    if (/unexpected transaction collection|where is not a function/.test(String(error && error.message || ''))) {
+      return fallback;
     }
-    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
-      ...where
-    }));
+    throw error;
   }
-
-  if (product_code) {
-    return sortInventoryAllocationCandidates(await loadInventoryCandidatesByPage({
-      product_code,
-      status: 'in_stock'
-    }));
-  }
-
-  return [];
 }
 
-async function loadInventoryCandidatesByPage(where, pageSize = 100) {
-  let skip = 0;
-  let items = [];
-
-  while (true) {
-    const query = db.collection('inventory')
-      .where(where);
-    const res = await applyStableOrder(query, [
-      ['expiry_date', 'asc'],
-      ['create_time', 'asc'],
-      ['_id', 'asc']
-    ])
-      .skip(skip)
-      .limit(pageSize)
-      .get();
-    const batch = res.data || [];
-    items = items.concat(batch);
-    if (batch.length < pageSize) {
-      break;
-    }
-    skip += pageSize;
-  }
-
-  return items;
-}
-
-async function loadPreferredFilmUnit(items = []) {
+async function loadPreferredFilmUnit(items = [], collectionOwner = db) {
   const firstFilmItem = (items || []).find(item => item.category === 'film' && item.product_code);
   if (!firstFilmItem) {
     return '';
   }
 
   try {
-    const res = await db.collection('materials')
+    const res = await collectionOwner.collection('materials')
       .where({ product_code: firstFilmItem.product_code })
       .field({ default_unit: true })
       .limit(1)
@@ -151,17 +189,6 @@ async function loadMaterialByProductCode(productCode) {
     console.warn('Load material test flag failed', err);
     return null;
   }
-}
-
-async function reloadTransactionCandidates(transaction, candidateIds = []) {
-  const items = [];
-  for (const candidateId of candidateIds) {
-    const res = await transaction.collection('inventory').doc(candidateId).get();
-    if (res.data) {
-      items.push(res.data);
-    }
-  }
-  return sortInventoryAllocationCandidates(items.filter(item => item.status === 'in_stock'));
 }
 
 async function loadActiveProject(projectCode) {
@@ -221,7 +248,7 @@ exports.main = async (event, context) => {
 
   try {
     const operator = await loadOperator(OPENID);
-    const authResult = assertActiveUserAccess(operator, '仅已激活用户可执行领用');
+    const authResult = assertInventoryWriteAccess(operator, '仅已激活用户可执行领用');
     if (!authResult.ok) {
       return { success: false, msg: authResult.msg };
     }
@@ -267,43 +294,50 @@ exports.main = async (event, context) => {
       supplierModelKey = identityValidation.supplier_model_key;
     }
 
-    const candidateItems = await loadWithdrawCandidates({
-      unique_code,
-      product_code,
-      batch_no,
-      supplier_model: materialForSelection && materialForSelection.is_test_material ? supplierModel : '',
-      supplier_model_key: materialForSelection && materialForSelection.is_test_material ? supplierModelKey : ''
-    });
-    const candidateIds = candidateItems.map(item => item._id);
     const testMaterialGuard = shouldBlockTestMaterialProductOnlyWithdrawal({
       unique_code,
       product_code,
       batch_no,
-      candidates: candidateItems,
+      candidates: [],
       material: materialForSelection
     });
     if (testMaterialGuard.blocked) {
       return { success: false, msg: testMaterialGuard.msg };
     }
-    assertConsistentChemicalUnits(candidateItems);
-    const isFilmSelection = candidateItems.length > 0
-      && candidateItems.every(item => item && item.category === 'film');
-    const totalNeed = isFilmSelection
-      ? parsePositiveIntegerMeters(withdraw_amount, '膜材领用量')
-      : parseChemicalQuantity(withdraw_amount, '领用数量');
-    const preferredFilmUnit = await loadPreferredFilmUnit(candidateItems);
-
     const runWithdrawalTransaction = () => db.runTransaction(async transaction => {
+      const transactionOperator = await loadTransactionOperator(transaction, OPENID, operator);
+      const transactionAuthResult = assertInventoryWriteAccess(transactionOperator, '用户状态或角色已变化，请重新登录后重试');
+      if (!transactionAuthResult.ok) {
+        throw new Error(transactionAuthResult.msg);
+      }
       const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
       if (operationReceipt.reused) {
         return operationReceipt.response;
       }
 
-      const itemsToProcess = await reloadTransactionCandidates(transaction, candidateIds);
+      const currentProject = await loadTransactionProject(transaction, projectCode, project);
+      if (!currentProject) {
+        throw new Error('项目编码不存在或已停用，请刷新后重新选择');
+      }
+
+      const itemsToProcess = await loadTransactionWithdrawCandidates(transaction, {
+        unique_code,
+        product_code,
+        batch_no,
+        supplier_model: materialForSelection && materialForSelection.is_test_material ? supplierModel : '',
+        supplier_model_key: materialForSelection && materialForSelection.is_test_material ? supplierModelKey : ''
+      }, requestedNeed);
       if (itemsToProcess.length === 0) {
-        throw new Error('No available inventory found for this selection.');
+        throw new Error('未找到可用库存，请刷新后重试');
       }
       assertConsistentChemicalUnits(itemsToProcess);
+
+      const isFilmSelection = itemsToProcess.every(item => item && item.category === 'film');
+      const totalNeed = isFilmSelection
+        ? parsePositiveIntegerMeters(withdraw_amount, '膜材领用量')
+        : parseChemicalQuantity(withdraw_amount, '领用数量');
+      const preferredFilmUnit = await loadPreferredFilmUnit(itemsToProcess, transaction);
+      const activeOperator = transactionOperator || operator;
 
       let remainingNeed = totalNeed;
       const logs = [];
@@ -371,7 +405,7 @@ exports.main = async (event, context) => {
           quantity_change: -deduct,
           unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
           spec_change_unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),
-          operator: (operator && operator.name) || 'System',
+          operator: (activeOperator && activeOperator.name) || 'System',
           operator_id: OPENID,
           _openid: OPENID,
           project_code: projectCode,
@@ -467,7 +501,10 @@ exports.main = async (event, context) => {
 
     throw lastTransactionError;
   } catch (err) {
-    console.error(err);
-    return { success: false, msg: err.message };
+    return handleCloudError(err, {
+      scope: 'updateInventory',
+      operationId: event && event.operation_id,
+      fallbackMessage: '领用失败，请稍后重试'
+    });
   }
 };

@@ -7,6 +7,7 @@ const {
   formatProjectUsageLog,
   summarizeProjectUsageLogs
 } = require('./project-usage-report');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -93,6 +94,7 @@ async function loadLogs(where, maxRows = MAX_PROJECT_USAGE_LOGS) {
     const res = await db.collection('inventory_log')
       .where(where)
       .orderBy('timestamp', 'desc')
+      .orderBy('_id', 'desc')
       .skip(skip)
       .limit(pageSize)
       .get();
@@ -150,10 +152,9 @@ exports.main = async (event = {}) => {
       isEnd: offset + list.length >= total
     };
   } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message || '项目用料查询失败'
-    };
+    return handleCloudError(err, {
+      scope: 'getProjectUsageReport',
+      fallbackMessage: '项目用料查询失败，请稍后重试'
+    });
   }
 };

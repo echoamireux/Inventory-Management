@@ -20,12 +20,12 @@ const {
   buildInventoryIdentityKey
 } = require('./inventory-quantity');
 
-const MAX_BATCH_INVENTORY_ITEMS = 100;
+const MAX_BATCH_INVENTORY_ITEMS = 10;
 
 function assertBatchInventoryItemLimit(count) {
   const total = Number(count) || 0;
   if (total > MAX_BATCH_INVENTORY_ITEMS) {
-    throw new Error(`单次最多批量入库 ${MAX_BATCH_INVENTORY_ITEMS} 条，请拆分后再提交`);
+    throw new Error(`单个入库批次最多 ${MAX_BATCH_INVENTORY_ITEMS} 条`);
   }
 }
 

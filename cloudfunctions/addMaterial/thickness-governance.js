@@ -7,7 +7,7 @@ function normalizePositiveNumber(value) {
 }
 
 function getFilmThicknessLockedMessage(thicknessUm) {
-  return `当前物料厚度已锁定为 ${thicknessUm} μm，请按主数据入库；如需修改请联系管理员在物料管理中调整`;
+  return `当前物料厚度已锁定为 ${thicknessUm} μm，请按主数据入库；如需修改请联系管理员在主数据管理中调整`;
 }
 
 function resolveFilmThicknessGovernance({ materialThicknessUm, inboundThicknessUm }) {

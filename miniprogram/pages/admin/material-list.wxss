@@ -6,6 +6,11 @@
   background-color: #f7f8fa;
 }
 
+.status-tabs {
+  background: #ffffff;
+  border-top: 1rpx solid #f1f5f9;
+}
+
 .pb-100 {
   padding-bottom: 200rpx;
 }
@@ -33,6 +38,10 @@
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
+}
+
+.top-btns--identity {
+  flex: 1;
 }
 
 
@@ -111,6 +120,33 @@
   margin-top: 6rpx;
   color: #64748b;
   font-size: 24rpx;
+}
+
+.identity-parent {
+  display: block;
+  margin-top: 10rpx;
+  color: #334155;
+  font-size: 26rpx;
+}
+
+.match-reason {
+  align-self: flex-start;
+  display: inline-block;
+  margin-top: 10rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  background: #eef6ff;
+  color: #1d4ed8;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.section-title-row--padded {
+  padding: 0 24rpx;
+}
+
+.loading-state {
+  padding: 80rpx 24rpx;
 }
 
 /* 卡片 */

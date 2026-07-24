@@ -22,6 +22,12 @@ cloud.init({
 
 const db = cloud.database();
 
+const _ = db.command;
+
+function clearPendingKeyUpdate() {
+  return typeof _?.remove === 'function' ? { pending_key: _.remove() } : {};
+}
+
 function applyStableOrder(query, sorts = []) {
   return sorts.reduce((current, [field, direction]) => (
     current && typeof current.orderBy === 'function'
@@ -115,6 +121,7 @@ exports.main = async (event, context) => {
         await requestRef.update({
           data: {
             status: 'rejected',
+            ...clearPendingKeyUpdate(),
             reject_reason: reject_reason || '',
             operator_id: OPENID,
             operator_name: (operator && operator.name) || 'Admin',
@@ -238,6 +245,7 @@ exports.main = async (event, context) => {
       await requestRef.update({
         data: {
           status: 'approved',
+          ...clearPendingKeyUpdate(),
           operator_id: OPENID,
           operator_name: (operator && operator.name) || 'Admin',
           updated_at: db.serverDate()

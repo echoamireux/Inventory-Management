@@ -3,29 +3,47 @@ const { USER_STATUS } = require('./utils/constants');
 
 App({
   onLaunch: function () {
-    if (!wx.cloud) {
-      console.error("请使用 2.2.3 或以上的基础库以使用云能力");
-    } else {
-      // 尝试加载私有配置，若不存在则提示
-      let envConfig = {};
-      try {
-        envConfig = require('./env');
-      } catch (e) {
-        console.error('未找到 miniprogram/env.js 配置文件，请复制 env.example.js 并重命名为 env.js');
-      }
-
-      wx.cloud.init({
-        // 优先使用配置文件中的 env ID
-        env: envConfig.env || 'YOUR-ENV-ID-HERE',
-        traceUser: true,
-      });
-    }
-
     this.globalData = {
       userInfo: null,
-      user: null, // 存储 { name, openid, role }
-      inventoryChangedAt: 0
+      user: null,
+      inventoryChangedAt: 0,
+      configurationError: false
     };
+
+    if (!wx.cloud) {
+      this.globalData.configurationError = true;
+      console.error('请使用 2.2.3 或以上的基础库以使用云能力');
+      return;
+    }
+
+    let envConfig;
+    try {
+      envConfig = require('./env');
+    } catch (error) {
+      envConfig = null;
+    }
+
+    const envId = envConfig && String(envConfig.env || '').trim();
+    if (
+      !envId
+      || /^YOUR[-_]/i.test(envId)
+      || envId === 'YOUR-REAL-ENV-ID'
+      || envId === 'REPLACE_WITH_WECHAT_CLOUD_ENV_ID'
+    ) {
+      this.globalData.configurationError = true;
+      console.error('未找到有效的 miniprogram/env.js 配置，禁止启动云能力');
+      wx.showModal({
+        title: '环境配置错误',
+        content: '缺少有效云环境 ID，请配置 miniprogram/env.js 后重试。',
+        showCancel: false
+      });
+      return;
+    }
+
+    wx.cloud.init({
+      env: envId,
+      traceUser: envConfig.traceUser !== false
+    });
 
     this.checkUserStatus();
   },

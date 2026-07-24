@@ -4,6 +4,7 @@ const { getCstRange } = require('./cst-time');
 const { buildContainsRegExp } = require('./search');
 const { buildLogSearchWhere } = require('./log-search');
 const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
+const { handleCloudError } = require('./error-response');
 
 const LOG_SEARCH_FIELD_NAMES = [
   'material_name',
@@ -166,7 +167,6 @@ exports.main = async (event, context) => {
       const totalRes = await collection.where(where).count();
       const dataRes = await collection.where(where)
           .orderBy('timestamp', 'desc')
-          .orderBy('create_time', 'desc') // Fallback sort
           .orderBy('_id', 'desc')
           .skip(skip)
           .limit(pagination.limit)
@@ -182,10 +182,9 @@ exports.main = async (event, context) => {
       };
 
   } catch (err) {
-      console.error(err);
-      return {
-          success: false,
-          msg: err.message
-      };
+      return handleCloudError(err, {
+          scope: 'getLogs',
+          fallbackMessage: '日志查询失败，请稍后重试'
+      });
   }
 };

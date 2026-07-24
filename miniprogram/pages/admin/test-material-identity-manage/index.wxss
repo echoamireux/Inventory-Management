@@ -111,6 +111,16 @@
   font-size: 24rpx;
 }
 
+.identity-match-reason {
+  display: inline-block;
+  margin-top: 8rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  background: #eef6ff;
+  color: #1d4ed8;
+  font-size: 22rpx;
+}
+
 .import-panel {
   margin-top: 24rpx;
   padding: 24rpx;

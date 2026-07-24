@@ -5,7 +5,7 @@ const {
   assertUniqueCodes,
   buildBatchInventoryPayload
 } = require('./batch-add');
-const { assertActiveUserAccess } = require('./auth');
+const { assertActiveUserAccess, assertActiveInventoryAccess } = require('./auth');
 const {
   isChemicalRefillEligible,
   buildChemicalRefillUpdate
@@ -29,6 +29,7 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 const {
   normalizeTestMaterialSupplierModel
 } = require('./test-material-identities');
@@ -40,13 +41,31 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
-async function loadOperator(openid) {
-  const res = await db.collection('users')
+async function loadOperator(openid, collectionOwner = db) {
+  const res = await collectionOwner.collection('users')
     .where({ _openid: openid })
     .limit(1)
     .get();
 
   return res.data && res.data[0] ? res.data[0] : null;
+}
+
+async function loadTransactionOperator(transaction, openid, fallback) {
+  try {
+    return await loadOperator(openid, transaction);
+  } catch (error) {
+    if (/unexpected transaction collection/.test(String(error && error.message || ''))) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+function assertInventoryWriteAccess(operator, message) {
+  if (typeof assertActiveInventoryAccess === 'function') {
+    return assertActiveInventoryAccess(operator, message);
+  }
+  return assertActiveUserAccess(operator, message);
 }
 
 function normalizeText(value) {
@@ -152,7 +171,7 @@ exports.main = async (event, context) => {
 
   try {
     const operator = await loadOperator(OPENID);
-    const authResult = assertActiveUserAccess(operator, '仅已激活用户可执行批量入库');
+    const authResult = assertInventoryWriteAccess(operator, '仅已激活用户可执行批量入库');
     if (!authResult.ok) {
       return { success: false, msg: authResult.msg };
     }
@@ -216,6 +235,11 @@ exports.main = async (event, context) => {
     });
 
     return await db.runTransaction(async transaction => {
+      const transactionOperator = await loadTransactionOperator(transaction, OPENID, operator);
+      const transactionAuthResult = assertInventoryWriteAccess(transactionOperator, '用户状态或角色已变化，请重新登录后重试');
+      if (!transactionAuthResult.ok) {
+        throw new Error(transactionAuthResult.msg);
+      }
       const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
       if (operationReceipt.reused) {
         return operationReceipt.response;
@@ -406,7 +430,10 @@ exports.main = async (event, context) => {
       return response;
     });
   } catch (err) {
-    console.error(err);
-    return { success: false, msg: err.message };
+    return handleCloudError(err, {
+      scope: 'batchAddInventory',
+      operationId: event && event.operation_id,
+      fallbackMessage: '批量入库失败，请稍后重试'
+    });
   }
 };

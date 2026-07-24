@@ -857,7 +857,7 @@ Page({
         isEnd: false
       });
       this.getList(true);
-    }, 500);
+    }, 400);
   },
 
   onSearchClear() {

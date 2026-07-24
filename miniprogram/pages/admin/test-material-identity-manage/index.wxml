@@ -26,6 +26,14 @@
     bind:clear="onClearSearch"
   />
 
+  <van-notice-bar
+    wx:if="{{ searchMessage }}"
+    left-icon="info-o"
+    text="{{ searchMessage }}"
+    color="#1d4ed8"
+    background="#eef6ff"
+  />
+
   <view wx:if="{{ loading }}" class="identity-loading">
     <van-loading type="spinner" vertical>加载中...</van-loading>
   </view>
@@ -47,6 +55,7 @@
         </view>
         <view class="identity-model">{{ item.supplier_model }}</view>
         <view class="identity-meta">{{ item.material_name || '测试料主数据' }}</view>
+        <view wx:if="{{ item.match_reason }}" class="identity-match-reason">{{ item.match_reason }}</view>
       </view>
       <van-button size="mini" plain bind:click="onToggleStatus" data-index="{{ index }}">
         {{ item.status === 'disabled' ? '启用' : '停用' }}

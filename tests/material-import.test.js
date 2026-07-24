@@ -194,7 +194,7 @@ test('import validation surfaces a gentle warning when film default width is omi
   );
 
   assert.equal(result.error, null);
-  assert.equal(result.warning, '默认幅宽未填写，后续需在首次入库或物料管理中补齐');
+  assert.equal(result.warning, '默认幅宽未填写，后续需在首次入库或主数据管理中补齐');
 });
 
 test('import validation ignores film-only columns for chemicals and chemical-only columns for films', () => {
@@ -411,7 +411,7 @@ test('import result message includes non-blocking warnings separately from failu
       {
         rowIndex: 5,
         product_code: 'M-002',
-        warning: '默认幅宽未填写，后续需在首次入库或物料管理中补齐'
+        warning: '默认幅宽未填写，后续需在首次入库或主数据管理中补齐'
       }
     ]
   );

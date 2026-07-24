@@ -38,6 +38,13 @@
         color="#ed6a0c"
         background="#fffbe8"
       />
+      <van-notice-bar
+        wx:if="{{ searchMessage }}"
+        left-icon="info-o"
+        text="{{ searchMessage }}"
+        color="#1d4ed8"
+        background="#eef6ff"
+      />
   </view>
 
       <!-- 列表内容 -->

@@ -25,7 +25,10 @@ const {
 const {
   buildContainsRegExp,
   matchesSearchFields,
-  normalizeSearchKeyword
+  normalizeSearchKeyword,
+  normalizeSearchText,
+  scoreSearchRecord,
+  compareSearchResults
 } = require('./search');
 const {
   buildInventoryAllocationRecommendation
@@ -37,6 +40,8 @@ const {
   resolveSubcategoryDisplay
 } = require('./material-subcategories');
 const { assertActiveUserAccess } = require('./auth');
+const MAX_SEARCH_CANDIDATES = 500;
+const BROAD_SEARCH_MESSAGE = '结果较多，请继续输入关键词';
 
 async function loadOperator(openid) {
   const res = await db.collection('users')
@@ -54,12 +59,17 @@ function applyStableOrder(query, sorts = []) {
   ), query);
 }
 
-async function loadInventoryGroupSourceItems(where, pageSize = 100) {
+async function loadInventoryGroupSourceItems(where, pageSize = 100, options = {}) {
+  const maxRows = Math.max(0, Number(options.maxRows) || 0);
   let skip = 0;
   let rows = [];
   let batch = [];
+  let searchTruncated = false;
 
   do {
+    const currentLimit = maxRows
+      ? Math.min(pageSize, Math.max(1, maxRows + 1 - rows.length))
+      : pageSize;
     const query = db.collection('inventory')
       .where(where)
       .field({
@@ -88,15 +98,22 @@ async function loadInventoryGroupSourceItems(where, pageSize = 100) {
       ['_id', 'asc']
     ])
       .skip(skip)
-      .limit(pageSize)
+      .limit(currentLimit)
       .get();
 
     batch = res.data || [];
     rows = rows.concat(batch);
-    skip += pageSize;
-  } while (batch.length === pageSize);
+    if (maxRows && rows.length > maxRows) {
+      searchTruncated = true;
+      break;
+    }
+    skip += currentLimit;
+  } while (batch.length === pageSize && (!maxRows || rows.length <= maxRows));
 
-  return rows;
+  return {
+    items: maxRows ? rows.slice(0, maxRows) : rows,
+    searchTruncated
+  };
 }
 
 function pickEarlierExpiry(current, next) {
@@ -219,6 +236,59 @@ function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
   }));
 }
 
+function buildInventorySearchMatch(item = {}, keyword, zoneMap, detailMapByZone) {
+  const searchableItem = {
+    ...item,
+    resolved_location_text: resolveInventoryLocationText(item, zoneMap, detailMapByZone)
+  };
+  const baseMatch = scoreSearchRecord(searchableItem, keyword, {
+    codeFields: ['product_code'],
+    modelFields: ['supplier_model'],
+    nameFields: ['material_name'],
+    auxiliaryFields: [
+      'unique_code',
+      'batch_number',
+      'supplier',
+      'subcategory_key',
+      'sub_category',
+      'location',
+      'location_text',
+      'resolved_location_text',
+      'sample_note'
+    ]
+  });
+  const normalizedKeyword = normalizeSearchText(keyword);
+  const normalizedUniqueCode = normalizeSearchText(item.unique_code);
+  if (normalizedUniqueCode && normalizedUniqueCode === normalizedKeyword) {
+    return {
+      match_score: Math.max(900, Number(baseMatch.match_score) || 0),
+      match_reason: '标签编号完全匹配',
+      match_field: 'unique_code'
+    };
+  }
+  if (normalizedUniqueCode && normalizedUniqueCode.startsWith(normalizedKeyword)) {
+    return {
+      match_score: Math.max(700, Number(baseMatch.match_score) || 0),
+      match_reason: '标签编号前缀匹配',
+      match_field: 'unique_code'
+    };
+  }
+  return baseMatch;
+}
+
+function buildBestInventorySearchMatches(items = [], keyword, zoneMap, detailMapByZone) {
+  const matches = new Map();
+  (items || []).forEach(item => {
+    const groupKey = buildInventoryGroupKey(item);
+    const match = buildInventorySearchMatch(item, keyword, zoneMap, detailMapByZone);
+    const existing = matches.get(groupKey);
+    if (!existing || compareSearchResults(match, existing, ['match_field']) < 0) {
+      matches.set(groupKey, match);
+    }
+  });
+  return matches;
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
   const { searchVal, category, filter } = event;
@@ -264,13 +334,34 @@ exports.main = async (event, context) => {
     const subcategoryRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
     const subcategoryMap = buildSubcategoryMap(subcategoryRecords);
 
-    const matchedSourceItems = await loadInventoryGroupSourceItems(where);
+    const matchedSourceResult = await loadInventoryGroupSourceItems(where, 100, {
+      maxRows: regex ? MAX_SEARCH_CANDIDATES : 0
+    });
+    const matchedSourceItems = matchedSourceResult.items || [];
+    if (regex && matchedSourceResult.searchTruncated) {
+      return {
+        success: true,
+        list: [],
+        total: 0,
+        page,
+        pageSize,
+        isEnd: true,
+        searchTruncated: true,
+        searchMessage: BROAD_SEARCH_MESSAGE
+      };
+    }
     const matchedGroupKeys = new Set(
       matchedSourceItems.map(item => buildInventoryGroupKey(item))
     );
-    const groupSourceItems = regex ? await loadInventoryGroupSourceItems(baseWhere) : matchedSourceItems;
+    const groupSourceResult = regex
+      ? await loadInventoryGroupSourceItems(baseWhere)
+      : matchedSourceResult;
+    const groupSourceItems = groupSourceResult.items || [];
     const groups = buildInventoryGroups(groupSourceItems, zoneMap, detailMapByZone)
       .filter(item => !regex || matchedGroupKeys.has(item._groupKey));
+    const searchMatches = regex
+      ? buildBestInventorySearchMatches(matchedSourceItems, normalizedKeyword, zoneMap, detailMapByZone)
+      : new Map();
 
     const productCodes = groups
       .map(item => item.product_code)
@@ -337,6 +428,9 @@ exports.main = async (event, context) => {
           recommendedCode: '',
           recommendedBatchNumber: '',
           matchReasonText: '',
+          match_score: searchMatches.get(item._groupKey)?.match_score || 0,
+          match_reason: searchMatches.get(item._groupKey)?.match_reason || '',
+          match_field: searchMatches.get(item._groupKey)?.match_field || '',
           isExpiring,
           isLowStock,
           isRisky,
@@ -356,6 +450,12 @@ exports.main = async (event, context) => {
       }
       return true;
     }).sort((a, b) => {
+      if (normalizedKeyword) {
+        const relevanceCompare = compareSearchResults(a, b, ['product_code', 'supplier_model', '_groupKey']);
+        if (relevanceCompare !== 0) {
+          return relevanceCompare;
+        }
+      }
       const timeA = a.minExpiry ? new Date(a.minExpiry).getTime() : Number.MAX_SAFE_INTEGER;
       const timeB = b.minExpiry ? new Date(b.minExpiry).getTime() : Number.MAX_SAFE_INTEGER;
       if (timeA !== timeB) {
@@ -391,10 +491,19 @@ exports.main = async (event, context) => {
 
       item.recommendedCode = recommendation.recommendedCode;
       item.recommendedBatchNumber = recommendation.recommendedBatchNumber;
-      item.matchReasonText = resolveGroupMatchReasonText({ ...item, items }, normalizedKeyword, zoneMap, detailMapByZone);
+      item.matchReasonText = item.match_reason
+        || resolveGroupMatchReasonText({ ...item, items }, normalizedKeyword, zoneMap, detailMapByZone);
     });
 
-    return { success: true, list, total, page, pageSize, isEnd };
+    return {
+      success: true,
+      list,
+      total,
+      page,
+      pageSize,
+      isEnd,
+      ...(regex ? { searchTruncated: false, searchMessage: '' } : {})
+    };
 
   } catch (err) {
     console.error(err);

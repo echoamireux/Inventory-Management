@@ -8,10 +8,10 @@ const {
   buildBatchInventoryPayload
 } = require('../cloudfunctions/_shared/batch-add');
 
-test('batch add enforces a 100-row submit limit before database work', () => {
-  assert.equal(MAX_BATCH_INVENTORY_ITEMS, 100);
-  assert.doesNotThrow(() => assertBatchInventoryItemLimit(100));
-  assert.throws(() => assertBatchInventoryItemLimit(101), /单次最多批量入库 100 条/);
+test('batch add cloud transaction enforces a ten-row chunk limit', () => {
+  assert.equal(MAX_BATCH_INVENTORY_ITEMS, 10);
+  assert.doesNotThrow(() => assertBatchInventoryItemLimit(10));
+  assert.throws(() => assertBatchInventoryItemLimit(11), /单个入库批次最多 10 条/);
 
   const cloudIndex = require('node:fs').readFileSync(
     require('node:path').join(__dirname, '../cloudfunctions/batchAddInventory/index.js'),

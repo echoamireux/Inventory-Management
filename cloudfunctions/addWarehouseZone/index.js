@@ -8,7 +8,6 @@ const {
   normalizeZoneName,
   normalizeLocationDetailName,
   normalizeScope,
-  normalizeStatus,
   ensureBuiltinZones,
   ensureBuiltinLocationDetails,
   sortZoneRecords,
@@ -18,12 +17,18 @@ const {
   findLocationDetailRecordByName
 } = require('./warehouse-zones');
 const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
 
 const db = cloud.database();
+
+function parseMutationStatus(status) {
+  const normalized = String(status || '').trim();
+  return normalized === 'active' || normalized === 'disabled' ? normalized : '';
+}
 
 function buildCustomZoneKey() {
   return `custom:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
@@ -38,9 +43,9 @@ async function getOperator(openid) {
   return userRes.data && userRes.data[0];
 }
 
-async function writeWarehouseAudit(action, operator, openid, record = {}, detail = {}) {
+async function writeWarehouseAudit(transaction, action, operator, openid, record = {}, detail = {}) {
   const isDetail = !!record.detail_key;
-  await writeAuditEvent(db, db, {
+  await writeAuditEvent(transaction, db, {
     domain: 'warehouse',
     action,
     operator: Object.assign({}, operator || {}, { _openid: openid }),
@@ -99,19 +104,21 @@ async function createZone(name, scope, openid) {
   const existing = findZoneRecordByName(existingZones, normalizedName);
   if (existing) {
     if (existing.status === 'disabled' && existing._id) {
-      await db.collection('warehouse_zones').doc(existing._id).update({
-        data: {
+      await db.runTransaction(async transaction => {
+        await transaction.collection('warehouse_zones').doc(existing._id).update({
+          data: {
+            scope: normalizedScope,
+            status: 'active',
+            updated_at: db.serverDate()
+          }
+        });
+        await writeWarehouseAudit(transaction, 'status', operator, openid, Object.assign({}, existing, {
           scope: normalizedScope,
-          status: 'active',
-          updated_at: db.serverDate()
-        }
-      });
-      await writeWarehouseAudit('status', operator, openid, Object.assign({}, existing, {
-        scope: normalizedScope,
-        status: 'active'
-      }), {
-        previous_status: existing.status,
-        next_status: 'active'
+          status: 'active'
+        }), {
+          previous_status: existing.status,
+          next_status: 'active'
+        });
       });
     }
 
@@ -127,24 +134,27 @@ async function createZone(name, scope, openid) {
   const maxSortOrder = activeZones.reduce((max, item) => Math.max(max, Number(item.sort_order) || 0), 0);
   const zoneKey = buildCustomZoneKey();
 
-  const res = await db.collection('warehouse_zones').add({
-    data: {
+  const res = await db.runTransaction(async transaction => {
+    const created = await transaction.collection('warehouse_zones').add({
+      data: {
+        zone_key: zoneKey,
+        name: normalizedName,
+        scope: normalizedScope,
+        is_builtin: false,
+        status: 'active',
+        sort_order: maxSortOrder + 10,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'create', operator, openid, {
+      _id: created._id,
       zone_key: zoneKey,
       name: normalizedName,
       scope: normalizedScope,
-      is_builtin: false,
-      status: 'active',
-      sort_order: maxSortOrder + 10,
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('create', operator, openid, {
-    _id: res._id,
-    zone_key: zoneKey,
-    name: normalizedName,
-    scope: normalizedScope,
-    status: 'active'
+      status: 'active'
+    });
+    return created;
   });
 
   return {
@@ -178,17 +188,19 @@ async function renameExistingZone(zoneKey, name, openid) {
     return { success: false, msg: '已存在同名库存区域' };
   }
 
-  await db.collection('warehouse_zones').doc(currentZone._id).update({
-    data: {
-      name: normalizedName,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('update', operator, openid, Object.assign({}, currentZone, {
-    name: normalizedName
-  }), {
-    previous_name: currentZone.name,
-    next_name: normalizedName
+  await db.runTransaction(async transaction => {
+    await transaction.collection('warehouse_zones').doc(currentZone._id).update({
+      data: {
+        name: normalizedName,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'update', operator, openid, Object.assign({}, currentZone, {
+      name: normalizedName
+    }), {
+      previous_name: currentZone.name,
+      next_name: normalizedName
+    });
   });
 
   return {
@@ -204,24 +216,29 @@ async function setExistingZoneStatus(zoneKey, status, openid) {
     return { success: false, msg: authResult.msg };
   }
 
-  const normalized = normalizeStatus(status);
+  const normalized = parseMutationStatus(status);
+  if (!normalized) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
   const currentZone = existingZones.find(item => item.zone_key === zoneKey);
   if (!currentZone || !currentZone._id) {
     return { success: false, msg: '库存区域不存在' };
   }
 
-  await db.collection('warehouse_zones').doc(currentZone._id).update({
-    data: {
-      status: normalized,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('status', operator, openid, Object.assign({}, currentZone, {
-    status: normalized
-  }), {
-    previous_status: currentZone.status,
-    next_status: normalized
+  await db.runTransaction(async transaction => {
+    await transaction.collection('warehouse_zones').doc(currentZone._id).update({
+      data: {
+        status: normalized,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'status', operator, openid, Object.assign({}, currentZone, {
+      status: normalized
+    }), {
+      previous_status: currentZone.status,
+      next_status: normalized
+    });
   });
 
   return {
@@ -248,17 +265,19 @@ async function reorderExistingZones(zoneKeys, openid) {
     return { success: false, msg: '未找到可排序的库存区域' };
   }
 
-  for (let index = 0; index < validKeys.length; index += 1) {
-    const zone = zoneMap.get(validKeys[index]);
-    await db.collection('warehouse_zones').doc(zone._id).update({
-      data: {
-        sort_order: (index + 1) * 10,
-        updated_at: db.serverDate()
-      }
+  await db.runTransaction(async transaction => {
+    for (let index = 0; index < validKeys.length; index += 1) {
+      const zone = zoneMap.get(validKeys[index]);
+      await transaction.collection('warehouse_zones').doc(zone._id).update({
+        data: {
+          sort_order: (index + 1) * 10,
+          updated_at: db.serverDate()
+        }
+      });
+    }
+    await writeWarehouseAudit(transaction, 'reorder', operator, openid, { zone_key: validKeys.join(',') }, {
+      zone_keys: validKeys
     });
-  }
-  await writeWarehouseAudit('reorder', operator, openid, { zone_key: validKeys.join(',') }, {
-    zone_keys: validKeys
   });
 
   return {
@@ -293,17 +312,19 @@ async function createLocationDetail(zoneKey, name, openid) {
   const existing = findLocationDetailRecordByName(existingDetails, normalizedZoneKey, normalizedName);
   if (existing) {
     if (existing.status === 'disabled' && existing._id) {
-      await db.collection('warehouse_location_details').doc(existing._id).update({
-        data: {
-          status: 'active',
-          updated_at: db.serverDate()
-        }
-      });
-      await writeWarehouseAudit('status', operator, openid, Object.assign({}, existing, {
-        status: 'active'
-      }), {
-        previous_status: existing.status,
-        next_status: 'active'
+      await db.runTransaction(async transaction => {
+        await transaction.collection('warehouse_location_details').doc(existing._id).update({
+          data: {
+            status: 'active',
+            updated_at: db.serverDate()
+          }
+        });
+        await writeWarehouseAudit(transaction, 'status', operator, openid, Object.assign({}, existing, {
+          status: 'active'
+        }), {
+          previous_status: existing.status,
+          next_status: 'active'
+        });
       });
     }
 
@@ -318,24 +339,27 @@ async function createLocationDetail(zoneKey, name, openid) {
   const zoneDetails = existingDetails.filter(item => item.zone_key === normalizedZoneKey);
   const maxSortOrder = zoneDetails.reduce((max, item) => Math.max(max, Number(item.sort_order) || 0), 0);
   const detailKey = buildCustomDetailKey(normalizedZoneKey);
-  const res = await db.collection('warehouse_location_details').add({
-    data: {
+  const res = await db.runTransaction(async transaction => {
+    const created = await transaction.collection('warehouse_location_details').add({
+      data: {
+        zone_key: normalizedZoneKey,
+        detail_key: detailKey,
+        name: normalizedName,
+        is_builtin: false,
+        status: 'active',
+        sort_order: maxSortOrder + 10,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'create', operator, openid, {
+      _id: created._id,
       zone_key: normalizedZoneKey,
       detail_key: detailKey,
       name: normalizedName,
-      is_builtin: false,
-      status: 'active',
-      sort_order: maxSortOrder + 10,
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('create', operator, openid, {
-    _id: res._id,
-    zone_key: normalizedZoneKey,
-    detail_key: detailKey,
-    name: normalizedName,
-    status: 'active'
+      status: 'active'
+    });
+    return created;
   });
 
   return {
@@ -376,17 +400,19 @@ async function renameLocationDetail(detailKey, name, openid) {
     return { success: false, msg: '该库区下已存在同名详细坐标' };
   }
 
-  await db.collection('warehouse_location_details').doc(currentDetail._id).update({
-    data: {
-      name: normalizedName,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('update', operator, openid, Object.assign({}, currentDetail, {
-    name: normalizedName
-  }), {
-    previous_name: currentDetail.name,
-    next_name: normalizedName
+  await db.runTransaction(async transaction => {
+    await transaction.collection('warehouse_location_details').doc(currentDetail._id).update({
+      data: {
+        name: normalizedName,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'update', operator, openid, Object.assign({}, currentDetail, {
+      name: normalizedName
+    }), {
+      previous_name: currentDetail.name,
+      next_name: normalizedName
+    });
   });
 
   return {
@@ -403,7 +429,10 @@ async function setLocationDetailStatus(detailKey, status, openid) {
   }
 
   const normalizedDetailKey = String(detailKey || '').trim();
-  const normalized = normalizeStatus(status);
+  const normalized = parseMutationStatus(status);
+  if (!normalized) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   const existingZones = sortZoneRecords(await ensureBuiltinZones(db));
   const existingDetails = sortLocationDetailRecords(await ensureBuiltinLocationDetails(db, existingZones));
   const currentDetail = existingDetails.find(item => item.detail_key === normalizedDetailKey);
@@ -411,17 +440,19 @@ async function setLocationDetailStatus(detailKey, status, openid) {
     return { success: false, msg: '详细坐标不存在' };
   }
 
-  await db.collection('warehouse_location_details').doc(currentDetail._id).update({
-    data: {
-      status: normalized,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeWarehouseAudit('status', operator, openid, Object.assign({}, currentDetail, {
-    status: normalized
-  }), {
-    previous_status: currentDetail.status,
-    next_status: normalized
+  await db.runTransaction(async transaction => {
+    await transaction.collection('warehouse_location_details').doc(currentDetail._id).update({
+      data: {
+        status: normalized,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeWarehouseAudit(transaction, 'status', operator, openid, Object.assign({}, currentDetail, {
+      status: normalized
+    }), {
+      previous_status: currentDetail.status,
+      next_status: normalized
+    });
   });
 
   return {
@@ -454,21 +485,23 @@ async function reorderLocationDetails(zoneKey, detailKeys, openid) {
     return { success: false, msg: '未找到可排序的详细坐标' };
   }
 
-  for (let index = 0; index < validKeys.length; index += 1) {
-    const detail = detailMap.get(validKeys[index]);
-    await db.collection('warehouse_location_details').doc(detail._id).update({
-      data: {
-        sort_order: (index + 1) * 10,
-        updated_at: db.serverDate()
-      }
+  await db.runTransaction(async transaction => {
+    for (let index = 0; index < validKeys.length; index += 1) {
+      const detail = detailMap.get(validKeys[index]);
+      await transaction.collection('warehouse_location_details').doc(detail._id).update({
+        data: {
+          sort_order: (index + 1) * 10,
+          updated_at: db.serverDate()
+        }
+      });
+    }
+    await writeWarehouseAudit(transaction, 'reorder', operator, openid, {
+      zone_key: normalizedZoneKey,
+      detail_key: validKeys.join(',')
+    }, {
+      zone_key: normalizedZoneKey,
+      detail_keys: validKeys
     });
-  }
-  await writeWarehouseAudit('reorder', operator, openid, {
-    zone_key: normalizedZoneKey,
-    detail_key: validKeys.join(',')
-  }, {
-    zone_key: normalizedZoneKey,
-    detail_keys: validKeys
   });
 
   return {
@@ -523,10 +556,9 @@ exports.main = async (event, context) => {
       msg: `不支持的操作: ${action}`
     };
   } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message
-    };
+    return handleCloudError(err, {
+      scope: 'addWarehouseZone',
+      fallbackMessage: '库区操作失败，请稍后重试'
+    });
   }
 };

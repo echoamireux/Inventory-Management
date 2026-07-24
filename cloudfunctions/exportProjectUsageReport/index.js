@@ -7,6 +7,7 @@ const {
 } = require('./project-usage-report');
 const { OFFSET_MS, parseCstDateRange } = require('./cst-time');
 const { buildContainsRegExp } = require('./search');
+const { handleCloudError } = require('./error-response');
 
 let ExcelJS;
 try {
@@ -125,6 +126,7 @@ async function loadLogs(where, maxRows = MAX_PROJECT_USAGE_EXPORT_ROWS) {
     const res = await db.collection('inventory_log')
       .where(where)
       .orderBy('timestamp', 'desc')
+      .orderBy('_id', 'desc')
       .skip(skip)
       .limit(pageSize)
       .get();
@@ -455,11 +457,10 @@ exports.main = async (event = {}) => {
       msg: '导出成功'
     };
   } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message || '导出项目用料报表失败'
-    };
+    return handleCloudError(err, {
+      scope: 'exportProjectUsageReport',
+      fallbackMessage: '导出项目用料报表失败，请稍后重试'
+    });
   }
 };
 

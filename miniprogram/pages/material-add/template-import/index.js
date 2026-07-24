@@ -21,6 +21,14 @@ const {
   ensureOperationId,
   clearOperationId
 } = require('../../../utils/operation-id');
+const {
+  runChunkedBatchTask,
+  saveBatchTask,
+  loadBatchTask,
+  clearBatchTask
+} = require('../../../utils/batch-task');
+
+const TEMPLATE_BATCH_TASK_SCOPE = 'importInventoryTemplate:submit';
 
 const INVENTORY_TEMPLATE_HEADER_ROWS = [
   ['基础信息', '', '', '', '', '库位信息', '', '化材信息', '', '膜材信息', '', '', '来源信息', '', '', '时效信息', ''],
@@ -78,7 +86,100 @@ Page({
           wx.navigateBack();
         }
       });
+      return;
     }
+    this.offerPendingBatchTask();
+  },
+
+  offerPendingBatchTask() {
+    const task = loadBatchTask(TEMPLATE_BATCH_TASK_SCOPE);
+    if (!task || !Array.isArray(task.items) || !task.items.length) {
+      return;
+    }
+
+    setTimeout(async () => {
+      const shouldResume = await Dialog.confirm({
+        title: '发现未完成导入任务',
+        message: `已完成 ${Number(task.succeeded) || 0}/${task.items.length} 条，是否继续重试未完成批次？`,
+        messageAlign: 'left',
+        confirmButtonText: '继续',
+        cancelButtonText: '取消任务'
+      }).then(() => true).catch(() => false);
+
+      if (!shouldResume) {
+        clearBatchTask(TEMPLATE_BATCH_TASK_SCOPE);
+        clearOperationId(TEMPLATE_BATCH_TASK_SCOPE);
+        return;
+      }
+      await this.executeTemplateBatchTask(task);
+    }, 0);
+  },
+
+  async executeTemplateBatchTask(task) {
+    const completedChunkIndexes = Array.isArray(task.completedChunkIndexes)
+      ? task.completedChunkIndexes.slice()
+      : [];
+    saveBatchTask(TEMPLATE_BATCH_TASK_SCOPE, task);
+    this.setData({ importing: true });
+    Toast.loading({ message: '分批入库中...', forbidClick: true, duration: 0 });
+
+    const result = await runChunkedBatchTask({
+      items: task.items,
+      rootOperationId: task.rootOperationId,
+      completedChunkIndexes,
+      submitChunk: async ({ items, operationId }) => normalizeInventoryTemplateSubmitResult(
+        await wx.cloud.callFunction({
+          name: 'importInventoryTemplate',
+          data: {
+            action: 'submit',
+            operation_id: operationId,
+            data: { items }
+          }
+        })
+      ),
+      onProgress: chunk => {
+        if (chunk.status === 'completed' && !completedChunkIndexes.includes(chunk.chunk_index)) {
+          completedChunkIndexes.push(chunk.chunk_index);
+        }
+        saveBatchTask(TEMPLATE_BATCH_TASK_SCOPE, {
+          ...task,
+          completedChunkIndexes,
+          succeeded: completedChunkIndexes.reduce((total, chunkIndex) => {
+            const start = chunkIndex * 10;
+            return total + task.items.slice(start, start + 10).length;
+          }, 0)
+        });
+      }
+    });
+
+    Toast.clear();
+    this.setData({ importing: false });
+    if (result.status === 'completed') {
+      clearBatchTask(TEMPLATE_BATCH_TASK_SCOPE);
+      clearOperationId(TEMPLATE_BATCH_TASK_SCOPE);
+      await Dialog.alert({
+        title: '入库完成',
+        message: `成功处理 ${result.succeeded} 条`,
+        messageAlign: 'left',
+        confirmButtonText: '完成'
+      });
+      wx.navigateBack();
+      return result;
+    }
+
+    saveBatchTask(TEMPLATE_BATCH_TASK_SCOPE, {
+      ...task,
+      completedChunkIndexes,
+      succeeded: result.succeeded,
+      lastResult: result
+    });
+    const failure = result.failed[0] || {};
+    await Dialog.alert({
+      title: result.status === 'partial' ? '部分入库成功' : '入库失败',
+      message: `已成功 ${result.succeeded}/${result.total} 条。\n失败批次：第 ${Number(failure.chunk_index) + 1} 批\n失败行：${(failure.row_indexes || []).join('、')}\n原因：${failure.msg || '批次处理失败'}\n\n可稍后重新进入本页继续重试。`,
+      messageAlign: 'left'
+    });
+    return result;
   },
 
   async onExportLatestTemplate() {
@@ -265,50 +366,18 @@ Page({
       return;
     }
 
-    this.setData({ importing: true });
-    Toast.loading({ message: '入库中...', forbidClick: true, duration: 0 });
-
     try {
-      const operationScope = 'importInventoryTemplate:submit';
       const operationPayload = { items: validItems };
-      const res = await wx.cloud.callFunction({
-        name: 'importInventoryTemplate',
-        data: {
-          action: 'submit',
-          operation_id: ensureOperationId(operationScope, operationPayload, 'tplin'),
-          data: {
-            items: validItems
-          }
-        }
+      const result = await this.executeTemplateBatchTask({
+        rootOperationId: ensureOperationId(TEMPLATE_BATCH_TASK_SCOPE, operationPayload, 'tplin'),
+        items: validItems,
+        completedChunkIndexes: [],
+        succeeded: 0
       });
-      const result = normalizeInventoryTemplateSubmitResult(res);
-      clearOperationId(operationScope);
-
-      Toast.clear();
-      const lines = [];
-      if (createItems.length > 0) {
-        lines.push(`新增 ${createItems.length} 条`);
-      }
-      if (refillItems.length > 0) {
-        lines.push(`补料 ${refillItems.length} 条`);
-      }
-      if (!lines.length) {
-        lines.push(`成功处理 ${result.created || validItems.length} 条`);
-      }
-
-      await Dialog.alert({
-        title: '入库完成',
-        message: lines.join('\n'),
-        messageAlign: 'left',
-        confirmButtonText: '完成'
-      });
-
-      wx.navigateBack();
+      return result;
     } catch (error) {
       console.error('模板导入入库失败', error);
       Toast.fail(error.message || '入库失败');
-    } finally {
-      this.setData({ importing: false });
     }
   }
 });

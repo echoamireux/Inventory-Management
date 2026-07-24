@@ -98,7 +98,7 @@
 - 首页顶部搜索
 - 库存查询
 - 物料查询
-- 物料管理
+- 主数据管理
 - 操作日志
 - 审计日志
 
@@ -315,9 +315,12 @@ module.exports = {
 npm run sync:shared
 npm run preflight:deploy
 npm test
+npm run release:check
 ```
 
-`npm run preflight:deploy` 是只读发布预检，会检查 34 个可部署云函数目录、前端实际调用的云函数、共享文件副本、依赖锁文件、README 必需集合/索引说明和关键查询稳定排序。预检失败时不要上传正式版。
+`npm run preflight:deploy` 是只读发布预检，会检查清单登记的全部可部署云函数目录、前端实际调用的云函数、共享文件副本内容哈希、依赖锁文件、README 必需集合/索引说明和关键查询稳定排序。预检失败时不要上传正式版。
+
+正式上传前必须执行 `npm run release:check`。该命令会依次运行 `npm test` 和 `npm run preflight:deploy`，检查本机 `miniprogram/env.js` 不是占位环境 ID，并要求存在被 `.gitignore` 忽略的 `scripts/release-readiness.json`。发布人员在正式库确认集合、索引、ACL 和旧云函数清理后，从 `scripts/release-readiness.example.json` 创建该文件；没有确认文件时发布检查主动失败。
 
 建议首次接手项目时至少重新部署以下函数：
 
@@ -359,6 +362,8 @@ npm test
 
 `removeInventory` 安全部署要求：仓库内该函数已停用数据库写入，只保留“删除入口已停用”的兼容响应。云端必须重新部署新版 `removeInventory`，并确认日常页面没有库存删除入口。库存减少只能通过领用或盘点纠错审批链路完成。
 
+权限例外：管理员继续可以直接执行盘点调整，也允许审批自己提交的纠错申请，当前不实施四眼审批。上述库存变更仍必须写入库存流水和 `audit_events`；审计写入失败时，业务事务必须一并回滚。
+
 ### 6. 生产索引配置建议
 
 云数据库索引需要在微信云开发控制台手动创建。正式投产前，建议至少配置以下索引：
@@ -386,6 +391,10 @@ npm test
 | `users` | `users.status + create_time desc` | 复合索引，升序 + 降序 | 支持人员审批分页 |
 | `material_requests` | `material_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持物料审批分页 |
 | `inventory_correction_requests` | `inventory_correction_requests.status + created_at desc` | 复合索引，升序 + 降序 | 支持库存纠错审批分页 |
+| `material_requests` | `material_requests.product_code + status` | 复合索引，升序 + 升序 | 支持事务内检查同一产品代码的待审批申请 |
+| `inventory_correction_requests` | `inventory_correction_requests.source_log_id + status` | 复合索引，升序 + 升序 | 支持事务内检查同一入库日志的待审批纠错申请 |
+| `material_requests` | `material_requests.pending_key` | 唯一索引 | 仅约束 pending 物料申请并发去重；审批或驳回后清理该字段，历史记录继续保留 |
+| `inventory_correction_requests` | `inventory_correction_requests.pending_key` | 唯一索引 | 仅约束 pending 纠错申请并发去重；审批或驳回后清理该字段，历史记录继续保留 |
 | `project_codes` | `project_codes.project_code` | 唯一索引，升序 | 确保项目编码唯一 |
 | `material_subcategories` | `material_subcategories.subcategory_key` | 唯一索引，升序 | 确保子类别稳定 ID 唯一 |
 | `warehouse_zones` | `warehouse_zones.zone_key` | 唯一索引，升序 | 确保库区稳定 ID 唯一 |
@@ -395,14 +404,20 @@ npm test
 | `inventory` | `inventory.product_code + status + batch_number` | 复合索引，升序 + 升序 + 升序 | 支持按产品代码和批次查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model` | 复合索引，升序 + 升序 + 升序 | 支持测试料共用 `999` 时按原厂型号拆分查询库存 |
 | `inventory` | `inventory.product_code + status + supplier_model + batch_number` | 复合索引，升序 + 升序 + 升序 + 升序 | 支持测试料按产品代码、原厂型号和批号展开标签明细 |
+| `inventory` | `inventory.product_code + status + expiry_date + create_time + _id` | 复合索引，升序 + 升序 + 升序 + 升序 + 升序 | 支持产品维度事务内按 FEFO 稳定增量读取领用候选 |
+| `inventory` | `inventory.product_code + status + batch_number + expiry_date + create_time + _id` | 复合索引，升序 + 升序 + 升序 + 升序 + 升序 + 升序 | 支持按批次事务内按 FEFO 稳定读取领用候选 |
+| `inventory` | `inventory.product_code + status + supplier_model_key + expiry_date + create_time + _id` | 复合索引，升序 + 升序 + 升序 + 升序 + 升序 + 升序 | 支持测试料型号维度事务内按 FEFO 稳定读取领用候选 |
+| `inventory` | `inventory.product_code + status + batch_number + supplier_model_key + expiry_date + create_time + _id` | 复合索引，升序 + 升序 + 升序 + 升序 + 升序 + 升序 + 升序 | 支持测试料按批次和型号事务内按 FEFO 稳定读取领用候选 |
 | `inventory` | `inventory.material_id + status` | 复合索引，升序 + 升序 | 支持主数据归档和单位锁定前检查库存记录 |
 | `inventory` | `inventory.status + identity_key` | 复合索引，升序 + 升序 | 支持正式料按产品代码、测试料按“产品代码 + 原厂型号”聚合查询 |
 | `inventory` | `inventory.status + expiry_date` | 复合索引，升序 + 升序 | 支持临期和风险库存筛选 |
 | `inventory_log` | `inventory_log.type + project_code + timestamp desc + _id desc` | 复合索引，升序 + 升序 + 降序 + 降序 | 支持项目用料报表按项目和时间稳定导出 |
 | `inventory_log` | `inventory_log.type + product_code + timestamp desc + _id desc` | 复合索引，升序 + 升序 + 降序 + 降序 | 支持项目用料报表按物料稳定反查 |
+| `inventory_log` | `inventory_log.type + timestamp desc + _id desc` | 复合索引，升序 + 降序 + 降序 | 支持未限定项目或物料时稳定查询和导出项目用料 |
 | `inventory_log` | `inventory_log.inventory_id + timestamp desc + _id desc` | 复合索引，升序 + 降序 + 降序 | 支持标签详情页稳定查看历史日志 |
 | `inventory_log` | `inventory_log.unique_code + timestamp desc + _id desc` | 复合索引，升序 + 降序 + 降序 | 支持按标签编号稳定追溯日志 |
 | `inventory_log` | `inventory_log.timestamp desc + _id desc` | 复合索引，降序 + 降序 | 支持日志列表按时间倒序稳定加载 |
+| `audit_events` | `audit_events.timestamp desc + _id desc` | 复合索引，降序 + 降序 | 支持审计日志相同时间戳下稳定分页 |
 
 创建步骤：
 
@@ -416,7 +431,8 @@ npm test
 
 注意：
 
-- 唯一索引创建前必须确认集合中没有重复值，否则索引会创建失败。
+- `material_requests` 和 `inventory_correction_requests` 不直接对可变的 `status` 做唯一索引，否则第二条历史 rejected/approved 记录会被错误阻断。唯一约束应创建在只对 pending 写入的 `pending_key` 字段上。
+- 唯一索引创建前必须确认集合中没有重复值，否则索引会创建失败。正式库已有重复 pending 记录时，先由业务人员确认，将多余记录改为 rejected 并保留原因，不自动删除。
 - 索引构建期间不要批量导入大量数据。
 - 索引创建完成后，建议重新测试库存查询、扫码领料、日志查看和库存导出。
 
@@ -446,8 +462,8 @@ npm test
 3. 核心集合权限均已收紧为仅云函数可读写。
 4. 旧云端 `login`、`initMDMCollection` 已删除。
 5. 本次涉及的库存写入、标签、审批、项目报表、主数据与查询云函数均已重新部署。
-6. 已执行 `npm run sync:shared`、`npm run preflight:deploy` 和 `npm test`。
-7. 已在开发版完成扫码入库、标签失败重导、审批分页、库存导出和项目报表日期边界回归。
+6. 已执行 `npm run sync:shared` 和 `npm run release:check`，且正式库确认文件全部为 true。
+7. 已在开发版完成 100 行分批入库及失败重试、并发申请、禁用用户写入拦截、日志和项目报表跨页、库存导出、模板导入和管理员盘点调整审计。
 
 ## 库区与详细坐标规则
 
@@ -473,8 +489,8 @@ npm test
 - 不要复用旧模板
 - 调整过子类别后，必须重新导出模板
 - 模板只用于新建主数据，不用于覆盖更新现有主数据
-- 物料主数据导入、库存模板导入单次最多处理 100 条有效数据；超过时请拆分文件分批导入
-- 扫码批量入库单次最多提交 100 条，避免云函数事务过大导致整批失败
+- 物料主数据导入单次最多处理 100 条有效数据；库存模板导入和扫码批量入库前端单次最多保留 100 行，但按每批 10 行串行提交
+- 某批失败时前序批次保留，任务和原始数据在本地保留 24 小时；重新进入页面可继续重试未完成批次，编辑失败行后会生成新的根操作号
 
 ## 开发与测试
 

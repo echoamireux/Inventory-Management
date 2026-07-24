@@ -12,11 +12,33 @@
         value="{{ homeSearchVal }}"
         placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
         shape="round"
+        use-action-slot
+        show-action
         bind:search="onSearch"
         bind:change="onSearchChange"
         bind:clear="onSearchClear"
         custom-class="search-compact"
-     />
+     >
+       <view slot="action" class="home-search-action" bindtap="onSearch">搜索</view>
+     </van-search>
+     <view wx:if="{{ homeSearchLoading }}" class="home-search-state">正在查找...</view>
+     <view wx:elif="{{ homeSearchMessage }}" class="home-search-state home-search-state--notice">{{ homeSearchMessage }}</view>
+     <view wx:if="{{ homeSearchSuggestions.length > 0 }}" class="home-search-suggestions">
+       <view
+         wx:for="{{ homeSearchSuggestions }}"
+         wx:key="_groupKey"
+         class="home-search-suggestion"
+         bindtap="onHomeSuggestionTap"
+         data-item="{{ item }}"
+       >
+         <view class="home-search-suggestion__main">
+           <text class="home-search-suggestion__code">{{ item.product_code }}</text>
+           <text class="home-search-suggestion__name">{{ item.material_name }}</text>
+         </view>
+         <text wx:if="{{ item.supplier_model }}" class="home-search-suggestion__model">{{ item.supplier_model }}</text>
+         <text wx:if="{{ item.matchReasonText }}" class="home-search-suggestion__reason">{{ item.matchReasonText }}</text>
+       </view>
+     </view>
   </view>
 
   <view class="p-20">
@@ -86,7 +108,7 @@
       <view class="text-md font-bold mb-10 text-dark">管理维护</view>
       <van-cell-group inset custom-class="shadow-sm">
         <van-cell title="审批中心" icon="todo-list-o" is-link url="/pages/admin/approval-center/index" wx:if="{{ isAdmin }}" />
-        <van-cell title="物料管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
+        <van-cell title="主数据管理" icon="goods-collect-o" is-link url="/pages/admin/material-list" wx:if="{{ isAdmin }}" />
         <van-cell title="项目编码管理" icon="notes-o" is-link url="/pages/admin/project-code-manage/index" wx:if="{{ isAdmin }}" />
         <van-cell title="产品代码前缀管理" icon="label-o" is-link url="/pages/admin/product-code-prefix-manage/index" wx:if="{{ isAdmin }}" />
         <van-cell title="人员与权限" icon="manager-o" is-link url="/pages/super-admin/user-manage/index" wx:if="{{ isSuperAdmin }}" />

@@ -183,16 +183,36 @@ Page({
     }
 
     const nextPage = reset ? 1 : this.data.page;
+    const queryPayload = this.buildQueryPayload(nextPage);
+    const requestKey = JSON.stringify({
+      reset: !!reset,
+      payload: queryPayload
+    });
+    if (this._reportRequestPromise && this._reportRequestKey === requestKey) {
+      return this._reportRequestPromise;
+    }
+
     const currentRequestId = this.data.requestId + 1;
     this.setData({
       loading: true,
       requestId: currentRequestId
     });
+    this._reportRequestKey = requestKey;
+    this._reportRequestPromise = this.runReportRequest({
+      reset,
+      nextPage,
+      currentRequestId,
+      queryPayload,
+      requestKey
+    });
+    return this._reportRequestPromise;
+  },
 
+  async runReportRequest({ reset, nextPage, currentRequestId, queryPayload, requestKey }) {
     try {
       const res = await wx.cloud.callFunction({
         name: 'getProjectUsageReport',
-        data: this.buildQueryPayload(nextPage)
+        data: queryPayload
       });
       const result = res.result || {};
       if (!result.success) {
@@ -218,6 +238,10 @@ Page({
       console.error(err);
       Toast.fail(err.message || '项目用料查询失败');
     } finally {
+      if (this._reportRequestKey === requestKey) {
+        this._reportRequestKey = '';
+        this._reportRequestPromise = null;
+      }
       if (this.data.requestId === currentRequestId) {
         this.setData({ loading: false });
       }
@@ -247,7 +271,7 @@ Page({
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => {
       this.loadReport(true);
-    }, 400);
+    }, 600);
   },
 
   onSearchClear() {

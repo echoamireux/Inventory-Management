@@ -1,5 +1,6 @@
 const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 const MANAGEABLE_ROLES = new Set(['user', 'admin']);
+const INVENTORY_WRITE_ROLES = new Set(['user', 'admin', 'super_admin']);
 
 function isAdminRole(role) {
   return ADMIN_ROLES.has(role);
@@ -44,6 +45,13 @@ function assertActiveUserAccess(operator, message = '仅已激活用户可执行
   return { ok: true };
 }
 
+function assertActiveInventoryAccess(operator, message = '仅允许的已激活用户可执行库存操作') {
+  if (!isActiveUser(operator) || !INVENTORY_WRITE_ROLES.has(operator.role)) {
+    return { ok: false, msg: message };
+  }
+  return { ok: true };
+}
+
 function assertSuperAdminAccess(operator, message = '越权操作：仅超级管理员可执行') {
   if (!operator || !isSuperAdminRole(operator.role)) {
     return { ok: false, msg: message };
@@ -72,6 +80,7 @@ module.exports = {
   isAllowedManagedRole,
   isActiveUser,
   assertActiveUserAccess,
+  assertActiveInventoryAccess,
   assertAdminAccess,
   assertAdminMutationAccess,
   assertSuperAdminAccess,

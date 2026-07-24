@@ -277,7 +277,7 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
   }
 
   if (!error && category === 'film' && standardWidthMm === null) {
-    warning = '默认幅宽未填写，后续需在首次入库或物料管理中补齐';
+    warning = '默认幅宽未填写，后续需在首次入库或主数据管理中补齐';
   }
 
   if (!error && !testMaterialFlag.ok) {

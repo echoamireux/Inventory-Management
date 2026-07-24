@@ -1764,6 +1764,15 @@ Page({
               name: 'addMaterialRequest',
               data: {
                   action: 'submit',
+                  operation_id: ensureOperationId('addMaterialRequest:submit', {
+                    product_code: finalCode,
+                    category: activeTab,
+                    material_name: requestForm.name,
+                    subcategory_key: requestForm.subcategory_key || '',
+                    sub_category: requestForm.sub_category,
+                    supplier: requestForm.supplier || '',
+                    default_unit: normalizedRequestUnit.unit
+                  }, 'matreq'),
                   product_code: finalCode,
                   category: activeTab,
                   material_name: requestForm.name,
@@ -1776,6 +1785,7 @@ Page({
           const result = (res && res.result) || {};
 
           if (result.success) {
+              clearOperationId('addMaterialRequest:submit');
               wx.showToast({ title: '申请已提交', icon: 'success' });
               this.setData({ showRequestPopup: false, showRequestUnitSheet: false });
           } else {

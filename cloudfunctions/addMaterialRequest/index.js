@@ -9,6 +9,14 @@ const {
 } = require('./material-subcategories');
 const { normalizeUnitInput } = require('./material-units');
 const { assertActiveUserAccess } = require('./auth');
+const {
+  buildOperationReceiptContext,
+  beginOperationReceipt,
+  markOperationReceiptSucceeded,
+  markOperationReceiptFailed
+} = require('./operation-receipts');
+const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -35,6 +43,19 @@ async function getOperator(openid) {
   return (res.data && res.data[0]) || null;
 }
 
+async function queryExists(collectionOwner, collectionName, where) {
+  const query = collectionOwner.collection(collectionName).where(where);
+  if (query && typeof query.limit === 'function') {
+    const res = await query.limit(1).get();
+    return !!(res.data && res.data.length);
+  }
+  if (query && typeof query.count === 'function') {
+    const res = await query.count();
+    return Number(res.total) > 0;
+  }
+  throw new Error(`无法检查 ${collectionName} 数据`);
+}
+
 async function submitRequest(event, openid) {
   const {
     product_code,
@@ -45,6 +66,7 @@ async function submitRequest(event, openid) {
     supplier,
     default_unit
   } = event;
+  const normalizedProductCode = String(product_code || '').trim().toUpperCase();
 
   if (!product_code || !category || !material_name) {
     return { success: false, msg: '缺少必填信息' };
@@ -70,44 +92,99 @@ async function submitRequest(event, openid) {
     return { success: false, msg: normalizedUnit.msg || '请选择有效默认单位' };
   }
 
-  const existing = await db.collection('material_requests')
-    .where({
-      product_code,
-      status: 'pending'
-    })
-    .count();
-
-  if (existing.total > 0) {
-    return { success: false, msg: '该代码已有待审批的申请，请勿重复提交' };
-  }
-
-  const activeMaterial = await db.collection('materials')
-    .where({ product_code })
-    .count();
-
-  if (activeMaterial.total > 0) {
-    return { success: false, msg: '该代码已存在于标准库，无需申请' };
-  }
-
   const applicant_name = await resolveApplicantName(openid);
-  await db.collection('material_requests').add({
-    data: {
-      product_code,
-      category,
-      material_name,
-      subcategory_key: resolvedSubcategory.subcategory_key,
-      sub_category: resolvedSubcategory.sub_category,
-      supplier: supplier || '',
-      default_unit: normalizedUnit.unit,
-      status: 'pending',
-      applicant: openid,
-      applicant_name: applicant_name || '',
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    }
-  });
+  const operationContext = event.operation_id
+    ? buildOperationReceiptContext({
+      openid,
+      operationId: event.operation_id,
+      requestPayload: {
+        product_code: normalizedProductCode,
+        category,
+        material_name,
+        subcategory_key: resolvedSubcategory.subcategory_key,
+        sub_category: resolvedSubcategory.sub_category,
+        supplier: supplier || '',
+        default_unit: normalizedUnit.unit
+      }
+    })
+    : null;
 
-  return { success: true, msg: '申请已提交，请等待管理员审核' };
+  try {
+    return await db.runTransaction(async transaction => {
+      if (operationContext) {
+        const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
+        if (operationReceipt.reused) {
+          return operationReceipt.response;
+        }
+      }
+
+      const hasPendingRequest = await queryExists(transaction, 'material_requests', {
+        product_code: normalizedProductCode,
+        status: 'pending'
+      });
+      if (hasPendingRequest) {
+        const response = { success: false, msg: '该代码已有待审批的申请，请勿重复提交' };
+        if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
+      }
+
+      const hasActiveMaterial = await queryExists(transaction, 'materials', {
+        product_code: normalizedProductCode,
+        status: 'active'
+      });
+      if (hasActiveMaterial) {
+        const response = { success: false, msg: '该代码已存在于标准库，无需申请' };
+        if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+        return response;
+      }
+
+      const requestData = {
+        product_code: normalizedProductCode,
+        category,
+        material_name,
+        subcategory_key: resolvedSubcategory.subcategory_key,
+        sub_category: resolvedSubcategory.sub_category,
+        supplier: supplier || '',
+        default_unit: normalizedUnit.unit,
+        status: 'pending',
+        pending_key: normalizedProductCode,
+        applicant: openid,
+        applicant_name: applicant_name || '',
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      };
+      let created;
+      try {
+        created = await transaction.collection('material_requests').add({ data: requestData });
+      } catch (error) {
+        if (/duplicate|unique|唯一|already exists|已存在/i.test(String(error && (error.errMsg || error.message) || ''))) {
+          const response = { success: false, msg: '该代码已有待审批的申请，请勿重复提交' };
+          if (operationContext) await markOperationReceiptFailed(transaction, db, operationContext, response);
+          return response;
+        }
+        throw error;
+      }
+
+      const response = { success: true, msg: '申请已提交，请等待管理员审核', id: created._id };
+      await writeAuditEvent(transaction, db, {
+        domain: 'material_request',
+        action: 'create',
+        operator: { _openid: openid, name: applicant_name || '' },
+        operationId: operationContext && operationContext.operationId,
+        target: { type: 'material_request', id: created._id, label: normalizedProductCode },
+        after: requestData
+      });
+      if (operationContext) {
+        await markOperationReceiptSucceeded(transaction, db, operationContext, response);
+      }
+      return response;
+    });
+  } catch (error) {
+    if (/duplicate|unique|唯一|already exists|已存在/i.test(String(error && (error.errMsg || error.message) || ''))) {
+      return { success: false, msg: '该代码已有待审批的申请，请勿重复提交' };
+    }
+    throw error;
+  }
 }
 
 async function listMine(openid) {
@@ -150,7 +227,10 @@ exports.main = async (event, context) => {
 
     return { success: false, msg: '未知操作类型' };
   } catch (err) {
-    console.error('Material Request Error:', err);
-    return { success: false, msg: '提交失败: ' + err.message };
+    return handleCloudError(err, {
+      scope: 'addMaterialRequest',
+      operationId: event && event.operation_id,
+      fallbackMessage: action === 'listMine' ? '加载申请失败，请稍后重试' : '提交申请失败，请稍后重试'
+    });
   }
 };

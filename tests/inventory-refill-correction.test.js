@@ -2179,6 +2179,7 @@ test('inventory template submit rejects invalid refill quantities even if the fr
 
 test('submitInventoryCorrectionRequest only accepts inbound logs and stores a pending correction request', async () => {
   let insertedRequest = null;
+  let auditCount = 0;
 
   const db = {
     serverDate() {
@@ -2267,6 +2268,15 @@ test('submitInventoryCorrectionRequest only accepts inbound logs and stores a pe
         };
       }
 
+      if (name === 'audit_events') {
+        return {
+          async add() {
+            auditCount += 1;
+            return { _id: `audit-${auditCount}` };
+          }
+        };
+      }
+
       throw new Error(`unexpected collection: ${name}`);
     }
   };
@@ -2303,6 +2313,7 @@ test('submitInventoryCorrectionRequest only accepts inbound logs and stores a pe
   assert.equal(insertedRequest.requested_quantity, 8);
   assert.equal(insertedRequest.unit, 'kg');
   assert.equal(insertedRequest.reason, '入库称量录入错误');
+  assert.equal(auditCount, 1);
 });
 
 test('submitInventoryCorrectionRequest rejects non-positive requested quantities on the server', async () => {

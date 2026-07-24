@@ -93,6 +93,7 @@ Page({
     total: 0,
     loading: false,
     searchVal: '',
+    searchMessage: '',
     includeDisabled: true,
     formVisible: false,
     formSubmitting: false,
@@ -110,10 +111,11 @@ Page({
     selectedFile: null,
     importPreviewData: [],
     importing: false,
-    exportingTemplate: false
+    exportingTemplate: false,
+    searchRequestId: 0
   },
 
-  onLoad() {
+  onLoad(options = {}) {
     const app = getApp();
     const user = app.globalData.user;
     if (!user || !['admin', 'super_admin'].includes(user.role)) {
@@ -125,39 +127,60 @@ Page({
       });
       return;
     }
-    this.loadIdentities();
+    this.loadIdentities().then(() => {
+      if (options.action === 'create') {
+        setTimeout(() => this.onCreateIdentity(), 0);
+      } else if (options.action === 'import') {
+        setTimeout(() => this.onChooseImportFile(), 0);
+      }
+    });
   },
 
   async loadIdentities() {
-    this.setData({ loading: true });
+    const requestId = (this.data.searchRequestId || 0) + 1;
+    this.setData({ loading: true, searchRequestId: requestId });
     try {
       const result = await listTestMaterialIdentities({
         includeDisabled: this.data.includeDisabled,
         searchVal: this.data.searchVal,
         pageSize: 100
       });
+      if (this.data.searchRequestId !== requestId) return;
       this.setData({
         identities: result.list,
-        total: result.total
+        total: result.total,
+        searchMessage: this.data.searchVal ? (result.searchMessage || '') : ''
       });
     } catch (err) {
       Toast.fail(err.message || '加载测试料型号失败');
     } finally {
-      this.setData({ loading: false });
+      if (this.data.searchRequestId === requestId) {
+        this.setData({ loading: false });
+      }
     }
   },
 
   onSearchChange(e) {
-    this.setData({ searchVal: getInputValue(e) });
+    const searchVal = getInputValue(e);
+    this.setData({ searchVal, searchMessage: '' });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadIdentities(), 400);
   },
 
   onSearchConfirm() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     this.loadIdentities();
   },
 
   onClearSearch() {
-    this.setData({ searchVal: '' });
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.setData({ searchVal: '', searchMessage: '' });
     this.loadIdentities();
+  },
+
+  onUnload() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    if (this.materialSearchTimer) clearTimeout(this.materialSearchTimer);
   },
 
   onCreateIdentity() {

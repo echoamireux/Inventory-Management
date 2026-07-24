@@ -7,7 +7,6 @@ const {
 const {
   normalizeParentCategory,
   normalizeSubcategoryName,
-  normalizeStatus,
   isReservedSubcategoryName,
   ensureBuiltinSubcategories,
   sortSubcategoryRecords,
@@ -15,6 +14,7 @@ const {
   findSubcategoryRecordByName
 } = require('./material-subcategories');
 const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -31,8 +31,13 @@ async function getOperator(openid) {
   return userRes.data && userRes.data[0];
 }
 
-async function writeSubcategoryAudit(action, operator, openid, record = {}, detail = {}) {
-  await writeAuditEvent(db, db, {
+function parseMutationStatus(status) {
+  const normalized = String(status || '').trim();
+  return normalized === 'active' || normalized === 'disabled' ? normalized : '';
+}
+
+async function writeSubcategoryAudit(transaction, action, operator, openid, record = {}, detail = {}) {
+  await writeAuditEvent(transaction, db, {
     domain: 'subcategory',
     action,
     operator: Object.assign({}, operator || {}, { _openid: openid }),
@@ -94,15 +99,17 @@ async function createSubcategory(name, category, openid) {
   const existing = findSubcategoryRecordByName(existingRecords, normalizedName, normalizedCategory);
   if (existing) {
     if (existing.status === 'disabled' && existing._id) {
-      await db.collection('material_subcategories').doc(existing._id).update({
-        data: {
-          status: 'active',
-          updated_at: db.serverDate()
-        }
-      });
-      await writeSubcategoryAudit('status', operator, openid, Object.assign({}, existing, { status: 'active' }), {
-        previous_status: existing.status,
-        next_status: 'active'
+      await db.runTransaction(async transaction => {
+        await transaction.collection('material_subcategories').doc(existing._id).update({
+          data: {
+            status: 'active',
+            updated_at: db.serverDate()
+          }
+        });
+        await writeSubcategoryAudit(transaction, 'status', operator, openid, Object.assign({}, existing, { status: 'active' }), {
+          previous_status: existing.status,
+          next_status: 'active'
+        });
       });
     }
 
@@ -121,24 +128,27 @@ async function createSubcategory(name, category, openid) {
   );
   const subcategoryKey = buildCustomSubcategoryKey(normalizedCategory);
 
-  const res = await db.collection('material_subcategories').add({
-    data: {
+  const res = await db.runTransaction(async transaction => {
+    const created = await transaction.collection('material_subcategories').add({
+      data: {
+        subcategory_key: subcategoryKey,
+        name: normalizedName,
+        parent_category: normalizedCategory,
+        is_builtin: false,
+        status: 'active',
+        sort_order: maxSortOrder + 10,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+    await writeSubcategoryAudit(transaction, 'create', operator, openid, {
+      _id: created._id,
       subcategory_key: subcategoryKey,
       name: normalizedName,
       parent_category: normalizedCategory,
-      is_builtin: false,
-      status: 'active',
-      sort_order: maxSortOrder + 10,
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
-    }
-  });
-  await writeSubcategoryAudit('create', operator, openid, {
-    _id: res._id,
-    subcategory_key: subcategoryKey,
-    name: normalizedName,
-    parent_category: normalizedCategory,
-    status: 'active'
+      status: 'active'
+    });
+    return created;
   });
 
   return {
@@ -180,17 +190,19 @@ async function renameSubcategory(subcategoryKey, name, openid) {
     return { success: false, msg: '已存在同名子类别' };
   }
 
-  await db.collection('material_subcategories').doc(current._id).update({
-    data: {
-      name: normalizedName,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeSubcategoryAudit('update', operator, openid, Object.assign({}, current, {
-    name: normalizedName
-  }), {
-    previous_name: current.name,
-    next_name: normalizedName
+  await db.runTransaction(async transaction => {
+    await transaction.collection('material_subcategories').doc(current._id).update({
+      data: {
+        name: normalizedName,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeSubcategoryAudit(transaction, 'update', operator, openid, Object.assign({}, current, {
+      name: normalizedName
+    }), {
+      previous_name: current.name,
+      next_name: normalizedName
+    });
   });
 
   return {
@@ -206,24 +218,29 @@ async function setSubcategoryStatus(subcategoryKey, status, openid) {
     return { success: false, msg: authResult.msg };
   }
 
-  const normalized = normalizeStatus(status);
+  const normalized = parseMutationStatus(status);
+  if (!normalized) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   const existingRecords = sortSubcategoryRecords(await ensureBuiltinSubcategories(db));
   const current = existingRecords.find(item => item.subcategory_key === subcategoryKey);
   if (!current || !current._id) {
     return { success: false, msg: '子类别不存在' };
   }
 
-  await db.collection('material_subcategories').doc(current._id).update({
-    data: {
-      status: normalized,
-      updated_at: db.serverDate()
-    }
-  });
-  await writeSubcategoryAudit('status', operator, openid, Object.assign({}, current, {
-    status: normalized
-  }), {
-    previous_status: current.status,
-    next_status: normalized
+  await db.runTransaction(async transaction => {
+    await transaction.collection('material_subcategories').doc(current._id).update({
+      data: {
+        status: normalized,
+        updated_at: db.serverDate()
+      }
+    });
+    await writeSubcategoryAudit(transaction, 'status', operator, openid, Object.assign({}, current, {
+      status: normalized
+    }), {
+      previous_status: current.status,
+      next_status: normalized
+    });
   });
 
   return {
@@ -250,17 +267,19 @@ async function reorderSubcategories(subcategoryKeys, openid) {
     return { success: false, msg: '未找到可排序的子类别' };
   }
 
-  for (let index = 0; index < validKeys.length; index += 1) {
-    const record = recordMap.get(validKeys[index]);
-    await db.collection('material_subcategories').doc(record._id).update({
-      data: {
-        sort_order: (index + 1) * 10,
-        updated_at: db.serverDate()
-      }
+  await db.runTransaction(async transaction => {
+    for (let index = 0; index < validKeys.length; index += 1) {
+      const record = recordMap.get(validKeys[index]);
+      await transaction.collection('material_subcategories').doc(record._id).update({
+        data: {
+          sort_order: (index + 1) * 10,
+          updated_at: db.serverDate()
+        }
+      });
+    }
+    await writeSubcategoryAudit(transaction, 'reorder', operator, openid, { subcategory_key: validKeys.join(',') }, {
+      subcategory_keys: validKeys
     });
-  }
-  await writeSubcategoryAudit('reorder', operator, openid, { subcategory_key: validKeys.join(',') }, {
-    subcategory_keys: validKeys
   });
 
   return {
@@ -303,10 +322,9 @@ exports.main = async (event, context) => {
       msg: `不支持的操作: ${action}`
     };
   } catch (err) {
-    console.error(err);
-    return {
-      success: false,
-      msg: err.message
-    };
+    return handleCloudError(err, {
+      scope: 'manageSubcategory',
+      fallbackMessage: '子类别操作失败，请稍后重试'
+    });
   }
 };

@@ -24,6 +24,7 @@ Page({
     total: 0,
     isEnd: false,
     requestId: 0,
+    searchMessage: '',
   },
 
   onLoad: function (options) {
@@ -61,29 +62,29 @@ Page({
 
   onTabChange(e) {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ activeTab: e.detail.index, page: 1, isEnd: false });
+    this.setData({ activeTab: e.detail.index, page: 1, isEnd: false, searchMessage: '' });
     this.getList(true);
   },
 
   onSearch(e) {
     const searchVal = resolveSearchValue(e && e.detail);
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal, page: 1, isEnd: false });
+    this.setData({ searchVal, page: 1, isEnd: false, searchMessage: '' });
     this.getList(true);
   },
 
   onSearchChange(e) {
       const val = resolveSearchValue(e && e.detail);
-      this.setData({ searchVal: val, page: 1, isEnd: false });
+      this.setData({ searchVal: val, page: 1, isEnd: false, searchMessage: '' });
       if (this.searchTimer) clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => {
           this.getList(true);
-      }, 500);
+      }, 400);
   },
 
   onSearchClear() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal: '', page: 1, isEnd: false });
+    this.setData({ searchVal: '', page: 1, isEnd: false, searchMessage: '' });
     this.getList(true);
   },
 
@@ -137,6 +138,7 @@ Page({
             total: Number(result.total) || mergedList.length,
             page: nextPage + 1,
             isEnd: Boolean(result.isEnd),
+            searchMessage: searchVal ? (result.searchMessage || '') : '',
             hasLoadedOnce: true,
             lastSeenInventoryChangeAt: (getApp().globalData && getApp().globalData.inventoryChangedAt) || 0
           });

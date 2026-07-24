@@ -3,18 +3,23 @@ const { assertActiveUserAccess, assertAdminMutationAccess } = require('./auth');
 const {
   normalizeProductCodePrefix,
   normalizePrefixCategory,
-  normalizeStatus,
   ensureBuiltinProductCodePrefixes,
   sortProductCodePrefixRecords,
   filterProductCodePrefixRecordsByCategory
 } = require('./product-code-prefixes');
 const { writeAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
 
 const db = cloud.database();
+
+function parseMutationStatus(status) {
+  const normalized = String(status || '').trim();
+  return normalized === 'active' || normalized === 'disabled' ? normalized : '';
+}
 
 async function loadOperator(openid) {
   const res = await db.collection('users')
@@ -86,18 +91,28 @@ async function createPrefix(event, openid) {
 
   const records = await getPrefixRecords(true);
   const maxOrder = records.reduce((max, item) => Math.max(max, Number(item.sort_order) || 0), 0);
-  const res = await db.collection('product_code_prefixes').add({
-    data: {
-      prefix,
-      category,
-      status: 'active',
-      is_builtin: false,
-      sort_order: maxOrder + 10,
-      created_at: db.serverDate(),
-      updated_at: db.serverDate()
+  const res = await db.runTransaction(async transaction => {
+    const duplicateRes = await transaction.collection('product_code_prefixes')
+      .where({ prefix })
+      .limit(1)
+      .get();
+    if (duplicateRes.data && duplicateRes.data.length) {
+      throw new Error('产品代码前缀已存在');
     }
+    const created = await transaction.collection('product_code_prefixes').add({
+      data: {
+        prefix,
+        category,
+        status: 'active',
+        is_builtin: false,
+        sort_order: maxOrder + 10,
+        created_at: db.serverDate(),
+        updated_at: db.serverDate()
+      }
+    });
+    await writePrefixAudit(transaction, 'create', operator, openid, { _id: created._id, prefix, category, status: 'active' });
+    return created;
   });
-  await writePrefixAudit(db, 'create', operator, openid, { _id: res._id, prefix, category, status: 'active' });
 
   return {
     success: true,
@@ -115,7 +130,10 @@ async function setPrefixStatus(event, openid) {
   }
 
   const prefix = normalizeProductCodePrefix(event && event.prefix);
-  const nextStatus = normalizeStatus(event && event.status);
+  const nextStatus = parseMutationStatus(event && event.status);
+  if (!nextStatus) {
+    return { success: false, msg: '状态仅支持 active 或 disabled' };
+  }
   await ensureBuiltinProductCodePrefixes(db);
 
   await db.runTransaction(async (transaction) => {
@@ -181,17 +199,19 @@ async function reorderPrefixes(event, openid) {
     return { success: false, msg: '未找到可排序的产品代码前缀' };
   }
 
-  for (let index = 0; index < validPrefixes.length; index += 1) {
-    const record = recordMap.get(validPrefixes[index]);
-    await db.collection('product_code_prefixes').doc(record._id).update({
-      data: {
-        sort_order: (index + 1) * 10,
-        updated_at: db.serverDate()
-      }
+  await db.runTransaction(async transaction => {
+    for (let index = 0; index < validPrefixes.length; index += 1) {
+      const record = recordMap.get(validPrefixes[index]);
+      await transaction.collection('product_code_prefixes').doc(record._id).update({
+        data: {
+          sort_order: (index + 1) * 10,
+          updated_at: db.serverDate()
+        }
+      });
+    }
+    await writePrefixAudit(transaction, 'reorder', operator, openid, { prefix: validPrefixes.join(',') }, {
+      prefixes: validPrefixes
     });
-  }
-  await writePrefixAudit(db, 'reorder', operator, openid, { prefix: validPrefixes.join(',') }, {
-    prefixes: validPrefixes
   });
 
   return { success: true, msg: '排序已更新' };
@@ -217,7 +237,9 @@ exports.main = async (event) => {
 
     return { success: false, msg: `不支持的操作: ${action}` };
   } catch (error) {
-    console.error('manageProductCodePrefix error', error);
-    return { success: false, msg: error.message || '产品代码前缀操作失败' };
+    return handleCloudError(error, {
+      scope: 'manageProductCodePrefix',
+      fallbackMessage: '产品代码前缀操作失败，请稍后重试'
+    });
   }
 };

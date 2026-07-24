@@ -84,6 +84,8 @@ cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/batchAddInventory
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/editInventory/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/importInventoryTemplate/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/updateInventory/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/addMaterialRequest/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/submitInventoryCorrectionRequest/operation-receipts.js
 
 echo "   -> Updating audit-events.js..."
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/addMaterial/audit-events.js
@@ -101,6 +103,24 @@ cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageTestMaterialIdent
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageProjectCode/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/manageSubcategory/audit-events.js
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/addWarehouseZone/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/addMaterialRequest/audit-events.js
+cp cloudfunctions/_shared/audit-events.js cloudfunctions/submitInventoryCorrectionRequest/audit-events.js
+
+echo "   -> Updating error-response.js..."
+cp cloudfunctions/_shared/error-response.js cloudfunctions/addMaterial/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/batchAddInventory/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/importInventoryTemplate/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/updateInventory/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/addMaterialRequest/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/submitInventoryCorrectionRequest/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/manageProjectCode/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/manageSubcategory/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/addWarehouseZone/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/manageTestMaterialIdentity/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/manageProductCodePrefix/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/getLogs/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/getProjectUsageReport/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/exportProjectUsageReport/error-response.js
 
 echo "   -> Updating preprint-jobs.js..."
 cp cloudfunctions/_shared/preprint-jobs.js cloudfunctions/exportLabelData/preprint-jobs.js
@@ -158,6 +178,7 @@ cp cloudfunctions/_shared/log-search.js cloudfunctions/getLogs/log-search.js
 
 echo "   -> Updating inventory-allocation.js..."
 cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/getInventoryBatches/inventory-allocation.js
+cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/getInventoryGrouped/inventory-allocation.js
 cp cloudfunctions/_shared/inventory-allocation.js cloudfunctions/updateInventory/inventory-allocation.js
 
 echo "   -> Updating material-template.js..."

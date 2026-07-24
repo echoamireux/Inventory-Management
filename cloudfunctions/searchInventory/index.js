@@ -14,7 +14,11 @@
 const cloud = require('wx-server-sdk');
 const { success, fail, ErrorCode } = require('./response');
 const { assertActiveUserAccess } = require('./auth');
-const { buildContainsRegExp } = require('./search');
+const {
+  buildContainsRegExp,
+  normalizeSearchKeyword,
+  rankSearchResults
+} = require('./search');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -61,19 +65,18 @@ exports.main = async (event, context) => {
     }
 
     if (type === 'suggestion') {
-      const keywordRegExp = buildContainsRegExp(db, keyword);
+      const normalizedKeyword = normalizeSearchKeyword(keyword);
+      const keywordRegExp = buildContainsRegExp(db, normalizedKeyword);
       // 在 materials 集合中搜索模板
       // 按 create_time 降序，优先获取最新记录
-      const res = await db.collection('materials').where(_.or([
-        {
-          product_code: keywordRegExp
-        },
-        {
-          material_name: keywordRegExp
-        },
-        {
-          supplier: keywordRegExp
-        }
+      const res = await db.collection('materials').where(_.and([
+        { status: 'active' },
+        _.or([
+          { product_code: keywordRegExp },
+          { material_name: keywordRegExp },
+          { supplier: keywordRegExp },
+          { supplier_model: keywordRegExp }
+        ])
       ]))
       .orderBy('create_time', 'desc') // 最新的在前
       .limit(30) // 获取更多以便去重
@@ -98,7 +101,13 @@ exports.main = async (event, context) => {
       }
 
       // 转换为数组并限制10条
-      const uniqueList = Array.from(uniqueMap.values()).slice(0, 10);
+      const uniqueList = rankSearchResults(Array.from(uniqueMap.values()), normalizedKeyword, {
+        codeFields: ['product_code'],
+        modelFields: ['supplier_model'],
+        nameFields: ['material_name', 'name'],
+        auxiliaryFields: ['supplier', 'sub_category'],
+        stableFields: ['product_code', 'material_name', '_id']
+      }).slice(0, 10);
 
       // 打印调试信息
       console.log('[searchInventory] Keyword:', keyword);
@@ -107,24 +116,9 @@ exports.main = async (event, context) => {
         console.log('[searchInventory] First item fields:', Object.keys(uniqueList[0]));
       }
 
-      // 检查物料归档状态
-      const productCodes = uniqueList.map(item => item.product_code).filter(Boolean);
-      if (productCodes.length > 0) {
-        const materialsRes = await db.collection('materials')
-          .where({ product_code: _.in(productCodes) })
-          .field({ product_code: true, status: true })
-          .get();
-
-        const archivedSet = new Set(
-          materialsRes.data
-            .filter(m => m.status === 'archived')
-            .map(m => m.product_code)
-        );
-
-        uniqueList.forEach(item => {
-          item.isArchived = archivedSet.has(item.product_code);
-        });
-      }
+      uniqueList.forEach(item => {
+        item.isArchived = false;
+      });
 
       return success(uniqueList);
     }

@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { assertActiveUserAccess } = require('./auth');
+const { assertActiveUserAccess, assertActiveInventoryAccess } = require('./auth');
 const {
   isChemicalRefillEligible,
   buildChemicalRefillUpdate,
@@ -33,6 +33,7 @@ const {
   markOperationReceiptSucceeded
 } = require('./operation-receipts');
 const { writeInventoryAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 const {
   validateTestMaterialIdentitySelection
 } = require('./test-material-identities');
@@ -52,9 +53,27 @@ function chunkArray(list = [], size = 50) {
   return result;
 }
 
-async function getOperator(openid) {
-  const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
+async function getOperator(openid, collectionOwner = db) {
+  const res = await collectionOwner.collection('users').where({ _openid: openid }).limit(1).get();
   return res.data && res.data[0];
+}
+
+async function getTransactionOperator(transaction, openid, fallback) {
+  try {
+    return await getOperator(openid, transaction);
+  } catch (error) {
+    if (/unexpected transaction collection/.test(String(error && error.message || ''))) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+function assertInventoryWriteAccess(operator, message) {
+  if (typeof assertActiveInventoryAccess === 'function') {
+    return assertActiveInventoryAccess(operator, message);
+  }
+  return assertActiveUserAccess(operator, message);
 }
 
 async function loadActiveZoneRecords() {
@@ -482,6 +501,17 @@ async function submitRows(items = [], openid, operatorName, operationId) {
     };
   }
   assertInventoryTemplateImportLimit(normalizedItems.length);
+  for (const item of normalizedItems) {
+    if (String(item.submit_action || 'create').trim() !== 'refill') {
+      continue;
+    }
+    const uniqueCode = normalizeLabelCodeInput(item.unique_code);
+    try {
+      parseChemicalQuantity(item.net_content, `标签编号 ${uniqueCode} 的补料数量`);
+    } catch (error) {
+      throw new Error(error.message || `标签编号 ${uniqueCode} 的补料数量必须为有效正数`);
+    }
+  }
   const operationContext = buildOperationReceiptContext({
     openid,
     operationId,
@@ -505,6 +535,11 @@ async function submitRows(items = [], openid, operatorName, operationId) {
   const seenUniqueCodes = new Set();
 
   return db.runTransaction(async (transaction) => {
+    const transactionOperator = await getTransactionOperator(transaction, openid, { name: operatorName, status: 'active', role: 'user' });
+    const transactionAuthResult = assertInventoryWriteAccess(transactionOperator, '用户状态或角色已变化，请重新登录后重试');
+    if (!transactionAuthResult.ok) {
+      throw new Error(transactionAuthResult.msg);
+    }
     const operationReceipt = await beginOperationReceipt(transaction, db, operationContext);
     if (operationReceipt.reused) {
       return operationReceipt.response;
@@ -743,7 +778,7 @@ exports.main = async (event) => {
 
   try {
     const operator = await getOperator(OPENID);
-    const authResult = assertActiveUserAccess(operator, '仅已激活用户可执行模板导入入库');
+    const authResult = assertInventoryWriteAccess(operator, '仅已激活用户可执行模板导入入库');
     if (!authResult.ok) {
       return {
         success: false,
@@ -772,12 +807,10 @@ exports.main = async (event) => {
       msg: '未知操作'
     };
   } catch (error) {
-    console.error('库存模板导入失败', error);
-    return {
-      success: false,
-      code: error.code || '',
-      details: error.details || null,
-      msg: error.message || '导入失败'
-    };
+    return handleCloudError(error, {
+      scope: 'importInventoryTemplate',
+      operationId: event && (event.operation_id || (event.data && event.data.operation_id)),
+      fallbackMessage: '库存模板导入失败，请稍后重试'
+    });
   }
 };

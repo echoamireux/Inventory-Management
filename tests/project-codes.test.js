@@ -330,6 +330,150 @@ test('frontend project code service calls manageProjectCode with business action
   assert.equal(calls[2].data.project_name, '改名项目');
 });
 
+test('project code mutations roll back business writes when audit or reorder fails', async () => {
+  const state = {
+    users: [{ _openid: 'openid-admin', role: 'admin', status: 'active', name: '管理员' }],
+    projects: [
+      { _id: 'p1', project_code: 'OR2026RD02001', project_name: '项目一', status: 'active', sort_order: 10 },
+      { _id: 'p2', project_code: 'OR2026RD02002', project_name: '项目二', status: 'active', sort_order: 20 }
+    ],
+    audit: [],
+    transactionCount: 0,
+    failAudit: true
+  };
+
+  function createQuery(rows, where = {}) {
+    const filtered = rows.filter(row => Object.entries(where).every(([key, value]) => row[key] === value));
+    const query = {
+      limit() { return query; },
+      async get() { return { data: filtered.map(row => ({ ...row })) }; }
+    };
+    return query;
+  }
+
+  function createCollection(name, target) {
+    if (name === 'users') {
+      return { where(where) { return createQuery(target.users, where); } };
+    }
+    if (name === 'project_codes') {
+      return {
+        where(where) { return createQuery(target.projects, where); },
+        async add({ data }) {
+          const id = `p${target.projects.length + 1}`;
+          target.projects.push({ _id: id, ...data });
+          return { _id: id };
+        },
+        doc(id) {
+          return {
+            async get() {
+              return { data: target.projects.find(item => item._id === id) || null };
+            },
+            async update({ data }) {
+              const index = target.projects.findIndex(item => item._id === id);
+              if (index < 0) throw new Error('missing project');
+              target.projects[index] = { ...target.projects[index], ...data };
+            }
+          };
+        }
+      };
+    }
+    if (name === 'audit_events') {
+      return {
+        async add() {
+          if (state.failAudit) throw new Error('audit storage unavailable');
+          target.audit.push({ _id: `audit-${target.audit.length + 1}` });
+          return { _id: `audit-${target.audit.length}` };
+        }
+      };
+    }
+    throw new Error(`unexpected collection: ${name}`);
+  }
+
+  const db = {
+    serverDate() { return { $date: true }; },
+    collection(name) { return createCollection(name, state); },
+    async runTransaction(handler) {
+      state.transactionCount += 1;
+      const draft = {
+        users: state.users.map(item => ({ ...item })),
+        projects: state.projects.map(item => ({ ...item })),
+        audit: []
+      };
+      const result = await handler({
+        collection(name) { return createCollection(name, draft); }
+      });
+      state.projects = draft.projects;
+      state.audit.push(...draft.audit);
+      return result;
+    }
+  };
+
+  const mod = loadModuleWithMocks('../cloudfunctions/manageProjectCode/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() { return { OPENID: 'openid-admin' }; },
+      database() { return db; }
+    },
+    './project-codes': {
+      normalizeProjectCode(value) { return String(value || '').trim().toUpperCase(); },
+      normalizeProjectName(value) { return String(value || '').trim(); },
+      ensureBuiltinProjectCodes: async () => state.projects.map(item => ({ ...item })),
+      sortProjectCodeRecords(records) { return records; }
+    }
+  });
+
+  const beforeCreate = state.projects.map(item => ({ ...item }));
+  const originalConsoleError = console.error;
+  let failedCreate;
+  console.error = () => {};
+  try {
+    failedCreate = await mod.main({
+      action: 'create',
+      project_code: 'OR2026RD02003',
+      project_name: '审计失败项目'
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+  assert.equal(failedCreate.success, false);
+  assert.equal(failedCreate.code, 'INTERNAL_ERROR');
+  assert.deepEqual(state.projects, beforeCreate);
+
+  state.failAudit = false;
+  const created = await mod.main({
+    action: 'create',
+    project_code: 'OR2026RD02003',
+    project_name: '可提交项目'
+  });
+  assert.equal(created.success, true);
+  assert.equal(state.projects.length, 3);
+  assert.equal(state.audit.length, 1);
+
+  const beforeReorder = state.projects.map(item => ({ ...item }));
+  state.failAudit = true;
+  let failedReorder;
+  console.error = () => {};
+  try {
+    failedReorder = await mod.main({
+      action: 'reorder',
+      project_codes: ['OR2026RD02002', 'OR2026RD02001']
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+  assert.equal(failedReorder.success, false);
+  assert.deepEqual(state.projects, beforeReorder);
+
+  const invalidStatus = await mod.main({
+    action: 'setStatus',
+    project_code: 'OR2026RD02001',
+    status: 'archived'
+  });
+  assert.equal(invalidStatus.success, false);
+  assert.match(invalidStatus.msg, /状态仅支持 active 或 disabled/);
+  assert.equal(state.transactionCount, 3);
+});
+
 test('project code management page uses structured forms and clear loading states', () => {
   const pageJs = read('miniprogram/pages/admin/project-code-manage/index.js');
   const pageWxml = read('miniprogram/pages/admin/project-code-manage/index.wxml');

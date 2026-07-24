@@ -439,16 +439,26 @@ Page({
 
     wx.showLoading({ title: '提交中...' });
     try {
+      const {
+        ensureOperationId,
+        clearOperationId
+      } = require('../../utils/operation-id');
+      const operationScope = 'submitInventoryCorrectionRequest:admin-logs';
+      const operationPayload = {
+        source_log_id: item._id,
+        requested_quantity: requestedQuantity,
+        reason: (reasonRes.confirm && reasonRes.content) || ''
+      };
       const result = await wx.cloud.callFunction({
         name: 'submitInventoryCorrectionRequest',
         data: {
-          source_log_id: item._id,
-          requested_quantity: requestedQuantity,
-          reason: (reasonRes.confirm && reasonRes.content) || ''
+          ...operationPayload,
+          operation_id: ensureOperationId(operationScope, operationPayload, 'corr')
         }
       });
       wx.hideLoading();
       if (result.result && result.result.success) {
+        clearOperationId(operationScope);
         wx.showToast({ title: '申请已提交', icon: 'success' });
       } else {
         wx.showToast({ title: (result.result && result.result.msg) || '提交失败', icon: 'none' });

@@ -25,7 +25,7 @@ const INVALID_TEMPLATE_HEADER_MSG = '库存入库表字段顺序不正确，请�
 const LEGACY_TEMPLATE_RUNTIME_MSG = '当前云函数与前端模板协议不一致，请部署最新版 importInventoryTemplate';
 const INVENTORY_TEMPLATE_SCHEMA_VERSION = 'inventory-import-v2';
 const EMPTY_INVENTORY_TEMPLATE_ROWS_HINT = '未检测到数据行，请从第 4 行开始填写后直接上传 .xlsx 文件';
-const MAX_INVENTORY_TEMPLATE_IMPORT_ROWS = 100;
+const MAX_INVENTORY_TEMPLATE_IMPORT_ROWS = 10;
 const BUILTIN_ZONE_SEEDS = [
   { zone_key: 'builtin:chemical:safe-cabinet-01', name: '防爆柜01', scope: 'chemical', status: 'active', sort_order: 10 },
   { zone_key: 'builtin:chemical:safe-cabinet-02', name: '防爆柜02', scope: 'chemical', status: 'active', sort_order: 20 },
@@ -48,7 +48,7 @@ function normalizeText(value) {
 function assertInventoryTemplateImportLimit(count) {
   const total = Number(count) || 0;
   if (total > MAX_INVENTORY_TEMPLATE_IMPORT_ROWS) {
-    throw new Error(`单次最多导入 ${MAX_INVENTORY_TEMPLATE_IMPORT_ROWS} 条库存数据，请拆分文件后再导入`);
+    throw new Error(`单个导入批次最多 ${MAX_INVENTORY_TEMPLATE_IMPORT_ROWS} 条库存数据`);
   }
 }
 
@@ -253,7 +253,7 @@ function buildFilmInventoryState(baseLengthM, displayUnit, widthMm, initialLengt
 }
 
 function getFilmThicknessLockedMessage(thicknessUm) {
-  return `当前物料厚度已锁定为 ${thicknessUm} μm，请按主数据入库；如需修改请联系管理员在物料管理中调整`;
+  return `当前物料厚度已锁定为 ${thicknessUm} μm，请按主数据入库；如需修改请联系管理员在主数据管理中调整`;
 }
 
 function resolveFilmThicknessGovernance({ materialThicknessUm, inboundThicknessUm }) {
