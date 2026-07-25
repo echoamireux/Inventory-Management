@@ -36,15 +36,28 @@ function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } =
   ];
   const collections = new Map([
     ['users', new Map([['user-1', { _openid: 'openid-1', name: '测试操作员', role: 'user', status: 'active' }]])],
-    ['materials', new Map([['mat-1', {
-      _id: 'mat-1',
-      product_code: 'J-999',
-      material_name: '测试料-化材',
-      category: 'chemical',
-      sub_category: '测试料',
-      is_test_material: true,
-      status: 'active'
-    }]])],
+    ['materials', new Map([
+      ['mat-1', {
+        _id: 'mat-1',
+        product_code: 'J-999',
+        material_name: '测试料-化材',
+        category: 'chemical',
+        sub_category: '测试料',
+        is_test_material: true,
+        status: 'active'
+      }],
+      ['mat-formal-1', {
+        _id: 'mat-formal-1',
+        product_code: 'J-001',
+        material_name: '正式料-化材',
+        category: 'chemical',
+        sub_category: '溶剂',
+        supplier: '主数据供应商',
+        supplier_model: 'MASTER-MODEL',
+        is_test_material: false,
+        status: 'active'
+      }]
+    ])],
     ['test_material_identities', new Map(identityModels.map(model => [
       `chemical::J-999::${model}`,
       {
@@ -53,6 +66,7 @@ function createMemoryDatabase({ failLabelSetOnce = false, failLabelSetAt = 0 } =
         product_code: 'J-999',
         supplier_model: model,
         supplier_model_key: model,
+        supplier: model === 'MODEL-01' ? '型号库供应商' : '',
         identity_key: `chemical::J-999::${model}`,
         status: 'active'
       }
@@ -227,6 +241,59 @@ function loadExportLabelData(memory, { onUpload } = {}) {
     }
   });
 }
+
+test('preprint jobs ignore client supplier/model overrides and snapshot governed values', async () => {
+  const memory = createMemoryDatabase();
+  const mod = loadExportLabelData(memory);
+
+  const formal = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'request-formal-governed',
+      templateType: 'chemical',
+      materialId: 'mat-formal-1',
+      count: 1,
+      form: {
+        supplier: '客户端伪造供应商',
+        supplier_model: 'CLIENT-MODEL',
+        supplier_model_key: 'CLIENT-MODEL',
+        sample_note: '正式料备注'
+      }
+    }
+  });
+  assert.equal(formal.success, true);
+  assert.equal(formal.records[0].supplier, '主数据供应商');
+  assert.equal(formal.records[0].supplier_model, 'MASTER-MODEL');
+  assert.equal(formal.records[0].supplier_model_key, '');
+  const formalJob = memory.collections.get('preprint_jobs').get(formal.job_id);
+  assert.equal(formalJob.form_snapshot.supplier, '主数据供应商');
+  assert.equal(formalJob.form_snapshot.supplier_model, 'MASTER-MODEL');
+  assert.equal(formalJob.form_snapshot.supplier_model_key, '');
+
+  const testMaterial = await mod.main({
+    action: 'createPreprintJob',
+    data: {
+      requestId: 'request-test-governed',
+      templateType: 'chemical',
+      materialId: 'mat-1',
+      count: 1,
+      form: {
+        supplier: '客户端伪造供应商',
+        supplier_model: 'MODEL-01',
+        supplier_model_key: 'MODEL-01',
+        sample_note: '测试料备注'
+      }
+    }
+  });
+  assert.equal(testMaterial.success, true);
+  assert.equal(testMaterial.records[0].supplier, '型号库供应商');
+  assert.equal(testMaterial.records[0].supplier_model, 'MODEL-01');
+  assert.equal(testMaterial.records[0].supplier_model_key, 'MODEL-01');
+  const testJob = memory.collections.get('preprint_jobs').get(testMaterial.job_id);
+  assert.equal(testJob.form_snapshot.supplier, '型号库供应商');
+  assert.equal(testJob.form_snapshot.supplier_model, 'MODEL-01');
+  assert.equal(testJob.form_snapshot.supplier_model_key, 'MODEL-01');
+});
 
 test('preprint job resumes partial label writes and keeps request idempotency', async () => {
   const memory = createMemoryDatabase({ failLabelSetOnce: true });

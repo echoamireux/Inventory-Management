@@ -38,8 +38,8 @@ const {
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
 const {
-  listTestMaterialIdentities,
-  buildTestMaterialIdentityActions
+  searchTestMaterialIdentitySelectorPage,
+  TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE
 } = require('../../utils/test-material-identity-service');
 const {
   ensureOperationId,
@@ -69,6 +69,21 @@ function extractCodePrefix(value) {
 function extractCodeNumber(value) {
   const match = String(value || '').trim().toUpperCase().match(/^[A-Z]{1,4}-(\d{1,3})$/);
   return match ? match[1] : '';
+}
+
+function buildTestMaterialIdentitySelectorReset() {
+    return {
+        selectedTestMaterialIdentity: null,
+        testMaterialIdentityActions: [],
+        filteredTestMaterialIdentityActions: [],
+        testMaterialIdentitySearchVal: '',
+        testMaterialIdentityPage: 1,
+        testMaterialIdentityTotal: 0,
+        testMaterialIdentityIsEnd: true,
+        testMaterialIdentitySearchMessage: '',
+        showTestMaterialIdentitySheet: false,
+        testMaterialIdentityNotice: ''
+    };
 }
 
 function resolvePickerDateValue(detail) {
@@ -107,6 +122,13 @@ Page({
     selectedMaterialSummary: null,
     selectedTestMaterialIdentity: null,
     testMaterialIdentityActions: [],
+    filteredTestMaterialIdentityActions: [],
+    testMaterialIdentitySearchVal: '',
+    testMaterialIdentityPage: 1,
+    testMaterialIdentityPageSize: TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE,
+    testMaterialIdentityTotal: 0,
+    testMaterialIdentityIsEnd: true,
+    testMaterialIdentitySearchMessage: '',
     showTestMaterialIdentitySheet: false,
     testMaterialIdentityLoading: false,
     testMaterialIdentityNotice: '',
@@ -267,6 +289,13 @@ Page({
     }
   },
 
+  onUnload() {
+      if (this.testMaterialIdentitySearchTimer) {
+          clearTimeout(this.testMaterialIdentitySearchTimer);
+          this.testMaterialIdentitySearchTimer = null;
+      }
+  },
+
   async loadPrefixOptions(category = this.data.activeTab, preferredPrefix = '') {
       const normalizedCategory = category === 'film' ? 'film' : 'chemical';
       let records = [];
@@ -366,35 +395,77 @@ Page({
       });
   },
 
-  async loadTestMaterialIdentityOptions(material) {
+  async loadTestMaterialIdentityOptions(material, options = {}) {
       if (!material || !material.is_test_material) {
           return;
       }
+      const isCurrentMaterial = () => {
+          const currentMaterial = this.data.selectedMaterial || {};
+          return !!currentMaterial.is_test_material
+              && (!material._id || currentMaterial._id === material._id)
+              && (!material.product_code || currentMaterial.product_code === material.product_code);
+      };
+      const page = Math.max(1, Number(options.page) || 1);
+      const append = !!options.append;
+      const searchVal = options.searchVal !== undefined ? options.searchVal : this.data.testMaterialIdentitySearchVal;
+      if (append && (this.data.testMaterialIdentityLoading || this.data.testMaterialIdentityIsEnd)) {
+          return;
+      }
+      const requestId = (this.testMaterialIdentityRequestId || 0) + 1;
+      this.testMaterialIdentityRequestId = requestId;
       this.setData({
           testMaterialIdentityLoading: true,
           testMaterialIdentityNotice: ''
       });
       try {
-          const result = await listTestMaterialIdentities({
+          const result = await searchTestMaterialIdentitySelectorPage({
               material_id: material._id,
               product_code: material.product_code,
-              includeDisabled: false,
-              pageSize: 100
+              searchVal,
+              page,
+              pageSize: this.data.testMaterialIdentityPageSize
           });
-          const actions = buildTestMaterialIdentityActions(result.list || []);
+          if (requestId !== this.testMaterialIdentityRequestId) {
+              return;
+          }
+          if (!isCurrentMaterial()) {
+              return;
+          }
+          const actions = append
+              ? [...this.data.testMaterialIdentityActions, ...result.actions]
+              : result.actions;
           this.setData({
               testMaterialIdentityActions: actions,
+              filteredTestMaterialIdentityActions: actions,
+              testMaterialIdentityPage: result.page + 1,
+              testMaterialIdentityPageSize: result.pageSize,
+              testMaterialIdentityTotal: result.total,
+              testMaterialIdentityIsEnd: result.isEnd,
+              testMaterialIdentitySearchMessage: result.searchMessage || '',
               testMaterialIdentityNotice: actions.length
                   ? ''
-                  : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库'
+                  : (searchVal ? '没有匹配的测试料型号，请换个关键词' : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库')
           });
       } catch (err) {
+          if (requestId !== this.testMaterialIdentityRequestId) {
+              return;
+          }
+          if (!isCurrentMaterial()) {
+              return;
+          }
           this.setData({
-              testMaterialIdentityActions: [],
+              ...(append ? {} : {
+                  testMaterialIdentityActions: [],
+                  filteredTestMaterialIdentityActions: [],
+                  testMaterialIdentityTotal: 0,
+                  testMaterialIdentityIsEnd: true
+              }),
               testMaterialIdentityNotice: err.message || '加载测试料型号失败'
           });
       } finally {
-          this.setData({ testMaterialIdentityLoading: false });
+          if (requestId === this.testMaterialIdentityRequestId) {
+              this.setData({ testMaterialIdentityLoading: false });
+          }
       }
   },
 
@@ -402,34 +473,96 @@ Page({
       if (!this.data.selectedMaterial || !this.data.selectedMaterial.is_test_material) {
           return;
       }
-      if (!this.data.testMaterialIdentityActions.length) {
-          await this.loadTestMaterialIdentityOptions(this.data.selectedMaterial);
-      }
-      if (!this.data.testMaterialIdentityActions.length) {
-          Toast.fail(this.data.testMaterialIdentityNotice || '请先维护测试料型号库');
-          return;
-      }
-      this.setData({ showTestMaterialIdentitySheet: true });
+      this.setData({
+          showTestMaterialIdentitySheet: true,
+          testMaterialIdentitySearchVal: '',
+          testMaterialIdentityPage: 1,
+          testMaterialIdentityTotal: 0,
+          testMaterialIdentityIsEnd: false,
+          testMaterialIdentitySearchMessage: '',
+          testMaterialIdentityActions: [],
+          filteredTestMaterialIdentityActions: []
+      });
+      await this.loadTestMaterialIdentityOptions(this.data.selectedMaterial, { page: 1, searchVal: '' });
   },
 
   onTestMaterialIdentityClose() {
       this.setData({ showTestMaterialIdentitySheet: false });
   },
 
+  onTestMaterialIdentitySearchChange(e) {
+      const detail = e && e.detail;
+      const searchVal = detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')
+          ? detail.value
+          : (typeof detail === 'string' ? detail : '');
+      if (this.testMaterialIdentitySearchTimer) {
+          clearTimeout(this.testMaterialIdentitySearchTimer);
+      }
+      this.setData({
+          testMaterialIdentitySearchVal: searchVal,
+          testMaterialIdentityPage: 1,
+          testMaterialIdentityIsEnd: false,
+          testMaterialIdentitySearchMessage: ''
+      });
+      this.testMaterialIdentitySearchTimer = setTimeout(() => {
+          this.loadTestMaterialIdentityOptions(this.data.selectedMaterial, {
+              page: 1,
+              searchVal
+          });
+      }, 350);
+  },
+
+  onTestMaterialIdentitySearchClear() {
+      if (this.testMaterialIdentitySearchTimer) {
+          clearTimeout(this.testMaterialIdentitySearchTimer);
+          this.testMaterialIdentitySearchTimer = null;
+      }
+      this.setData({
+          testMaterialIdentitySearchVal: '',
+          testMaterialIdentityPage: 1,
+          testMaterialIdentityIsEnd: false,
+          testMaterialIdentitySearchMessage: ''
+      });
+      this.loadTestMaterialIdentityOptions(this.data.selectedMaterial, {
+          page: 1,
+          searchVal: ''
+      });
+  },
+
+  onTestMaterialIdentityReachBottom() {
+      this.loadTestMaterialIdentityOptions(this.data.selectedMaterial, {
+          page: this.data.testMaterialIdentityPage,
+          searchVal: this.data.testMaterialIdentitySearchVal,
+          append: true
+      });
+  },
+
   onTestMaterialIdentitySelect(e) {
-      const item = e.detail || {};
+      const item = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.item)
+          || e.detail
+          || {};
+      const identityMaterialName = item.label_material_name || item.material_name || '';
+      const identitySubCategory = item.sub_category || '';
+      const selectedMaterialSummary = this.data.selectedMaterialSummary || {};
       this.setData({
           selectedTestMaterialIdentity: {
-              supplier_model: item.supplier_model || item.name || '',
+              supplier_model: item.supplier_model || item.value || item.name || '',
               supplier_model_key: item.supplier_model_key || '',
               supplier: item.supplier || '',
               identity_key: item.identity_key || '',
-              label_material_name: item.label_material_name || item.material_name || '',
-              material_name: item.label_material_name || item.material_name || '',
+              label_material_name: identityMaterialName,
+              material_name: identityMaterialName,
               subcategory_key: item.subcategory_key || '',
-              sub_category: item.sub_category || ''
+              sub_category: identitySubCategory
+          },
+          selectedMaterialSummary: {
+              ...selectedMaterialSummary,
+              materialName: identityMaterialName || selectedMaterialSummary.materialName || '',
+              subCategory: identitySubCategory || selectedMaterialSummary.subCategory || ''
           },
           showTestMaterialIdentitySheet: false,
+          testMaterialIdentitySearchVal: '',
+          filteredTestMaterialIdentityActions: this.data.testMaterialIdentityActions,
           testMaterialIdentityNotice: ''
       });
   },
@@ -813,10 +946,7 @@ Page({
               codePrefix: extractCodePrefix(material.product_code) || this.getPrefix(),
               materialCodeInput: extractCodeNumber(material.product_code),
               materialSuggestions: [],
-              selectedTestMaterialIdentity: null,
-              testMaterialIdentityActions: [],
-              showTestMaterialIdentitySheet: false,
-              testMaterialIdentityNotice: ''
+              ...buildTestMaterialIdentitySelectorReset()
           });
           if (material.is_test_material) {
               this.loadTestMaterialIdentityOptions(material);
@@ -856,10 +986,7 @@ Page({
               usesCustomBatchWidth: false,
               materialCodeInput: '',
               materialSuggestions: [],
-              selectedTestMaterialIdentity: null,
-              testMaterialIdentityActions: [],
-              showTestMaterialIdentitySheet: false,
-              testMaterialIdentityNotice: ''
+              ...buildTestMaterialIdentitySelectorReset()
           });
       };
 

@@ -32,6 +32,7 @@ const PROJECT_USAGE_DETAIL_HEADERS = [
   '领料时间',
   '领料人',
   '产品代码',
+  '原厂型号',
   '物料名称',
   '标签编号',
   '生产批号',
@@ -41,6 +42,7 @@ const PROJECT_USAGE_DETAIL_HEADERS = [
 ];
 const PROJECT_USAGE_SUMMARY_HEADERS = [
   '产品代码',
+  '原厂型号',
   '物料名称',
   '单位',
   '合计领用数量',
@@ -103,6 +105,8 @@ function buildQuery(event = {}, dateRange = parseCstDateRange(
       { project_code: keywordRegExp },
       { project_name: keywordRegExp },
       { product_code: keywordRegExp },
+      { supplier_model: keywordRegExp },
+      { supplier_model_key: keywordRegExp },
       { material_name: keywordRegExp },
       { unique_code: keywordRegExp },
       { batch_number: keywordRegExp },
@@ -337,6 +341,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
     { width: 18 },
     { width: 14 },
     { width: 14 },
+    { width: 18 },
     { width: 24 },
     { width: 16 },
     { width: 18 },
@@ -360,6 +365,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
       formatDateTime(item.timestamp),
       normalizeReportText(item.operator_name),
       normalizeReportText(item.product_code),
+      normalizeReportText(item.supplier_model, ''),
       normalizeReportText(item.material_name),
       normalizeReportText(item.unique_code),
       normalizeReportText(item.batch_number),
@@ -369,7 +375,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
     ]),
     {
       columnCount: PROJECT_USAGE_DETAIL_HEADERS.length,
-      numberColumns: [9],
+      numberColumns: [10],
       xSplit: 2
     }
   );
@@ -377,6 +383,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
   const summarySheet = workbook.addWorksheet(PROJECT_USAGE_SUMMARY_SHEET_NAME);
   summarySheet.columns = [
     { width: 14 },
+    { width: 18 },
     { width: 26 },
     { width: 10 },
     { width: 16 },
@@ -388,7 +395,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
     summarySheet,
     PROJECT_USAGE_SUMMARY_SHEET_NAME,
     `导出时间：${formatDateTime(exportedAt)}；汇总物料数：${summaryList.length}`,
-    `按产品代码、物料名称和单位汇总。${filterSummary}`,
+    `按产品代码、原厂型号、物料名称和单位汇总。${filterSummary}`,
     PROJECT_USAGE_SUMMARY_HEADERS.length
   );
   addHeaderRow(summarySheet, PROJECT_USAGE_SUMMARY_HEADERS);
@@ -396,6 +403,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
     summarySheet,
     summaryList.map(item => [
       normalizeReportText(item.product_code),
+      normalizeReportText(item.supplier_model, ''),
       normalizeReportText(item.material_name),
       normalizeReportText(item.unit),
       item.total_quantity,
@@ -405,7 +413,7 @@ function buildWorkbook(detailListOrOptions, summaryListArg = [], extraOptions = 
     ]),
     {
       columnCount: PROJECT_USAGE_SUMMARY_HEADERS.length,
-      numberColumns: [4, 5, 6],
+      numberColumns: [5, 6, 7],
       xSplit: 2
     }
   );

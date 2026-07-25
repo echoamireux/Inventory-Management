@@ -6,7 +6,7 @@
   <view class="project-usage-filter">
     <van-search
       value="{{ keyword }}"
-      placeholder="项目编码/物料名称/产品代码/标签编号/批号/领料人"
+      placeholder="项目编码/物料名称/产品代码/原厂型号/标签编号/批号/领料人"
       shape="round"
       bind:search="onSearch"
       bind:change="onSearchChange"
@@ -56,7 +56,9 @@
               <view class="usage-card__title">{{ item.material_name || '未命名物料' }}</view>
               <van-tag type="primary" plain>{{ item._quantityText }}</van-tag>
             </view>
-            <view class="usage-card__code">{{ item.product_code || '-' }} · {{ item.unique_code || '无标签编号' }}</view>
+            <view class="usage-card__code">
+              {{ item.product_code || '-' }}<text wx:if="{{ item._identityText }}"> · {{ item._identityText }}</text> · {{ item.unique_code || '无标签编号' }}
+            </view>
             <view class="usage-card__meta">{{ item._projectText }}</view>
             <view class="usage-card__grid">
               <view>
@@ -90,13 +92,15 @@
           <van-loading vertical>加载中...</van-loading>
         </view>
 
-        <block wx:for="{{ summaryList }}" wx:key="product_code">
+        <block wx:for="{{ summaryList }}" wx:key="_summaryKey">
           <view class="usage-card usage-card--summary">
             <view class="usage-card__head">
               <view class="usage-card__title">{{ item.material_name || '未命名物料' }}</view>
               <van-tag type="success" plain>{{ item._quantityText }}</van-tag>
             </view>
-            <view class="usage-card__code">{{ item.product_code || '-' }}</view>
+            <view class="usage-card__code">
+              {{ item.product_code || '-' }}<text wx:if="{{ item._identityText }}"> · {{ item._identityText }}</text>
+            </view>
             <view class="usage-card__grid">
               <view>
                 <view class="usage-card__label">领用记录数</view>

@@ -9,6 +9,8 @@ const { handleCloudError } = require('./error-response');
 const LOG_SEARCH_FIELD_NAMES = [
   'material_name',
   'product_code',
+  'supplier_model',
+  'supplier_model_key',
   'unique_code',
   'batch_number',
   'operator',

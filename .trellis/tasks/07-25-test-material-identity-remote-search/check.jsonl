@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/search-ux-contracts.md", "reason": "Verify selector remote search still requires explicit item selection and protects stale responses"}
+{"file": ".trellis/spec/frontend/test-material-identity-contracts.md", "reason": "Verify stock-in and label preprint identity selectors remain model-library governed"}

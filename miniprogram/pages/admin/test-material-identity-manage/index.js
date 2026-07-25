@@ -32,7 +32,10 @@ Page({
     searchVal: '',
     searchMessage: '',
     includeDisabled: true,
-    searchRequestId: 0
+    searchRequestId: 0,
+    page: 1,
+    pageSize: 20,
+    isEnd: true
   },
 
   onLoad(options = {}) {
@@ -52,27 +55,42 @@ Page({
         searchVal: decodeOptionValue(options.keyword)
       });
     }
-    this.loadIdentities();
+    this.loadIdentities({ refresh: true });
   },
 
-  async loadIdentities() {
+  async loadIdentities(options = {}) {
+    const refresh = !!options.refresh;
+    if (this.data.loading && !refresh) {
+      return;
+    }
     const requestId = (this.data.searchRequestId || 0) + 1;
+    const page = refresh ? 1 : this.data.page;
     this.setData({ loading: true, searchRequestId: requestId });
     try {
       const result = await listTestMaterialIdentities({
         includeDisabled: this.data.includeDisabled,
         searchVal: this.data.searchVal,
-        pageSize: 100
+        page,
+        pageSize: this.data.pageSize
       });
       if (this.data.searchRequestId !== requestId) return;
+      const nextList = refresh
+        ? result.list
+        : [...this.data.identities, ...(result.list || [])];
+      const total = Number(result.total) || 0;
       this.setData({
-        identities: result.list,
-        total: result.total,
+        identities: nextList,
+        total,
+        page: page + 1,
+        pageSize: Number(result.pageSize) || this.data.pageSize,
+        isEnd: nextList.length >= total || (result.list || []).length === 0,
         hasLoadedOnce: true,
         searchMessage: this.data.searchVal ? (result.searchMessage || '') : ''
       });
     } catch (err) {
-      Toast.fail(err.message || '加载测试料型号失败');
+      if (this.data.searchRequestId === requestId) {
+        Toast.fail(err.message || '加载测试料型号失败');
+      }
     } finally {
       if (this.data.searchRequestId === requestId) {
         this.setData({ loading: false });
@@ -82,26 +100,32 @@ Page({
 
   onShow() {
     if (this.data.hasLoadedOnce) {
-      this.loadIdentities();
+      this.loadIdentities({ refresh: true });
     }
   },
 
   onSearchChange(e) {
     const searchVal = getInputValue(e);
-    this.setData({ searchVal, searchMessage: '' });
+    this.setData({ searchVal, searchMessage: '', page: 1, isEnd: false });
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => this.loadIdentities(), 400);
+    this.searchTimer = setTimeout(() => this.loadIdentities({ refresh: true }), 400);
   },
 
   onSearchConfirm() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.loadIdentities();
+    this.loadIdentities({ refresh: true });
   },
 
   onClearSearch() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
-    this.setData({ searchVal: '', searchMessage: '' });
-    this.loadIdentities();
+    this.setData({ searchVal: '', searchMessage: '', page: 1, isEnd: false });
+    this.loadIdentities({ refresh: true });
+  },
+
+  onReachBottom() {
+    if (!this.data.loading && !this.data.isEnd) {
+      this.loadIdentities();
+    }
   },
 
   onUnload() {
@@ -120,7 +144,7 @@ Page({
     try {
       await setTestMaterialIdentityStatus(record, nextStatus);
       Toast.success(`${actionLabel}成功`);
-      await this.loadIdentities();
+      await this.loadIdentities({ refresh: true });
     } catch (err) {
       Toast.fail(err.message || `${actionLabel}失败`);
     }

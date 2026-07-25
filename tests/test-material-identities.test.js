@@ -187,6 +187,59 @@ test('test material identity management is registered for admins and shared to w
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate/index.js')), false);
 });
 
+test('frontend identity selector helper remote-searches with product code keyword and pagination', async () => {
+  const servicePath = path.join(repoRoot, 'miniprogram/utils/test-material-identity-service.js');
+  delete require.cache[require.resolve(servicePath)];
+  let capturedCall = null;
+  global.wx = {
+    cloud: {
+      callFunction: async (payload) => {
+        capturedCall = payload;
+        return {
+          result: {
+            success: true,
+            list: Array.from({ length: 20 }, (_, index) => ({
+              product_code: 'J-999',
+              supplier_model: index === 0 ? 'SC-150' : `SC-${150 + index}`,
+              supplier_model_key: index === 0 ? 'SC-150' : `SC-${150 + index}`,
+              label_material_name: '固化剂',
+              sub_category: '固化剂',
+              status: 'active',
+              identity_key: `chemical::J-999::SC-${150 + index}`
+            })),
+            total: 150,
+            page: payload.data.page,
+            pageSize: payload.data.pageSize
+          }
+        };
+      }
+    }
+  };
+
+  try {
+    const service = require(servicePath);
+    const result = await service.searchTestMaterialIdentitySelectorPage({
+      product_code: 'J-999',
+      searchVal: 'SC-150',
+      page: 2,
+      pageSize: 20
+    });
+
+    assert.equal(capturedCall.name, 'manageTestMaterialIdentity');
+    assert.equal(capturedCall.data.action, 'list');
+    assert.equal(capturedCall.data.product_code, 'J-999');
+    assert.equal(capturedCall.data.searchVal, 'SC-150');
+    assert.equal(capturedCall.data.page, 2);
+    assert.equal(capturedCall.data.pageSize, 20);
+    assert.equal(result.actions[0].supplier_model, 'SC-150');
+    assert.equal(result.total, 150);
+    assert.equal(result.isEnd, false);
+  } finally {
+    delete global.wx;
+    delete require.cache[require.resolve(servicePath)];
+  }
+});
+
 test('test material identity manual edit stays registered while independent import path is removed', () => {
   const appJson = read('miniprogram/app.json');
   const manifest = read('scripts/cloudfunctions-manifest.json');
@@ -210,6 +263,12 @@ test('test material identity manual edit stays registered while independent impo
   assert.match(managePageJs, /options\.keyword/);
   assert.match(managePageJs, /decodeOptionValue/);
   assert.match(managePageJs, /test-material-identity-edit\/index/);
+  assert.match(managePageJs, /pageSize:\s*20/);
+  assert.match(managePageJs, /onReachBottom/);
+  assert.match(managePageJs, /loadIdentities\(\{\s*refresh:\s*true\s*\}\)/);
+  assert.match(managePageJs, /if\s*\(\s*this\.data\.loading\s*&&\s*!refresh\s*\)/);
+  assert.match(managePageJs, /if\s*\(\s*this\.data\.searchRequestId\s*===\s*requestId\s*\)\s*\{\s*Toast\.fail/);
+  assert.match(managePageWxml, /identity-list__footer/);
   assert.doesNotMatch(managePageJs, /createTestMaterialIdentity/);
   assert.doesNotMatch(managePageJs, /formVisible/);
   assert.doesNotMatch(managePageJs, /exportTestMaterialIdentityTemplate/);
@@ -217,7 +276,11 @@ test('test material identity manual edit stays registered while independent impo
   assert.doesNotMatch(managePageJs, /fileContentBase64/);
   assert.doesNotMatch(managePageWxml, /导出模板|上传导入|批量导入/);
   assert.match(managePageWxml, /bind:click="onCreateIdentity"[\s\S]*新增/);
-  assert.match(managePageWxml, /供应商：\{\{ item\.supplier \}\}/);
+  assert.match(managePageWxml, /identity-model/);
+  assert.match(managePageWxml, /item\.supplier_model \|\| '-'/);
+  assert.match(managePageWxml, /item\.label_material_name \|\| item\.material_name/);
+  assert.match(managePageWxml, /测试料代码：\{\{ item\.product_code \}\}/);
+  assert.doesNotMatch(managePageWxml, /供应商：\{\{ item\.supplier \}\}/);
   assert.match(editPageJs, /loadTestMaterialOptions/);
   assert.match(editPageJs, /status:\s*'active'/);
   assert.match(editPageJs, /item\.is_test_material/);
@@ -246,9 +309,12 @@ test('test material identity manual edit stays registered while independent impo
   assert.doesNotMatch(materialListJs, /test-material-identity-import\/index/);
   assert.match(materialListWxml, /name="testIdentity"/);
   assert.match(materialListWxml, /测试料/);
-  assert.match(materialListWxml, /原厂型号：/);
+  assert.match(materialListWxml, /identity-model-title/);
+  assert.match(materialListWxml, /item\.supplier_model \|\| '-'/);
   assert.match(materialListWxml, /子类别：/);
-  assert.match(materialListWxml, /供应商：\{\{ item\.supplier \}\}/);
+  assert.match(materialListWxml, /测试料代码：/);
+  assert.doesNotMatch(materialListWxml, /identity-card__tags[\s\S]*size="medium"/);
+  assert.doesNotMatch(materialListWxml, /供应商：\{\{ item\.supplier \}\}/);
   assert.doesNotMatch(materialListWxml, /bind:click="onImportTestMaterialIdentity"[\s\S]*导入/);
   assert.match(materialListWxml, /bind:click="onCreateTestMaterialIdentity"[\s\S]*新增/);
   assert.doesNotMatch(materialListWxml, /批量导入|新增型号/);

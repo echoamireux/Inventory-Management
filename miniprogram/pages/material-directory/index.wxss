@@ -1,17 +1,70 @@
 .list-wrapper {
   padding: 0 15px;
 }
-.card {
+
+.material-card {
   background: #ffffff;
   padding: 15px;
   margin-bottom: 12px;
   border-radius: 8px;
   position: relative;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 }
-.card-hover {
-  opacity: 0.8;
-  background: #fcfcfc;
+
+.material-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
+
+.material-card__title {
+  min-width: 0;
+  flex: 1;
+  color: #1989fa;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.material-card__tags {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 46%;
+}
+
+.material-card__name {
+  margin-top: 6px;
+  color: #111827;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.material-card__meta {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.match-reason {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: #eef6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .search-transparent {
   padding: 8px 0;
 }

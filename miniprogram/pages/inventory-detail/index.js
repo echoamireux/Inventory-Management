@@ -153,18 +153,25 @@ Page({
       }
 
       // 2. Display Logic (Global Redesign)
+      // Test material: Title = supplier model, Sub = snapshot name, Meta = test code
       // Chemical: Title = Code, Sub = Name
       // Film: Title = Name, Sub = Code
       let _title = '';
       let _subtitle = '';
+      let _headerCodeText = '';
       const name = item.internal_standard_name || item.material_name || '未命名';
       const code = item.product_code || '--';
+      const supplierModel = String(item.supplier_model || '').trim();
 
       // Normalize data for WXML (Ensure fields exist for Template)
       item.internal_standard_name = name;
       item.product_code = code;
 
-      if (item.category === 'chemical') {
+      if (item.is_test_material && supplierModel) {
+          _title = supplierModel;
+          _subtitle = name;
+          _headerCodeText = `测试料代码: ${code}`;
+      } else if (item.category === 'chemical') {
           _title = code;
           _subtitle = name;
       } else {
@@ -238,6 +245,7 @@ Page({
               _statusBadge,
               _categoryLabel,
               _subcategoryLabel,
+              _headerCodeText,
               _thicknessLabel: specDisplay.thicknessLabel,
               _widthLabel: specDisplay.widthLabel,
               _initialLengthLabel: specDisplay.initialLengthLabel,
@@ -245,7 +253,7 @@ Page({
               _quantitySnapshotLabel: specDisplay.quantityLabel,
               // Fallbacks
               supplier: item.supplier || '-',
-              supplier_model: item.supplier_model || '-',
+              supplier_model: item.supplier_model || '',
               sample_note: item.sample_note || '',
               is_test_material: !!item.is_test_material,
               product_code: code

@@ -188,7 +188,7 @@ test('search-driven list pages use the agreed debounce timing and stale-request 
   assert.match(inventoryIndexJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.getList\(true\);?\s*\},\s*400\)/);
   assert.match(materialDirectoryJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.getList\(true\);?\s*\},\s*400\)/);
   assert.match(materialListJs, /setTimeout\(\(\)\s*=>\s*this\.refreshSearchResults\(\),\s*400\)/);
-  assert.match(identityManageJs, /setTimeout\(\(\)\s*=>\s*this\.loadIdentities\(\),\s*400\)/);
+  assert.match(identityManageJs, /setTimeout\(\(\)\s*=>\s*this\.loadIdentities\(\{\s*refresh:\s*true\s*\}\),\s*400\)/);
   assert.match(labelExportJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.resetSelection\(\);[\s\S]*this\.getList\(true\);[\s\S]*\},\s*400\)/);
   assert.match(projectUsageJs, /setTimeout\(\(\)\s*=>\s*\{\s*this\.loadReport\(true\);?\s*\},\s*600\)/);
   assert.match(projectUsageJs, /_reportRequestKey/);
@@ -241,6 +241,9 @@ test('test material inventory queries keep supplier model as a narrowing identit
   assert.match(labelQueryUtil, /supplierModel/);
   assert.match(batchCf, /supplierModel/);
   assert.match(batchCf, /supplier_model:\s*supplierModel/);
+  assert.match(batchCf, /isTestMaterialGroup/);
+  assert.match(batchCf, /isTestMaterialGroup[\s\S]*group\.material_name[\s\S]*material\.material_name/);
+  assert.match(batchCf, /isTestMaterialGroup[\s\S]*group\.sub_category[\s\S]*material\.sub_category/);
   assert.match(recordCf, /supplierModel/);
   assert.match(recordCf, /supplier_model:\s*supplierModel/);
   assert.match(exportDataCf, /\{\s*supplier_model:\s*searchRegex\s*\}/);
@@ -274,6 +277,11 @@ test('inventory detail exposes label logs but keeps destructive delete entry ret
   const detailJs = read('miniprogram/pages/inventory-detail/index.js');
   const detailWxml = read('miniprogram/pages/inventory-detail/index.wxml');
 
+  assert.match(detailWxml, /item\._title/);
+  assert.match(detailWxml, /item\._subtitle/);
+  assert.match(detailWxml, /item\._headerCodeText/);
+  assert.match(detailJs, /item\.is_test_material && supplierModel/);
+  assert.match(detailJs, /测试料代码/);
   assert.match(detailWxml, /查看标签日志/);
   assert.match(detailWxml, /bindtap="onViewLogs"/);
   assert.match(detailJs, /onViewLogs/);
@@ -401,9 +409,11 @@ test('master data page groups material and test-model search results with status
   assert.match(materialListJs, /test-material-identity-edit\/index\?id=/);
   assert.match(materialListWxml, /物料主数据[\s\S]*测试料/);
   assert.match(materialListWxml, /item\.label_material_name \|\| item\.material_name/);
-  assert.match(materialListWxml, /原厂型号：/);
-  assert.match(materialListWxml, /产品代码：/);
+  assert.match(materialListWxml, /identity-model-title/);
+  assert.match(materialListWxml, /item\.supplier_model \|\| '-'/);
+  assert.match(materialListWxml, /测试料代码：/);
   assert.match(materialListWxml, /子类别：/);
+  assert.doesNotMatch(materialListWxml, /供应商：\{\{ item\.supplier \}\}/);
   assert.match(materialListWxml, /全局搜索结果：\{\{ total \}\} 项物料 · \{\{ identityTotal \}\} 个型号/);
   assert.match(materialListWxml, /bind:tap="onIdentityItemClick"/);
   assert.match(materialListWxml, /class="count-wrap"/);
@@ -415,6 +425,33 @@ test('master data page groups material and test-model search results with status
   assert.match(materialListWxml, /已停用/);
   assert.match(materialListWxml, /match-reason/);
   assert.doesNotMatch(materialListWxml, /维护型号库/);
+});
+
+test('material directory uses unified material cards and includes test identities as usable materials', () => {
+  const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');
+  const materialDirectoryWxml = read('miniprogram/pages/material-directory/index.wxml');
+  const materialDirectoryWxss = read('miniprogram/pages/material-directory/index.wxss');
+  const manageMaterialCf = read('cloudfunctions/manageMaterial/index.js');
+
+  assert.match(materialDirectoryJs, /action:\s*'directoryList'/);
+  assert.match(materialDirectoryJs, /buildDirectoryDisplayItem/);
+  assert.match(materialDirectoryJs, /\(res\.result\.list \|\| \[\]\)\.map\(buildDirectoryDisplayItem\)/);
+  assert.match(materialDirectoryJs, /item\.display_title \|\| supplierModel \|\| productCode/);
+  assert.match(materialDirectoryJs, /item\.display_name[\s\S]*item\.label_material_name[\s\S]*item\.material_name/);
+  assert.match(materialDirectoryWxml, /wx:key="directory_key"/);
+  assert.match(materialDirectoryWxml, /item\.display_title/);
+  assert.match(materialDirectoryWxml, /item\.display_name/);
+  assert.match(materialDirectoryWxml, /item\.display_meta/);
+  assert.doesNotMatch(materialDirectoryWxml, /wx:if="\{\{ item\.is_test_identity \}\}"[\s\S]*测试料/);
+  assert.doesNotMatch(materialDirectoryWxml, /供应商:/);
+  assert.match(materialDirectoryWxss, /\.material-card__top[\s\S]*justify-content:\s*space-between/);
+  assert.match(materialDirectoryWxss, /\.material-card__tags[\s\S]*justify-content:\s*flex-end/);
+  assert.match(manageMaterialCf, /case 'directoryList'/);
+  assert.match(manageMaterialCf, /listMaterialDirectory/);
+  assert.match(manageMaterialCf, /is_test_material:\s*_\.neq\(true\)/);
+  assert.match(manageMaterialCf, /test_material_identities/);
+  assert.match(manageMaterialCf, /directory_kind:\s*'test_identity'/);
+  assert.match(manageMaterialCf, /display_meta:[\s\S]*测试料代码：/);
 });
 
 test('master data and test identity pages keep count/actions and loading states visually separated', () => {

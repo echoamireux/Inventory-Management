@@ -207,6 +207,16 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /confirm-type="done"/);
   assert.match(materialAddWxml, /wx:if="\{\{ form\.is_test_material \}\}"/);
   assert.match(materialAddWxml, /label="原厂型号"[\s\S]*placeholder="\{\{ testMaterialIdentityLoading \? '型号加载中\.\.\.' : '请选择已维护型号' \}\}"[\s\S]*readonly/);
+  assert.match(materialAddWxml, /选择测试料原厂型号/);
+  assert.match(materialAddWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(materialAddWxml, /filteredTestMaterialIdentityActions/);
+  assert.match(materialAddJs, /searchTestMaterialIdentitySelectorPage/);
+  assert.match(materialAddJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);
+  assert.match(materialAddJs, /onTestMaterialIdentityReachBottom/);
+  assert.match(materialAddWxml, /bindscrolltolower="onTestMaterialIdentityReachBottom"/);
+  assert.match(materialAddJs, /const isCurrentMaterial = \(\) =>/);
+  assert.match(materialAddJs, /currentMaterial\.product_code === material\.product_code/);
+  assert.doesNotMatch(materialAddJs, /pageSize:\s*100/);
   assert.match(materialAddWxml, /title="子类别"/);
   assert.equal(
     fs.existsSync(path.join(__dirname, '../miniprogram/pages/stock-in-out/index.js')),

@@ -317,6 +317,16 @@ test('batch entry page allows preprinted labels to select the material before sc
   assert.match(pageWxml, /主数据默认幅宽/);
   assert.match(pageWxml, /本批次实际幅宽\(mm\)/);
   assert.match(pageWxml, /确认本批次幅宽|保存并开始本批次/);
+  assert.match(pageWxml, /选择测试料原厂型号/);
+  assert.match(pageWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(pageWxml, /filteredTestMaterialIdentityActions/);
+  assert.match(pageJs, /searchTestMaterialIdentitySelectorPage/);
+  assert.match(pageJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);
+  assert.match(pageJs, /onTestMaterialIdentityReachBottom/);
+  assert.match(pageWxml, /bindscrolltolower="onTestMaterialIdentityReachBottom"/);
+  assert.match(pageJs, /const isCurrentMaterial = \(\) =>/);
+  assert.match(pageJs, /currentMaterial\.product_code === material\.product_code/);
+  assert.doesNotMatch(pageJs, /pageSize:\s*100/);
   assert.match(pageJs, /待补料/);
   assert.match(pageJs, /本次将新增/);
   assert.match(pageWxml, /待补料/);

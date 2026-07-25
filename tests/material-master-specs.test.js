@@ -837,6 +837,9 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
   const manageMaterialCf = read('cloudfunctions/manageMaterial/index.js');
   const getLogsCf = read('cloudfunctions/getLogs/index.js');
+  const sharedLogSearch = read('cloudfunctions/_shared/log-search.js');
+  const getLogsSearch = read('cloudfunctions/getLogs/log-search.js');
+  const frontendLogSearch = read('miniprogram/utils/log-search.js');
   const exportDataCf = read('cloudfunctions/exportData/index.js');
   const logsJs = read('miniprogram/pages/logs/index.js');
   const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
@@ -855,6 +858,14 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
 
   assert.match(getLogsCf, /unique_code/);
   assert.match(getLogsCf, /batch_number/);
+  assert.match(getLogsCf, /supplier_model/);
+  assert.match(getLogsCf, /supplier_model_key/);
+  assert.match(sharedLogSearch, /supplier_model/);
+  assert.match(sharedLogSearch, /supplier_model_key/);
+  assert.match(getLogsSearch, /supplier_model/);
+  assert.match(getLogsSearch, /supplier_model_key/);
+  assert.match(frontendLogSearch, /supplier_model/);
+  assert.match(frontendLogSearch, /supplier_model_key/);
   assert.match(getLogsCf, /description/);
   assert.match(getLogsCf, /note/);
   assert.match(getLogsCf, /project_code/);
@@ -864,6 +875,8 @@ test('search-backed inventory, master-data, and log queries share escaped keywor
   assert.doesNotMatch(exportDataCf, /'\.\*'\s*\+\s*searchVal\s*\+\s*'\.\*'/);
   assert.match(adminLogsJs, /unique_code/);
   assert.match(adminLogsJs, /batch_number/);
+  assert.match(adminLogsJs, /supplier_model/);
+  assert.match(adminLogsJs, /supplier_model_key/);
   assert.match(adminLogsJs, /description/);
   assert.match(adminLogsJs, /note/);
   assert.match(adminLogsJs, /project_code/);

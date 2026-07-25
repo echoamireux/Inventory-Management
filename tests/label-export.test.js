@@ -290,7 +290,7 @@ test('preprint label records snapshot material fields, film specs, and require m
       },
       form: {}
     });
-  }, /测试料预生成标签必须填写原厂型号/);
+  }, /测试料预生成标签必须选择原厂型号/);
 
   const records = buildPreprintLabelRecords({
     templateType: 'chemical_std',

@@ -154,6 +154,53 @@ function buildMaterialSearchCondition(regex, normalizedKeyword) {
   return textSearchConditions;
 }
 
+function buildTestMaterialIdentitySearchCondition(regex) {
+  return [
+    { product_code: regex },
+    { supplier_model: regex },
+    { supplier_model_key: regex },
+    { supplier: regex },
+    { label_material_name: regex },
+    { material_name: regex },
+    { subcategory_key: regex },
+    { sub_category: regex }
+  ];
+}
+
+function buildDirectoryMaterialItem(item = {}, subcategoryMap = {}) {
+  const subCategory = resolveSubcategoryDisplay(item, subcategoryMap);
+  return {
+    ...item,
+    directory_kind: 'material',
+    directory_key: `material:${item._id || item.product_code || ''}`,
+    is_test_identity: false,
+    display_title: item.product_code || '',
+    display_name: item.material_name || item.name || '',
+    display_sub_category: subCategory,
+    display_meta: subCategory ? `子类别：${subCategory}` : '子类别：-'
+  };
+}
+
+function buildDirectoryIdentityItem(item = {}) {
+  const normalized = normalizeTestMaterialIdentityRecord(item);
+  const displayName = normalized.label_material_name || normalized.material_name || '';
+  const subCategory = normalized.sub_category || '';
+  const testCode = normalized.product_code || '';
+  return {
+    ...normalized,
+    directory_kind: 'test_identity',
+    directory_key: `identity:${normalized._id || normalized.identity_key || ''}`,
+    is_test_identity: true,
+    display_title: normalized.supplier_model || '',
+    display_name: displayName,
+    display_sub_category: subCategory,
+    display_meta: [
+      subCategory ? `子类别：${subCategory}` : '子类别：-',
+      testCode ? `测试料代码：${testCode}` : ''
+    ].filter(Boolean).join(' ｜ ')
+  };
+}
+
 async function getOperator(openid) {
   const operatorRes = await db.collection('users').where({
     _openid: openid
@@ -572,6 +619,14 @@ exports.main = async (event, context) => {
           }
         }
         return await listMaterials(data);
+      case 'directoryList':
+        {
+          const authResult = await assertManageMaterialActiveAccess(OPENID);
+          if (!authResult.ok) {
+            return { success: false, msg: authResult.msg };
+          }
+        }
+        return await listMaterialDirectory(data);
       case 'get':
         {
           const authResult = await assertManageMaterialActiveAccess(OPENID);
@@ -689,6 +744,129 @@ async function listMaterials(params = {}) {
       ...item,
       sub_category: resolveSubcategoryDisplay(item, context.map)
     }));
+  }
+
+  return {
+    success: true,
+    list,
+    total,
+    page,
+    pageSize,
+    ...(normalizedKeyword ? {
+      searchTruncated,
+      searchMessage: searchTruncated ? '结果较多，请继续输入关键词' : ''
+    } : {})
+  };
+}
+
+async function listMaterialDirectory(params = {}) {
+  const { searchVal, category } = params;
+  const page = Math.max(1, Number(params.page) || 1);
+  const pageSize = Math.max(1, Math.min(100, Number(params.pageSize) || 20));
+  const normalizedKeyword = normalizeSearchKeyword(searchVal);
+  const context = await loadSubcategoryContext();
+
+  let materialQuery = {
+    status: 'active',
+    is_test_material: _.neq(true)
+  };
+  if (category) {
+    materialQuery.category = category;
+  }
+
+  const regex = buildContainsRegExp(db, normalizedKeyword);
+  if (regex) {
+    materialQuery = _.and([
+      materialQuery,
+      _.or(buildMaterialSearchCondition(regex, normalizedKeyword))
+    ]);
+  }
+
+  await ensureTestMaterialIdentityCollection();
+  const identityConditions = [{ status: 'active' }];
+  if (category) {
+    identityConditions.push({ category });
+  }
+  if (regex) {
+    identityConditions.push(_.or(buildTestMaterialIdentitySearchCondition(regex)));
+  }
+  const identityQuery = _.and(identityConditions);
+
+  const [materialCountRes, identityCountRes] = await Promise.all([
+    db.collection('materials').where(materialQuery).count(),
+    db.collection('test_material_identities').where(identityQuery).count()
+  ]);
+  const materialTotal = Number(materialCountRes.total) || 0;
+  const identityTotal = Number(identityCountRes.total) || 0;
+  const total = materialTotal + identityTotal;
+  let list = [];
+  let searchTruncated = false;
+
+  if (normalizedKeyword) {
+    const [materialCandidateRes, identityCandidateRes] = await Promise.all([
+      db.collection('materials')
+        .where(materialQuery)
+        .orderBy('product_code', 'asc')
+        .limit(MAX_SEARCH_CANDIDATES + 1)
+        .get(),
+      db.collection('test_material_identities')
+        .where(identityQuery)
+        .orderBy('product_code', 'asc')
+        .orderBy('supplier_model', 'asc')
+        .limit(MAX_SEARCH_CANDIDATES + 1)
+        .get()
+    ]);
+    const materialCandidates = (materialCandidateRes.data || [])
+      .map(item => buildDirectoryMaterialItem(item, context.map));
+    const identityCandidates = (identityCandidateRes.data || [])
+      .map(buildDirectoryIdentityItem);
+    const candidates = [...materialCandidates, ...identityCandidates];
+    searchTruncated = candidates.length > MAX_SEARCH_CANDIDATES || total > MAX_SEARCH_CANDIDATES;
+    list = rankSearchResults(candidates.slice(0, MAX_SEARCH_CANDIDATES), normalizedKeyword, {
+      codeFields: ['product_code'],
+      modelFields: ['supplier_model', 'supplier_model_key', 'display_title'],
+      nameFields: ['display_name', 'material_name', 'label_material_name'],
+      auxiliaryFields: [
+        'supplier',
+        'subcategory_key',
+        'sub_category',
+        'display_sub_category',
+        'package_type',
+        'display_meta',
+        'specs.thickness_um',
+        'specs.standard_width_mm'
+      ],
+      stableFields: ['display_title', 'product_code', 'supplier_model', '_id']
+    }).slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    const offset = (page - 1) * pageSize;
+    let remaining = pageSize;
+
+    if (offset < materialTotal) {
+      const materialLimit = Math.min(remaining, materialTotal - offset);
+      const materialRes = await db.collection('materials')
+        .where(materialQuery)
+        .orderBy('product_code', 'asc')
+        .skip(offset)
+        .limit(materialLimit)
+        .get();
+      const materialItems = (materialRes.data || [])
+        .map(item => buildDirectoryMaterialItem(item, context.map));
+      list = list.concat(materialItems);
+      remaining -= materialItems.length;
+    }
+
+    if (remaining > 0) {
+      const identityOffset = Math.max(0, offset - materialTotal);
+      const identityRes = await db.collection('test_material_identities')
+        .where(identityQuery)
+        .orderBy('product_code', 'asc')
+        .orderBy('supplier_model', 'asc')
+        .skip(identityOffset)
+        .limit(remaining)
+        .get();
+      list = list.concat((identityRes.data || []).map(buildDirectoryIdentityItem));
+    }
   }
 
   return {

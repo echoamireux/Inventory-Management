@@ -28,7 +28,7 @@
     background="#eef6ff"
   />
 
-  <view wx:if="{{ loading }}" class="identity-loading">
+  <view wx:if="{{ loading && identities.length === 0 }}" class="identity-loading">
     <van-loading type="spinner" vertical>加载中...</van-loading>
   </view>
 
@@ -42,20 +42,24 @@
     >
       <view class="identity-card__main">
         <view class="identity-card__top">
-          <text class="identity-code">{{ item.product_code }}</text>
-          <van-tag wx:if="{{ item.category === 'chemical' }}" plain type="primary">化材</van-tag>
-          <van-tag wx:else plain type="success">膜材</van-tag>
-          <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
+          <text class="identity-model">{{ item.supplier_model || '-' }}</text>
+          <view class="identity-card__tags">
+            <van-tag wx:if="{{ item.category === 'chemical' }}" plain type="primary">化材</van-tag>
+            <van-tag wx:else plain type="success">膜材</van-tag>
+            <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
+            <van-tag wx:else plain type="success">已启用</van-tag>
+          </view>
         </view>
-        <view class="identity-model">{{ item.supplier_model }}</view>
-        <view class="identity-meta">{{ item.material_name || '测试料主数据' }}</view>
-        <view wx:if="{{ item.supplier }}" class="identity-supplier">供应商：{{ item.supplier }}</view>
+        <view class="identity-name">{{ item.label_material_name || item.material_name || '未命名测试料' }}</view>
+        <view class="identity-meta">子类别：{{ item.sub_category || '-' }}<text wx:if="{{ item.product_code }}"> ｜ 测试料代码：{{ item.product_code }}</text></view>
         <view wx:if="{{ item.match_reason }}" class="identity-match-reason">{{ item.match_reason }}</view>
       </view>
       <van-button size="mini" plain bind:click="onToggleStatus" data-index="{{ index }}">
         {{ item.status === 'disabled' ? '启用' : '停用' }}
       </van-button>
     </view>
+    <view wx:if="{{ loading }}" class="identity-list__footer">继续加载型号...</view>
+    <view wx:elif="{{ isEnd }}" class="identity-list__footer">已显示全部 {{ total }} 个型号</view>
   </view>
 
   <van-toast id="van-toast" />

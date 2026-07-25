@@ -40,6 +40,7 @@ This project uses WeChat mini-program pages backed by cloud functions. Search is
 - Same-score sorting must include stable fields such as `product_code`, `supplier_model`, and `_id`.
 - List pages use debounced refresh and request IDs to prevent stale responses from replacing newer input.
 - Selector pages may show suggestions automatically, but they must not auto-select the first result. The user must tap a concrete candidate.
+- Selectors whose candidate set can exceed one cloud page must remote-search and paginate by keyword; do not load the first 100 rows and then filter only in memory.
 - Homepage navigation search is explicit: typing can load suggestions, but only enter/search action or tapping a suggestion navigates.
 
 ### 4. Validation & Error Matrix
@@ -52,6 +53,7 @@ This project uses WeChat mini-program pages backed by cloud functions. Search is
 | Global master-data search has a keyword | Query material master data with `status: "all"` and test material identities with `includeDisabled: true`. |
 | Archived material or disabled identity appears in global results | Display a status tag and do not allow it to become a new-business selector choice. |
 | Logs, audit timelines, and project-usage reports have a keyword | Filter by keyword but keep timeline/business sorting, not relevance sorting. |
+| A test-material code has more than 100 maintained supplier models | The model chooser must call the cloud list API with `product_code`, `searchVal`, `page`, and `pageSize`, and load more on scroll. |
 
 ### 5. Good/Base/Bad Cases
 
@@ -112,10 +114,10 @@ loadListWithRequestGuard({ searchVal });
 
 ### 3. Contracts
 
-- The preprint UI must hide or disable generation settings until the user taps a concrete material suggestion. Search text alone is never a selected material.
-- Test-material preprints must use an enabled `test_material_identities` record. The UI shows a readonly model field and opens a chooser; the backend revalidates the `supplier_model_key`.
+- The preprint UI must hide or disable generation settings until the user enters a governed product-code prefix plus a 1–3 digit number and the page resolves one active material by exact product code. Name search is not part of this workflow.
+- Test-material preprints must use an enabled `test_material_identities` record. The UI shows a readonly model field and opens a searchable chooser limited to the selected test-material code shell; the backend revalidates the `supplier_model_key`.
 - Formal-material preprints must use `material.supplier_model` as the printable supplier model. Request-provided `form.supplier_model` and `form.supplier_model_key` must not override master data for formal materials.
-- If a formal material has no supplier model in master data, the printable model is blank and the UI tells the operator to update master data first.
+- If a formal material has no supplier model in master data, the printable model is blank. The label preprint page should not show a warning or ask the operator to enter an ad-hoc model there.
 - Film preprints still require thickness and width after a material is selected. Governed formal-film specs may be readonly when master data supplies them; test-film batch specs may be entered as the label snapshot.
 - Reprint exports must load selected in-stock inventory rows by id and category, then build labels from inventory/material snapshots. Reprint must not take free-form material, supplier model, batch, or location fields from the client.
 
@@ -132,9 +134,9 @@ loadListWithRequestGuard({ searchVal });
 
 ### 5. Good/Base/Bad Cases
 
-- Good: operator searches `J-999`, taps the test material, chooses `TEST-CHEM-01` from the enabled identity sheet, then generates labels.
+- Good: operator selects prefix `J`, enters `999`, the page resolves `J-999`, chooses `TEST-CHEM-01` from the enabled identity chooser, then generates labels.
 - Good: operator selects a formal material with `supplier_model = MASTER-MODEL`; even if the client sends `TEMP-MODEL`, exported labels use `MASTER-MODEL`.
-- Base: formal material has no supplier model; generated labels leave the model cell blank and the UI points the operator to master-data maintenance.
+- Base: formal material has no supplier model; generated labels leave the model cell blank without showing an extra warning on the preprint page.
 - Bad: showing editable print settings before any material is selected, because it suggests a label can be generated from free text.
 - Bad: reprint export accepts client-provided supplier model instead of reading existing inventory rows.
 

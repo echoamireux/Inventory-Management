@@ -139,6 +139,24 @@ function buildEffectiveTestMaterialSnapshot(material = {}, identityValidation = 
   };
 }
 
+function buildGovernedPreprintForm(material = {}, form = {}, identityValidation = {}) {
+  const baseForm = form || {};
+  if (material && material.is_test_material) {
+    return {
+      ...baseForm,
+      supplier: normalizeText(identityValidation.supplier),
+      supplier_model: normalizeText(identityValidation.supplier_model),
+      supplier_model_key: normalizeText(identityValidation.supplier_model_key)
+    };
+  }
+  return {
+    ...baseForm,
+    supplier: normalizeText(material.supplier),
+    supplier_model: normalizeText(material.supplier_model),
+    supplier_model_key: ''
+  };
+}
+
 function isRetryablePreprintTransactionConflict(error) {
   const message = String((error && (error.errMsg || error.message)) || error || '').toLowerCase();
   return /transaction|conflict|version|事务|冲突|版本/.test(message);
@@ -401,6 +419,7 @@ async function getPreprintJobById(jobId, operatorOpenid = '') {
 }
 
 function buildPreprintJobMaterial(job = {}) {
+  const formSnapshot = job.form_snapshot || {};
   return {
     _id: job.material_id,
     product_code: job.product_code,
@@ -409,6 +428,7 @@ function buildPreprintJobMaterial(job = {}) {
     subcategory_key: job.subcategory_key || '',
     sub_category: job.sub_category || '',
     is_test_material: !!job.is_test_material,
+    supplier_model: formSnapshot.supplier_model || '',
     specs: job.material_specs || {}
   };
 }
@@ -473,14 +493,7 @@ async function reservePreprintJob({
     if (!identityValidation.ok) {
       throw new Error(identityValidation.msg);
     }
-    const currentForm = currentMaterial.is_test_material
-      ? {
-        ...form,
-        supplier: normalizeText(form.supplier) || identityValidation.supplier || '',
-        supplier_model: identityValidation.supplier_model,
-        supplier_model_key: identityValidation.supplier_model_key
-      }
-      : form;
+    const currentForm = buildGovernedPreprintForm(currentMaterial, form, identityValidation);
     const currentEffectiveMaterial = buildEffectiveTestMaterialSnapshot(currentMaterial, identityValidation);
     const currentSignature = buildPreprintRequestSignature({
       templateType,
@@ -625,14 +638,7 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   if (!identityValidation.ok) {
     throw new Error(identityValidation.msg);
   }
-  const normalizedForm = material.is_test_material
-    ? {
-      ...form,
-      supplier: normalizeText(form.supplier) || identityValidation.supplier || '',
-      supplier_model: identityValidation.supplier_model,
-      supplier_model_key: identityValidation.supplier_model_key
-    }
-    : form;
+  const normalizedForm = buildGovernedPreprintForm(material, form, identityValidation);
   const effectiveMaterial = buildEffectiveTestMaterialSnapshot(material, identityValidation);
   const preprintMode = normalizeText(data.preprintMode || data.preprint_mode || 'normal') || 'normal';
   const requestSignature = buildPreprintRequestSignature({

@@ -61,6 +61,7 @@ function decorateDetailRows(rows = []) {
     _timeStr: formatDateTime(item.timestamp),
     _quantityText: `${normalizeQuantity(item.quantity)} ${item.unit || ''}`.trim(),
     _projectText: item.project_name ? `${item.project_code} - ${item.project_name}` : item.project_code || '-',
+    _identityText: item.supplier_model ? `原厂型号 ${item.supplier_model}` : '',
     _noteText: item.withdraw_note || item.note || item.description || ''
   }));
 }
@@ -68,7 +69,14 @@ function decorateDetailRows(rows = []) {
 function decorateSummaryRows(rows = []) {
   return rows.map(item => ({
     ...item,
+    _summaryKey: [
+      item.product_code || '-',
+      item.supplier_model_key || item.supplier_model || '',
+      item.material_name || '',
+      item.unit || ''
+    ].join('::'),
     _quantityText: `${normalizeQuantity(item.total_quantity)} ${item.unit || ''}`.trim(),
+    _identityText: item.supplier_model ? `原厂型号 ${item.supplier_model}` : '',
     _projectText: item.projects || '-'
   }));
 }

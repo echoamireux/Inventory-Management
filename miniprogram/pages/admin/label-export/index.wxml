@@ -38,59 +38,56 @@
 
   <block wx:if="{{ mode === 'preprint' }}">
     <view class="preprint-panel">
-      <view class="field-label">选择物料</view>
-      <van-search
-        value="{{ preprintForm.materialSearchVal }}"
-        placeholder="产品代码/物料名称/原厂型号"
-        shape="round"
-        bind:change="onMaterialSearchChange"
-        bind:clear="onMaterialSearchClear"
-        custom-class="search-compact"
-      />
+      <view class="field-label">选择产品代码</view>
+      <view class="label-product-code-row">
+        <view
+          wx:if="{{ showPreprintCodePrefixSelector }}"
+          class="label-product-code-prefix"
+          bindtap="showPreprintCodePrefixSheet"
+        >
+          {{ preprintCodePrefix }}
+          <van-icon name="arrow-down" size="12px" />
+        </view>
+        <view wx:else class="label-product-code-prefix is-locked">
+          {{ preprintCodePrefix }}
+        </view>
+        <input
+          class="label-product-code-input"
+          value="{{ preprintForm.productCodeNumber }}"
+          placeholder="请输入1-3位数字编号"
+          type="number"
+          maxlength="3"
+          confirm-type="done"
+          bindinput="onPreprintProductCodeInput"
+          bindblur="onPreprintProductCodeBlur"
+          bindconfirm="onPreprintProductCodeConfirm"
+        />
+      </view>
 
       <view wx:if="{{ materialSearchState === 'loading' }}" class="material-search-state">
         <van-loading size="16px">正在查询物料...</van-loading>
       </view>
       <view wx:elif="{{ materialSearchState === 'empty' }}" class="material-search-state">
-        未找到匹配物料，请确认产品代码/物料名称/原厂型号，或先维护物料主数据
+        未找到 {{ preprintCodePrefix }}-{{ preprintForm.productCodeNumber }} 对应的在用物料，请先维护物料主数据
       </view>
       <view wx:elif="{{ materialSearchState === 'error' }}" class="material-search-state is-error">
         查询物料失败，请稍后重试
       </view>
 
-      <view wx:if="{{ materialSuggestions.length > 0 }}" class="suggestion-list">
-        <view
-          wx:for="{{ materialSuggestions }}"
-          wx:key="_id"
-          class="suggestion-row"
-          bindtap="onSelectMaterial"
-          data-item="{{ item }}"
-        >
-          <view class="suggestion-row__title">
-            <text class="code-text">{{ item.display_code }}</text>
-            <text>{{ item.display_name }}</text>
-          </view>
-          <view class="suggestion-row__meta">
-            <text wx:if="{{ item.is_test_material }}">测试料</text>
-            <text wx:if="{{ item.display_model }}">原厂型号 {{ item.display_model }}</text>
-          </view>
-        </view>
-      </view>
-
       <view wx:if="{{ preprintForm.selectedMaterial }}" class="selected-material">
         <view class="selected-material__title">
           <text class="code-text">{{ preprintForm.selectedMaterial.display_code }}</text>
-          <text>{{ preprintForm.selectedMaterial.display_name }}</text>
+          <text>{{ preprintForm.selectedMaterial.is_test_material && preprintForm.material_name ? preprintForm.material_name : preprintForm.selectedMaterial.display_name }}</text>
         </view>
         <view class="selected-material__meta">
-          {{ preprintForm.selectedMaterial.is_test_material ? '测试料：原厂型号会打印在标签上' : '正式料：有原厂型号则打印，没有则留空' }}
+          {{ preprintForm.selectedMaterial.is_test_material && preprintForm.sub_category ? preprintForm.sub_category : (preprintForm.selectedMaterial.is_test_material ? '测试料：请从型号库选择原厂型号' : '正式料：原厂型号由物料主数据决定') }}
         </view>
       </view>
 
       <view wx:if="{{ !preprintForm.selectedMaterial }}" class="preprint-selection-empty">
-        <view class="preprint-selection-empty__title">请先搜索并选择物料</view>
+        <view class="preprint-selection-empty__title">请先输入产品代码</view>
         <view class="preprint-selection-empty__desc">
-          选择物料后才能填写生成数量和打印参数；测试料原厂型号必须从已维护型号库中选择，正式料原厂型号只从物料主数据带出。
+          选择前缀并输入 1-3 位数字编号后，系统会精确匹配在用物料；测试料原厂型号必须从已维护型号库中选择。
         </view>
       </view>
 
@@ -126,12 +123,8 @@
             <block wx:else>
               <van-field
                 value="{{ preprintForm.supplier_model }}"
-                placeholder="{{ preprintForm.supplier_model ? '由物料主数据带出' : '主数据未维护，标签留空' }}"
                 readonly
               />
-              <view class="field-inline-notice">
-                正式料原厂型号只从物料主数据带出；如需修改，请先维护物料主数据。
-              </view>
             </block>
           </view>
           <view wx:if="{{ templateType === 'film' }}" class="form-item">
@@ -164,25 +157,16 @@
           </view>
         </view>
 
-        <view class="form-section-title">可选补充信息</view>
+        <view class="form-section-title">本次内部备注</view>
         <view class="optional-info-hint">
-          供应商和备注会保存到系统快照，用于扫码入库自动带出和追溯，不打印在标签上。
+          仅保存到本次标签快照，用于后续追溯，不打印在标签上。
         </view>
         <view class="form-grid optional-grid">
           <view class="form-item">
-            <view class="field-label">供应商</view>
-            <van-field
-              value="{{ preprintForm.supplier }}"
-              placeholder="选填"
-              data-field="supplier"
-              bind:change="onPreprintFieldChange"
-            />
-          </view>
-          <view class="form-item">
-            <view class="field-label">备注</view>
+            <view class="field-label">本次打印备注</view>
             <van-field
               value="{{ preprintForm.sample_note }}"
-              placeholder="选填，用于入库追溯"
+              placeholder="选填"
               data-field="sample_note"
               bind:change="onPreprintFieldChange"
             />
@@ -343,11 +327,65 @@
   </block>
 </view>
 
-<van-action-sheet
+<van-popup
   show="{{ showTestMaterialIdentitySheet }}"
-  actions="{{ testMaterialIdentityActions }}"
+  position="bottom"
+  round
+  closeable
   bind:close="onTestMaterialIdentityClose"
-  bind:select="onTestMaterialIdentitySelect"
+>
+  <view class="test-identity-popup">
+    <view class="test-identity-popup__title">选择测试料原厂型号</view>
+    <van-search
+      value="{{ testMaterialIdentitySearchVal }}"
+      placeholder="搜索原厂型号/物料名称/子类别"
+      shape="round"
+      bind:change="onTestMaterialIdentitySearchChange"
+      bind:clear="onTestMaterialIdentitySearchClear"
+      custom-class="search-compact"
+    />
+    <view wx:if="{{ testMaterialIdentitySearchMessage }}" class="material-search-state">
+      {{ testMaterialIdentitySearchMessage }}
+    </view>
+    <view wx:if="{{ testMaterialIdentityLoading && filteredTestMaterialIdentityActions.length === 0 }}" class="material-search-state">
+      <van-loading size="16px">正在加载型号...</van-loading>
+    </view>
+    <view wx:elif="{{ filteredTestMaterialIdentityActions.length === 0 }}" class="material-search-state">
+      {{ testMaterialIdentitySearchVal ? '没有匹配的测试料型号，请换个关键词' : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库' }}
+    </view>
+    <scroll-view
+      wx:else
+      class="test-identity-list"
+      scroll-y
+      bindscrolltolower="onTestMaterialIdentityReachBottom"
+    >
+      <view
+        wx:for="{{ filteredTestMaterialIdentityActions }}"
+        wx:key="identity_key"
+        class="test-identity-row"
+        bindtap="onTestMaterialIdentitySelect"
+        data-item="{{ item }}"
+      >
+        <view class="test-identity-row__title">{{ item.supplier_model || item.value || '-' }}</view>
+        <view class="test-identity-row__meta">
+          <text>{{ item.label_material_name || item.material_name || '-' }}</text>
+          <text>{{ item.sub_category || item.subcategory_key || '-' }}</text>
+          <text>{{ item.product_code || '-' }}</text>
+        </view>
+      </view>
+      <view wx:if="{{ testMaterialIdentityLoading }}" class="test-identity-list__footer">继续加载型号...</view>
+      <view wx:elif="{{ testMaterialIdentityIsEnd }}" class="test-identity-list__footer">
+        已显示全部 {{ testMaterialIdentityTotal }} 个型号
+      </view>
+    </scroll-view>
+  </view>
+</van-popup>
+
+<van-action-sheet
+  show="{{ showPreprintCodePrefixSheet }}"
+  actions="{{ preprintCodePrefixOptions }}"
+  bind:close="onPreprintCodePrefixClose"
+  bind:select="onPreprintCodePrefixSelect"
 />
 
 <van-toast id="van-toast" />

@@ -2,6 +2,7 @@
   "navigationBarTitleText": "标签打印",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "van-action-sheet": "@vant/weapp/action-sheet/index"
+    "van-action-sheet": "@vant/weapp/action-sheet/index",
+    "van-popup": "@vant/weapp/popup/index"
   }
 }

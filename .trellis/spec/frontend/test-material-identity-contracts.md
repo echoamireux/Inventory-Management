@@ -34,12 +34,18 @@
 - Real supplier models for test materials live only in `test_material_identities`, not in `materials.supplier_model`.
 - Real user-facing material names and subcategories for test materials live in `test_material_identities.label_material_name`, `subcategory_key`, and `sub_category`; UI labels should display this as `物料名称`, not long wording such as `effective material name`.
 - `test_material_identities.supplier` is optional metadata and a default supplier, not an identity key.
+- Test-material identity list cards are identity-first: show `supplier_model` as the primary title, show `label_material_name` / `material_name` on the second line, and show `sub_category` plus `product_code` as metadata. Do not show optional supplier on compact list cards; reserve it for edit/detail/export contexts.
+- General material directory pages represent usable materials, not only master-data shells. They should exclude test-material code shells from the formal material list and include enabled `test_material_identities` records with the same compact card structure.
 - New test material identity UI must choose an existing active test-material master record; it must not let users type an unregistered product code.
+- Stock-in and label preprint test-material identity selectors should use the same searchable chooser pattern when a selected test-material code shell can have many maintained supplier models. The chooser must remote-search and paginate through `manageTestMaterialIdentity.list` using the selected `product_code` / `material_id`, `searchVal`, `page`, and `pageSize`; it must not load only the first 100 identities and then filter locally.
 - There is no independent test material identity import template. Bulk maintenance of test identities must use the material master-data import path.
 - Material master-data import templates keep their existing headers. Rows with `是否测试料=否` create formal materials by product code; rows with `是否测试料=是` must use an existing active test-material code shell and create/skip a `test_material_identities` record by product code plus supplier model. The import path must not silently create a new test-material code shell from a mistyped product code.
-- Stock-in, batch stock-in, inventory-template import, and label preprint may use identity supplier as a default only when the user/request supplier is blank.
+- Stock-in, batch stock-in, and inventory-template import may use identity supplier as a default only when the user/request supplier is blank.
+- Label preprint is a governed selector workflow: formal materials snapshot supplier and supplier model from material master data, while test materials snapshot supplier and supplier model from the selected enabled test-material identity. Label preprint pages must not offer manual supplier or supplier-model input.
 - Stock-in, batch stock-in, inventory-template import, and label preprint must snapshot the identity `label_material_name`, `subcategory_key`, and `sub_category` into business records so historical labels and inventory exports do not change after identity edits.
 - Reprint/export flows use inventory or preprinted-label snapshots and must not retroactively read changed identity supplier values.
+- Inventory batch lists, inventory details, operation logs, project-usage reports, and exports must display snapshot test-material identity fields instead of replacing them with the `materials` code-shell name/subcategory.
+- Project-usage summary keys must include `supplier_model_key` or `supplier_model` when present, so multiple identities under the same test-material code shell are not merged.
 
 ### 4. Validation & Error Matrix
 
@@ -53,8 +59,10 @@
 | Creating an identity without supplier model | Reject with `请输入原厂型号`. |
 | Same product code + normalized supplier model appears again | Reject as duplicate, regardless of supplier. |
 | Same product code + case-only or whitespace-only similar supplier model appears | Return similar-model confirmation flow; do not hard-block unless the exact normalized identity key matches. |
-| User has already entered supplier on stock-in/preprint | Preserve the user value; do not override from identity supplier. |
+| User has already entered supplier on stock-in | Preserve the user value; do not override from identity supplier. |
+| Client sends supplier or supplier model in label preprint payload | Ignore client overrides; formal materials use material master data and test materials use the selected identity record. |
 | User leaves supplier blank and identity has supplier | Default supplier from the selected identity into the snapshot. |
+| More than 100 identities exist under one test-material product code | Label preprint, single stock-in, batch stock-in, and identity maintenance list must still find and page through matching identities. |
 
 ### 5. Good/Base/Bad Cases
 

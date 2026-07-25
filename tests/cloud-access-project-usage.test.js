@@ -119,6 +119,8 @@ test('project usage filter uses structured selectors and non-overflowing actions
 
   const pageJson = JSON.parse(read('miniprogram/pages/project-usage/index.json'));
 
+  assert.match(pageWxml, /原厂型号/);
+  assert.match(pageWxml, /_summaryKey/);
   assert.match(pageWxml, /class="project-selector"/);
   assert.doesNotMatch(pageWxml, /class="project-usage-title"/);
   assert.match(pageWxml, /class="project-usage-subtitle"[\s\S]*按项目、物料、人员和时间查看领料记录/);
@@ -292,6 +294,8 @@ test('project usage summary groups outbound logs by material and unit', () => {
   assert.equal(summary.length, 2);
   assert.deepEqual(summary[0], {
     product_code: 'J-001',
+    supplier_model: '',
+    supplier_model_key: '',
     material_name: 'UV减粘胶',
     unit: 'kg',
     total_quantity: 3.5,
@@ -306,12 +310,57 @@ test('project usage summary groups outbound logs by material and unit', () => {
   assert.equal(formatted.quantity, 1.5);
   assert.equal(formatted.project_code, 'OR2026RD02001');
   assert.equal(formatted.operator_name, '张三');
+  assert.equal(formatted.supplier_model, '');
 
   const filteredByEndDate = filterProjectUsageLogs(logs, {
     startDate: '2026-07-01',
     endDate: '2026-07-01'
   });
   assert.equal(filteredByEndDate.length, 3);
+});
+
+test('project usage summary and search keep test material supplier models separate', () => {
+  const {
+    filterProjectUsageLogs,
+    summarizeProjectUsageLogs,
+    formatProjectUsageLog
+  } = require('../cloudfunctions/getProjectUsageReport/project-usage-report');
+
+  const logs = [
+    {
+      _id: 'test-log-1',
+      type: 'outbound',
+      project_code: 'OR2026RD02001',
+      product_code: 'J-999',
+      supplier_model: 'SC-75TI',
+      supplier_model_key: 'SC-75TI',
+      material_name: '固化剂',
+      quantity_change: -1,
+      unit: 'kg',
+      timestamp: new Date('2026-07-01T01:00:00.000Z')
+    },
+    {
+      _id: 'test-log-2',
+      type: 'outbound',
+      project_code: 'OR2026RD02002',
+      product_code: 'J-999',
+      supplier_model: 'AB-100',
+      supplier_model_key: 'AB-100',
+      material_name: '固化剂',
+      quantity_change: -2,
+      unit: 'kg',
+      timestamp: new Date('2026-07-01T02:00:00.000Z')
+    }
+  ];
+
+  const summary = summarizeProjectUsageLogs(logs);
+  assert.equal(summary.length, 2);
+  assert.deepEqual(summary.map(item => item.supplier_model).sort(), ['AB-100', 'SC-75TI']);
+  assert.deepEqual(summary.map(item => item.product_code), ['J-999', 'J-999']);
+
+  const filteredByModel = filterProjectUsageLogs(logs, { keyword: 'sc-75' });
+  assert.equal(filteredByModel.length, 1);
+  assert.equal(formatProjectUsageLog(filteredByModel[0]).supplier_model, 'SC-75TI');
 });
 
 test('project usage export workbook declares detail and summary sheets', () => {
@@ -334,6 +383,7 @@ test('project usage export pushes the same narrow filters into the database quer
   assert.match(exportIndex, /event\.operator|event\.operatorFilter/);
   assert.match(exportIndex, /buildContainsRegExp/);
   assert.match(exportIndex, /operator_name/);
+  assert.match(exportIndex, /supplier_model/);
 });
 
 test('project usage export workbook uses professional report styling', () => {
@@ -377,6 +427,7 @@ test('project usage export workbook uses professional report styling', () => {
         timestamp: new Date('2026-07-01T06:15:00.000Z'),
         operator_name: '张三',
         product_code: 'J-001',
+        supplier_model: 'MODEL-A',
         material_name: 'UV减粘胶',
         unique_code: 'L000001',
         batch_number: 'B202607',
@@ -388,6 +439,7 @@ test('project usage export workbook uses professional report styling', () => {
     summaryList: [
       {
         product_code: 'J-001',
+        supplier_model: 'MODEL-A',
         material_name: 'UV减粘胶',
         unit: 'kg',
         total_quantity: 1.5,
@@ -419,19 +471,21 @@ test('project usage export workbook uses professional report styling', () => {
   assert.equal(detailSheet.views[0].state, 'frozen');
   assert.equal(detailSheet.views[0].ySplit, 5);
   assert.equal(detailSheet.getCell('A6').value, 'OR2026RD02001');
-  assert.equal(detailSheet.getCell('I6').value, 1.5);
-  assert.equal(detailSheet.getCell('I6').numFmt, '0.###');
+  assert.equal(detailSheet.getCell('F6').value, 'MODEL-A');
+  assert.equal(detailSheet.getCell('J6').value, 1.5);
+  assert.equal(detailSheet.getCell('J6').numFmt, '0.###');
   assert.equal(detailSheet.getCell('A5').font.bold, true);
   assert.equal(detailSheet.getCell('A5').fill.fgColor.argb, '334155');
   assert.equal(detailSheet.getCell('A6').border.top.style, 'thin');
 
   assert.equal(summarySheet.getCell('A1').value, '物料汇总');
-  assert.match(String(summarySheet.getCell('A3').value || ''), /按产品代码、物料名称和单位汇总/);
+  assert.match(String(summarySheet.getCell('A3').value || ''), /按产品代码、原厂型号、物料名称和单位汇总/);
   assert.deepEqual(summarySheet.getRow(5).values.slice(1), PROJECT_USAGE_SUMMARY_HEADERS);
   assert.equal(summarySheet.autoFilter.from.row, 5);
   assert.equal(summarySheet.views[0].ySplit, 5);
-  assert.equal(summarySheet.getCell('D6').value, 1.5);
-  assert.equal(summarySheet.getCell('D6').numFmt, '0.###');
+  assert.equal(summarySheet.getCell('B6').value, 'MODEL-A');
+  assert.equal(summarySheet.getCell('E6').value, 1.5);
+  assert.equal(summarySheet.getCell('E6').numFmt, '0.###');
 });
 
 test('project usage report cloud functions cap loaded logs and ask users to narrow filters', () => {

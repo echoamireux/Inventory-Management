@@ -114,23 +114,36 @@
 
 .identity-card__top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12rpx;
+}
+
+.identity-card__tags {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10rpx;
   flex-wrap: wrap;
+  max-width: 48%;
 }
 
-.identity-code {
+.identity-model-title {
+  min-width: 0;
+  flex: 1;
   color: #2563eb;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
+  word-break: break-all;
 }
 
-.identity-model {
+.identity-name {
   display: block;
-  margin-top: 8rpx;
+  margin-top: 10rpx;
   color: #111827;
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 700;
   word-break: break-all;
 }
 
@@ -139,13 +152,6 @@
   margin-top: 6rpx;
   color: #64748b;
   font-size: 24rpx;
-}
-
-.identity-parent {
-  display: block;
-  margin-top: 10rpx;
-  color: #334155;
-  font-size: 26rpx;
 }
 
 .match-reason {

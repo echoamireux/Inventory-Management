@@ -2,6 +2,8 @@
 const INVENTORY_LOG_SEARCH_FIELDS = [
   'material_name',
   'product_code',
+  'supplier_model',
+  'supplier_model_key',
   'unique_code',
   'batch_number',
   'operator',

@@ -165,7 +165,7 @@ function assertPreprintPayload({
     throw new Error('所选标签模板与物料类型不匹配');
   }
   if (material.is_test_material && !supplierModel) {
-    throw new Error('测试料预生成标签必须填写原厂型号');
+    throw new Error('测试料预生成标签必须选择原厂型号');
   }
   const filmSpecs = expectedCategory === 'film'
     ? resolveFilmPreprintSpecs(material, form)

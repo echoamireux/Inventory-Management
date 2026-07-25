@@ -45,8 +45,16 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJs, /name:\s*'exportLabelData'/);
   assert.match(pageJs, /status\s*!==\s*'active'/);
   assert.match(pageJs, /仅已激活用户可访问/);
+  assert.match(pageJson, /"van-popup":\s*"@vant\/weapp\/popup\/index"/);
+  assert.match(pageJson, /"van-action-sheet":\s*"@vant\/weapp\/action-sheet\/index"/);
 
   assert.match(pageWxml, /placeholder="标签编号\/产品代码\/物料名称\/批号"/);
+  assert.match(pageWxml, /选择产品代码/);
+  assert.match(pageWxml, /preprintCodePrefix/);
+  assert.match(pageWxml, /placeholder="请输入1-3位数字编号"/);
+  assert.match(pageWxml, /maxlength="3"/);
+  assert.match(pageWxml, /bindinput="onPreprintProductCodeInput"/);
+  assert.match(pageWxml, /actions="\{\{ preprintCodePrefixOptions \}\}"/);
   assert.match(pageWxml, /预生成打印标签/);
   assert.match(pageWxml, /补打已入库标签/);
   assert.match(pageWxml, /膜材信息标签/);
@@ -63,17 +71,36 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、子类别、原厂型号、厚度、幅宽/);
   assert.match(pageWxml, /标签编号、二维码内容、产品代码、物料名称、原厂型号/);
   assert.match(pageWxml, /生产批号\/批次、库位、数量和过期日期在扫码入库或批量入库时填写/);
-  assert.match(pageWxml, /可选补充信息/);
+  assert.match(pageWxml, /本次内部备注/);
+  assert.match(pageWxml, /本次打印备注/);
   assert.match(pageWxml, /正在查询物料/);
-  assert.match(pageWxml, /未找到匹配物料，请确认产品代码\/物料名称\/原厂型号，或先维护物料主数据/);
+  assert.match(pageWxml, /未找到 \{\{ preprintCodePrefix \}\}-\{\{ preprintForm\.productCodeNumber \}\} 对应的在用物料，请先维护物料主数据/);
   assert.match(pageWxml, /查询物料失败，请稍后重试/);
-  assert.match(pageWxml, /请先搜索并选择物料/);
+  assert.match(pageWxml, /请先输入产品代码/);
   assert.match(
     pageWxml,
     /<block wx:if="\{\{ preprintForm\.selectedMaterial \}\}">[\s\S]*<view class="form-section-title">打印设置<\/view>/
   );
+  assert.match(pageJs, /sanitizeProductCodeNumberInput/);
+  assert.match(pageJs, /normalizeProductCodeInput/);
+  assert.match(pageJs, /findExactProductCodeMatch/);
+  assert.match(pageJs, /listProductCodePrefixes/);
+  assert.match(pageJs, /lookupPreprintMaterialByCode/);
   assert.doesNotMatch(pageWxml, /data-field="supplier_model"/);
-  assert.match(pageWxml, /正式料原厂型号只从物料主数据带出/);
+  assert.doesNotMatch(pageWxml, /data-field="supplier"/);
+  assert.doesNotMatch(pageWxml, /正式料原厂型号只从物料主数据带出/);
+  assert.doesNotMatch(pageWxml, /主数据未维护/);
+  assert.match(pageWxml, /选择测试料原厂型号/);
+  assert.match(pageWxml, /filteredTestMaterialIdentityActions/);
+  assert.match(pageWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(pageJs, /searchTestMaterialIdentitySelectorPage/);
+  assert.match(pageJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);
+  assert.match(pageJs, /onTestMaterialIdentityReachBottom/);
+  assert.match(pageWxml, /bindscrolltolower="onTestMaterialIdentityReachBottom"/);
+  assert.match(pageJs, /const isCurrentMaterial = \(\) =>/);
+  assert.match(pageJs, /currentMaterial\.product_code === material\.product_code/);
+  assert.doesNotMatch(pageJs, /pageSize:\s*100/);
+  assert.match(pageJs, /supplier:\s*isTestMaterial\s*\?/);
   assert.match(pageWxml, /二维码内容/);
   assert.match(pageWxml, /生成并导出标签 Excel/);
   assert.match(pageWxml, /重新导出本批 Excel/);

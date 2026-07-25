@@ -9,13 +9,14 @@
         <!-- Left: Info -->
         <view class="header-left">
            <!-- Title Logic (Unified) -->
-           <view class="header-title">{{ item.product_code || '无产品代码' }}</view>
-           <view class="header-subtitle">{{ item.material_name || '无物料名' }}</view>
+           <view class="header-title">{{ item._title || item.product_code || '无产品代码' }}</view>
+           <view class="header-subtitle">{{ item._subtitle || item.material_name || '无物料名' }}</view>
 
            <!-- ID & Tag Row -->
             <view class="header-meta-row">
                  <van-tag type="{{ isExpiring ? 'warning' : 'success' }}" custom-class="mr-10">{{ isExpiring ? '即将过期' : '正常' }}</van-tag>
                  <van-tag wx:if="{{ item.isArchived }}" type="default" custom-class="mr-10" color="#6B7280">已归档停用</van-tag>
+                 <view wx:if="{{ item._headerCodeText }}" class="info-id">{{ item._headerCodeText }}</view>
                  <view class="info-id">标签编号: {{ item.unique_code }}</view>
             </view>
         </view>

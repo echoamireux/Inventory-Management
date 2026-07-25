@@ -7,6 +7,35 @@ function resolveSearchValue(detail) {
   return typeof detail === 'string' ? detail : '';
 }
 
+function buildDirectoryDisplayItem(item = {}) {
+  const isTestIdentity = !!item.is_test_identity || item.directory_kind === 'test_identity';
+  const productCode = String(item.product_code || '').trim();
+  const supplierModel = String(item.supplier_model || '').trim();
+  const subCategory = String(item.display_sub_category || item.sub_category || '').trim();
+  const displayTitle = String(item.display_title || supplierModel || productCode || '').trim();
+  const displayName = String(
+    item.display_name
+      || item.label_material_name
+      || item.material_name
+      || item.name
+      || (isTestIdentity ? '未命名测试料' : '')
+  ).trim();
+  const displayMeta = String(item.display_meta || '').trim()
+    || [
+      subCategory ? `子类别：${subCategory}` : '子类别：-',
+      isTestIdentity && productCode ? `测试料代码：${productCode}` : ''
+    ].filter(Boolean).join(' ｜ ');
+
+  return {
+    ...item,
+    directory_key: item.directory_key || `${isTestIdentity ? 'identity' : 'material'}:${item._id || item.identity_key || productCode || supplierModel || ''}`,
+    is_test_identity: isTestIdentity,
+    display_title: displayTitle || '-',
+    display_name: displayName || '-',
+    display_meta: displayMeta || '子类别：-'
+  };
+}
+
 Page({
   data: {
     activeTab: 'all',
@@ -70,7 +99,7 @@ Page({
       const res = await wx.cloud.callFunction({
         name: 'manageMaterial',
         data: {
-          action: 'list',
+          action: 'directoryList',
           data: {
             searchVal,
             page,
@@ -84,7 +113,7 @@ Page({
         if (this.data.requestId !== currentRequestId) {
           return;
         }
-        const newList = res.result.list || [];
+        const newList = (res.result.list || []).map(buildDirectoryDisplayItem);
         const list = refresh ? newList : [...this.data.list, ...newList];
         const isEnd = list.length >= res.result.total;
 

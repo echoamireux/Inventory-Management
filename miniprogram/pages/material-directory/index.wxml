@@ -30,23 +30,20 @@
   </view>
 
   <view class="list-wrapper" wx:if="{{ list.length > 0 }}">
-    <block wx:for="{{ list }}" wx:key="_id">
-      <view class="card shadow-sm" data-id="{{ item._id }}">
-        <view class="flex-row justify-between items-baseline mb-5">
-            <view class="text-brand font-din font-bold" style="font-size: 18px;">{{ item.product_code }}</view>
-            <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain>{{ item.category === 'chemical' ? '化材' : '膜材' }}</van-tag>
+    <block wx:for="{{ list }}" wx:key="directory_key">
+      <view class="material-card" data-id="{{ item._id }}" data-kind="{{ item.directory_kind }}">
+        <view class="material-card__top">
+          <view class="material-card__title">{{ item.display_title || '-' }}</view>
+          <view class="material-card__tags">
+            <van-tag type="{{ item.category === 'chemical' ? 'primary' : 'success' }}" plain>
+              {{ item.category === 'chemical' ? '化材' : '膜材' }}
+            </van-tag>
+            <van-tag type="success" plain>已启用</van-tag>
+          </view>
         </view>
-        <view class="text-main font-bold mb-5 text-ellipsis" style="font-size: 15px;">
-            {{ item.material_name }}
-        </view>
-        <view class="text-xs text-secondary mt-5 flex-row justify-between">
-            <text>子类别: {{ item.sub_category || '-' }}</text>
-            <text wx:if="{{ item.supplier }}">供应商: {{ item.supplier }}</text>
-            <text wx:else>主数据已启用</text>
-        </view>
-        <view class="mt-5" wx:if="{{ item.status === 'archived' }}">
-             <van-tag type="warning" plain>已归档停用</van-tag>
-        </view>
+        <view class="material-card__name">{{ item.display_name || '-' }}</view>
+        <view class="material-card__meta">{{ item.display_meta || '子类别：-' }}</view>
+        <view class="match-reason" wx:if="{{ item.match_reason }}">{{ item.match_reason }}</view>
       </view>
     </block>
   </view>

@@ -95,6 +95,49 @@
   font-weight: 700;
 }
 
+.label-product-code-row {
+  margin: 4px 0 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  background: #F8FAFC;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 999px;
+  box-sizing: border-box;
+}
+
+.label-product-code-prefix {
+  flex-shrink: 0;
+  min-width: 54px;
+  height: 32px;
+  padding: 0 12px;
+  margin-right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: #EEF2FF;
+  color: var(--color-brand);
+  font-size: 15px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.label-product-code-prefix.is-locked {
+  color: #64748B;
+  background: #F1F5F9;
+}
+
+.label-product-code-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
 .suggestion-list {
   margin: 8px 0 10px;
   border: 1px solid rgba(226, 232, 240, 0.9);
@@ -510,4 +553,62 @@
   color: #64748b;
   font-size: 22rpx;
   line-height: 1.45;
+}
+
+.test-identity-popup {
+  padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+  max-height: 72vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.test-identity-popup__title {
+  margin: 4rpx 56rpx 18rpx 0;
+  color: var(--color-text-primary);
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.test-identity-list {
+  margin-top: 12rpx;
+  height: 50vh;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20rpx;
+}
+
+.test-identity-row {
+  padding: 22rpx 24rpx;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  background: #fff;
+}
+
+.test-identity-row:last-child {
+  border-bottom: 0;
+}
+
+.test-identity-row__title {
+  color: var(--color-text-primary);
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.test-identity-row__meta {
+  margin-top: 10rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx 16rpx;
+  color: var(--color-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.test-identity-list__footer {
+  padding: 20rpx 24rpx;
+  color: var(--color-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.4;
+  text-align: center;
+  background: #fff;
 }

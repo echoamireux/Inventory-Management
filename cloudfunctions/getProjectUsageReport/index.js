@@ -71,6 +71,8 @@ function buildQuery(event = {}, dateRange = parseCstDateRange(
       { project_code: keywordRegExp },
       { project_name: keywordRegExp },
       { product_code: keywordRegExp },
+      { supplier_model: keywordRegExp },
+      { supplier_model_key: keywordRegExp },
       { material_name: keywordRegExp },
       { unique_code: keywordRegExp },
       { batch_number: keywordRegExp },

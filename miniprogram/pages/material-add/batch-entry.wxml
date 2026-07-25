@@ -284,12 +284,58 @@
     bind:select="onCodePrefixSelect"
   />
 
-  <van-action-sheet
+  <van-popup
     show="{{ showTestMaterialIdentitySheet }}"
-    actions="{{ testMaterialIdentityActions }}"
+    position="bottom"
+    round
+    closeable
     bind:close="onTestMaterialIdentityClose"
-    bind:select="onTestMaterialIdentitySelect"
-  />
+  >
+    <view class="test-identity-popup">
+      <view class="test-identity-popup__title">选择测试料原厂型号</view>
+      <van-search
+        value="{{ testMaterialIdentitySearchVal }}"
+        placeholder="搜索原厂型号/物料名称/子类别"
+        shape="round"
+        bind:change="onTestMaterialIdentitySearchChange"
+        bind:clear="onTestMaterialIdentitySearchClear"
+      />
+      <view wx:if="{{ testMaterialIdentitySearchMessage }}" class="entry-inline-notice">
+        {{ testMaterialIdentitySearchMessage }}
+      </view>
+      <view wx:if="{{ testMaterialIdentityLoading && filteredTestMaterialIdentityActions.length === 0 }}" class="entry-inline-notice">
+        <van-loading size="16px">正在加载型号...</van-loading>
+      </view>
+      <view wx:elif="{{ filteredTestMaterialIdentityActions.length === 0 }}" class="entry-inline-notice">
+        {{ testMaterialIdentitySearchVal ? '没有匹配的测试料型号，请换个关键词' : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库' }}
+      </view>
+      <scroll-view
+        wx:else
+        class="test-identity-list"
+        scroll-y
+        bindscrolltolower="onTestMaterialIdentityReachBottom"
+      >
+        <view
+          wx:for="{{ filteredTestMaterialIdentityActions }}"
+          wx:key="identity_key"
+          class="test-identity-row"
+          bindtap="onTestMaterialIdentitySelect"
+          data-item="{{ item }}"
+        >
+          <view class="test-identity-row__title">{{ item.supplier_model || item.value || '-' }}</view>
+          <view class="test-identity-row__meta">
+            <text>{{ item.label_material_name || item.material_name || '-' }}</text>
+            <text>{{ item.sub_category || item.subcategory_key || '-' }}</text>
+            <text>{{ item.product_code || '-' }}</text>
+          </view>
+        </view>
+        <view wx:if="{{ testMaterialIdentityLoading }}" class="test-identity-list__footer">继续加载型号...</view>
+        <view wx:elif="{{ testMaterialIdentityIsEnd }}" class="test-identity-list__footer">
+          已显示全部 {{ testMaterialIdentityTotal }} 个型号
+        </view>
+      </scroll-view>
+    </view>
+  </van-popup>
 
   <van-toast id="van-toast" />
 </view>

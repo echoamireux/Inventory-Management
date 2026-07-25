@@ -43,6 +43,8 @@ function formatProjectUsageLog(log = {}) {
     operator_name: normalizeText(log.operator || log.operator_name || log.operator_id || log._openid),
     operator_id: normalizeText(log.operator_id || log._openid),
     product_code: normalizeText(log.product_code),
+    supplier_model: normalizeText(log.supplier_model),
+    supplier_model_key: normalizeText(log.supplier_model_key),
     material_name: normalizeText(log.material_name || log.name),
     unique_code: normalizeText(log.unique_code),
     batch_number: normalizeText(log.batch_number),
@@ -61,6 +63,7 @@ function summarizeProjectUsageLogs(logs = []) {
       const formatted = formatProjectUsageLog(log);
       const key = [
         formatted.product_code,
+        formatted.supplier_model_key || formatted.supplier_model,
         formatted.material_name,
         formatted.unit
       ].join('\u0001');
@@ -68,6 +71,8 @@ function summarizeProjectUsageLogs(logs = []) {
       if (!grouped.has(key)) {
         grouped.set(key, {
           product_code: formatted.product_code,
+          supplier_model: formatted.supplier_model,
+          supplier_model_key: formatted.supplier_model_key,
           material_name: formatted.material_name,
           unit: formatted.unit,
           total_quantity: 0,
@@ -88,6 +93,8 @@ function summarizeProjectUsageLogs(logs = []) {
     const projects = Array.from(item.projectSet);
     return {
       product_code: item.product_code,
+      supplier_model: item.supplier_model,
+      supplier_model_key: item.supplier_model_key,
       material_name: item.material_name,
       unit: item.unit,
       total_quantity: item.total_quantity,
@@ -129,6 +136,8 @@ function filterProjectUsageLogs(logs = [], filters = {}) {
         formatted.project_code,
         formatted.project_name,
         formatted.product_code,
+        formatted.supplier_model,
+        formatted.supplier_model_key,
         formatted.material_name,
         formatted.unique_code,
         formatted.batch_number,

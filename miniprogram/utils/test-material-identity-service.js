@@ -1,3 +1,10 @@
+const {
+  normalizeSearchKeyword,
+  rankSearchResults
+} = require('./search');
+
+const TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE = 20;
+
 function normalizeTestMaterialSupplierModel(value) {
   return String(value == null ? '' : value)
     .normalize('NFKC')
@@ -59,6 +66,36 @@ async function listTestMaterialIdentities(options = {}) {
   };
 }
 
+function normalizeSelectorPageSize(value) {
+  const size = Number(value) || TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE;
+  return Math.max(1, Math.min(100, size));
+}
+
+async function searchTestMaterialIdentitySelectorPage(options = {}) {
+  const page = Math.max(1, Number(options.page) || 1);
+  const pageSize = normalizeSelectorPageSize(options.pageSize);
+  const result = await listTestMaterialIdentities({
+    page,
+    pageSize,
+    includeDisabled: false,
+    category: options.category || '',
+    product_code: options.product_code || options.productCode || '',
+    material_id: options.material_id || options.materialId || '',
+    searchVal: options.searchVal || options.keyword || ''
+  });
+  const actions = buildTestMaterialIdentityActions(result.list || []);
+  const total = Number(result.total) || 0;
+  return {
+    actions,
+    total,
+    page: Number(result.page) || page,
+    pageSize: Number(result.pageSize) || pageSize,
+    isEnd: actions.length === 0 || page * pageSize >= total || actions.length < pageSize,
+    searchTruncated: !!result.searchTruncated,
+    searchMessage: result.searchMessage || ''
+  };
+}
+
 async function createTestMaterialIdentity(payload = {}) {
   return callTestMaterialIdentity('create', payload);
 }
@@ -102,6 +139,21 @@ function buildTestMaterialIdentityActions(records = []) {
     });
 }
 
+function filterTestMaterialIdentityActions(actions = [], keyword = '') {
+  const list = Array.isArray(actions) ? actions : [];
+  const normalizedKeyword = normalizeSearchKeyword(keyword);
+  if (!normalizedKeyword) {
+    return list;
+  }
+  return rankSearchResults(list, normalizedKeyword, {
+    codeFields: ['product_code'],
+    modelFields: ['supplier_model', 'supplier_model_key', 'value'],
+    nameFields: ['label_material_name', 'material_name'],
+    auxiliaryFields: ['sub_category', 'subcategory_key', 'supplier'],
+    stableFields: ['supplier_model', 'label_material_name', 'product_code', 'identity_key']
+  }).filter(item => item.match_score > 0);
+}
+
 module.exports = {
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialSupplier,
@@ -111,5 +163,8 @@ module.exports = {
   createTestMaterialIdentity,
   updateTestMaterialIdentity,
   setTestMaterialIdentityStatus,
-  buildTestMaterialIdentityActions
+  buildTestMaterialIdentityActions,
+  filterTestMaterialIdentityActions,
+  searchTestMaterialIdentitySelectorPage,
+  TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE
 };

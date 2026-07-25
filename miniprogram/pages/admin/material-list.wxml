@@ -38,7 +38,7 @@
       <text wx:elif="{{ activeTab === 'materials' }}" class="count-text">
         {{ total }} 种{{ materialStatus === 'archived' ? '已归档物料' : '在用物料' }}
       </text>
-      <text wx:else class="count-text">{{ identityTotal }} 个测试料</text>
+      <text wx:else class="count-text">{{ identityTotal }} 个测试料型号</text>
     </view>
 
     <view class="top-actions" wx:if="{{ !isEditMode && activeTab === 'materials' && materialStatus === 'active' && !hasSearchKeyword }}">
@@ -95,7 +95,7 @@
     class="identity-result-section"
   >
     <view wx:if="{{ hasSearchKeyword }}" class="section-title-row">
-      <text class="section-title">测试料</text>
+      <text class="section-title">测试料型号</text>
       <text class="section-count">{{ identityTotal }} 个</text>
     </view>
     <view
@@ -107,16 +107,17 @@
     >
       <view class="identity-card__main">
         <view class="identity-card__top">
-          <text class="identity-code">{{ item.label_material_name || item.material_name || '--' }}</text>
-          <van-tag type="{{ item.category === 'film' ? 'success' : 'primary' }}" plain size="medium">
-            {{ item.category === 'film' ? '膜材' : '化材' }}
-          </van-tag>
-          <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
-          <van-tag wx:else type="success" plain>已启用</van-tag>
+          <text class="identity-model-title">{{ item.supplier_model || '-' }}</text>
+          <view class="identity-card__tags">
+            <van-tag type="{{ item.category === 'film' ? 'success' : 'primary' }}" plain>
+              {{ item.category === 'film' ? '膜材' : '化材' }}
+            </van-tag>
+            <van-tag wx:if="{{ item.status === 'disabled' }}" plain color="#6b7280">已停用</van-tag>
+            <van-tag wx:else type="success" plain>已启用</van-tag>
+          </view>
         </view>
-        <text class="identity-parent">原厂型号：{{ item.supplier_model || '-' }}</text>
-        <text class="identity-meta">产品代码：{{ item.product_code }}<text wx:if="{{ item.sub_category }}"> · 子类别：{{ item.sub_category }}</text></text>
-        <text class="identity-meta" wx:if="{{ item.supplier }}">供应商：{{ item.supplier }}</text>
+        <text class="identity-name">{{ item.label_material_name || item.material_name || '--' }}</text>
+        <text class="identity-meta">子类别：{{ item.sub_category || '-' }}<text wx:if="{{ item.product_code }}"> ｜ 测试料代码：{{ item.product_code }}</text></text>
         <text class="match-reason" wx:if="{{ hasSearchKeyword && item.match_reason }}">{{ item.match_reason }}</text>
       </view>
     </view>

@@ -173,17 +173,24 @@ exports.main = async (event) => {
       const locations = Array.from(group.locations);
       const recommendedRecord = pickPreferredAllocationItem(group.records);
       const recommendation = buildInventoryAllocationRecommendation(group.records);
+      const isTestMaterialGroup = !!group.is_test_material;
 
       return {
         batch_number: group.batch_number,
         _batchGroupKey: group._batchGroupKey,
         product_code: material.product_code || group.product_code,
-        material_name: material.material_name || group.material_name,
+        material_name: isTestMaterialGroup
+          ? (group.material_name || material.material_name || '')
+          : (material.material_name || group.material_name),
         category: group.category,
-        subcategory_key: material.subcategory_key || group.subcategory_key || '',
-        sub_category: material.sub_category || group.sub_category || '',
+        subcategory_key: isTestMaterialGroup
+          ? (group.subcategory_key || material.subcategory_key || '')
+          : (material.subcategory_key || group.subcategory_key || ''),
+        sub_category: isTestMaterialGroup
+          ? (group.sub_category || material.sub_category || '')
+          : (material.sub_category || group.sub_category || ''),
         supplier_model: group.supplier_model || '',
-        is_test_material: !!group.is_test_material,
+        is_test_material: isTestMaterialGroup,
         totalQuantity,
         totalBaseLengthM,
         unit,

@@ -2888,6 +2888,8 @@ test('logs and approval center expose inventory correction actions and correctio
 
   assert.match(logItemJs, /requestcorrection/i);
   assert.match(logItemWxml, /发起纠错申请/);
+  assert.match(logItemWxml, /原厂型号/);
+  assert.match(logItemWxml, /item\.supplier_model/);
   assert.match(logsWxml, /bind:requestcorrection="onRequestCorrection"/);
   assert.match(adminLogsWxml, /bind:requestcorrection="onRequestCorrection"/);
   assert.match(logsJs, /submitInventoryCorrectionRequest/);

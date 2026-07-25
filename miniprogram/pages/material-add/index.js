@@ -52,8 +52,8 @@ const {
   buildProductCodePrefixPickerColumns
 } = require('../../utils/product-code-prefix-service');
 const {
-  listTestMaterialIdentities,
-  buildTestMaterialIdentityActions
+  searchTestMaterialIdentitySelectorPage,
+  TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE
 } = require('../../utils/test-material-identity-service');
 const {
   getMaterialSubmitValidationMessage,
@@ -67,6 +67,20 @@ const DEFAULT_PREFIX_OPTIONS = [
   { prefix: 'Y', category: 'chemical', status: 'active' },
   { prefix: 'M', category: 'film', status: 'active' }
 ];
+
+function buildTestMaterialIdentitySelectorReset() {
+  return {
+    testMaterialIdentityActions: [],
+    filteredTestMaterialIdentityActions: [],
+    testMaterialIdentitySearchVal: '',
+    testMaterialIdentityPage: 1,
+    testMaterialIdentityTotal: 0,
+    testMaterialIdentityIsEnd: true,
+    testMaterialIdentitySearchMessage: '',
+    showTestMaterialIdentitySheet: false,
+    testMaterialIdentityNotice: ''
+  };
+}
 
 function extractCodePrefix(value) {
   const match = String(value || '').trim().toUpperCase().match(/^([A-Z]{1,4})-/);
@@ -145,6 +159,13 @@ Page({
     suggestions: [],
     selectedMaterialRecord: null,
     testMaterialIdentityActions: [],
+    filteredTestMaterialIdentityActions: [],
+    testMaterialIdentitySearchVal: '',
+    testMaterialIdentityPage: 1,
+    testMaterialIdentityPageSize: TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE,
+    testMaterialIdentityTotal: 0,
+    testMaterialIdentityIsEnd: true,
+    testMaterialIdentitySearchMessage: '',
     showTestMaterialIdentitySheet: false,
     testMaterialIdentityLoading: false,
     testMaterialIdentityNotice: '',
@@ -246,6 +267,13 @@ Page({
     if (this._pageInitialized) {
       this.loadZones();
       this.loadSubcategories(this.data.activeTab);
+    }
+  },
+
+  onUnload() {
+    if (this.testMaterialIdentitySearchTimer) {
+      clearTimeout(this.testMaterialIdentitySearchTimer);
+      this.testMaterialIdentitySearchTimer = null;
     }
   },
 
@@ -405,9 +433,7 @@ Page({
         // We can keep unique_code
         suggestions: [],
         selectedMaterialRecord: null,
-        testMaterialIdentityActions: [],
-        showTestMaterialIdentitySheet: false,
-        testMaterialIdentityNotice: '',
+        ...buildTestMaterialIdentitySelectorReset(),
         isUnknownCode: false,
         isArchived: false,
         archiveReason: '',
@@ -516,9 +542,7 @@ Page({
           isArchived: false,
           archiveReason: '',
           selectedMaterialRecord: null,
-          testMaterialIdentityActions: [],
-          showTestMaterialIdentitySheet: false,
-          testMaterialIdentityNotice: ''
+          ...buildTestMaterialIdentitySelectorReset()
       });
       if (this.data.form.product_code) {
           await this.confirmProductCodeLookup({ detail: this.data.form.product_code });
@@ -541,9 +565,7 @@ Page({
       labelCodeChecking: false,
       labelCodeNotice: '',
       selectedMaterialRecord: null,
-      testMaterialIdentityActions: [],
-      showTestMaterialIdentitySheet: false,
-      testMaterialIdentityNotice: ''
+      ...buildTestMaterialIdentitySelectorReset()
     };
   },
 
@@ -594,9 +616,7 @@ Page({
       }
       updates.suggestions = [];
       updates.selectedMaterialRecord = null;
-      updates.testMaterialIdentityActions = [];
-      updates.showTestMaterialIdentitySheet = false;
-      updates.testMaterialIdentityNotice = '';
+      Object.assign(updates, buildTestMaterialIdentitySelectorReset());
       updates.isUnknownCode = false;
       updates.isArchived = false;
       updates.archiveReason = '';
@@ -1068,15 +1088,14 @@ Page({
           showRequestPopup: false,
           showRequestUnitSheet: false,
           showTestMaterialIdentitySheet: false,
-          testMaterialIdentityNotice: ''
+          ...buildTestMaterialIdentitySelectorReset()
       });
 
       if (item.is_test_material) {
         this.loadTestMaterialIdentityOptions(item);
       } else {
         this.setData({
-          testMaterialIdentityActions: [],
-          testMaterialIdentityNotice: ''
+          ...buildTestMaterialIdentitySelectorReset()
         });
       }
 
@@ -1089,35 +1108,77 @@ Page({
       }
   },
 
-  async loadTestMaterialIdentityOptions(material) {
+  async loadTestMaterialIdentityOptions(material, options = {}) {
       if (!material || !material.is_test_material) {
         return;
       }
+      const isCurrentMaterial = () => {
+        const currentMaterial = this.data.selectedMaterialRecord || {};
+        return !!currentMaterial.is_test_material
+          && (!material._id || currentMaterial._id === material._id)
+          && (!material.product_code || currentMaterial.product_code === material.product_code);
+      };
+      const page = Math.max(1, Number(options.page) || 1);
+      const append = !!options.append;
+      const searchVal = options.searchVal !== undefined ? options.searchVal : this.data.testMaterialIdentitySearchVal;
+      if (append && (this.data.testMaterialIdentityLoading || this.data.testMaterialIdentityIsEnd)) {
+        return;
+      }
+      const requestId = (this.testMaterialIdentityRequestId || 0) + 1;
+      this.testMaterialIdentityRequestId = requestId;
       this.setData({
         testMaterialIdentityLoading: true,
         testMaterialIdentityNotice: ''
       });
       try {
-        const result = await listTestMaterialIdentities({
+        const result = await searchTestMaterialIdentitySelectorPage({
           material_id: material._id,
           product_code: material.product_code,
-          includeDisabled: false,
-          pageSize: 100
+          searchVal,
+          page,
+          pageSize: this.data.testMaterialIdentityPageSize
         });
-        const actions = buildTestMaterialIdentityActions(result.list || []);
+        if (requestId !== this.testMaterialIdentityRequestId) {
+          return;
+        }
+        if (!isCurrentMaterial()) {
+          return;
+        }
+        const actions = append
+          ? [...this.data.testMaterialIdentityActions, ...result.actions]
+          : result.actions;
         this.setData({
           testMaterialIdentityActions: actions,
+          filteredTestMaterialIdentityActions: actions,
+          testMaterialIdentityPage: result.page + 1,
+          testMaterialIdentityPageSize: result.pageSize,
+          testMaterialIdentityTotal: result.total,
+          testMaterialIdentityIsEnd: result.isEnd,
+          testMaterialIdentitySearchMessage: result.searchMessage || '',
           testMaterialIdentityNotice: actions.length
             ? ''
-            : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库'
+            : (searchVal ? '没有匹配的测试料型号，请换个关键词' : '当前测试料还没有已启用型号，请联系管理员维护测试料型号库')
         });
       } catch (err) {
+        if (requestId !== this.testMaterialIdentityRequestId) {
+          return;
+        }
+        if (!isCurrentMaterial()) {
+          return;
+        }
         this.setData({
-          testMaterialIdentityActions: [],
+          ...(append ? {} : {
+            testMaterialIdentityActions: [],
+            filteredTestMaterialIdentityActions: [],
+            testMaterialIdentityTotal: 0,
+            testMaterialIdentityIsEnd: true
+          }),
           testMaterialIdentityNotice: err.message || '加载测试料型号失败'
         });
       } finally {
-        this.setData({ testMaterialIdentityLoading: false });
+        if (requestId === this.testMaterialIdentityRequestId) {
+          this.setData({ testMaterialIdentityLoading: false });
+        }
       }
   },
 
@@ -1125,25 +1186,78 @@ Page({
       if (this.data.form.preprint_label_id || !this.data.form.is_test_material) {
         return;
       }
-      if (!this.data.testMaterialIdentityActions.length && this.data.selectedMaterialRecord) {
-        await this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord);
-      }
-      if (!this.data.testMaterialIdentityActions.length) {
-        Toast.fail(this.data.testMaterialIdentityNotice || '请先维护测试料型号库');
+      if (!this.data.selectedMaterialRecord) {
+        Toast.fail('请先选择测试料产品代码');
         return;
       }
-      this.setData({ showTestMaterialIdentitySheet: true });
+      this.setData({
+        showTestMaterialIdentitySheet: true,
+        testMaterialIdentitySearchVal: '',
+        testMaterialIdentityPage: 1,
+        testMaterialIdentityTotal: 0,
+        testMaterialIdentityIsEnd: false,
+        testMaterialIdentitySearchMessage: '',
+        testMaterialIdentityActions: [],
+        filteredTestMaterialIdentityActions: []
+      });
+      await this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord, { page: 1, searchVal: '' });
   },
 
   onTestMaterialIdentityClose() {
       this.setData({ showTestMaterialIdentitySheet: false });
   },
 
+  onTestMaterialIdentitySearchChange(e) {
+      const searchVal = resolveInputValue(e && e.detail);
+      if (this.testMaterialIdentitySearchTimer) {
+        clearTimeout(this.testMaterialIdentitySearchTimer);
+      }
+      this.setData({
+        testMaterialIdentitySearchVal: searchVal,
+        testMaterialIdentityPage: 1,
+        testMaterialIdentityIsEnd: false,
+        testMaterialIdentitySearchMessage: ''
+      });
+      this.testMaterialIdentitySearchTimer = setTimeout(() => {
+        this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord, {
+          page: 1,
+          searchVal
+        });
+      }, 350);
+  },
+
+  onTestMaterialIdentitySearchClear() {
+      if (this.testMaterialIdentitySearchTimer) {
+        clearTimeout(this.testMaterialIdentitySearchTimer);
+        this.testMaterialIdentitySearchTimer = null;
+      }
+      this.setData({
+        testMaterialIdentitySearchVal: '',
+        testMaterialIdentityPage: 1,
+        testMaterialIdentityIsEnd: false,
+        testMaterialIdentitySearchMessage: ''
+      });
+      this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord, {
+        page: 1,
+        searchVal: ''
+      });
+  },
+
+  onTestMaterialIdentityReachBottom() {
+      this.loadTestMaterialIdentityOptions(this.data.selectedMaterialRecord, {
+        page: this.data.testMaterialIdentityPage,
+        searchVal: this.data.testMaterialIdentitySearchVal,
+        append: true
+      });
+  },
+
   onTestMaterialIdentitySelect(e) {
-      const item = e.detail || {};
+      const item = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.item)
+        || e.detail
+        || {};
       const currentSupplier = String(this.data.form.supplier || '').trim();
       this.setData({
-        'form.supplier_model': item.supplier_model || item.name || '',
+        'form.supplier_model': item.supplier_model || item.value || item.name || '',
         'form.supplier_model_key': item.supplier_model_key || '',
         ...(item.label_material_name || item.material_name ? {
           'form.name': item.label_material_name || item.material_name
@@ -1156,6 +1270,8 @@ Page({
           'form.supplier': item.supplier
         } : {}),
         showTestMaterialIdentitySheet: false,
+        testMaterialIdentitySearchVal: '',
+        filteredTestMaterialIdentityActions: this.data.testMaterialIdentityActions,
         testMaterialIdentityNotice: ''
       });
   },
