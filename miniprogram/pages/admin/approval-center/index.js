@@ -229,6 +229,9 @@ Page({
           wx.hideLoading();
 
           if (res.result && res.result.success) {
+              if (action === 'approve') {
+                  getApp().globalData.masterDataChangedAt = Date.now();
+              }
               wx.showToast({ title: '操作成功', icon: 'success' });
               this.fetchMaterials(true);
           } else {

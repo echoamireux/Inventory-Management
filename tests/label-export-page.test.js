@@ -48,7 +48,7 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.match(pageJson, /"van-popup":\s*"@vant\/weapp\/popup\/index"/);
   assert.match(pageJson, /"van-action-sheet":\s*"@vant\/weapp\/action-sheet\/index"/);
 
-  assert.match(pageWxml, /placeholder="标签编号\/产品代码\/物料名称\/批号"/);
+  assert.match(pageWxml, /placeholder="在库标签：标签\/产品代码\/物料名\/原厂型号等"/);
   assert.match(pageWxml, /选择产品代码/);
   assert.match(pageWxml, /preprintCodePrefix/);
   assert.match(pageWxml, /placeholder="请输入1-3位数字编号"/);
@@ -92,7 +92,8 @@ test('label print page exposes preprint and reprint tabs with template controls'
   assert.doesNotMatch(pageWxml, /主数据未维护/);
   assert.match(pageWxml, /选择测试料原厂型号/);
   assert.match(pageWxml, /filteredTestMaterialIdentityActions/);
-  assert.match(pageWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(pageWxml, /placeholder="当前测试料：原厂型号\/物料名等"/);
+  assert.match(pageWxml, /item\.supplier_model[\s\S]*原厂型号/);
   assert.match(pageJs, /searchTestMaterialIdentitySelectorPage/);
   assert.match(pageJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);
   assert.match(pageJs, /onTestMaterialIdentityReachBottom/);
@@ -167,6 +168,9 @@ test('label export cloud function separates list and export actions and only all
   assert.match(file, /templateType/);
   assert.match(file, /selectedIds/);
   assert.match(file, /searchVal/);
+  assert.match(file, /\{\s*supplier_model:\s*searchRegex\s*\}/);
+  assert.match(file, /\{\s*supplier_model_key:\s*searchRegex\s*\}/);
+  assert.match(file, /supplier_model:\s*String\(item\.supplier_model\s*\|\|\s*material\.supplier_model/);
   assert.match(`${file}\n${read('cloudfunctions/exportLabelData/preprint-labels.js')}`, /qr_content/);
   assert.match(file, /updatePreprintJobExportState/);
   assert.match(file, /async function exportPreprintJob[\s\S]*updatePreprintJobExportState\([^)]*'exported'/);

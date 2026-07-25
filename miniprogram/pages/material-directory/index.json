@@ -1,5 +1,6 @@
 {
-  "navigationBarTitleText": "物料查询",
+  "navigationBarTitleText": "物料目录",
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "van-search": "@vant/weapp/search/index",
     "van-tabs": "@vant/weapp/tabs/index",

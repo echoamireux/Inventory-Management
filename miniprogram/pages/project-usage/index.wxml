@@ -6,11 +6,12 @@
   <view class="project-usage-filter">
     <van-search
       value="{{ keyword }}"
-      placeholder="项目编码/物料名称/产品代码/原厂型号/标签编号/批号/领料人"
+      placeholder="项目用料：项目/物料名/产品代码/原厂型号等"
       shape="round"
       bind:search="onSearch"
       bind:change="onSearchChange"
       bind:clear="onSearchClear"
+      custom-class="search-compact"
     />
 
     <view class="project-selector" hover-class="project-selector--active" bindtap="onShowProjectPicker">

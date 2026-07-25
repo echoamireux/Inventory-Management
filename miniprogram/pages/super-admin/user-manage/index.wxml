@@ -11,9 +11,10 @@
     <view class="mb-10 bg-white rounded-lg shadow-sm">
         <van-search
             value="{{ searchVal }}"
-            placeholder="搜索姓名或手机号"
+            placeholder="搜索姓名/手机号/部门"
             bind:change="onSearch"
             shape="round"
+            custom-class="search-compact"
         />
     </view>
 

@@ -318,7 +318,8 @@ test('batch entry page allows preprinted labels to select the material before sc
   assert.match(pageWxml, /本批次实际幅宽\(mm\)/);
   assert.match(pageWxml, /确认本批次幅宽|保存并开始本批次/);
   assert.match(pageWxml, /选择测试料原厂型号/);
-  assert.match(pageWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(pageWxml, /placeholder="当前测试料：原厂型号\/物料名等"/);
+  assert.match(pageWxml, /custom-class="search-compact"/);
   assert.match(pageWxml, /filteredTestMaterialIdentityActions/);
   assert.match(pageJs, /searchTestMaterialIdentitySelectorPage/);
   assert.match(pageJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);

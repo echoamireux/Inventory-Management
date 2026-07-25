@@ -244,9 +244,38 @@
 /* 操作按钮区 */
 .card-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   flex-shrink: 0;
   margin-left: 16rpx;
+  padding: 4rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 999rpx;
+  background: #f8fafc;
+}
+
+.card-action {
+  min-width: 56rpx;
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 30rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.card-action--edit {
+  color: #2563eb;
+}
+
+.card-action--archive {
+  color: #ef4444;
+}
+
+.card-action-divider {
+  width: 1rpx;
+  height: 24rpx;
+  background: #e5e7eb;
 }
 
 /* 批量操作栏 */

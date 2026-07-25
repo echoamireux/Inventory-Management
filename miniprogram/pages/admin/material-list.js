@@ -44,6 +44,8 @@ Page({
     isEnd: false,
     requestId: 0,
     identityRequestId: 0,
+    hasLoadedOnce: false,
+    lastSeenMasterDataChangedAt: 0,
 
     // 批量管理模式
     isEditMode: false,
@@ -67,18 +69,25 @@ Page({
   },
 
   onShow() {
-    // 仅当已有数据时才刷新，避免 onLoad 和 onShow 重复加载
+    const app = getApp();
+    const masterDataChangedAt = (app.globalData && app.globalData.masterDataChangedAt) || 0;
+    if (
+      !this.data.hasLoadedOnce
+      || !masterDataChangedAt
+      || masterDataChangedAt === this.data.lastSeenMasterDataChangedAt
+    ) {
+      return;
+    }
+
     if (normalizeSearchKeyword(this.data.searchVal)) {
       this.refreshSearchResults();
       return;
     }
-    if (this.data.activeTab === 'testIdentity' && this.data.identityList.length > 0) {
+    if (this.data.activeTab === 'testIdentity') {
       this.loadIdentityResults({ refresh: true });
       return;
     }
-    if (this.data.activeTab !== 'testIdentity' && this.data.list.length > 0) {
-      this.getList(true);
-    }
+    this.getList(true);
   },
 
   onPullDownRefresh() {
@@ -191,6 +200,8 @@ Page({
           page: page + 1,
           total: res.result.total,
           isEnd,
+          hasLoadedOnce: true,
+          lastSeenMasterDataChangedAt: (getApp().globalData && getApp().globalData.masterDataChangedAt) || 0,
           materialSearchMessage: normalizedSearchVal ? (res.result.searchMessage || '') : '',
           searchNoticeText: normalizedSearchVal
             ? buildSearchNoticeText(res.result.searchMessage, this.data.identitySearchMessage)
@@ -261,6 +272,8 @@ Page({
         identityTotal,
         identityPage: page + 1,
         identityIsEnd: compact ? true : identityList.length >= identityTotal,
+        hasLoadedOnce: true,
+        lastSeenMasterDataChangedAt: (getApp().globalData && getApp().globalData.masterDataChangedAt) || 0,
         identitySearchMessage: normalizedSearchVal ? (result.searchMessage || '') : '',
         searchNoticeText: normalizedSearchVal
           ? buildSearchNoticeText(this.data.materialSearchMessage, result.searchMessage)
@@ -594,6 +607,7 @@ Page({
           });
 
           if (res.result.success) {
+              getApp().globalData.masterDataChangedAt = Date.now();
               const { deleted, archived } = res.result;
               let msg = '操作完成';
               if (deleted > 0) msg += `\n已物理删除 ${deleted} 条`;
@@ -638,6 +652,9 @@ Page({
 
           Toast.clear();
           Toast.success(`成功还原 ${successCount} 条`);
+          if (successCount > 0) {
+            getApp().globalData.masterDataChangedAt = Date.now();
+          }
           this.toggleEditMode();
           this.getList(true);
       }).catch(() => {});

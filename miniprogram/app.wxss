@@ -420,10 +420,19 @@ page {
 .search-compact .van-search__content {
   padding-left: 10px !important;
   padding-right: 10px !important;
+  min-width: 0 !important;
+}
+
+.search-compact .van-field,
+.search-compact .van-field__body {
+  min-width: 0 !important;
 }
 
 .search-compact .van-field__control {
-  font-size: 13px !important;
+  font-size: 12px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 /* 之前的老样式覆盖，暂时保留以免影响未迁移页面，但建议通过类名控制 */

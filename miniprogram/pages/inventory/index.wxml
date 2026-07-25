@@ -7,7 +7,7 @@
       <view class="flex-1">
         <van-search
           value="{{ searchVal }}"
-          placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
+          placeholder="在库：产品代码/物料名/原厂型号/标签等"
           shape="round"
           bind:search="onSearch"
           bind:change="onSearchChange"
@@ -63,7 +63,10 @@
             data-index="{{ index }}"
           />
         </block>
-        <van-empty wx:elif="{{ hasLoadedOnce }}" description="暂无库存数据" />
+        <van-empty
+          wx:elif="{{ hasLoadedOnce }}"
+          description="{{ searchVal ? '暂无匹配在库库存；未入库物料请到物料目录查询' : '暂无在库库存' }}"
+        />
       </view>
 
   <view wx:if="{{ loading && hasLoadedOnce }}" class="text-center p-10">

@@ -10,7 +10,7 @@
   <view class="sticky-top z-index-10 search-transparent">
      <van-search
         value="{{ homeSearchVal }}"
-        placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
+        placeholder="在库：产品代码/物料名/原厂型号/标签等"
         shape="round"
         use-action-slot
         show-action
@@ -100,7 +100,7 @@
         <van-cell title="物料入库" icon="add-o" is-link url="/pages/material-add/index" />
         <van-cell title="标签打印" icon="description" is-link url="/pages/admin/label-export/index" />
         <van-cell title="项目用料查询" icon="chart-trending-o" is-link url="/pages/project-usage/index" />
-        <van-cell title="物料查询" icon="bookmark-o" is-link url="/pages/material-directory/index" />
+        <van-cell title="物料目录" icon="bookmark-o" is-link url="/pages/material-directory/index" />
       </van-cell-group>
     </view>
 
@@ -159,7 +159,7 @@
            <view class="px-safe pb-5">
               <van-search
                  value="{{ selectSearchVal }}"
-                 placeholder="产品代码/物料名称/原厂型号/标签编号/批号/供应商/库位"
+                 placeholder="可领用：产品代码/物料名/原厂型号/标签等"
                  shape="round"
                  background="#fff"
                  bind:search="onSelectSearch"

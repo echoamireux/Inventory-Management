@@ -101,7 +101,7 @@ Page({
     activeTab: 'inventory',
     list: [],
     searchVal: '',
-    searchPlaceholder: '产品代码/物料名称/项目编码/标签编号/批号/操作人/备注',
+    searchPlaceholder: '库存流水：产品代码/物料名/原厂型号等',
     page: 1,
     pageSize: 20,
     loading: false,
@@ -191,8 +191,8 @@ Page({
       operatorFilter: 'all',
       searchScopeFields: activeTab === 'audit' ? AUDIT_LOG_SEARCH_FIELDS : INVENTORY_LOG_SEARCH_FIELDS,
       searchPlaceholder: activeTab === 'audit'
-        ? '领域/动作/操作人/目标对象/操作编号/关键说明'
-        : '产品代码/物料名称/项目编码/标签编号/批号/操作人/备注',
+        ? '审计：领域/动作/操作人/对象/操作号'
+        : '库存流水：产品代码/物料名/原厂型号等',
       typeOptions: activeTab === 'audit' ? AUDIT_ACTION_OPTIONS : INVENTORY_TYPE_OPTIONS,
       operatorOptions: [{ text: '全部操作人', value: 'all' }]
     }, () => {

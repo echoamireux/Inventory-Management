@@ -119,7 +119,7 @@ test('project usage filter uses structured selectors and non-overflowing actions
 
   const pageJson = JSON.parse(read('miniprogram/pages/project-usage/index.json'));
 
-  assert.match(pageWxml, /原厂型号/);
+  assert.match(pageWxml, /placeholder="项目用料：项目\/物料名\/产品代码\/原厂型号等"/);
   assert.match(pageWxml, /_summaryKey/);
   assert.match(pageWxml, /class="project-selector"/);
   assert.doesNotMatch(pageWxml, /class="project-usage-title"/);

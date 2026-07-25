@@ -3,7 +3,7 @@
   <view class="search-transparent bg-white">
     <van-search
       value="{{ searchVal }}"
-      placeholder="搜索产品代码、物料名称或测试料型号"
+      placeholder="主数据：产品代码/物料名/原厂型号等"
       shape="round"
       bind:search="onSearch"
       bind:clear="onSearchClear"
@@ -83,8 +83,9 @@
         </view>
 
         <view class="card-actions" wx:if="{{ !isEditMode && activeTab === 'materials' && materialStatus === 'active' && !hasSearchKeyword }}">
-          <van-button plain type="primary" size="mini" round custom-style="margin-bottom: 8rpx;" catch:tap="onEdit" data-id="{{ item._id }}">编辑</van-button>
-          <van-button plain type="danger" size="mini" round catch:tap="onArchive" data-id="{{ item._id }}">归档</van-button>
+          <text class="card-action card-action--edit" catch:tap="onEdit" data-id="{{ item._id }}">编辑</text>
+          <text class="card-action-divider"></text>
+          <text class="card-action card-action--archive" catch:tap="onArchive" data-id="{{ item._id }}">归档</text>
         </view>
       </view>
     </block>

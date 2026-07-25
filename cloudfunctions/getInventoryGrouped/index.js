@@ -88,6 +88,7 @@ async function loadInventoryGroupSourceItems(where, pageSize = 100, options = {}
         batch_number: true,
         supplier: true,
         supplier_model: true,
+        supplier_model_key: true,
         sample_note: true,
         unique_code: true,
         is_test_material: true,
@@ -144,7 +145,7 @@ function normalizeIdentityText(value) {
 
 function buildInventoryGroupKey(item = {}) {
   const productCode = normalizeIdentityText(item.product_code) || '无产品代码';
-  const supplierModel = normalizeIdentityText(item.supplier_model);
+  const supplierModel = normalizeIdentityText(item.supplier_model_key || item.supplier_model);
   if (item.is_test_material && supplierModel) {
     return `${productCode}::test-model::${supplierModel}`;
   }
@@ -166,6 +167,7 @@ function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
         subcategory_key: item.subcategory_key || '',
         sub_category: item.sub_category,
         supplier_model: item.supplier_model || '',
+        supplier_model_key: item.supplier_model_key || '',
         is_test_material: !!item.is_test_material,
         totalCount: 0,
         minExpiry: null,
@@ -197,6 +199,9 @@ function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
     if (!group.supplier_model && item.supplier_model) {
       group.supplier_model = item.supplier_model;
     }
+    if (!group.supplier_model_key && item.supplier_model_key) {
+      group.supplier_model_key = item.supplier_model_key;
+    }
     if (item.is_test_material) {
       group.is_test_material = true;
     }
@@ -224,6 +229,7 @@ function buildInventoryGroups(sourceItems, zoneMap, detailMapByZone) {
     subcategory_key: item.subcategory_key || '',
     sub_category: item.sub_category,
     supplier_model: item.supplier_model || '',
+    supplier_model_key: item.supplier_model_key || '',
     is_test_material: !!item.is_test_material,
     totalCount: item.totalCount,
     minExpiry: item.minExpiry || null,
@@ -243,7 +249,7 @@ function buildInventorySearchMatch(item = {}, keyword, zoneMap, detailMapByZone)
   };
   const baseMatch = scoreSearchRecord(searchableItem, keyword, {
     codeFields: ['product_code'],
-    modelFields: ['supplier_model'],
+    modelFields: ['supplier_model', 'supplier_model_key'],
     nameFields: ['material_name'],
     auxiliaryFields: [
       'unique_code',
@@ -318,6 +324,7 @@ exports.main = async (event, context) => {
         { batch_number: regex },
         { supplier: regex },
         { supplier_model: regex },
+        { supplier_model_key: regex },
         { sample_note: regex },
         { unique_code: regex },
         { location: regex },
@@ -418,6 +425,7 @@ exports.main = async (event, context) => {
           subcategory_key: item.subcategory_key || '',
           sub_category: resolveSubcategoryDisplay(item, subcategoryMap),
           supplier_model: item.supplier_model || '',
+          supplier_model_key: item.supplier_model_key || '',
           is_test_material: !!item.is_test_material,
           totalQuantity: totalQuantity,
           totalBaseLengthM: totalBaseLengthM,
@@ -571,6 +579,7 @@ async function loadInventoryItemsForGroups(baseWhere, groups) {
           batch_number: true,
           supplier: true,
           supplier_model: true,
+          supplier_model_key: true,
           sample_note: true,
           is_test_material: true,
           unique_code: true,
@@ -637,7 +646,7 @@ function resolveGroupMatchReasonText(group, keyword, zoneMap, detailMapByZone) {
     })) {
       return '库位匹配';
     }
-    if (groupItems.some(item => matchesSearchFields(item, ['supplier', 'supplier_model'], normalizedKeyword))) {
+    if (groupItems.some(item => matchesSearchFields(item, ['supplier', 'supplier_model', 'supplier_model_key'], normalizedKeyword))) {
       return '供应商/型号匹配';
     }
     if (groupItems.some(item => matchesSearchFields(item, ['sample_note'], normalizedKeyword))) {

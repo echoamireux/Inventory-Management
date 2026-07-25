@@ -295,10 +295,11 @@
       <view class="test-identity-popup__title">选择测试料原厂型号</view>
       <van-search
         value="{{ testMaterialIdentitySearchVal }}"
-        placeholder="搜索原厂型号/物料名称/子类别"
+        placeholder="当前测试料：原厂型号/物料名等"
         shape="round"
         bind:change="onTestMaterialIdentitySearchChange"
         bind:clear="onTestMaterialIdentitySearchClear"
+        custom-class="search-compact"
       />
       <view wx:if="{{ testMaterialIdentitySearchMessage }}" class="entry-inline-notice">
         {{ testMaterialIdentitySearchMessage }}

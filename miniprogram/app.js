@@ -7,6 +7,7 @@ App({
       userInfo: null,
       user: null,
       inventoryChangedAt: 0,
+      masterDataChangedAt: 0,
       configurationError: false
     };
 

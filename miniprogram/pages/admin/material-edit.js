@@ -747,6 +747,7 @@ Page({
       });
 
       if (res.result.success) {
+        getApp().globalData.masterDataChangedAt = Date.now();
         Toast.success(isEdit ? '已更新' : '已创建');
         setTimeout(() => {
           wx.navigateBack();

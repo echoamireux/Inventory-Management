@@ -391,6 +391,7 @@ Page({
       } else {
         await createTestMaterialIdentity(payload);
       }
+      getApp().globalData.masterDataChangedAt = Date.now();
       Toast.success(this.data.isEdit ? '保存成功' : '创建成功');
       setTimeout(() => wx.navigateBack(), 800);
     } catch (err) {

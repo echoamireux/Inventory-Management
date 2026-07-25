@@ -384,6 +384,7 @@ Page({
           confirmButtonText: '完成'
         });
 
+        getApp().globalData.masterDataChangedAt = Date.now();
         wx.navigateBack();
       } else {
         Toast.fail(res.result.msg || '导入失败');

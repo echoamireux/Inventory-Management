@@ -208,7 +208,8 @@ test('active business pages use the updated validation and management wording', 
   assert.match(materialAddWxml, /wx:if="\{\{ form\.is_test_material \}\}"/);
   assert.match(materialAddWxml, /label="原厂型号"[\s\S]*placeholder="\{\{ testMaterialIdentityLoading \? '型号加载中\.\.\.' : '请选择已维护型号' \}\}"[\s\S]*readonly/);
   assert.match(materialAddWxml, /选择测试料原厂型号/);
-  assert.match(materialAddWxml, /placeholder="搜索原厂型号\/物料名称\/子类别"/);
+  assert.match(materialAddWxml, /placeholder="当前测试料：原厂型号\/物料名等"/);
+  assert.match(materialAddWxml, /custom-class="search-compact"/);
   assert.match(materialAddWxml, /filteredTestMaterialIdentityActions/);
   assert.match(materialAddJs, /searchTestMaterialIdentitySelectorPage/);
   assert.match(materialAddJs, /TEST_MATERIAL_IDENTITY_SELECTOR_PAGE_SIZE/);

@@ -47,11 +47,25 @@ Page({
     total: 0,
     isEnd: false,
     requestId: 0,
-    searchMessage: ''
+    searchMessage: '',
+    hasLoadedOnce: false,
+    lastSeenMasterDataChangedAt: 0
   },
 
   onLoad() {
     this.getList(true);
+  },
+
+  onShow() {
+    const app = getApp();
+    const masterDataChangedAt = (app.globalData && app.globalData.masterDataChangedAt) || 0;
+    if (
+      this.data.hasLoadedOnce
+      && masterDataChangedAt
+      && masterDataChangedAt !== this.data.lastSeenMasterDataChangedAt
+    ) {
+      this.getList(true);
+    }
   },
 
   onPullDownRefresh() {
@@ -122,7 +136,9 @@ Page({
           page: page + 1,
           total: res.result.total,
           isEnd,
-          searchMessage: searchVal ? (res.result.searchMessage || '') : ''
+          searchMessage: searchVal ? (res.result.searchMessage || '') : '',
+          hasLoadedOnce: true,
+          lastSeenMasterDataChangedAt: (getApp().globalData && getApp().globalData.masterDataChangedAt) || 0
         });
       } else {
         Toast.fail(res.result.msg || '加载失败');

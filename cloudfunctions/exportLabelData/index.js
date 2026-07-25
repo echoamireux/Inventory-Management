@@ -103,6 +103,8 @@ function buildQueryWhere(templateType, searchVal) {
       { unique_code: searchRegex },
       { product_code: searchRegex },
       { material_name: searchRegex },
+      { supplier_model: searchRegex },
+      { supplier_model_key: searchRegex },
       { batch_number: searchRegex }
     ]));
   }
@@ -117,6 +119,8 @@ function mapLabelListItem(item = {}) {
     unique_code: String(item.unique_code || '').trim() || '--',
     product_code: String(item.product_code || material.product_code || '').trim() || '--',
     material_name: String(item.material_name || material.material_name || material.name || '').trim() || '--',
+    supplier_model: String(item.supplier_model || material.supplier_model || '').trim(),
+    supplier_model_key: String(item.supplier_model_key || '').trim(),
     batch_number: String(item.batch_number || '').trim(),
     category: String(item.category || material.category || '').trim() || 'chemical',
     create_time: item.create_time || null

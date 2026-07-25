@@ -164,17 +164,17 @@ test('home and search-driven pages expose consistent search trigger wiring and f
   assert.match(homeIndexWxml, /home-search-suggestions/);
   assert.match(homeIndexWxml, /bind:change="onSearchChange"/);
   assert.match(homeIndexWxml, /bind:clear="onSearchClear"/);
-  assert.match(homeIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(homeIndexWxml, /placeholder="在库：产品代码\/物料名\/原厂型号\/标签等"/);
   assert.match(homeIndexWxss, /\.home-search-suggestions/);
   assert.match(homeIndexWxss, /\.home-search-action/);
 
-  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
-  assert.match(materialDirectoryWxml, /placeholder="产品代码\/物料名称\/子类别\/供应商\/原厂型号\/包装形式\/规格"/);
-  assert.match(materialListWxml, /placeholder="搜索产品代码、物料名称或测试料型号"/);
-  assert.match(logsWxml, /placeholder="产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注"/);
+  assert.match(inventoryIndexWxml, /placeholder="在库：产品代码\/物料名\/原厂型号\/标签等"/);
+  assert.match(materialDirectoryWxml, /placeholder="物料目录：产品代码\/物料名\/原厂型号等"/);
+  assert.match(materialListWxml, /placeholder="主数据：产品代码\/物料名\/原厂型号等"/);
+  assert.match(logsWxml, /placeholder="日志：产品代码\/物料名\/原厂型号\/项目等"/);
   assert.match(adminLogsWxml, /placeholder="\{\{ searchPlaceholder \}\}"/);
-  assert.match(adminLogsJs, /产品代码\/物料名称\/项目编码\/标签编号\/批号\/操作人\/备注/);
-  assert.match(adminLogsJs, /领域\/动作\/操作人\/目标对象\/操作编号\/关键说明/);
+  assert.match(adminLogsJs, /库存流水：产品代码\/物料名\/原厂型号等/);
+  assert.match(adminLogsJs, /审计：领域\/动作\/操作人\/对象\/操作号/);
 });
 
 test('search-driven list pages use the agreed debounce timing and stale-request protection', () => {
@@ -224,14 +224,16 @@ test('test material inventory queries keep supplier model as a narrowing identit
   const groupedCf = read('cloudfunctions/getInventoryGrouped/index.js');
 
   assert.match(inventoryIndexWxml, /wx:key="_groupKey"/);
-  assert.match(inventoryIndexWxml, /placeholder="产品代码\/物料名称\/原厂型号\/标签编号\/批号\/供应商\/库位"/);
+  assert.match(inventoryIndexWxml, /placeholder="在库：产品代码\/物料名\/原厂型号\/标签等"/);
   assert.match(inventoryIndexJs, /supplierModel/);
   assert.match(inventoryIndexJs, /supplier_model=/);
 
   assert.match(groupedCf, /buildInventoryGroupKey/);
   assert.match(groupedCf, /is_test_material[\s\S]*supplier_model/);
+  assert.match(groupedCf, /\{\s*supplier_model_key:\s*regex\s*\}/);
   assert.match(groupedCf, /_groupKey/);
   assert.match(groupedCf, /supplier_model:\s*item\.supplier_model/);
+  assert.match(groupedCf, /supplier_model_key:\s*item\.supplier_model_key/);
 
   assert.match(detailJs, /querySupplierModel/);
   assert.match(detailJs, /supplierModel:\s*querySupplierModel/);
@@ -271,6 +273,39 @@ test('inventory change token propagates from detail page back to list pages', ()
   assert.match(detailJs, /inventoryChangedAt\s*=\s*Date\.now\(\)/);
   assert.match(listJs, /inventoryChangedAt/);
   assert.match(inventoryIndexJs, /inventoryChangedAt/);
+});
+
+test('master data change token refreshes master-data and directory pages after returning from writes', () => {
+  const appJs = read('miniprogram/app.js');
+  const materialEditJs = read('miniprogram/pages/admin/material-edit.js');
+  const materialImportJs = read('miniprogram/pages/admin/material-import/index.js');
+  const materialListJs = read('miniprogram/pages/admin/material-list.js');
+  const materialListJson = read('miniprogram/pages/admin/material-list.json');
+  const materialDirectoryJs = read('miniprogram/pages/material-directory/index.js');
+  const materialDirectoryJson = read('miniprogram/pages/material-directory/index.json');
+  const identityEditJs = read('miniprogram/pages/admin/test-material-identity-edit/index.js');
+  const identityManageJs = read('miniprogram/pages/admin/test-material-identity-manage/index.js');
+  const identityManageJson = read('miniprogram/pages/admin/test-material-identity-manage/index.json');
+  const approvalCenterJs = read('miniprogram/pages/admin/approval-center/index.js');
+
+  assert.match(appJs, /masterDataChangedAt:\s*0/);
+  assert.match(materialEditJs, /masterDataChangedAt\s*=\s*Date\.now\(\)/);
+  assert.match(materialImportJs, /masterDataChangedAt\s*=\s*Date\.now\(\)/);
+  assert.match(identityEditJs, /masterDataChangedAt\s*=\s*Date\.now\(\)/);
+  assert.match(identityManageJs, /masterDataChangedAt\s*=\s*Date\.now\(\)/);
+  assert.match(approvalCenterJs, /action === 'approve'[\s\S]*masterDataChangedAt\s*=\s*Date\.now\(\)/);
+
+  assert.match(materialListJs, /hasLoadedOnce:\s*false/);
+  assert.match(materialListJs, /lastSeenMasterDataChangedAt:\s*0/);
+  assert.match(materialListJs, /masterDataChangedAt === this\.data\.lastSeenMasterDataChangedAt/);
+  assert.match(materialListJs, /refreshSearchResults\(\)/);
+  assert.match(materialListJson, /"enablePullDownRefresh":\s*true/);
+
+  assert.match(materialDirectoryJs, /hasLoadedOnce:\s*false/);
+  assert.match(materialDirectoryJs, /lastSeenMasterDataChangedAt:\s*0/);
+  assert.match(materialDirectoryJs, /masterDataChangedAt !== this\.data\.lastSeenMasterDataChangedAt/);
+  assert.match(materialDirectoryJson, /"enablePullDownRefresh":\s*true/);
+  assert.match(identityManageJson, /"enablePullDownRefresh":\s*true/);
 });
 
 test('inventory detail exposes label logs but keeps destructive delete entry retired', () => {
@@ -363,7 +398,7 @@ test('home shortcuts are grouped by usage frequency and permission level', () =>
     '物料入库',
     '标签打印',
     '项目用料查询',
-    '物料查询',
+    '物料目录',
     '管理维护',
     '审批中心',
     '主数据管理',
@@ -455,6 +490,7 @@ test('material directory uses unified material cards and includes test identitie
 });
 
 test('master data and test identity pages keep count/actions and loading states visually separated', () => {
+  const materialListWxml = read('miniprogram/pages/admin/material-list.wxml');
   const materialListWxss = read('miniprogram/pages/admin/material-list.wxss');
   const identityManageWxss = read('miniprogram/pages/admin/test-material-identity-manage/index.wxss');
 
@@ -462,6 +498,11 @@ test('master data and test identity pages keep count/actions and loading states 
   assert.match(materialListWxss, /\.count-text[\s\S]*text-overflow:\s*ellipsis/);
   assert.match(materialListWxss, /\.top-actions[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(materialListWxss, /\.top-actions[\s\S]*width:\s*100%/);
+  assert.match(materialListWxml, /class="card-action card-action--edit"[\s\S]*编辑/);
+  assert.match(materialListWxml, /class="card-action card-action--archive"[\s\S]*归档/);
+  assert.doesNotMatch(materialListWxml, /custom-style="margin-bottom: 8rpx;"[\s\S]*归档/);
+  assert.match(materialListWxss, /\.card-actions[\s\S]*border-radius:\s*999rpx/);
+  assert.match(materialListWxss, /\.card-action\s*\{[\s\S]*font-size:\s*22rpx/);
   assert.match(materialListWxss, /\.loading-state[\s\S]*align-items:\s*center/);
   assert.match(materialListWxss, /\.loading-state[\s\S]*justify-content:\s*center/);
   assert.match(identityManageWxss, /\.identity-loading[\s\S]*align-items:\s*center/);

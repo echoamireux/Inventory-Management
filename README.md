@@ -97,7 +97,7 @@
 
 - 首页顶部搜索
 - 库存查询
-- 物料查询
+- 物料目录
 - 主数据管理
 - 操作日志
 - 审计日志
@@ -156,7 +156,7 @@
 - `pages/inventory-detail/index`
   标签详情页
 - `pages/material-directory/index`
-  物料查询
+  物料目录
 - `pages/material-edit/index`
   物料编辑
 - `pages/logs/index`

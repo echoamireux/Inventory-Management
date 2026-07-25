@@ -8,7 +8,7 @@
   <view class="search-transparent bg-white">
     <van-search
         value="{{ searchVal }}"
-        placeholder="产品代码/物料名称/子类别/供应商/原厂型号/包装形式/规格"
+        placeholder="物料目录：产品代码/物料名/原厂型号等"
         shape="round"
         bind:search="onSearch"
         bind:clear="onSearchClear"
@@ -48,7 +48,10 @@
     </block>
   </view>
 
-  <van-empty wx:if="{{ !loading && list.length === 0 }}" description="暂无相关物料主数据" />
+  <van-empty
+    wx:if="{{ !loading && list.length === 0 }}"
+    description="{{ searchVal ? '未找到匹配的已启用物料目录' : '暂无已启用物料目录' }}"
+  />
   <view class="list-end-state" wx:if="{{ isEnd && list.length > 0 }}">已无更多</view>
 </view>
 <van-toast id="van-toast" />

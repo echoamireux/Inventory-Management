@@ -258,7 +258,7 @@
     <view class="sticky-panel reprint-search">
       <van-search
         value="{{ searchVal }}"
-        placeholder="标签编号/产品代码/物料名称/批号"
+        placeholder="在库标签：标签/产品代码/物料名/原厂型号等"
         shape="round"
         bind:search="onSearch"
         bind:change="onSearchChange"
@@ -296,6 +296,7 @@
           </view>
           <view class="label-export-row__name">{{ item.material_name || '--' }}</view>
           <view class="label-export-row__meta">
+            <text wx:if="{{ item.supplier_model }}">原厂型号 {{ item.supplier_model }}</text>
             <text wx:if="{{ item.batch_number }}">批号 {{ item.batch_number }}</text>
             <text wx:else>未填写批号</text>
           </view>
@@ -338,7 +339,7 @@
     <view class="test-identity-popup__title">选择测试料原厂型号</view>
     <van-search
       value="{{ testMaterialIdentitySearchVal }}"
-      placeholder="搜索原厂型号/物料名称/子类别"
+      placeholder="当前测试料：原厂型号/物料名等"
       shape="round"
       bind:change="onTestMaterialIdentitySearchChange"
       bind:clear="onTestMaterialIdentitySearchClear"

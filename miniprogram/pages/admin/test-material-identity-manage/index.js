@@ -104,6 +104,10 @@ Page({
     }
   },
 
+  onPullDownRefresh() {
+    this.loadIdentities({ refresh: true }).finally(() => wx.stopPullDownRefresh());
+  },
+
   onSearchChange(e) {
     const searchVal = getInputValue(e);
     this.setData({ searchVal, searchMessage: '', page: 1, isEnd: false });
@@ -143,6 +147,7 @@ Page({
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
     try {
       await setTestMaterialIdentityStatus(record, nextStatus);
+      getApp().globalData.masterDataChangedAt = Date.now();
       Toast.success(`${actionLabel}成功`);
       await this.loadIdentities({ refresh: true });
     } catch (err) {

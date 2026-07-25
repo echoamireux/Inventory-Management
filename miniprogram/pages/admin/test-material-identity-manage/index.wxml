@@ -13,11 +13,12 @@
 
   <van-search
     value="{{ searchVal }}"
-    placeholder="搜索产品代码、原厂型号或物料名称"
+    placeholder="测试料：产品代码/原厂型号/物料名等"
     shape="round"
     bind:change="onSearchChange"
     bind:search="onSearchConfirm"
     bind:clear="onClearSearch"
+    custom-class="search-compact"
   />
 
   <van-notice-bar
