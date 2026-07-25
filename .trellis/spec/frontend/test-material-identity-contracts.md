@@ -36,7 +36,7 @@
 - `test_material_identities.supplier` is optional metadata and a default supplier, not an identity key.
 - New test material identity UI must choose an existing active test-material master record; it must not let users type an unregistered product code.
 - There is no independent test material identity import template. Bulk maintenance of test identities must use the material master-data import path.
-- Material master-data import templates keep their existing headers. Rows with `是否测试料=否` create formal materials by product code; rows with `是否测试料=是` ensure/reuse a test-material code shell and create/skip a `test_material_identities` record by product code plus supplier model.
+- Material master-data import templates keep their existing headers. Rows with `是否测试料=否` create formal materials by product code; rows with `是否测试料=是` must use an existing active test-material code shell and create/skip a `test_material_identities` record by product code plus supplier model. The import path must not silently create a new test-material code shell from a mistyped product code.
 - Stock-in, batch stock-in, inventory-template import, and label preprint may use identity supplier as a default only when the user/request supplier is blank.
 - Stock-in, batch stock-in, inventory-template import, and label preprint must snapshot the identity `label_material_name`, `subcategory_key`, and `sub_category` into business records so historical labels and inventory exports do not change after identity edits.
 - Reprint/export flows use inventory or preprinted-label snapshots and must not retroactively read changed identity supplier values.
@@ -48,6 +48,7 @@
 | Saving a test-material master record with supplier fields present | Clear `supplier` and `supplier_model` before writing. |
 | Enabling the test-material switch on a master-data form | Default the name to `测试料`, select the built-in `测试料` subcategory when the category is known, and keep supplier fields blank. |
 | Creating an identity without an active test-material master record | Reject with a business message asking the admin to maintain the test-material code shell first. |
+| Importing a material template row with `是否测试料=是` and an unknown test product code | Reject with a business message asking the admin to maintain the test-material code shell first; do not create the code shell from import. |
 | Creating an identity without material name or subcategory | Reject with `请输入物料名称` or `请选择有效子类别`. |
 | Creating an identity without supplier model | Reject with `请输入原厂型号`. |
 | Same product code + normalized supplier model appears again | Reject as duplicate, regardless of supplier. |

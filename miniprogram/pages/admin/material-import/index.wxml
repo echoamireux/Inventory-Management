@@ -9,7 +9,7 @@
     <view class="text-sm text-secondary leading-loose">
       <view>1. 请先导出系统当前的<text class="font-bold text-main">最新模板（.xlsx）</text></view>
       <view>2. 单次最多导入<text class="font-bold text-main">100 行</text>，正式料和测试料可在同一模板维护</view>
-      <view>3. 测试料请填“是否测试料=是”，且<text class="font-bold text-main">原厂型号必填</text></view>
+      <view>3. 测试料请使用已维护代码，填“是否测试料=是”，且<text class="font-bold text-main">原厂型号必填</text></view>
       <view>4. 若刚调整过子类别或代码前缀，请重新导出，不要复用旧模板</view>
       <view>5. 填写完成后，直接上传系统导出的<text class="font-bold text-main">.xlsx</text>文件</view>
     </view>

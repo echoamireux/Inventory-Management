@@ -242,11 +242,24 @@ test('material import batchCreate keeps create-only semantics while writing gove
   assert.equal(batchAuditEvents.length, 1);
 });
 
-test('material import batchCreate routes test-material rows into identity records with effective names', async () => {
+test('material import batchCreate routes test-material rows into identities and rejects unknown test codes', async () => {
   const addedMaterials = [];
   const addedIdentities = [];
   const auditEvents = [];
-  const materialsByCode = new Map();
+  const materialsByCode = new Map([
+    ['J-999', {
+      _id: 'mat-existing-test',
+      product_code: 'J-999',
+      material_name: '测试料',
+      category: 'chemical',
+      subcategory_key: 'builtin:chemical:test-material',
+      sub_category: '测试料',
+      supplier: '',
+      supplier_model: '',
+      is_test_material: true,
+      status: 'active'
+    }]
+  ]);
 
   function buildCollection(name) {
     if (name === 'materials') {
@@ -457,6 +470,18 @@ test('material import batchCreate routes test-material rows into identity record
           supplier: '供应商A',
           supplier_model: ' TEST - 01 ',
           is_test_material: true
+        },
+        {
+          rowIndex: 4,
+          product_code: '998',
+          material_name: '误填样品',
+          category: 'chemical',
+          sub_category: '树脂',
+          default_unit: 'g',
+          package_type: '瓶装',
+          supplier: '供应商B',
+          supplier_model: ' TEST - 02 ',
+          is_test_material: true
         }
       ]
     }
@@ -464,10 +489,10 @@ test('material import batchCreate routes test-material rows into identity record
 
   assert.equal(result.success, true);
   assert.equal(result.created, 2);
-  assert.equal(addedMaterials.length, 2);
-  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').material_name, '测试料');
-  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').sub_category, '测试料');
-  assert.equal(addedMaterials.find(item => item.product_code === 'J-999').supplier_model, '');
+  assert.equal(result.errors, 1);
+  assert.equal(addedMaterials.length, 1);
+  assert.equal(addedMaterials[0].product_code, 'J-001');
+  assert.equal(materialsByCode.get('J-999').supplier_model, '');
   assert.equal(addedIdentities.length, 1);
   assert.equal(addedIdentities[0].product_code, 'J-999');
   assert.equal(addedIdentities[0].label_material_name, '环氧树脂样品');
@@ -476,7 +501,16 @@ test('material import batchCreate routes test-material rows into identity record
   assert.equal(addedIdentities[0].supplier, '供应商A');
   assert.equal(addedIdentities[0].supplier_model, 'TEST-01');
   assert.equal(addedIdentities[0].identity_key, 'chemical::J-999::TEST-01');
+  assert.equal(materialsByCode.has('J-998'), false);
+  assert.equal(addedIdentities.some(item => item.product_code === 'J-998'), false);
+  assert.ok(result.results.some(item => (
+    item.rowIndex === 4
+    && item.product_code === '998'
+    && item.status === 'error'
+    && /测试料产品代码 J-998 未维护/.test(item.reason)
+  )));
   assert.ok(auditEvents.some(item => item.domain === 'test_material_identity' && item.action === 'create'));
+  assert.equal(auditEvents.some(item => item.action === 'create_test_material_shell'), false);
 });
 
 test('material import batchCreate returns success with warning when summary audit fails after row audits', async () => {

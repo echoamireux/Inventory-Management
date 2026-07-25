@@ -8,6 +8,7 @@ const {
   DATA_SHEET_NAME,
   getActiveTemplateSubcategoryNames,
   validateTemplateSubcategoryState,
+  getTestMaterialCodeOptionsByCategory,
   buildMaterialTemplateSpec
 } = require('../cloudfunctions/_shared/material-template');
 
@@ -20,6 +21,12 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
       { prefix: 'S', category: 'chemical', status: 'active', sort_order: 20 },
       { prefix: 'Y', category: 'chemical', status: 'active', sort_order: 30 },
       { prefix: 'M', category: 'film', status: 'active', sort_order: 40 }
+    ],
+    testMaterialCodes: [
+      { product_code: 'J-999', category: 'chemical', status: 'active' },
+      { product_code: 'S-999', category: 'chemical', status: 'active' },
+      { product_code: 'M-999', category: 'film', status: 'active' },
+      { product_code: 'J-998', category: 'chemical', status: 'disabled' }
     ]
   });
 
@@ -88,6 +95,10 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
     chemical: ['J', 'S', 'Y'],
     film: ['M']
   });
+  assert.deepEqual(spec.testMaterialCodeOptionsByCategory, {
+    chemical: ['J-999', 'S-999'],
+    film: ['M-999']
+  });
 });
 
 test('active template subcategories only include active non-deprecated records in sorted order', () => {
@@ -137,6 +148,10 @@ test('template spec keeps representative example rows aligned with the new gover
       { prefix: 'S', category: 'chemical', status: 'active', sort_order: 20 },
       { prefix: 'Y', category: 'chemical', status: 'active', sort_order: 30 },
       { prefix: 'M', category: 'film', status: 'active', sort_order: 40 }
+    ],
+    testMaterialCodes: [
+      { product_code: 'J-999', category: 'chemical', status: 'active' },
+      { product_code: 'M-999', category: 'film', status: 'active' }
     ]
   });
   const helpText = spec.helpLines.join('\n');
@@ -147,8 +162,13 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /直接上传 \.xlsx/);
   assert.match(helpText, /单次最多导入 100 行/);
   assert.match(helpText, /系统不再提供独立测试料型号导入模板/);
+  assert.match(helpText, /当前可用测试料代码/);
+  assert.match(helpText, /化材测试料代码：J-999/);
+  assert.match(helpText, /膜材测试料代码：M-999/);
+  assert.match(helpText, /未维护代码会被拒绝导入/);
   assert.match(helpText, /代码前缀\*：必填/);
   assert.match(helpText, /产品编号\*：必填/);
+  assert.match(helpText, /测试料行必须使用本页列出的已维护测试料代码/);
   assert.match(helpText, /化材包装形式：选填/);
   assert.match(helpText, /当前化材代码前缀：J \/ S \/ Y/);
   assert.match(helpText, /当前膜材代码前缀：M/);
@@ -157,7 +177,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.match(helpText, /默认幅宽\(mm\)：膜材选填/);
   assert.match(helpText, /供应商：选填。正式物料写主数据供应商；测试料写该型号默认供应商/);
   assert.match(helpText, /原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品/);
-  assert.match(helpText, /选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示/);
+  assert.match(helpText, /选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示，原厂型号必须填写，产品代码必须为本页列出的已维护测试料代码/);
   assert.doesNotMatch(helpText, /供应商、原厂型号：选填/);
   assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号/);
   assert.deepEqual(spec.inlineHints, [
@@ -180,6 +200,22 @@ test('template spec keeps representative example rows aligned with the new gover
     ['J', '999', '环氧树脂样品', '化材', '溶剂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A', '是'],
     ['M', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
   ]);
+});
+
+test('template test material code options are grouped by category and ignore disabled codes', () => {
+  assert.deepEqual(
+    getTestMaterialCodeOptionsByCategory([
+      { product_code: 'j-999', category: 'chemical', status: 'active' },
+      { product_code: 'S-999', category: 'chemical', status: 'active' },
+      { product_code: 'M-999', category: 'film', status: 'active' },
+      { product_code: 'J-998', category: 'chemical', status: 'disabled' },
+      { product_code: 'BAD', category: 'chemical', status: 'active' }
+    ]),
+    {
+      chemical: ['J-999', 'S-999'],
+      film: ['M-999']
+    }
+  );
 });
 
 test('template export validation fails clearly when either governed category lacks active subcategories', () => {

@@ -52,6 +52,22 @@ async function getOperator(openid) {
   return res.data && res.data[0];
 }
 
+async function loadActiveTestMaterialCodes() {
+  const res = await db.collection('materials')
+    .where({
+      is_test_material: true,
+      status: 'active'
+    })
+    .limit(1000)
+    .get();
+
+  return (res.data || []).map(item => ({
+    product_code: item.product_code,
+    category: item.category,
+    status: item.status
+  }));
+}
+
 exports.main = async (event, context) => {
   const { OPENID } = cloud.getWXContext();
 
@@ -65,9 +81,10 @@ exports.main = async (event, context) => {
       };
     }
 
-    const [allSubcategories, allPrefixes] = await Promise.all([
+    const [allSubcategories, allPrefixes, testMaterialCodes] = await Promise.all([
       ensureBuiltinSubcategories(db).then(sortSubcategoryRecords),
-      ensureBuiltinProductCodePrefixes(db).then(sortProductCodePrefixRecords)
+      ensureBuiltinProductCodePrefixes(db).then(sortProductCodePrefixRecords),
+      loadActiveTestMaterialCodes()
     ]);
     const chemicalSubcategories = getActiveTemplateSubcategoryNames(allSubcategories, 'chemical');
     const filmSubcategories = getActiveTemplateSubcategoryNames(allSubcategories, 'film');
@@ -87,7 +104,8 @@ exports.main = async (event, context) => {
     const spec = buildMaterialTemplateSpec({
       chemicalSubcategories,
       filmSubcategories,
-      codePrefixes
+      codePrefixes,
+      testMaterialCodes
     });
     const workbook = await buildTemplateWorkbook(spec);
     const fileBuffer = await workbook.xlsx.writeBuffer();

@@ -149,6 +149,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.match(sheet.dataValidations.model['A3:A3000'].prompt, /请先填写 D 列类别/);
   assert.equal(sheet.dataValidations.model['B3:B3000'].promptTitle, '填写提示');
   assert.match(sheet.dataValidations.model['B3:B3000'].prompt, /请输入 1-3 位数字/);
+  assert.match(sheet.dataValidations.model['B3:B3000'].prompt, /已维护测试料代码/);
   assert.equal(sheet.dataValidations.model['G3:G3000'].formulae[0], '化材_包装形式');
   assert.match(sheet.dataValidations.model['G3:G3000'].prompt, /仅化材选填/);
   assert.match(sheet.dataValidations.model['I3:I3000'].prompt, /仅膜材选填/);
@@ -156,5 +157,7 @@ test('data sheet adds inline hint row, freezes the first two rows, and exposes i
   assert.equal(sheet.dataValidations.model['K3:K3000'].formulae[0], 'OR($L3<>"是",LEN(TRIM(K3))>0)');
   assert.match(sheet.dataValidations.model['K3:K3000'].prompt, /正式物料选填；测试料必填/);
   assert.match(sheet.dataValidations.model['K3:K3000'].error, /原厂型号必须填写/);
+  assert.match(sheet.dataValidations.model['L3:L3000'].prompt, /代码前缀 \+ 产品编号必须是已维护测试料代码/);
+  assert.match(sheet.dataValidations.model['L3:L3000'].prompt, /原厂型号必填/);
   assert.equal(sheet.dataValidations.model['L3:L3000'].formulae[0], '"是,否"');
 });

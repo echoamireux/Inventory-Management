@@ -60,6 +60,34 @@ function getCodePrefixOptionsByCategory(codePrefixes) {
     film: Array.from(new Set(grouped.film.length ? grouped.film : DEFAULT_CODE_PREFIX_OPTIONS.film))
   };
 }
+
+function getTestMaterialCodeOptionsByCategory(testMaterialCodes) {
+  const grouped = { chemical: [], film: [] };
+  const records = Array.isArray(testMaterialCodes) ? testMaterialCodes : [];
+
+  records.forEach((item) => {
+    const productCode = String(typeof item === 'string' ? item : item && item.product_code || '')
+      .trim()
+      .toUpperCase();
+    if (!/^[A-Z]{1,4}-\d{3}$/.test(productCode)) return;
+    if (item && typeof item === 'object' && item.status === 'disabled') return;
+    const category = item && typeof item === 'object' && item.category === 'film'
+      ? 'film'
+      : 'chemical';
+    grouped[category].push(productCode);
+  });
+
+  return {
+    chemical: Array.from(new Set(grouped.chemical)).sort(),
+    film: Array.from(new Set(grouped.film)).sort()
+  };
+}
+
+function formatTestMaterialCodeList(codes) {
+  return codes && codes.length
+    ? codes.join(' / ')
+    : '暂无，请先在物料管理中维护并启用测试料代码';
+}
 const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 50;
 const TEMPLATE_DATA_START_ROW = 3;
@@ -120,7 +148,8 @@ function validateTemplateSubcategoryState({
 function buildMaterialTemplateSpec({
   chemicalSubcategories = [],
   filmSubcategories = [],
-  codePrefixes = ['J', 'S', 'Y', 'M']
+  codePrefixes = ['J', 'S', 'Y', 'M'],
+  testMaterialCodes = []
 } = {}) {
   const chemicalSubcategoryEnd = chemicalSubcategories.length + 1;
   const filmSubcategoryEnd = filmSubcategories.length + 1;
@@ -128,6 +157,7 @@ function buildMaterialTemplateSpec({
   const filmUnitEnd = UNIT_OPTIONS.film.length + 1;
   const packageTypeEnd = PACKAGE_TYPE_OPTIONS.length + 1;
   const codePrefixOptionsByCategory = getCodePrefixOptionsByCategory(codePrefixes);
+  const testMaterialCodeOptionsByCategory = getTestMaterialCodeOptionsByCategory(testMaterialCodes);
   const codePrefixOptions = Array.from(new Set([
     ...codePrefixOptionsByCategory.chemical,
     ...codePrefixOptionsByCategory.film
@@ -205,6 +235,7 @@ function buildMaterialTemplateSpec({
     },
     codePrefixOptions,
     codePrefixOptionsByCategory,
+    testMaterialCodeOptionsByCategory,
     packageTypeOptions: PACKAGE_TYPE_OPTIONS.slice(),
     subcategoryOptions: {
       chemical: chemicalSubcategories.slice(),
@@ -219,9 +250,14 @@ function buildMaterialTemplateSpec({
       '4. 正式物料和测试料可在同一个模板维护，通过“是否测试料”区分；系统不再提供独立测试料型号导入模板。',
       '5. 模板填写完成后，请直接上传 .xlsx 文件回到系统导入。',
       '',
+      '▶ 当前可用测试料代码',
+      `化材测试料代码：${formatTestMaterialCodeList(testMaterialCodeOptionsByCategory.chemical)}`,
+      `膜材测试料代码：${formatTestMaterialCodeList(testMaterialCodeOptionsByCategory.film)}`,
+      '当“是否测试料=是”时，代码前缀 + 产品编号必须组合成以上已维护并启用的测试料代码，例如 J + 999 = J-999；未维护代码会被拒绝导入。',
+      '',
       '▶ 字段说明',
       '代码前缀*：必填。请先选择类别，再从该类别当前启用的前缀下拉中选择，只填写英文字母，不填写横杠。',
-      '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。',
+      '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。测试料行必须使用本页列出的已维护测试料代码。',
       '物料名称*：必填。',
       '类别*：必填。只能选择“化材”或“膜材”。',
       '子类别*：必填。只能选择系统中当前启用的正式子类别。',
@@ -231,7 +267,7 @@ function buildMaterialTemplateSpec({
       '默认幅宽(mm)：膜材选填；化材请留空。填写即写入主数据默认幅宽，留空则后续补齐。',
       '供应商：选填。正式物料写主数据供应商；测试料写该型号默认供应商。',
       '原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品。',
-      '是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示，原厂型号必须填写。',
+      '是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示，原厂型号必须填写，产品代码必须为本页列出的已维护测试料代码。',
       '正式物料若产品代码已存在，系统会跳过；测试料若“产品代码+原厂型号”已存在，系统会跳过。',
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
@@ -264,6 +300,7 @@ module.exports = {
   TEMPLATE_DATA_START_ROW,
   TEMPLATE_INLINE_HINTS,
   getActiveTemplateSubcategoryNames,
+  getTestMaterialCodeOptionsByCategory,
   validateTemplateSubcategoryState,
   buildMaterialTemplateSpec
 };

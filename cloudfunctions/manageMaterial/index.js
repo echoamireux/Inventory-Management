@@ -55,7 +55,6 @@ const MATERIAL_EDITABLE_FIELDS = new Set([
 ]);
 
 const MAX_SEARCH_CANDIDATES = 200;
-const TEST_MATERIAL_SHELL_NAME = '测试料';
 
 function pickEditableMaterialFields(data = {}) {
   return Object.keys(data).reduce((result, key) => {
@@ -456,48 +455,6 @@ async function createBatchMaterialWithAudit(newMaterial, openid) {
   });
 }
 
-function findTestMaterialShellSubcategory(category, subcategoryContexts = {}) {
-  const context = subcategoryContexts[category === 'film' ? 'film' : 'chemical'] || {};
-  const records = context.records || [];
-  const matched = records.find(item => (
-    item
-    && item.name === TEST_MATERIAL_SHELL_NAME
-    && item.status !== 'disabled'
-  ));
-  return matched
-    ? {
-      subcategory_key: matched.subcategory_key,
-      sub_category: matched.name
-    }
-    : null;
-}
-
-function buildTestMaterialShellRecord(prepared, shellSubcategory, openid, now) {
-  const { item, category, normalizedCode, normalizedUnit } = prepared;
-  return {
-    product_code: normalizedCode,
-    category,
-    subcategory_key: shellSubcategory.subcategory_key,
-    sub_category: shellSubcategory.sub_category,
-    ...buildGovernedMaterialMasterFields({
-      ...item,
-      material_name: TEST_MATERIAL_SHELL_NAME,
-      category,
-      default_unit: normalizedUnit,
-      supplier: '',
-      supplier_model: '',
-      is_test_material: true,
-      subcategory_key: shellSubcategory.subcategory_key,
-      sub_category: shellSubcategory.sub_category
-    }, category),
-    status: 'active',
-    created_by: openid,
-    created_at: now,
-    updated_by: openid,
-    updated_at: now
-  };
-}
-
 function buildBatchTestMaterialIdentityRecord(prepared, material, openid, operator, now) {
   const { item, category, normalizedCode, resolvedSubcategory } = prepared;
   const candidate = normalizeTestMaterialIdentityRecord({
@@ -533,30 +490,17 @@ function buildBatchTestMaterialIdentityRecord(prepared, material, openid, operat
   };
 }
 
-async function createBatchTestMaterialIdentityWithAudit({ prepared, shellMaterial, openid, operator, now }) {
+async function createBatchTestMaterialIdentityWithAudit({ prepared, openid, operator, now }) {
   return runMaterialTransaction(async (transaction) => {
-    let material = await loadMaterialByProductCode(transaction, prepared.normalizedCode);
-    let shellCreated = false;
-    if (material) {
-      if (!material.is_test_material) {
-        throw new Error(`产品代码 ${prepared.normalizedCode} 已作为正式物料存在，不能导入为测试料`);
-      }
-      if (material.status !== 'active') {
-        throw new Error(`测试料产品代码 ${prepared.normalizedCode} 未启用`);
-      }
-    } else {
-      const shellRes = await transaction.collection('materials').add({ data: shellMaterial });
-      material = {
-        _id: shellRes._id,
-        ...shellMaterial
-      };
-      shellCreated = true;
-      await writeMaterialAuditEvent(transaction, openid, {
-        material_id: shellRes._id,
-        product_code: shellMaterial.product_code,
-        action: 'create_test_material_shell',
-        changes: shellMaterial
-      });
+    const material = await loadMaterialByProductCode(transaction, prepared.normalizedCode);
+    if (!material) {
+      throw new Error(`测试料产品代码 ${prepared.normalizedCode} 未维护，请先在物料管理中维护测试料代码`);
+    }
+    if (!material.is_test_material) {
+      throw new Error(`产品代码 ${prepared.normalizedCode} 已作为正式物料存在，不能导入为测试料`);
+    }
+    if (material.status !== 'active') {
+      throw new Error(`测试料产品代码 ${prepared.normalizedCode} 未启用`);
     }
 
     const identityData = buildBatchTestMaterialIdentityRecord(prepared, material, openid, operator, now);
@@ -574,8 +518,7 @@ async function createBatchTestMaterialIdentityWithAudit({ prepared, shellMateria
     if (duplicateRes.data && duplicateRes.data.length) {
       return {
         status: 'skipped',
-        reason: '测试料产品代码和原厂型号已存在',
-        shellCreated
+        reason: '测试料产品代码和原厂型号已存在'
       };
     }
 
@@ -604,8 +547,7 @@ async function createBatchTestMaterialIdentityWithAudit({ prepared, shellMateria
     });
     return {
       status: 'created',
-      id: addRes._id,
-      shellCreated
+      id: addRes._id
     };
   });
 }
@@ -1114,14 +1056,6 @@ async function batchCreateMaterials(data, openid) {
       tracker.recordError(item.rowIndex, normalizedCode.product_code, '测试料原厂型号必填');
       continue;
     }
-    const shellSubcategory = isTestMaterial
-      ? findTestMaterialShellSubcategory(category, subcategoryContexts)
-      : null;
-    if (isTestMaterial && !shellSubcategory) {
-      tracker.recordError(item.rowIndex, normalizedCode.product_code, '测试料代码壳子类别缺失，请先维护“测试料”子类别');
-      continue;
-    }
-
     const governedValidation = validateBatchCreateMasterFields(item, category);
     if (!governedValidation.ok) {
       tracker.recordError(item.rowIndex, normalizedCode.product_code, governedValidation.msg);
@@ -1136,8 +1070,7 @@ async function batchCreateMaterials(data, openid) {
       normalizedCode: normalizedCode.product_code,
       normalizedUnit: normalizedUnit.unit,
       resolvedSubcategory,
-      isTestMaterial,
-      shellSubcategory
+      isTestMaterial
     });
   }
 
@@ -1155,7 +1088,6 @@ async function batchCreateMaterials(data, openid) {
       const createOutcome = prepared.isTestMaterial
         ? await createBatchTestMaterialIdentityWithAudit({
           prepared,
-          shellMaterial: buildTestMaterialShellRecord(prepared, prepared.shellSubcategory, openid, now),
           openid,
           operator: authResult.operator,
           now

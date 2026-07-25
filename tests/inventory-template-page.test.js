@@ -89,12 +89,12 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /batchCreate/);
   assert.match(pageJs, /MAX_IMPORT_ROWS\s*=\s*100/);
   assert.match(pageJs, /单次最多导入 \$\{MAX_IMPORT_ROWS\} 条物料数据/);
-  assert.match(pageJs, /测试料请填“是否测试料=是”，且原厂型号必填/);
+  assert.match(pageJs, /测试料请使用已维护代码，填“是否测试料=是”，且原厂型号必填/);
   assert.match(pageJs, /代码前缀\*：必填。请先填写类别，再选择该类别可用前缀/);
   assert.match(pageJs, /\['J', '001', '异丙醇', '化材'/);
   assert.doesNotMatch(pageJs, /'测试料必填'/);
   assert.match(pageJs, /原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品/);
-  assert.match(pageJs, /选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示/);
+  assert.match(pageJs, /选择“是”时，本行会维护测试料型号，产品代码必须是已维护测试料代码/);
   assert.doesNotMatch(pageJs, /选择“是”后入库、出库和标签打印会启用测试料防呆规则/);
   assert.doesNotMatch(pageJs, /供应商、原厂型号：选填/);
   assert.doesNotMatch(pageJs, /请使用 CSV 格式文件/);
@@ -105,6 +105,7 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageWxml, /填写完成后/);
   assert.match(pageWxml, /单次最多导入/);
   assert.match(pageWxml, /100 行/);
+  assert.match(pageWxml, /测试料请使用已维护代码/);
   assert.match(pageWxml, /原厂型号必填/);
   assert.match(pageWxml, /直接上传系统导出的[\s\S]*\.xlsx/);
   assert.match(pageWxml, /选择编辑好的 \.xlsx 文件导入/);
