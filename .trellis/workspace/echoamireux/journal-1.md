@@ -138,3 +138,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: 上线前一致性风险修复
+
+**Date**: 2026-07-25
+**Task**: 上线前一致性风险修复
+**Branch**: `codex/test-material-identity-governance`
+
+### Summary
+
+完成测试料入库精确校验、相似型号检查、发布 readiness 门槛、审批幂等和关键错误处理加固；验证 npm test、git diff --check、preflight 通过，release:check 按预期因缺正式库确认文件阻断。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ed6b7a2` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
