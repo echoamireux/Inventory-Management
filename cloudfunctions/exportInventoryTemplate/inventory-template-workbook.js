@@ -88,7 +88,7 @@ function applyPreviewRowStyle(sheet, rowIndex, columnCount) {
   for (let col = 1; col <= columnCount; col += 1) {
     const cell = sheet.getRow(rowIndex).getCell(col);
     cell.border = buildThinBorder();
-    cell.alignment = { vertical: 'middle' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
   }
 }
 
@@ -316,7 +316,13 @@ async function buildInventoryTemplateWorkbook(specInput) {
   const configSheet = workbook.addWorksheet(CONFIG_SHEET_NAME, { state: 'hidden' });
   const helpSheet = workbook.addWorksheet(HELP_SHEET_NAME);
 
-  sheet.columns = TEMPLATE_COLUMNS.map(column => ({ key: column.key, width: column.width }));
+  sheet.columns = TEMPLATE_COLUMNS.map(column => ({
+    key: column.key,
+    width: column.width,
+    style: {
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    }
+  }));
   helpSheet.columns = TEMPLATE_COLUMNS.map(column => ({ width: column.width }));
 
   sheet.getColumn(1).numFmt = '@';

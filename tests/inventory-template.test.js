@@ -149,6 +149,11 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.equal(dataSheet.getRow(3).values[17], '二选一');
   assert.equal(dataSheet.views[0].state, 'frozen');
   assert.equal(dataSheet.views[0].ySplit, 3);
+  assert.equal(dataSheet.getColumn(1).style.alignment.horizontal, 'center');
+  assert.equal(dataSheet.getColumn(17).style.alignment.horizontal, 'center');
+  assert.equal(dataSheet.getCell('A4').alignment.horizontal, 'center');
+  assert.equal(dataSheet.getCell('N4').alignment.horizontal, 'center');
+  assert.equal(dataSheet.getCell('Q4').alignment.horizontal, 'center');
   assert.equal(dataSheet.getColumn(16).numFmt, 'yyyy-mm-dd');
   assert.match(dataSheet.dataValidations.model['B4:B3000'].prompt, /请先填写 D 列类别/);
 

@@ -8,20 +8,20 @@ const DATA_SHEET_NAME = '物料导入表';
 const CONFIG_SHEET_NAME = 'Config';
 const HELP_SHEET_NAME = '【必看】填写指导与示例';
 const TEMPLATE_KIND = 'material_import';
-const TEMPLATE_SCHEMA_VERSION = 'material-import-v2';
+const TEMPLATE_SCHEMA_VERSION = 'material-import-v3';
 const TEMPLATE_HEADERS = [
+  '是否测试料',
+  '类别',
   '代码前缀',
   '产品编号',
   '物料名称',
-  '类别',
   '子类别',
   '默认单位',
   '化材包装形式',
   '膜材厚度(μm)',
   '默认幅宽(mm)',
   '供应商',
-  '原厂型号',
-  '是否测试料'
+  '原厂型号'
 ];
 
 const CATEGORY_OPTIONS = ['化材', '膜材'];
@@ -92,6 +92,7 @@ const TEMPLATE_MAX_ROW = 3000;
 const TEMPLATE_PREVIEW_STYLED_ROW_COUNT = 50;
 const TEMPLATE_DATA_START_ROW = 3;
 const TEMPLATE_INLINE_HINTS = [
+  '是/否，空白=否',
   '必填',
   '必填',
   '必填',
@@ -102,8 +103,7 @@ const TEMPLATE_INLINE_HINTS = [
   '膜材必填',
   '膜材选填',
   '选填',
-  '正式选填/测试必填',
-  '是/否，空白=否'
+  '正式料选填/测试料必填'
 ];
 
 function pickRepresentativeSubcategory(subcategories, preferredName) {
@@ -184,19 +184,21 @@ function buildMaterialTemplateSpec({
     maxRow: TEMPLATE_MAX_ROW,
     previewStyledRowCount: TEMPLATE_PREVIEW_STYLED_ROW_COUNT,
     validationRanges: {
-      codePrefix: `A${TEMPLATE_DATA_START_ROW}:A${TEMPLATE_MAX_ROW}`,
-      productCodeNumber: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`,
-      category: `D${TEMPLATE_DATA_START_ROW}:D${TEMPLATE_MAX_ROW}`,
-      subcategory: `E${TEMPLATE_DATA_START_ROW}:E${TEMPLATE_MAX_ROW}`,
-      unit: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
-      packageType: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
-      thicknessUm: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`,
-      standardWidthMm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`
+      testMaterialFlag: `A${TEMPLATE_DATA_START_ROW}:A${TEMPLATE_MAX_ROW}`,
+      category: `B${TEMPLATE_DATA_START_ROW}:B${TEMPLATE_MAX_ROW}`,
+      codePrefix: `C${TEMPLATE_DATA_START_ROW}:C${TEMPLATE_MAX_ROW}`,
+      productCodeNumber: `D${TEMPLATE_DATA_START_ROW}:D${TEMPLATE_MAX_ROW}`,
+      subcategory: `F${TEMPLATE_DATA_START_ROW}:F${TEMPLATE_MAX_ROW}`,
+      unit: `G${TEMPLATE_DATA_START_ROW}:G${TEMPLATE_MAX_ROW}`,
+      packageType: `H${TEMPLATE_DATA_START_ROW}:H${TEMPLATE_MAX_ROW}`,
+      thicknessUm: `I${TEMPLATE_DATA_START_ROW}:I${TEMPLATE_MAX_ROW}`,
+      standardWidthMm: `J${TEMPLATE_DATA_START_ROW}:J${TEMPLATE_MAX_ROW}`,
+      supplierModel: `L${TEMPLATE_DATA_START_ROW}:L${TEMPLATE_MAX_ROW}`
     },
     validationFormulae: {
-      codePrefix: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_前缀")`,
-      subcategory: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_子类")`,
-      unit: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_单位")`
+      codePrefix: `INDIRECT($B${TEMPLATE_DATA_START_ROW}&"_前缀")`,
+      subcategory: `INDIRECT($B${TEMPLATE_DATA_START_ROW}&"_子类")`,
+      unit: `INDIRECT($B${TEMPLATE_DATA_START_ROW}&"_单位")`
     },
     definedNames: {
       chemicalSubcategories: {
@@ -256,10 +258,11 @@ function buildMaterialTemplateSpec({
       '当“是否测试料=是”时，代码前缀 + 产品编号必须组合成以上已维护并启用的测试料代码，例如 J + 999 = J-999；未维护代码会被拒绝导入。',
       '',
       '▶ 字段说明',
+      '是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示，原厂型号必须填写，产品代码必须为本页列出的已维护测试料代码。',
+      '类别*：必填。只能选择“化材”或“膜材”。',
       '代码前缀*：必填。请先选择类别，再从该类别当前启用的前缀下拉中选择，只填写英文字母，不填写横杠。',
       '产品编号*：必填。请填写 1-3 位数字，例如 1 或 001；系统会补齐为 3 位并与前缀组成完整产品代码。测试料行必须使用本页列出的已维护测试料代码。',
       '物料名称*：必填。',
-      '类别*：必填。只能选择“化材”或“膜材”。',
       '子类别*：必填。只能选择系统中当前启用的正式子类别。',
       '默认单位*：必填。化材仅支持 g/kg/mL/L；膜材仅支持 m/m²。',
       '化材包装形式：选填。仅化材使用；膜材请留空。',
@@ -267,7 +270,6 @@ function buildMaterialTemplateSpec({
       '默认幅宽(mm)：膜材选填；化材请留空。填写即写入主数据默认幅宽，留空则后续补齐。',
       '供应商：选填。正式物料写主数据供应商；测试料写该型号默认供应商。',
       '原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品。',
-      '是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号，物料名称和子类别用于标签、入库和库存展示，原厂型号必须填写，产品代码必须为本页列出的已维护测试料代码。',
       '正式物料若产品代码已存在，系统会跳过；测试料若“产品代码+原厂型号”已存在，系统会跳过。',
       '如现有子类别不适用，请先在系统“子类别管理”中维护后，再重新导出模板。',
       '',
@@ -278,9 +280,9 @@ function buildMaterialTemplateSpec({
       `当前化材包装形式：${PACKAGE_TYPE_OPTIONS.join(' / ')}`
     ],
     exampleRows: [
-      ['J', '001', '异丙醇', '化材', chemicalExampleSubcategory || '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否'],
-      ['J', '999', '环氧树脂样品', '化材', chemicalExampleSubcategory || '树脂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A', '是'],
-      ['M', '002', 'PET保护膜', '膜材', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
+      ['否', '化材', 'J', '001', '异丙醇', chemicalExampleSubcategory || '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99'],
+      ['是', '化材', 'J', '999', '环氧树脂样品', chemicalExampleSubcategory || '树脂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A'],
+      ['否', '膜材', 'M', '002', 'PET保护膜', filmExampleSubcategory || '保护膜', 'm', '', '25', '1240', '东丽', 'T100']
     ]
   };
 }

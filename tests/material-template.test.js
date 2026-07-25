@@ -42,23 +42,25 @@ test('template spec keeps the governed workbook structure and prefix-plus-number
   assert.deepEqual(spec.packageTypeOptions, ['瓶装', '桶装', '袋装', '卷装', '盒装']);
   assert.equal(spec.previewStyledRowCount, 50);
   assert.deepEqual(spec.validationRanges, {
-    codePrefix: 'A3:A3000',
-    productCodeNumber: 'B3:B3000',
-    category: 'D3:D3000',
-    subcategory: 'E3:E3000',
-    unit: 'F3:F3000',
-    packageType: 'G3:G3000',
-    thicknessUm: 'H3:H3000',
-    standardWidthMm: 'I3:I3000'
+    testMaterialFlag: 'A3:A3000',
+    category: 'B3:B3000',
+    codePrefix: 'C3:C3000',
+    productCodeNumber: 'D3:D3000',
+    subcategory: 'F3:F3000',
+    unit: 'G3:G3000',
+    packageType: 'H3:H3000',
+    thicknessUm: 'I3:I3000',
+    standardWidthMm: 'J3:J3000',
+    supplierModel: 'L3:L3000'
   });
-  assert.equal(spec.validationFormulae.codePrefix, 'INDIRECT($D3&"_前缀")');
+  assert.equal(spec.validationFormulae.codePrefix, 'INDIRECT($B3&"_前缀")');
   assert.equal(
     spec.validationFormulae.subcategory,
-    'INDIRECT($D3&"_子类")'
+    'INDIRECT($B3&"_子类")'
   );
   assert.equal(
     spec.validationFormulae.unit,
-    'INDIRECT($D3&"_单位")'
+    'INDIRECT($B3&"_单位")'
   );
   assert.deepEqual(spec.definedNames, {
     chemicalSubcategories: {
@@ -181,6 +183,7 @@ test('template spec keeps representative example rows aligned with the new gover
   assert.doesNotMatch(helpText, /供应商、原厂型号：选填/);
   assert.match(helpText, /是否测试料：填“是”或“否”，空白按“否”处理；选择“是”时，本行会维护测试料型号/);
   assert.deepEqual(spec.inlineHints, [
+    '是/否，空白=否',
     '必填',
     '必填',
     '必填',
@@ -191,14 +194,13 @@ test('template spec keeps representative example rows aligned with the new gover
     '膜材必填',
     '膜材选填',
     '选填',
-    '正式选填/测试必填',
-    '是/否，空白=否'
+    '正式料选填/测试料必填'
   ]);
   assert.match(helpText, /产品代码已存在.*会跳过/);
   assert.deepEqual(spec.exampleRows, [
-    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99', '否'],
-    ['J', '999', '环氧树脂样品', '化材', '溶剂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A', '是'],
-    ['M', '002', 'PET保护膜', '膜材', '保护膜', 'm', '', '25', '1240', '东丽', 'T100', '否']
+    ['否', '化材', 'J', '001', '异丙醇', '溶剂', 'L', '桶装', '', '', '国药', 'IPA-99'],
+    ['是', '化材', 'J', '999', '环氧树脂样品', '溶剂', 'g', '瓶装', '', '', '供应商A', 'TEST-RESIN-A'],
+    ['否', '膜材', 'M', '002', 'PET保护膜', '保护膜', 'm', '', '25', '1240', '东丽', 'T100']
   ]);
 });
 

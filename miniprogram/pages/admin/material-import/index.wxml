@@ -109,9 +109,10 @@
   <van-empty
     wx:if="{{ !selectedFile && !parsing }}"
     image="search"
-    description="请先导出模板并上传 .xlsx 文件（最多 100 行）"
-    custom-class="mt-40"
-  />
+    custom-class="material-import-empty mt-40"
+  >
+    <view slot="description" class="material-import-empty__desc">请导出并上传 .xlsx 模板（最多100行）</view>
+  </van-empty>
 </view>
 
 <!-- 底部按钮 -->

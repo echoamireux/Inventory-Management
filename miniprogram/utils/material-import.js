@@ -66,11 +66,27 @@ function normalizeTestMaterialSupplierModel(value) {
     .replace(/\s*([-/])\s*/gu, '$1');
 }
 
+const MATERIAL_IMPORT_COLUMN_INDEX = {
+  is_test_material: 0,
+  category: 1,
+  code_prefix: 2,
+  product_code_number: 3,
+  material_name: 4,
+  sub_category: 5,
+  default_unit: 6,
+  package_type: 7,
+  thickness_um: 8,
+  standard_width_mm: 9,
+  supplier: 10,
+  supplier_model: 11
+};
+
 function isTemplateInlineHintRow(row = []) {
-  return String(row[0] || '').trim() === '必填'
-    && String(row[6] || '').includes('化材选填')
-    && String(row[7] || '').includes('膜材必填')
-    && String(row[8] || '').includes('膜材选填');
+  return String(row[MATERIAL_IMPORT_COLUMN_INDEX.is_test_material] || '').includes('是/否')
+    && String(row[MATERIAL_IMPORT_COLUMN_INDEX.category] || '').trim() === '必填'
+    && String(row[MATERIAL_IMPORT_COLUMN_INDEX.package_type] || '').includes('化材选填')
+    && String(row[MATERIAL_IMPORT_COLUMN_INDEX.thickness_um] || '').includes('膜材必填')
+    && String(row[MATERIAL_IMPORT_COLUMN_INDEX.standard_width_mm] || '').includes('膜材选填');
 }
 
 function appendWarning(existingWarning = '', nextWarning = '') {
@@ -234,18 +250,18 @@ function validateImportRow(row, index, subcategoriesByCategory = {}, productCode
     };
   }
 
-  const rawCodePrefix = String(row[0] || '').trim();
-  const rawProductCodeNumber = String(row[1] || '').trim();
-  const materialName = String(row[2] || '').trim();
-  const categoryText = String(row[3] || '').trim();
-  const subCategory = String(row[4] || '').trim();
-  let defaultUnit = String(row[5] || '').trim();
-  const packageType = String(row[6] || '').trim();
-  const thicknessUm = normalizeOptionalNumber(row[7]);
-  const standardWidthMm = normalizeOptionalNumber(row[8]);
-  const supplier = String(row[9] || '').trim();
-  const supplierModel = String(row[10] || '').trim();
-  const testMaterialFlag = normalizeTestMaterialFlag(row[11]);
+  const testMaterialFlag = normalizeTestMaterialFlag(row[MATERIAL_IMPORT_COLUMN_INDEX.is_test_material]);
+  const categoryText = String(row[MATERIAL_IMPORT_COLUMN_INDEX.category] || '').trim();
+  const rawCodePrefix = String(row[MATERIAL_IMPORT_COLUMN_INDEX.code_prefix] || '').trim();
+  const rawProductCodeNumber = String(row[MATERIAL_IMPORT_COLUMN_INDEX.product_code_number] || '').trim();
+  const materialName = String(row[MATERIAL_IMPORT_COLUMN_INDEX.material_name] || '').trim();
+  const subCategory = String(row[MATERIAL_IMPORT_COLUMN_INDEX.sub_category] || '').trim();
+  let defaultUnit = String(row[MATERIAL_IMPORT_COLUMN_INDEX.default_unit] || '').trim();
+  const packageType = String(row[MATERIAL_IMPORT_COLUMN_INDEX.package_type] || '').trim();
+  const thicknessUm = normalizeOptionalNumber(row[MATERIAL_IMPORT_COLUMN_INDEX.thickness_um]);
+  const standardWidthMm = normalizeOptionalNumber(row[MATERIAL_IMPORT_COLUMN_INDEX.standard_width_mm]);
+  const supplier = String(row[MATERIAL_IMPORT_COLUMN_INDEX.supplier] || '').trim();
+  const supplierModel = String(row[MATERIAL_IMPORT_COLUMN_INDEX.supplier_model] || '').trim();
   let warning = '';
 
   let error = null;
@@ -388,6 +404,7 @@ function buildImportResultMessage(result = {}, previewErrors = [], previewWarnin
 }
 
 module.exports = {
+  MATERIAL_IMPORT_COLUMN_INDEX,
   normalizeCategoryText,
   isTemplateInlineHintRow,
   applyImportDuplicateGuards,

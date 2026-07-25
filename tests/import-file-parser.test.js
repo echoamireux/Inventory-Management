@@ -167,13 +167,14 @@ test('shared import parser reads material template xlsx data rows from the gover
     filmSubcategories: ['保护膜']
   }));
   const sheet = workbook.getWorksheet(MATERIAL_SHEET_NAME);
-  sheet.getCell('A3').value = 'J';
-  sheet.getCell('B3').value = '001';
-  sheet.getCell('C3').value = '异丙醇';
-  sheet.getCell('D3').value = '化材';
-  sheet.getCell('E3').value = '溶剂';
-  sheet.getCell('F3').value = 'L';
-  sheet.getCell('G3').value = '铁桶';
+  sheet.getCell('A3').value = '';
+  sheet.getCell('B3').value = '化材';
+  sheet.getCell('C3').value = 'J';
+  sheet.getCell('D3').value = '001';
+  sheet.getCell('E3').value = '异丙醇';
+  sheet.getCell('F3').value = '溶剂';
+  sheet.getCell('G3').value = 'L';
+  sheet.getCell('H3').value = '铁桶';
 
   const buffer = await workbook.xlsx.writeBuffer();
   const rows = parseImportTemplateFileBuffer(buffer, {
@@ -187,10 +188,10 @@ test('shared import parser reads material template xlsx data rows from the gover
   });
 
   assert.equal(rows[2].rowIndex, 3);
-  assert.deepEqual(rows[2].values, ['J', '001', '异丙醇', '化材', '溶剂', 'L', '铁桶', '', '', '', '', '']);
+  assert.deepEqual(rows[2].values, ['', '化材', 'J', '001', '异丙醇', '溶剂', 'L', '铁桶', '', '', '', '']);
   assert.deepEqual(getParsedTemplateMeta(rows), {
     templateKind: 'material_import',
-    schemaVersion: 'material-import-v2',
+    schemaVersion: 'material-import-v3',
     headerRowIndex: 1,
     dataStartRowIndex: 3,
     sheetName: MATERIAL_SHEET_NAME

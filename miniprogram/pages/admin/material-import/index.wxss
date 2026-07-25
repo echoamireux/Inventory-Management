@@ -215,6 +215,16 @@
   text-decoration: underline;
 }
 
+.material-import-empty__desc {
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-placeholder);
+}
+
 /* 弹窗自定义按钮样式 */
 .border-t { border-top: 1px solid #EBEDF0; }
 .pt-10 { padding-top: 10px; }

@@ -11,7 +11,7 @@ const IMPORT_TEMPLATE_ERROR_CODES = {
 
 const TEMPLATE_PROTOCOLS = {
   inventory_import: ['inventory-import-v2'],
-  material_import: ['material-import-v2']
+  material_import: ['material-import-v3']
 };
 
 function buildImportTemplateError(code, message, details) {
@@ -465,9 +465,15 @@ function looksLikeInventoryDataRow(values = []) {
 }
 
 function looksLikeMaterialDataRow(values = []) {
-  const productCode = normalizeCellValue(values[0]);
-  const category = normalizeCellValue(values[2]);
-  return !!productCode && !!category && (category === '化材' || category === '膜材');
+  const category = normalizeCellValue(values[1]);
+  const codePrefix = normalizeCellValue(values[2]);
+  const productNumber = normalizeCellValue(values[3]);
+  const materialName = normalizeCellValue(values[4]);
+  return !!category
+    && (category === '化材' || category === '膜材')
+    && !!codePrefix
+    && !!productNumber
+    && !!materialName;
 }
 
 function looksLikeLikelyDataRow(values = [], templateKind = '') {

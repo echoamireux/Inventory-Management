@@ -1,43 +1,40 @@
 <view class="container">
-  <view class="bg-indigo-50 p-20 rounded-lg mb-20 mx-20 mt-20">
-    <view class="flex-row items-center mb-12">
+  <view class="import-info-card">
+    <view class="import-info-title">
       <van-icon name="description" color="#4F46E5" size="18px" class="mr-8" />
-      <view class="text-base font-bold text-primary">模板导入入库</view>
-      <view class="import-scene-badge ml-8">化材 / 膜材通用</view>
+      <view class="import-info-heading">使用说明</view>
+      <view class="import-scene-badge">化材 / 膜材通用</view>
     </view>
-    <view class="text-sm text-secondary leading-loose">
+    <view class="import-info-content">
       <view>1. 请先导出系统当前的<text class="font-bold text-main">最新模板（.xlsx）</text></view>
-      <view>2. 按模板填写后，<text class="font-bold text-main">直接上传 .xlsx</text></view>
-      <view>3. 仅支持上传系统导出的<text class="font-bold text-main">.xlsx</text>模板文件</view>
-      <view>4. 一行对应一个标签编号，不支持未知产品代码直接入库</view>
+      <view>2. 单次最多导入<text class="font-bold text-main">100 行</text>，系统按<text class="font-bold text-main">10 行/批</text>顺序入库</view>
+      <view>3. 若中途失败，可按提示继续重试未完成批次</view>
+      <view>4. 每行一个标签编号，未知产品代码不能入库</view>
+      <view>5. 测试料原厂型号必填；填写完成后直接上传 .xlsx</view>
     </view>
   </view>
 
-  <view class="px-20">
-    <view class="bg-white p-20 rounded-lg mb-16 shadow-sm" bind:tap="onExportLatestTemplate">
-      <view class="flex-row items-center mb-8">
-        <view class="w-40 h-40 rounded-full flex-center bg-indigo-50 mr-12">
-          <van-icon name="description" size="20px" color="#4F46E5" />
-        </view>
-        <view class="flex-1">
-          <view class="text-base font-bold text-main">第一步：导出最新模板</view>
-          <view class="text-xs text-secondary mt-4">{{ exportingTemplate ? '正在生成并下载库存入库模板...' : '获取带下拉、校验和说明页的正式模板（.xlsx）' }}</view>
-        </view>
-        <van-icon name="arrow" color="#C8C9CC" />
+  <view class="import-action-list">
+    <view class="import-action-card" bind:tap="onExportLatestTemplate">
+      <view class="import-action-icon import-action-icon--primary">
+        <van-icon name="description" size="20px" color="#4F46E5" />
       </view>
+      <view class="import-action-body">
+        <view class="import-action-title">第一步：导出最新模板</view>
+        <view class="import-action-desc">{{ exportingTemplate ? '正在生成并下载库存入库模板...' : '获取带下拉、校验和说明页的正式模板（.xlsx）' }}</view>
+      </view>
+      <van-icon name="arrow" color="#C8C9CC" class="import-action-arrow" />
     </view>
 
-    <view class="bg-white p-20 rounded-lg shadow-sm" bind:tap="onChooseFile">
-      <view class="flex-row items-center mb-8">
-        <view class="w-40 h-40 rounded-full flex-center bg-emerald-50 mr-12">
-          <van-icon name="add-o" size="20px" color="#10B981" />
-        </view>
-        <view class="flex-1">
-          <view class="text-base font-bold text-main">第二步：上传文件</view>
-          <view class="text-xs text-secondary mt-4">{{ selectedFile ? selectedFile.name : '选择填写完成的 .xlsx 文件预览并导入' }}</view>
-        </view>
-        <van-icon name="arrow" color="#C8C9CC" />
+    <view class="import-action-card" bind:tap="onChooseFile">
+      <view class="import-action-icon import-action-icon--success">
+        <van-icon name="add-o" size="20px" color="#10B981" />
       </view>
+      <view class="import-action-body">
+        <view class="import-action-title">第二步：上传文件</view>
+        <view class="import-action-desc">{{ selectedFile ? selectedFile.name : '选择填写完成的 .xlsx 文件预览并分批入库' }}</view>
+      </view>
+      <van-icon name="arrow" color="#C8C9CC" class="import-action-arrow" />
     </view>
   </view>
 

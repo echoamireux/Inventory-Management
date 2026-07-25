@@ -8,18 +8,18 @@ const {
 } = require('./material-template');
 
 const IMPORT_TEMPLATE_COLUMNS = [
-  { header: TEMPLATE_HEADERS[0], key: 'code_prefix', width: 12 },
-  { header: TEMPLATE_HEADERS[1], key: 'product_code_number', width: 12 },
-  { header: TEMPLATE_HEADERS[2], key: 'material_name', width: 30 },
-  { header: TEMPLATE_HEADERS[3], key: 'category', width: 10 },
-  { header: TEMPLATE_HEADERS[4], key: 'sub_category', width: 22 },
-  { header: TEMPLATE_HEADERS[5], key: 'default_unit', width: 12 },
-  { header: TEMPLATE_HEADERS[6], key: 'package_type', width: 18 },
-  { header: TEMPLATE_HEADERS[7], key: 'thickness_um', width: 18 },
-  { header: TEMPLATE_HEADERS[8], key: 'standard_width_mm', width: 18 },
-  { header: TEMPLATE_HEADERS[9], key: 'supplier', width: 20 },
-  { header: TEMPLATE_HEADERS[10], key: 'supplier_model', width: 30 },
-  { header: TEMPLATE_HEADERS[11], key: 'is_test_material', width: 22 }
+  { header: TEMPLATE_HEADERS[0], key: 'is_test_material', width: 18 },
+  { header: TEMPLATE_HEADERS[1], key: 'category', width: 10 },
+  { header: TEMPLATE_HEADERS[2], key: 'code_prefix', width: 12 },
+  { header: TEMPLATE_HEADERS[3], key: 'product_code_number', width: 12 },
+  { header: TEMPLATE_HEADERS[4], key: 'material_name', width: 30 },
+  { header: TEMPLATE_HEADERS[5], key: 'sub_category', width: 22 },
+  { header: TEMPLATE_HEADERS[6], key: 'default_unit', width: 12 },
+  { header: TEMPLATE_HEADERS[7], key: 'package_type', width: 18 },
+  { header: TEMPLATE_HEADERS[8], key: 'thickness_um', width: 18 },
+  { header: TEMPLATE_HEADERS[9], key: 'standard_width_mm', width: 18 },
+  { header: TEMPLATE_HEADERS[10], key: 'supplier', width: 20 },
+  { header: TEMPLATE_HEADERS[11], key: 'supplier_model', width: 30 }
 ];
 
 function buildHeaderFill() {
@@ -92,7 +92,7 @@ function defineConfigRanges(workbook, configSheet, spec) {
   configSheet.getCell('X1').value = 'template_kind';
   configSheet.getCell('Y1').value = spec.templateKind || 'material_import';
   configSheet.getCell('X2').value = 'schema_version';
-  configSheet.getCell('Y2').value = spec.schemaVersion || 'material-import-v2';
+  configSheet.getCell('Y2').value = spec.schemaVersion || 'material-import-v3';
 }
 
 function decorateHeaderRow(row) {
@@ -123,18 +123,41 @@ function applyPreviewRowStyle(sheet, rowIndex, columnCount) {
   for (let col = 1; col <= columnCount; col += 1) {
     const cell = sheet.getRow(rowIndex).getCell(col);
     cell.border = buildThinBorder();
-    cell.alignment = { vertical: 'middle' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
   }
 }
 
 function applyRangeValidations(sheet, spec) {
   const productCodeAnchor = (spec.validationRanges.productCodeNumber.match(/\d+/) || ['3'])[0];
+  sheet.dataValidations.add(spec.validationRanges.testMaterialFlag, {
+    type: 'list',
+    allowBlank: true,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '测试料请选择“是”；正式物料可填“否”或留空。选择“是”时，代码前缀 + 产品编号必须是已维护测试料代码，且原厂型号必填。',
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    errorTitle: '是否测试料无效',
+    error: '是否测试料仅支持填写“是”或“否”。',
+    formulae: ['"是,否"']
+  });
+  sheet.dataValidations.add(spec.validationRanges.category, {
+    type: 'list',
+    allowBlank: false,
+    showInputMessage: true,
+    promptTitle: '填写提示',
+    prompt: '请选择 化材 或 膜材。',
+    showErrorMessage: true,
+    errorTitle: '输入无效',
+    error: '系统只能识别“化材”或“膜材”，请从下拉中选择。',
+    formulae: ['"化材,膜材"']
+  });
   sheet.dataValidations.add(spec.validationRanges.codePrefix, {
     type: 'list',
     allowBlank: false,
     showInputMessage: true,
     promptTitle: '填写提示',
-    prompt: '请先填写 D 列类别，再从该类别可用前缀下拉中选择。',
+    prompt: '请先选择本行类别，再从该类别可用前缀下拉中选择。',
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '代码前缀无效',
@@ -151,18 +174,7 @@ function applyRangeValidations(sheet, spec) {
     errorStyle: 'stop',
     errorTitle: '无效的代码格式',
     error: '产品编号必须为 1-3 位纯数字。',
-    formulae: [`AND(ISNUMBER(VALUE(B${productCodeAnchor})),LEN(B${productCodeAnchor})>=1,LEN(B${productCodeAnchor})<=3)`]
-  });
-  sheet.dataValidations.add(spec.validationRanges.category, {
-    type: 'list',
-    allowBlank: false,
-    showInputMessage: true,
-    promptTitle: '填写提示',
-    prompt: '请选择 化材 或 膜材。',
-    showErrorMessage: true,
-    errorTitle: '输入无效',
-    error: '系统只能识别“化材”或“膜材”，请从下拉中选择。',
-    formulae: ['"化材,膜材"']
+    formulae: [`AND(ISNUMBER(VALUE(D${productCodeAnchor})),LEN(D${productCodeAnchor})>=1,LEN(D${productCodeAnchor})<=3)`]
   });
   sheet.dataValidations.add(spec.validationRanges.subcategory, {
     type: 'list',
@@ -226,7 +238,7 @@ function applyRangeValidations(sheet, spec) {
     errorTitle: '默认幅宽无效',
     error: '若填写默认幅宽，请输入大于 0 的数值。'
   });
-  sheet.dataValidations.add(`K${spec.maxRow ? 3 : 3}:K${spec.maxRow || 3000}`, {
+  sheet.dataValidations.add(spec.validationRanges.supplierModel, {
     type: 'custom',
     allowBlank: false,
     showInputMessage: true,
@@ -236,19 +248,7 @@ function applyRangeValidations(sheet, spec) {
     errorStyle: 'stop',
     errorTitle: '测试料原厂型号必填',
     error: '当“是否测试料”为“是”时，原厂型号必须填写。',
-    formulae: [`OR($L3<>"是",LEN(TRIM(K3))>0)`]
-  });
-  sheet.dataValidations.add(`L${spec.maxRow ? 3 : 3}:L${spec.maxRow || 3000}`, {
-    type: 'list',
-    allowBlank: true,
-    showInputMessage: true,
-    promptTitle: '填写提示',
-    prompt: '测试料请选择“是”；正式物料可填“否”或留空。选择“是”时，代码前缀 + 产品编号必须是已维护测试料代码，且原厂型号必填。',
-    showErrorMessage: true,
-    errorStyle: 'stop',
-    errorTitle: '是否测试料无效',
-    error: '是否测试料仅支持填写“是”或“否”。',
-    formulae: ['"是,否"']
+    formulae: [`OR($A3<>"是",LEN(TRIM(L3))>0)`]
   });
 }
 
@@ -262,6 +262,9 @@ async function buildTemplateWorkbook(specInput) {
   const helpSheet = workbook.addWorksheet(HELP_SHEET_NAME);
 
   sheet.columns = IMPORT_TEMPLATE_COLUMNS;
+  sheet.columns.forEach((column) => {
+    column.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
   helpSheet.columns = IMPORT_TEMPLATE_COLUMNS.map((column) => ({ width: column.width }));
   decorateHeaderRow(sheet.getRow(1));
   const inlineHintRow = sheet.getRow(2);
@@ -271,6 +274,8 @@ async function buildTemplateWorkbook(specInput) {
   decorateInlineHintRow(inlineHintRow);
   sheet.getColumn(1).numFmt = '@';
   sheet.getColumn(2).numFmt = '@';
+  sheet.getColumn(3).numFmt = '@';
+  sheet.getColumn(4).numFmt = '@';
   sheet.views = [{ state: 'frozen', ySplit: 2 }];
 
   defineConfigRanges(workbook, configSheet, spec);

@@ -31,7 +31,7 @@ function chemicalRow({
   supplierModel = 'IPA-99',
   isTestMaterial = '否'
 } = {}) {
-  return [prefix, number, name, '化材', subCategory, unit, packageType, '', '', supplier, supplierModel, isTestMaterial];
+  return [isTestMaterial, '化材', prefix, number, name, subCategory, unit, packageType, '', '', supplier, supplierModel];
 }
 
 function filmRow({
@@ -46,7 +46,7 @@ function filmRow({
   supplierModel = 'T100',
   isTestMaterial = '否'
 } = {}) {
-  return [prefix, number, name, '膜材', subCategory, unit, '', thickness, width, supplier, supplierModel, isTestMaterial];
+  return [isTestMaterial, '膜材', prefix, number, name, subCategory, unit, '', thickness, width, supplier, supplierModel];
 }
 
 test('import validation normalizes flexible product code input into the standard three-digit format', () => {
@@ -229,7 +229,7 @@ test('import validation surfaces a gentle warning when film default width is omi
 
 test('import validation ignores film-only columns for chemicals and chemical-only columns for films', () => {
   const chemical = validateImportRow(
-    ['J', '001', '异丙醇', '化材', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99', '否'],
+    ['否', '化材', 'J', '001', '异丙醇', '溶剂', 'L', '', '25', '1240', '国药', 'IPA-99'],
     0,
     subcategoriesByCategory
   );
@@ -252,12 +252,12 @@ test('import validation ignores film-only columns for chemicals and chemical-onl
 
 test('template inline hint row detection follows the current material import hint wording', () => {
   assert.equal(
-    isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '正式选填/测试必填', '是/否，空白=否']),
+    isTemplateInlineHintRow(['是/否，空白=否', '必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '正式料选填/测试料必填']),
     true
   );
   assert.equal(
     isTemplateInlineHintRow(['必填', '必填', '必填', '必填', '必填', '必填', '化材选填', '膜材必填', '膜材选填', '选填', '选填', '选填']),
-    true
+    false
   );
   assert.equal(
     isTemplateInlineHintRow(['两类必填', '两类必填', '两类必填', '两类必填', '两类必填', '化材选填 / 膜材留空', '膜材必填 / 化材留空', '膜材选填 / 化材留空', '两类选填', '两类选填']),

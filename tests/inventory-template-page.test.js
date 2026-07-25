@@ -28,6 +28,7 @@ test('app routes and material add page expose a page-level inventory template im
 test('inventory template import page only accepts xlsx uploads and keeps preview-submit workflow', () => {
   const pageJs = read('miniprogram/pages/material-add/template-import/index.js');
   const pageWxml = read('miniprogram/pages/material-add/template-import/index.wxml');
+  const pageWxss = read('miniprogram/pages/material-add/template-import/index.wxss');
   const pageJson = read('miniprogram/pages/material-add/template-import/index.json');
 
   assert.match(pageJson, /"navigationBarTitleText":\s*"模板导入入库"/);
@@ -55,10 +56,20 @@ test('inventory template import page only accepts xlsx uploads and keeps preview
   assert.doesNotMatch(pageJs, /另存为 CSV/);
   assert.doesNotMatch(pageJs, /兼容旧流程/);
 
+  assert.match(pageWxml, /import-info-card/);
+  assert.match(pageWxml, /import-action-list/);
+  assert.match(pageWxml, /import-action-card/);
+  assert.match(pageWxml, /使用说明/);
   assert.match(pageWxml, /最新模板（\.xlsx）/);
-  assert.match(pageWxml, /按模板填写后/);
+  assert.match(pageWxml, /单次最多导入/);
+  assert.match(pageWxml, /100 行/);
+  assert.match(pageWxml, /10 行\/批/);
+  assert.match(pageWxml, /继续重试未完成批次/);
+  assert.match(pageWxml, /每行一个标签编号，未知产品代码不能入库/);
+  assert.match(pageWxml, /测试料原厂型号必填/);
   assert.match(pageWxml, /直接上传 \.xlsx/);
-  assert.match(pageWxml, /选择填写完成的 \.xlsx 文件预览并导入/);
+  assert.match(pageWxml, /选择填写完成的 \.xlsx 文件预览并分批入库/);
+  assert.doesNotMatch(pageWxml, /<view class="px-20">/);
   assert.match(pageWxml, /标签编号/);
   assert.match(pageWxml, /物料名称/);
   assert.match(pageWxml, /子类别/);
@@ -69,6 +80,10 @@ test('inventory template import page only accepts xlsx uploads and keeps preview
   assert.match(pageWxml, /确认入库/);
   assert.doesNotMatch(pageWxml, /<scroll-view[^>]*class="preview-list"/);
   assert.doesNotMatch(pageWxml, /\.csv/);
+  assert.match(pageWxss, /\.import-info-content[\s\S]*padding-left:\s*0/);
+  assert.match(pageWxss, /\.import-action-list[\s\S]*gap:\s*12px/);
+  assert.match(pageWxss, /\.import-action-card[\s\S]*display:\s*flex/);
+  assert.match(pageWxss, /\.import-action-icon[\s\S]*flex:\s*0 0 40px/);
 });
 
 test('material import page only accepts xlsx uploads while preserving local preview validation', () => {
@@ -81,17 +96,19 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.match(pageJs, /fileContentBase64/);
   assert.match(pageJs, /extension:\s*\['xlsx'\]/);
   assert.match(pageJs, /sheetName:\s*'物料导入表'/);
-  assert.match(pageJs, /\['代码前缀', '产品编号', '物料名称', '类别'/);
+  assert.match(pageJs, /\['是否测试料', '类别', '代码前缀', '产品编号', '物料名称'/);
   assert.match(pageJs, /validateImportRow/);
   assert.match(pageJs, /applyImportDuplicateGuards/);
   assert.match(pageJs, /decorateImportPreviewRows/);
   assert.match(pageJs, /manageMaterial/);
   assert.match(pageJs, /batchCreate/);
   assert.match(pageJs, /MAX_IMPORT_ROWS\s*=\s*100/);
+  assert.match(pageWxml, /material-import-empty__desc/);
+  assert.match(pageWxml, /请导出并上传 \.xlsx 模板（最多100行）/);
   assert.match(pageJs, /单次最多导入 \$\{MAX_IMPORT_ROWS\} 条物料数据/);
   assert.match(pageJs, /测试料请使用已维护代码，填“是否测试料=是”，且原厂型号必填/);
-  assert.match(pageJs, /代码前缀\*：必填。请先填写类别，再选择该类别可用前缀/);
-  assert.match(pageJs, /\['J', '001', '异丙醇', '化材'/);
+  assert.match(pageJs, /代码前缀\*：必填。请先选择本行类别，再选择该类别可用前缀/);
+  assert.match(pageJs, /\['否', '化材', 'J', '001', '异丙醇'/);
   assert.doesNotMatch(pageJs, /'测试料必填'/);
   assert.match(pageJs, /原厂型号：正式物料选填；测试料必填，用于区分同一测试料产品代码下的不同样品/);
   assert.match(pageJs, /选择“是”时，本行会维护测试料型号，产品代码必须是已维护测试料代码/);
