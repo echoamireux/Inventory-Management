@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { assertActiveUserAccess } = require('./auth');
 const { writeAuditEvent } = require('./audit-events');
 const { buildContainsRegExp } = require('./search');
+const { handleCloudError } = require('./error-response');
 const {
   normalizeTemplateType,
   resolveTemplateCategory,
@@ -724,8 +725,14 @@ async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpen
       note: '标签 Excel 导出'
     });
   } catch (error) {
+    const exportFailureResponse = handleCloudError(error, {
+      scope: 'exportLabelData.generatePreprintLabels',
+      operationId: createResult.job_id,
+      fallbackMessage: '标签已生成，但 Excel 导出失败，请在最近打印批次中重新导出'
+    });
+    const exportFailureMessage = exportFailureResponse.msg;
     await updatePreprintJobExportState(createResult.job_id, operatorOpenid, 'failed', {
-      error: error.message || '标签 Excel 导出失败'
+      error: exportFailureMessage
     }).catch(() => {});
     const auditJob = await getPreprintJobById(createResult.job_id, operatorOpenid).catch(() => null);
     await writePreprintAudit('export_failed', auditJob || {
@@ -737,18 +744,19 @@ async function createAndExportPreprintJob(data = {}, operator = {}, operatorOpen
       material_name: createResult.records && createResult.records[0] && createResult.records[0].material_name,
       export_status: 'failed'
     }, operator, operatorOpenid, {
-      error: error.message || '标签 Excel 导出失败',
+      error: exportFailureMessage,
       note: '标签 Excel 导出失败'
     }).catch(() => {});
     return {
       success: false,
-      code: 'PREPRINT_EXPORT_FAILED',
+      code: exportFailureResponse.code || 'PREPRINT_EXPORT_FAILED',
       job_id: createResult.job_id,
       records: createResult.records,
       request_signature: createResult.request_signature,
       reused: !!createResult.reused,
       count: createResult.count,
-      msg: error.message || '标签已生成，但 Excel 导出失败，请在最近打印批次中重新导出'
+      request_id: exportFailureResponse.request_id,
+      msg: exportFailureMessage
     };
   }
 
@@ -815,9 +823,10 @@ async function exportPreprintJob(data = {}, operatorOpenid = '', operator = {}) 
       note: '标签 Excel 重新导出'
     });
   } catch (error) {
+    console.error('标签 Excel 重新导出失败', error);
     if (job) {
       await updatePreprintJobExportState(jobId, operatorOpenid, 'failed', {
-        error: error.message || '标签 Excel 导出失败'
+        error: '标签 Excel 导出失败'
       }).catch(() => {});
     }
     await writePreprintAudit('export_failed', job || {
@@ -829,7 +838,7 @@ async function exportPreprintJob(data = {}, operatorOpenid = '', operator = {}) 
       material_name: records[0] && records[0].material_name,
       export_status: 'failed'
     }, operator, operatorOpenid, {
-      error: error.message || '标签 Excel 导出失败',
+      error: '标签 Excel 导出失败',
       note: '标签 Excel 导出失败'
     }).catch(() => {});
     throw error;
@@ -991,7 +1000,11 @@ async function voidPreprintLabels(data = {}, operatorOpenid = '', operator = {})
         return { success: true, count: Number(job.count) || 0, msg: '本批标签已作废' };
       }
     } catch (error) {
-      return { success: false, msg: error.message };
+      return handleCloudError(error, {
+        scope: 'exportLabelData.voidPreprintLabels',
+        operationId: jobId,
+        fallbackMessage: '作废预生成标签失败，请稍后重试'
+      });
     }
 
     const expectedRecords = buildPreprintJobRecords(job);
@@ -1173,7 +1186,7 @@ async function getPreprintLabel(data = {}) {
         return {
           success: false,
           status: job.status,
-          msg: error.message
+          msg: String(error && error.message || '预生成标签批次状态异常')
         };
       }
     }
@@ -1344,11 +1357,10 @@ exports.main = async (event, context) => {
       msg: '未知操作'
     };
   } catch (error) {
-    console.error('导出信息标签失败', error);
-    return {
-      success: false,
-      code: error.code,
-      msg: error.message || '导出失败'
-    };
+    return handleCloudError(error, {
+      scope: 'exportLabelData',
+      operationId: event && (event.operation_id || event.request_id),
+      fallbackMessage: '标签导出失败，请稍后重试'
+    });
   }
 };

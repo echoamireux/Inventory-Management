@@ -14,6 +14,7 @@ const {
   normalizeTestMaterialLabelName,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialIdentityRecord,
+  buildSimilarSupplierModelKey,
   findTestMaterialIdentityConflict
 } = require('./test-material-identities');
 const {
@@ -87,15 +88,40 @@ async function loadMaterialForIdentity(source = {}, collectionOwner = db) {
   return material;
 }
 
-async function loadRelatedIdentities(category, productCode, collectionOwner = db) {
-  const res = await collectionOwner.collection('test_material_identities')
-    .where({
-      category,
-      product_code: productCode
-    })
-    .limit(100)
-    .get();
-  return res.data || [];
+async function loadConflictCandidateIdentities(candidate = {}, collectionOwner = db) {
+  const normalized = normalizeTestMaterialIdentityRecord(candidate);
+  const rows = [];
+
+  if (normalized.identity_key) {
+    const exactRes = await collectionOwner.collection('test_material_identities')
+      .where({ identity_key: normalized.identity_key })
+      .limit(1)
+      .get();
+    rows.push(...(exactRes.data || []));
+  }
+
+  const similarKey = normalized.similar_key || buildSimilarSupplierModelKey(normalized.supplier_model_key);
+  if (normalized.category && normalized.product_code && similarKey) {
+    const similarRes = await collectionOwner.collection('test_material_identities')
+      .where({
+        category: normalized.category,
+        product_code: normalized.product_code,
+        similar_key: similarKey
+      })
+      .limit(20)
+      .get();
+    rows.push(...(similarRes.data || []));
+  }
+
+  const seen = new Set();
+  return rows.filter((item) => {
+    const key = item && (item._id || item.identity_key);
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 async function loadSubcategoryContext(category = '', collectionOwner = db) {
@@ -284,7 +310,7 @@ async function createIdentity(event, openid) {
     return { success: false, msg: '请输入原厂型号' };
   }
 
-  const related = await loadRelatedIdentities(candidate.category, candidate.product_code);
+  const related = await loadConflictCandidateIdentities(candidate);
   const conflict = findTestMaterialIdentityConflict(related, candidate);
   if (conflict.type === 'exact') {
     return { success: false, msg: '该测试料原厂型号已存在' };
@@ -311,6 +337,7 @@ async function createIdentity(event, openid) {
     supplier_model: candidate.supplier_model,
     supplier_model_key: candidate.supplier_model_key,
     identity_key: candidate.identity_key,
+    similar_key: candidate.similar_key,
     status: 'active',
     created_by: openid,
     updated_by: openid,
@@ -400,7 +427,7 @@ async function updateIdentity(event, openid) {
     return { success: false, msg: '请输入原厂型号' };
   }
 
-  const related = await loadRelatedIdentities(candidate.category, candidate.product_code);
+  const related = await loadConflictCandidateIdentities(candidate);
   const conflict = findTestMaterialIdentityConflict(
     related.filter(item => item._id !== oldRecord._id),
     candidate
@@ -429,6 +456,7 @@ async function updateIdentity(event, openid) {
     supplier_model: candidate.supplier_model,
     supplier_model_key: candidate.supplier_model_key,
     identity_key: candidate.identity_key,
+    similar_key: candidate.similar_key,
     updated_by: openid,
     updated_at: db.serverDate()
   };

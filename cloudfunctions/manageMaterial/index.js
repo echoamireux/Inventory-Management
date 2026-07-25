@@ -28,6 +28,7 @@ const {
   normalizeTestMaterialLabelName,
   normalizeTestMaterialSupplierModel,
   normalizeTestMaterialIdentityRecord,
+  buildSimilarSupplierModelKey,
   findTestMaterialIdentityConflict
 } = require('./test-material-identities');
 
@@ -528,6 +529,7 @@ function buildBatchTestMaterialIdentityRecord(prepared, material, openid, operat
     supplier_model: candidate.supplier_model,
     supplier_model_key: candidate.supplier_model_key,
     identity_key: candidate.identity_key,
+    similar_key: candidate.similar_key,
     status: 'active',
     created_by: openid,
     updated_by: openid,
@@ -569,14 +571,15 @@ async function createBatchTestMaterialIdentityWithAudit({ prepared, openid, oper
       };
     }
 
-    const relatedRes = await transaction.collection('test_material_identities')
+    const similarRes = await transaction.collection('test_material_identities')
       .where({
         category: identityData.category,
-        product_code: identityData.product_code
+        product_code: identityData.product_code,
+        similar_key: identityData.similar_key || buildSimilarSupplierModelKey(identityData.supplier_model_key)
       })
-      .limit(100)
+      .limit(20)
       .get();
-    const conflict = findTestMaterialIdentityConflict(relatedRes.data || [], identityData);
+    const conflict = findTestMaterialIdentityConflict(similarRes.data || [], identityData);
     if (conflict.type === 'similar') {
       throw new Error(`已存在相似型号 ${conflict.record.supplier_model}，请先在测试料型号库确认后再导入`);
     }

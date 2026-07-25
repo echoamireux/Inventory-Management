@@ -85,6 +85,7 @@ cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/importInventoryTe
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/updateInventory/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/addMaterialRequest/operation-receipts.js
 cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/submitInventoryCorrectionRequest/operation-receipts.js
+cp cloudfunctions/_shared/operation-receipts.js cloudfunctions/approveMaterialRequest/operation-receipts.js
 
 echo "   -> Updating audit-events.js..."
 cp cloudfunctions/_shared/audit-events.js cloudfunctions/addMaterial/audit-events.js
@@ -112,6 +113,9 @@ cp cloudfunctions/_shared/error-response.js cloudfunctions/importInventoryTempla
 cp cloudfunctions/_shared/error-response.js cloudfunctions/updateInventory/error-response.js
 cp cloudfunctions/_shared/error-response.js cloudfunctions/addMaterialRequest/error-response.js
 cp cloudfunctions/_shared/error-response.js cloudfunctions/submitInventoryCorrectionRequest/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/approveMaterialRequest/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/approveInventoryCorrectionRequest/error-response.js
+cp cloudfunctions/_shared/error-response.js cloudfunctions/exportLabelData/error-response.js
 cp cloudfunctions/_shared/error-response.js cloudfunctions/manageProjectCode/error-response.js
 cp cloudfunctions/_shared/error-response.js cloudfunctions/manageSubcategory/error-response.js
 cp cloudfunctions/_shared/error-response.js cloudfunctions/addWarehouseZone/error-response.js

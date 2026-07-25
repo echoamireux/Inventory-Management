@@ -31,7 +31,8 @@ const {
 const { writeInventoryAuditEvent } = require('./audit-events');
 const { handleCloudError } = require('./error-response');
 const {
-  normalizeTestMaterialSupplierModel
+  normalizeTestMaterialSupplierModel,
+  loadTestMaterialIdentityForSelection
 } = require('./test-material-identities');
 
 cloud.init({
@@ -70,28 +71,6 @@ function assertInventoryWriteAccess(operator, message) {
 
 function normalizeText(value) {
   return String(value === undefined || value === null ? '' : value).trim();
-}
-
-async function loadTestMaterialIdentitiesForMaterials(materials = []) {
-  const productCodes = Array.from(new Set(
-    (materials || [])
-      .filter(item => item && item.is_test_material)
-      .map(item => normalizeText(item.product_code))
-      .filter(Boolean)
-  ));
-  if (!productCodes.length) {
-    return [];
-  }
-
-  const rows = [];
-  for (let index = 0; index < productCodes.length; index += 50) {
-    const codes = productCodes.slice(index, index + 50);
-    const res = await db.collection('test_material_identities').where({
-      product_code: _.in(codes)
-    }).get();
-    rows.push(...(res.data || []));
-  }
-  return rows;
 }
 
 function normalizePositiveSpec(value) {
@@ -218,22 +197,6 @@ exports.main = async (event, context) => {
       film: buildZoneMap(filterZoneRecordsByCategory(zoneRecords, 'film'))
     };
 
-    const testMaterialIdentities = await loadTestMaterialIdentitiesForMaterials(Array.from(materialMap.values()));
-    const preparedItems = items.map((item, index) => {
-      const prepared = buildBatchInventoryPayload(item, materialMap.get(item.material_id), index, {
-        testMaterialIdentities
-      });
-      const category = prepared.inventoryData.category === 'film' ? 'film' : 'chemical';
-      const locationPayload = buildInventoryLocationPayload({
-        zoneKey: item && item.zone_key,
-        locationDetailKey: item && item.location_detail_key,
-        locationDetail: item && item.location_detail
-      }, zoneMaps[category], detailMapByZone);
-
-      prepared.inventoryData = Object.assign({}, prepared.inventoryData, locationPayload);
-      return prepared;
-    });
-
     return await db.runTransaction(async transaction => {
       const transactionOperator = await loadTransactionOperator(transaction, OPENID, operator);
       const transactionAuthResult = assertInventoryWriteAccess(transactionOperator, '用户状态或角色已变化，请重新登录后重试');
@@ -248,8 +211,24 @@ exports.main = async (event, context) => {
       const ids = [];
       const preprintJobUsageCounts = new Map();
 
-      for (let i = 0; i < preparedItems.length; i += 1) {
-        const prepared = preparedItems[i];
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        const material = materialMap.get(item && item.material_id);
+        const identityValidation = await loadTestMaterialIdentityForSelection(transaction, material, item);
+        if (!identityValidation.ok) {
+          throw new Error(`第${i + 1}条${identityValidation.msg}`);
+        }
+        const prepared = buildBatchInventoryPayload(item, material, i, {
+          testMaterialIdentities: material && material.is_test_material ? [identityValidation] : []
+        });
+        const category = prepared.inventoryData.category === 'film' ? 'film' : 'chemical';
+        const locationPayload = buildInventoryLocationPayload({
+          zoneKey: item && item.zone_key,
+          locationDetailKey: item && item.location_detail_key,
+          locationDetail: item && item.location_detail
+        }, zoneMaps[category], detailMapByZone);
+
+        prepared.inventoryData = Object.assign({}, prepared.inventoryData, locationPayload);
         const inventoryData = Object.assign({}, prepared.inventoryData, {
           create_time: db.serverDate(),
           update_time: db.serverDate()

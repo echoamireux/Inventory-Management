@@ -315,7 +315,7 @@ test('preprint job resumes partial label writes and keeps request idempotency', 
     console.error = originalError;
   }
   assert.equal(interrupted.success, false);
-  assert.match(interrupted.msg, /模拟标签分片写入中断/);
+  assert.match(interrupted.msg, /标签导出失败，请稍后重试/);
   assert.equal(memory.collections.get('preprint_jobs').size, 1);
   const creatingJob = Array.from(memory.collections.get('preprint_jobs').values())[0];
   assert.equal(creatingJob.status, 'creating');
@@ -625,7 +625,7 @@ test('preprint export does not return a file when the job starts voiding during 
   });
 
   assert.equal(result.success, false);
-  assert.equal(result.code, 'PREPRINT_EXPORT_FAILED');
+  assert.equal(result.code, 'PREPRINT_JOB_STATE_CHANGED');
   assert.match(result.msg, /状态已变化|作废/);
   const job = Array.from(memory.collections.get('preprint_jobs').values())[0];
   assert.equal(job.status, 'voiding');

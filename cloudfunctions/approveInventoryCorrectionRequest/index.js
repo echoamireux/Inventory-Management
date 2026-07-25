@@ -15,6 +15,7 @@ const {
   markOperationReceiptFailed
 } = require('./operation-receipts');
 const { writeAuditEvent, writeInventoryAuditEvent } = require('./audit-events');
+const { handleCloudError } = require('./error-response');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -279,7 +280,10 @@ exports.main = async (event, context) => {
 
     return result;
   } catch (err) {
-    console.error('ApproveInventoryCorrectionRequest Error:', err);
-    return { success: false, msg: '操作失败: ' + err.message };
+    return handleCloudError(err, {
+      scope: 'approveInventoryCorrectionRequest',
+      operationId: event && event.operation_id,
+      fallbackMessage: '审批库存纠错失败，请稍后重试'
+    });
   }
 };

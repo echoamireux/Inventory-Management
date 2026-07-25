@@ -970,6 +970,8 @@ test('approval center material request cards surface the requested default unit'
 test('approveMaterialRequest writes request default unit into the formal material record', async () => {
   let insertedMaterial = null;
   let updatedRequest = null;
+  let materialAddCount = 0;
+  const receipts = new Map();
 
   const db = {
     serverDate() {
@@ -986,6 +988,9 @@ test('approveMaterialRequest writes request default unit into the formal materia
         return {
           where() {
             return {
+              limit() {
+                return this;
+              },
               async get() {
                 return {
                   data: [{ role: 'admin', status: 'active', name: '审批管理员' }]
@@ -1038,12 +1043,16 @@ test('approveMaterialRequest writes request default unit into the formal materia
             };
           },
           async add({ data }) {
+            materialAddCount += 1;
             insertedMaterial = data;
             return { _id: 'mat-1' };
           }
         };
       }
 
+      if (name === 'operation_receipts') {
+        return createOperationReceiptCollection(receipts);
+      }
       if (name === 'audit_events') { return { async add() { return { _id: 'audit-test-id' }; } }; }
       throw new Error(`unexpected collection: `);
     }
@@ -1096,14 +1105,22 @@ test('approveMaterialRequest writes request default unit into the formal materia
 
   const result = await mod.main({
     request_id: 'req-1',
-    action: 'approve'
+    action: 'approve',
+    operation_id: 'approve:req-1:001'
+  });
+  const retryResult = await mod.main({
+    request_id: 'req-1',
+    action: 'approve',
+    operation_id: 'approve:req-1:001'
   });
 
   assert.equal(result.success, true);
+  assert.deepEqual(retryResult, result);
   assert.ok(insertedMaterial);
   assert.equal(insertedMaterial.default_unit, 'kg');
   assert.equal(insertedMaterial.status, 'active');
   assert.equal(updatedRequest.status, 'approved');
+  assert.equal(materialAddCount, 1);
 });
 
 test('my-requests loads only current applicant records through the cloud function path', async () => {

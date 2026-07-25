@@ -86,6 +86,10 @@ test('test material identity validation depends on material master flag, not pro
     }),
     {
       ok: true,
+      identity_key: 'chemical::J-001::A-100',
+      category: 'chemical',
+      product_code: 'J-001',
+      status: 'active',
       supplier: '供应商A',
       label_material_name: '环氧树脂样品',
       material_name: '环氧树脂样品',
@@ -104,6 +108,56 @@ test('test material identity validation depends on material master flag, not pro
     }).msg,
     /未启用/
   );
+});
+
+test('test material identity selection uses exact identity lookup for write paths', async () => {
+  const {
+    loadTestMaterialIdentityForSelection
+  } = require('../cloudfunctions/_shared/test-material-identities');
+  let capturedWhere = null;
+  const collectionOwner = {
+    collection(name) {
+      assert.equal(name, 'test_material_identities');
+      return {
+        where(condition) {
+          capturedWhere = condition;
+          return this;
+        },
+        limit(value) {
+          assert.equal(value, 1);
+          return this;
+        },
+        async get() {
+          return {
+            data: [{
+              category: 'chemical',
+              product_code: 'J-999',
+              identity_key: 'chemical::J-999::MODEL-101',
+              label_material_name: '第101个测试料',
+              subcategory_key: 'builtin:chemical:test',
+              sub_category: '测试料',
+              supplier_model: 'MODEL-101',
+              supplier_model_key: 'MODEL-101',
+              supplier: '供应商101',
+              status: 'active'
+            }]
+          };
+        }
+      };
+    }
+  };
+
+  const result = await loadTestMaterialIdentityForSelection(
+    collectionOwner,
+    { category: 'chemical', product_code: 'J-999', is_test_material: true },
+    { supplier_model: 'MODEL-101' }
+  );
+
+  assert.deepEqual(capturedWhere, { identity_key: 'chemical::J-999::MODEL-101' });
+  assert.equal(result.ok, true);
+  assert.equal(result.identity_key, 'chemical::J-999::MODEL-101');
+  assert.equal(result.label_material_name, '第101个测试料');
+  assert.equal(result.supplier, '供应商101');
 });
 
 test('test material identity records reject exact duplicates and flag similar values for admin confirmation', () => {
@@ -332,7 +386,9 @@ test('test material identity enforcement reaches labels, stock-in and inventory 
   const labelPreprint = read('cloudfunctions/exportLabelData/preprint-labels.js');
   const addMaterial = read('cloudfunctions/addMaterial/index.js');
   const batchAdd = read('cloudfunctions/batchAddInventory/batch-add.js');
+  const batchAddIndex = read('cloudfunctions/batchAddInventory/index.js');
   const importTemplate = read('cloudfunctions/importInventoryTemplate/inventory-import.js');
+  const importTemplateIndex = read('cloudfunctions/importInventoryTemplate/index.js');
   const updateInventory = read('cloudfunctions/updateInventory/index.js');
   const manageIdentity = read('cloudfunctions/manageTestMaterialIdentity/index.js');
   const identityService = read('miniprogram/utils/test-material-identity-service.js');
@@ -349,11 +405,17 @@ test('test material identity enforcement reaches labels, stock-in and inventory 
   assert.match(batchAdd, /supplier_model_key/);
   assert.match(batchAdd, /label_material_name/);
   assert.match(batchAdd, /requestedSupplier \|\| identityValidation\.supplier/);
+  assert.match(batchAddIndex, /loadTestMaterialIdentityForSelection\(transaction,\s*material,\s*item\)/);
+  assert.doesNotMatch(batchAddIndex, /loadTestMaterialIdentitiesForMaterials/);
   assert.match(importTemplate, /supplier_model_key/);
   assert.match(importTemplate, /label_material_name/);
   assert.match(importTemplate, /row\.supplier = identityValidation\.supplier/);
+  assert.match(importTemplateIndex, /loadTestMaterialIdentitiesByIdentityKeys/);
+  assert.match(importTemplateIndex, /loadTestMaterialIdentityForSelection\(transaction,\s*material,\s*item\)/);
+  assert.doesNotMatch(importTemplateIndex, /loadTestMaterialIdentitiesByProductCodes/);
   assert.match(updateInventory, /supplier_model_key/);
   assert.match(manageIdentity, /\{ supplier: searchRegex \}/);
+  assert.match(manageIdentity, /similar_key:\s*similarKey/);
   assert.match(manageIdentity, /supplier:\s*candidate\.supplier/);
   assert.match(identityService, /const supplier = normalizeTestMaterialSupplier\(item\.supplier\)/);
   assert.match(identityService, /supplier,/);

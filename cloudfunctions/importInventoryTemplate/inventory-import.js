@@ -1446,6 +1446,7 @@ module.exports = {
   isInventoryTemplateInlineHintRow,
   validateInventoryTemplateHeaderRows,
   normalizeInventoryCategoryText,
+  normalizeProductCodeInput,
   normalizeLabelCodeInput,
   collectInventoryImportLookupKeys,
   buildZoneMapsByCategory,

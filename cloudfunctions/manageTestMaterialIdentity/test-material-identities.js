@@ -161,6 +161,10 @@ function validateTestMaterialIdentitySelection({
 
   return {
     ok: true,
+    identity_key: matched.identity_key || identityKey,
+    category: matched.category || category,
+    product_code: matched.product_code || productCode,
+    status: matched.status,
     supplier: matched.supplier,
     label_material_name: matched.label_material_name,
     material_name: matched.label_material_name || matched.material_name,

@@ -74,6 +74,7 @@ test('README documents production permissions, required indexes and retired clou
     'warehouse_zones.zone_key',
     'inventory.material_id + status',
     'operation_receipts.operator_id + created_at desc',
+    'test_material_identities.category + product_code + similar_key',
     'audit_events.timestamp desc',
     'audit_events.actor_id + timestamp desc',
     'audit_events.domain + timestamp desc',
@@ -127,16 +128,59 @@ test('deployment preflight script verifies cloud functions, shared copies and st
 test('release gates reject placeholder environments and declare concurrency and FEFO indexes', () => {
   const appSource = read('miniprogram/app.js');
   const releaseCheck = read('scripts/release-check.js');
+  const readinessExample = JSON.parse(read('scripts/release-readiness.example.json'));
   const readme = read('README.md');
 
   assert.match(appSource, /REPLACE_WITH_WECHAT_CLOUD_ENV_ID/);
+  for (const requiredCollection of [
+    'preprinted_labels',
+    'preprint_jobs',
+    'preprint_daily_usage',
+    'system_counters',
+    'test_material_identities',
+    'warehouse_location_details'
+  ]) {
+    assert.equal(releaseCheck.includes(requiredCollection), true, `release-check missing ${requiredCollection}`);
+    assert.equal(readinessExample.collections[requiredCollection], false, `readiness example missing ${requiredCollection}`);
+  }
   for (const requiredIndex of [
     'material_requests.product_code + status',
     'inventory_correction_requests.source_log_id + status',
     'inventory.product_code + status + expiry_date + create_time + _id',
+    'test_material_identities.identity_key',
+    'test_material_identities.product_code + status + supplier_model_key',
+    'test_material_identities.material_id + status + updated_at desc',
+    'test_material_identities.category + product_code + similar_key',
+    'preprinted_labels.unique_code',
+    'preprint_jobs.operator_id + created_at desc',
+    'operation_receipts.operator_id + created_at desc',
     'audit_events.timestamp desc + _id desc'
   ]) {
     assert.equal(releaseCheck.includes(requiredIndex), true, `release-check missing ${requiredIndex}`);
+    assert.equal(readinessExample.indexes[requiredIndex], false, `readiness example missing ${requiredIndex}`);
     assert.equal(readme.includes(requiredIndex), true, `README missing ${requiredIndex}`);
+  }
+});
+
+test('critical release cloud functions mask unknown technical errors', () => {
+  for (const relPath of [
+    'cloudfunctions/exportLabelData/index.js',
+    'cloudfunctions/approveMaterialRequest/index.js',
+    'cloudfunctions/approveInventoryCorrectionRequest/index.js'
+  ]) {
+    const source = read(relPath);
+    assert.match(source, /handleCloudError/, `${relPath} should use shared error response helper`);
+    assert.doesNotMatch(source, /msg:\s*['"`]操作失败:\s*['"`]\s*\+\s*(err|error)\.message/);
+    assert.doesNotMatch(source, /msg:\s*(err|error)\.message\s*\|\|/);
+  }
+
+  const syncScript = read('cloudfunctions/sync_shared.sh');
+  for (const expectedCopy of [
+    'cloudfunctions/approveMaterialRequest/operation-receipts.js',
+    'cloudfunctions/approveMaterialRequest/error-response.js',
+    'cloudfunctions/approveInventoryCorrectionRequest/error-response.js',
+    'cloudfunctions/exportLabelData/error-response.js'
+  ]) {
+    assert.match(syncScript, new RegExp(expectedCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 });

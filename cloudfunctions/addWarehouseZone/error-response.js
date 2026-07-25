@@ -1,4 +1,4 @@
-const PUBLIC_BUSINESS_PREFIX = /^(第\d+条|仅|缺少|请输入|请选择|必须|过期|标签编号|预生成标签|与预生成|产品代码|物料|膜材|化材|库存|项目编码|项目用料|用户状态|状态仅|测试料|库区|详细坐标|该|同一|已有|存在|未找到|至少|冲突|操作编号|申请|前缀|单次|单个|领用|导入|没有|不支持|当前|所选|纠错)/;
+const PUBLIC_BUSINESS_PREFIX = /^(第\d+条|仅|缺少|请输入|请选择|必须|过期|标签|预生成标签|本批|每人|10 分钟|与预生成|产品代码|物料|膜材|化材|库存|项目编码|项目用料|用户状态|状态仅|测试料|库区|详细坐标|该|同一|已有|存在|未找到|至少|冲突|操作编号|申请|前缀|单次|单个|领用|导入|没有|不支持|当前|所选|纠错)/;
 const TECHNICAL_DETAIL = /(database|collection|document|mongodb|mongoerror|stack|sdk|econn|timeout|timed out|network|internal|unexpected|undefined|null|duplicate key|index\s|数据库|集合|索引|调用栈)/i;
 
 function normalizeText(value) {

@@ -11,7 +11,9 @@ const {
   isInventoryTemplateInlineHintRow,
   validateInventoryTemplateHeaderRows,
   buildEmptyInventoryTemplatePreviewResult,
+  normalizeInventoryCategoryText,
   normalizeLabelCodeInput,
+  normalizeProductCodeInput,
   collectInventoryImportLookupKeys,
   buildZoneMapsByCategory,
   buildLocationDetailMapByZone,
@@ -35,7 +37,9 @@ const {
 const { writeInventoryAuditEvent } = require('./audit-events');
 const { handleCloudError } = require('./error-response');
 const {
-  validateTestMaterialIdentitySelection
+  buildTestMaterialIdentityKey,
+  buildTestMaterialSupplierModelKey,
+  loadTestMaterialIdentityForSelection
 } = require('./test-material-identities');
 
 cloud.init({
@@ -195,18 +199,66 @@ async function loadPreprintLabelsByUniqueCodes(uniqueCodes = []) {
   );
 }
 
-async function loadTestMaterialIdentitiesByProductCodes(productCodes = []) {
+async function loadTestMaterialIdentitiesByIdentityKeys(identityKeys = []) {
   const rows = [];
-  for (const codes of chunkArray(productCodes, 50)) {
-    if (!codes.length) {
+  const uniqueKeys = Array.from(new Set(
+    (identityKeys || []).map(item => String(item || '').trim()).filter(Boolean)
+  ));
+  for (const keys of chunkArray(uniqueKeys, 50)) {
+    if (!keys.length) {
       continue;
     }
     const res = await db.collection('test_material_identities').where({
-      product_code: _.in(codes)
+      identity_key: _.in(keys)
     }).get();
     rows.push(...(res.data || []));
   }
   return rows;
+}
+
+function collectTestMaterialIdentityKeysForRows(rows = [], context = {}) {
+  const materialsByCode = context.materialsByCode || new Map();
+  const preprintLabelsByUniqueCode = context.preprintLabelsByUniqueCode || new Map();
+  const identityKeys = [];
+
+  for (const row of rows) {
+    const values = row && Array.isArray(row.values) ? row.values : [];
+    if (!values.length) {
+      continue;
+    }
+    const category = normalizeInventoryCategoryText(values[3]);
+    if (!category) {
+      continue;
+    }
+    const normalizedCode = normalizeProductCodeInput(
+      category,
+      values[2],
+      values[1],
+      context.productCodePrefixes
+    );
+    if (!normalizedCode.ok) {
+      continue;
+    }
+    const material = materialsByCode.get(normalizedCode.product_code);
+    if (!material || !material.is_test_material) {
+      continue;
+    }
+    const uniqueCode = normalizeLabelCodeInput(values[0]);
+    const preprintLabel = uniqueCode ? preprintLabelsByUniqueCode.get(uniqueCode) : null;
+    const supplierModelKey = buildTestMaterialSupplierModelKey(
+      values[13] || (preprintLabel && preprintLabel.supplier_model)
+    );
+    const identityKey = buildTestMaterialIdentityKey({
+      category: material.category || category,
+      product_code: material.product_code || normalizedCode.product_code,
+      supplier_model_key: supplierModelKey
+    });
+    if (identityKey) {
+      identityKeys.push(identityKey);
+    }
+  }
+
+  return Array.from(new Set(identityKeys));
 }
 
 async function loadPreprintLabelByUniqueCode(transaction, uniqueCode) {
@@ -457,18 +509,22 @@ async function previewRows(rawRows = [], templateMeta = null) {
     preprintLabelsByUniqueCode,
     zoneRecords,
     locationDetailRecords,
-    currentInventoryByProductCode,
-    testMaterialIdentities
+    currentInventoryByProductCode
   ] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
     loadPreprintLabelsByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
     loadActiveLocationDetailRecords(),
-    loadCurrentInStockInventoryByCodes(lookupKeys.productCodes),
-    loadTestMaterialIdentitiesByProductCodes(lookupKeys.productCodes)
+    loadCurrentInStockInventoryByCodes(lookupKeys.productCodes)
   ]);
   const existingUniqueCodes = new Set(existingInventoryByUniqueCode.keys());
+  const testMaterialIdentityKeys = collectTestMaterialIdentityKeysForRows(rows, {
+    materialsByCode,
+    preprintLabelsByUniqueCode,
+    productCodePrefixes
+  });
+  const testMaterialIdentities = await loadTestMaterialIdentitiesByIdentityKeys(testMaterialIdentityKeys);
 
   const decorated = decorateInventoryImportPreviewRows(rows.map(row => buildInventoryImportPreviewRow(row, {
     materialsByCode,
@@ -523,12 +579,11 @@ async function submitRows(items = [], openid, operatorName, operationId) {
     uniqueCodes: Array.from(new Set(normalizedItems.map(item => String(item.unique_code || '').trim()).filter(Boolean)))
   };
 
-  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, locationDetailRecords, testMaterialIdentities] = await Promise.all([
+  const [materialsByCode, existingInventoryByUniqueCode, zoneRecords, locationDetailRecords] = await Promise.all([
     loadMaterialsByCodes(lookupKeys.productCodes),
     loadExistingInventoryByUniqueCodes(lookupKeys.uniqueCodes),
     loadActiveZoneRecords(),
-    loadActiveLocationDetailRecords(),
-    loadTestMaterialIdentitiesByProductCodes(lookupKeys.productCodes)
+    loadActiveLocationDetailRecords()
   ]);
   const zoneMapsByCategory = buildZoneMapsByCategory(zoneRecords);
   const locationDetailMapByZone = buildLocationDetailMapByZone(locationDetailRecords);
@@ -603,11 +658,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       ) {
         throw new Error(`产品代码 ${item.product_code || ''} 未启用或主数据已变化，请刷新后重试`);
       }
-      const identityValidation = validateTestMaterialIdentitySelection({
-        material,
-        source: item,
-        identities: testMaterialIdentities
-      });
+      const identityValidation = await loadTestMaterialIdentityForSelection(transaction, material, item);
       if (!identityValidation.ok) {
         throw new Error(`第${Number(item.rowIndex) || 0}行${identityValidation.msg}`);
       }
@@ -687,7 +738,7 @@ async function submitRows(items = [], openid, operatorName, operationId) {
       assertPreprintJobConsumable(preprintJob);
       const payload = buildInventoryImportPayload(item, material, {
         preprintLabel,
-        testMaterialIdentities
+        testMaterialIdentities: material.is_test_material ? [identityValidation] : []
       });
 
       if (payload.masterSpecBackfill && Object.keys(payload.masterSpecBackfill).length > 0) {

@@ -386,6 +386,7 @@ npm run release:check
 | `test_material_identities` | `test_material_identities.identity_key` | 唯一索引，升序 | 确保同一测试料代码壳下的同一规范原厂型号不重复 |
 | `test_material_identities` | `test_material_identities.product_code + status + supplier_model_key` | 复合索引，升序 + 升序 + 升序 | 支持测试料入库、预打印和领用按产品代码快速校验启用型号 |
 | `test_material_identities` | `test_material_identities.material_id + status + updated_at desc` | 复合索引，升序 + 升序 + 降序 | 支持业务页按测试料主数据加载可选型号 |
+| `test_material_identities` | `test_material_identities.category + product_code + similar_key` | 复合索引，升序 + 升序 + 升序 | 支持新增和导入测试料型号时检查大小写、空格差异造成的相似型号 |
 | `preprinted_labels` | `preprinted_labels.unique_code` | 唯一索引，升序 | 确保预生成标签编号全库唯一，防止预打印重复发号 |
 | `preprinted_labels` | `preprinted_labels.operator_id + create_time desc` | 复合索引，升序 + 降序 | 支持标签打印页按本人最近批次倒序加载 |
 | `preprinted_labels` | `preprinted_labels.job_id + operator_id` | 复合索引，升序 + 升序 | 支持重新导出、恢复查看和作废指定预生成批次 |
