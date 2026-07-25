@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/test-material-identity-contracts.md", "reason": "测试料代码壳、型号库、入库和标签快照契约"}
+{"file": ".trellis/spec/frontend/search-ux-contracts.md", "reason": "搜索和测试料型号选择器分页契约"}
+{"file": "cloudfunctions/_shared/test-material-identities.js", "reason": "测试料身份规范化与精确校验 helper"}
+{"file": "scripts/release-check.js", "reason": "正式上线 readiness 闸门"}

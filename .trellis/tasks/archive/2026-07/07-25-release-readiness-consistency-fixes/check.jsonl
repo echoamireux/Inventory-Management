@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "tests/test-material-identities.test.js", "reason": "测试料型号契约回归"}
+{"file": "tests/inventory-template-import.test.js", "reason": "库存模板导入回归"}
+{"file": "tests/batch-add.test.js", "reason": "批量入库回归"}
+{"file": "tests/deployment-hardening.test.js", "reason": "发布检查和 README 闸门回归"}
