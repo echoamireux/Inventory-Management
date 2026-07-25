@@ -243,7 +243,7 @@ async function writeMaterialAuditEvent(collectionOwner, openid, logData = {}) {
   await writeAuditEvent(collectionOwner, db, {
     domain: 'material',
     action: logData.action || 'change',
-    actorId: openid,
+    operator: Object.assign({}, logData.operator || {}, { _openid: openid }),
     target: {
       type: 'material',
       id: logData.material_id || '',
@@ -478,7 +478,7 @@ async function loadMaterialByProductCode(collectionOwner, productCode) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
-async function createBatchMaterialWithAudit(newMaterial, openid) {
+async function createBatchMaterialWithAudit(newMaterial, openid, operator) {
   return runMaterialTransaction(async (transaction) => {
     const exists = await materialExistsByProductCode(transaction, newMaterial.product_code);
     if (exists) {
@@ -493,7 +493,8 @@ async function createBatchMaterialWithAudit(newMaterial, openid) {
       material_id: res._id,
       product_code: newMaterial.product_code,
       action: 'create',
-      changes: newMaterial
+      changes: newMaterial,
+      operator
     });
 
     return {
@@ -990,7 +991,8 @@ async function createMaterial(data, openid) {
       material_id: addRes._id,
       product_code: normalizedCode.product_code,
       action: 'create',
-      changes: newMaterial
+      changes: newMaterial,
+      operator: authResult.operator
     });
     return addRes;
   });
@@ -1115,7 +1117,8 @@ async function updateMaterial(data, openid) {
       product_code: updateData.product_code || currentData.product_code,
       action: 'update',
       old_data: committedOldData,
-      new_data: updateData
+      new_data: updateData,
+      operator: authResult.operator
     });
   });
 
@@ -1162,7 +1165,8 @@ async function archiveMaterial(data, openid) {
       product_code: oldRes.data.product_code,
       action: 'archive',
       old_data: oldRes.data,
-      new_data: { status: 'archived' }
+      new_data: { status: 'archived' },
+      operator: authResult.operator
     });
   });
 
@@ -1293,7 +1297,7 @@ async function batchCreateMaterials(data, openid) {
           created_at: now,
           updated_by: openid,
           updated_at: now
-        }, openid);
+        }, openid, authResult.operator);
       if (createOutcome.status === 'skipped') {
         tracker.recordSkipped(rowIndex, normalizedCode, createOutcome.reason);
         continue;
@@ -1315,7 +1319,8 @@ async function batchCreateMaterials(data, openid) {
   try {
     await writeMaterialAuditEvent(db, openid, {
       action: 'batch_create',
-      changes: { total: items.length, created, skipped, errors }
+      changes: { total: items.length, created, skipped, errors },
+      operator: authResult.operator
     });
   } catch (err) {
     console.error('批量物料导入汇总审计写入失败:', err);
@@ -1399,7 +1404,8 @@ async function batchDeleteMaterials(data, openid) {
             new_data: {
               status: 'archived',
               archive_reason: archive_reason || '批量删除归档'
-            }
+            },
+            operator: authResult.operator
           });
           archived += 1;
         } else {
@@ -1409,7 +1415,8 @@ async function batchDeleteMaterials(data, openid) {
             product_code: item.material.product_code,
             action: 'batch_delete',
             old_data: item.material,
-            new_data: { removed: true }
+            new_data: { removed: true },
+            operator: authResult.operator
           });
           deleted += 1;
         }
@@ -1479,7 +1486,8 @@ async function restoreMaterial(data, openid) {
         product_code: material.data.product_code,
         action: 'restore',
         old_data: material.data,
-        new_data: { status: 'active' }
+        new_data: { status: 'active' },
+        operator: authResult.operator
       });
     });
 

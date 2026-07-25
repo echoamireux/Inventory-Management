@@ -68,25 +68,25 @@
         <van-col span="12">
           <view class="stat-card bg-blue-light p-20 mb-15 text-center active-opacity" bindtap="onStatTotal">
             <view class="text-4xl font-bold">{{ stats.totalMaterials }}</view>
-            <view class="text-xs opacity-70 mt-5">总物料</view>
+            <view class="text-xs opacity-70 mt-5">在库品项</view>
           </view>
         </van-col>
         <van-col span="12">
           <view class="stat-card bg-warning-light p-20 mb-15 text-center active-opacity" bindtap="onStatWarning">
             <view class="text-4xl font-bold">{{ stats.lowStock }}</view>
-            <view class="text-xs opacity-70 mt-5">预警</view>
+            <view class="text-xs opacity-70 mt-5">预警品项</view>
           </view>
         </van-col>
         <van-col span="12">
           <view class="stat-card bg-green-light p-20 text-center active-opacity" bindtap="onStatTodayIn">
             <view class="text-4xl font-bold">{{ stats.todayIn }}</view>
-            <view class="text-xs opacity-70 mt-5">今日入库</view>
+            <view class="text-xs opacity-70 mt-5">今日入库记录</view>
           </view>
         </van-col>
         <van-col span="12">
           <view class="stat-card bg-purple-light p-20 text-center active-opacity" bindtap="onStatTodayOut">
             <view class="text-4xl font-bold">{{ stats.todayOut }}</view>
-            <view class="text-xs opacity-70 mt-5">今日出库</view>
+            <view class="text-xs opacity-70 mt-5">今日领料记录</view>
           </view>
         </van-col>
       </van-row>

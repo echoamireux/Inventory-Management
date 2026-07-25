@@ -75,6 +75,9 @@ function createGetLogsDatabase() {
       if (expected && expected.$gte) {
         return new Date(actual).getTime() >= new Date(expected.$gte).getTime();
       }
+      if (expected && expected.$lte) {
+        return new Date(actual).getTime() <= new Date(expected.$lte).getTime();
+      }
       if (expected instanceof RegExp) {
         return expected.test(String(actual || ''));
       }
@@ -132,6 +135,9 @@ function createGetLogsDatabase() {
       gte(value) {
         return { $gte: value };
       },
+      lte(value) {
+        return { $lte: value };
+      },
       and(values) {
         return { $and: values };
       },
@@ -143,7 +149,13 @@ function createGetLogsDatabase() {
       return new RegExp(regexp, options);
     },
     collection(name) {
+      const baseQuery = createQuery(name, {});
       return {
+        orderBy: baseQuery.orderBy,
+        skip: baseQuery.skip,
+        limit: baseQuery.limit,
+        get: baseQuery.get,
+        count: baseQuery.count,
         where(where) {
           return createQuery(name, where);
         }
@@ -151,11 +163,25 @@ function createGetLogsDatabase() {
     }
   };
 
-  return { db, queriedCollections };
+  return { db, queriedCollections, collections };
 }
 
 function loadGetLogs(memory, openid = 'openid-admin') {
   return loadModuleWithMocks('../cloudfunctions/getLogs/index.js', {
+    'wx-server-sdk': {
+      init() {},
+      getWXContext() {
+        return { OPENID: openid };
+      },
+      database() {
+        return memory.db;
+      }
+    }
+  });
+}
+
+function loadGetOperators(memory, openid = 'openid-admin') {
+  return loadModuleWithMocks('../cloudfunctions/getOperators/index.js', {
     'wx-server-sdk': {
       init() {},
       getWXContext() {
@@ -254,6 +280,123 @@ test('getLogs audit scope does not build an empty search regexp when search is b
   assert.equal(result.success, true);
   assert.equal(result.list.length, 1);
   assert.equal(result.list[0]._id, 'audit-1');
+});
+
+test('getLogs supports explicit custom date ranges for inventory and audit scopes', async () => {
+  const memory = createGetLogsDatabase();
+  memory.collections.inventory_log.push({
+    _id: 'inv-log-old',
+    type: 'inbound',
+    product_code: 'J-OLD',
+    material_name: '旧库存流水',
+    operator: '库管员',
+    timestamp: new Date('2026-07-08T01:00:00.000Z')
+  });
+  memory.collections.audit_events.push({
+    _id: 'audit-later',
+    domain: 'material',
+    action: 'update',
+    actor_name: '管理员',
+    target_label: 'J-LATER',
+    search_text: 'material update 管理员 J-LATER',
+    timestamp: new Date('2026-07-12T02:00:00.000Z')
+  });
+  const mod = loadGetLogs(memory, 'openid-admin');
+
+  const inventoryResult = await mod.main({
+    logScope: 'inventory',
+    dateFilter: 'custom',
+    startDate: '2026-07-10',
+    endDate: '2026-07-10'
+  });
+  const auditResult = await mod.main({
+    logScope: 'audit',
+    dateFilter: 'custom',
+    startDate: '2026-07-10',
+    endDate: '2026-07-10'
+  });
+
+  assert.equal(inventoryResult.success, true);
+  assert.deepEqual(inventoryResult.list.map(item => item._id), ['inv-log-1']);
+  assert.equal(auditResult.success, true);
+  assert.deepEqual(auditResult.list.map(item => item._id), ['audit-1']);
+});
+
+test('getLogs enriches id-only operator rows and filters by visible operator name', async () => {
+  const memory = createGetLogsDatabase();
+  memory.collections.inventory_log.push({
+    _id: 'inv-log-id-only',
+    type: 'outbound',
+    product_code: 'J-002',
+    material_name: '旧领用流水',
+    operator: 'System',
+    operator_id: 'openid-user',
+    timestamp: new Date('2026-07-11T01:00:00.000Z')
+  });
+  memory.collections.audit_events.push({
+    _id: 'audit-id-only',
+    domain: 'test_material_identity',
+    action: 'create',
+    actor_id: 'openid-user',
+    actor_name: 'System',
+    target_type: 'test_material_identity',
+    target_label: 'J-999 / 75TI',
+    search_text: 'test_material_identity create openid-user J-999 75TI',
+    timestamp: new Date('2026-07-11T02:00:00.000Z')
+  });
+  const mod = loadGetLogs(memory, 'openid-admin');
+
+  const inventoryResult = await mod.main({
+    logScope: 'inventory',
+    operatorFilter: '普通用户'
+  });
+  const auditResult = await mod.main({
+    logScope: 'audit',
+    operatorFilter: '普通用户'
+  });
+
+  assert.equal(inventoryResult.success, true);
+  assert.deepEqual(inventoryResult.list.map(item => item._id), ['inv-log-id-only']);
+  assert.equal(inventoryResult.list[0].operator, '普通用户');
+  assert.equal(inventoryResult.list[0].operator_name, '普通用户');
+  assert.equal(auditResult.success, true);
+  assert.deepEqual(auditResult.list.map(item => item._id), ['audit-id-only']);
+  assert.equal(auditResult.list[0].actor_name, '普通用户');
+});
+
+test('getOperators resolves visible names from id-only log rows', async () => {
+  const memory = createGetLogsDatabase();
+  memory.collections.inventory_log.push({
+    _id: 'inv-log-id-only-operator',
+    type: 'outbound',
+    product_code: 'J-002',
+    material_name: '旧领用流水',
+    operator: 'System',
+    operator_id: 'openid-user',
+    timestamp: new Date('2026-07-11T01:00:00.000Z')
+  });
+  memory.collections.audit_events.push({
+    _id: 'audit-id-only-operator',
+    domain: 'test_material_identity',
+    action: 'create',
+    actor_id: 'openid-user',
+    actor_name: 'System',
+    target_label: 'J-999 / 75TI',
+    timestamp: new Date('2026-07-11T02:00:00.000Z')
+  });
+  const mod = loadGetOperators(memory, 'openid-admin');
+
+  const inventoryResult = await mod.main({ logScope: 'inventory' });
+  const auditResult = await mod.main({ logScope: 'audit' });
+
+  assert.equal(inventoryResult.success, true);
+  assert(inventoryResult.list.includes('普通用户'));
+  assert(!inventoryResult.list.includes('System'));
+  assert(!inventoryResult.list.includes('openid-user'));
+  assert.equal(auditResult.success, true);
+  assert(auditResult.list.includes('普通用户'));
+  assert(!auditResult.list.includes('System'));
+  assert(!auditResult.list.includes('openid-user'));
 });
 
 test('critical write cloud functions emit unified audit events', () => {

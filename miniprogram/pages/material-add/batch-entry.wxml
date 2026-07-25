@@ -51,11 +51,13 @@
             bindblur="onMaterialCodeBlur"
             bindconfirm="onMaterialCodeConfirm"
           />
-          <van-button size="small" plain type="primary" custom-class="code-query-btn" bind:click="onSearchMaterial">
-            查询
-          </van-button>
+          <view class="code-query-wrap">
+            <van-button size="small" plain type="primary" custom-class="code-query-btn" custom-style="width: 100%; height: 64rpx; padding: 0;" bind:click="onSearchMaterial">
+              查询
+            </van-button>
+          </view>
         </view>
-        <view class="code-picker-hint">可扫描预生成标签自动带出物料；非预生成标签需先选择产品代码</view>
+        <view class="code-picker-hint">预生成标签可直接扫；普通标签先选产品代码</view>
       </view>
 
       <view class="suggestion-box" wx:if="{{ materialSuggestions.length > 0 }}">
@@ -138,65 +140,73 @@
       {{ !selectedMaterial ? '扫描预生成标签' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '请先确认本批次规格' : '继续扫码添加标签') }}
     </van-button>
     <view class="text-xs text-secondary mt-2">
-      {{ !selectedMaterial ? '可先扫描预生成标签自动带出物料；非预生成标签需先选择产品代码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '先确认本批次实际幅宽，再连续扫描真实标签' : '支持连续扫描真实标签，扫码后自动加入列表') }}
+      {{ !selectedMaterial ? '预生成标签可直接扫；普通标签先选产品代码' : ((activeTab === 'film' && !filmBatchSpecsConfirmed) ? '先确认本批次实际幅宽，再连续扫描真实标签' : '支持连续扫描真实标签，扫码后自动加入列表') }}
     </view>
   </view>
 
   <!-- 3. Bulk Settings (Optional) -->
-  <van-cell-group title="批量设置 (应用于所有新扫码项)" inset>
-     <van-field
-        label="默认生产批号"
-        placeholder="选填"
-        value="{{ defaultBatchNo }}"
-        bind:change="onDefaultBatchChange"
-        right-icon="edit"
-     />
-     <van-cell
-        wx:if="{{ selectedMaterial && selectedMaterial.is_test_material }}"
-        title="测试料原厂型号"
-        value="{{ selectedTestMaterialIdentity && selectedTestMaterialIdentity.supplier_model ? selectedTestMaterialIdentity.supplier_model : (testMaterialIdentityLoading ? '加载中...' : '请选择') }}"
-        is-link
-        required
-        bind:click="showTestMaterialIdentitySheet"
-     />
-     <view wx:if="{{ selectedMaterial && selectedMaterial.is_test_material && testMaterialIdentityNotice }}" class="entry-inline-notice">
-       {{ testMaterialIdentityNotice }}
-     </view>
-     <van-cell
-        title="默认存储区域"
-        value="{{ defaultLocationDisplay || '请选择' }}"
-        is-link
-        bind:click="showLocationSheet"
-        required
-     />
-     <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
-       <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
-     </view>
-     <van-cell
-        wx:if="{{ defaultRequiresLocationDetail }}"
-        title="详细坐标"
-        value="{{ defaultLocationDetail || '请选择' }}"
-        is-link
-        required
-        bind:click="showLocationDetailSheet"
-     />
-     <van-field
-        wx:else
-        label="详细坐标"
-        placeholder="如: F1、A-01、机台旁"
-        value="{{ defaultLocationDetail }}"
-        bind:change="onDefaultLocationDetailChange"
-     />
-     <van-cell title="默认过期时间" value="{{ defaultIsLongTermValid ? '长期有效' : (defaultExpiry || '未设置') }}" is-link="{{ !defaultIsLongTermValid }}" bind:click="showDatePicker" />
-     <view class="validity-switch-row">
-       <text class="validity-switch-label">设为长期有效</text>
-       <van-switch checked="{{ defaultIsLongTermValid }}" bind:change="onDefaultLongTermChange" size="24" />
-     </view>
-  </van-cell-group>
+  <view class="bulk-settings-section">
+    <view class="batch-section-heading">
+      <text class="batch-section-title">批量设置</text>
+      <text class="batch-section-desc">应用于所有新扫码项</text>
+    </view>
+    <view class="bulk-settings-card">
+      <van-cell-group border="{{ false }}" custom-class="bulk-cell-group">
+         <van-field
+            label="默认生产批号"
+            placeholder="选填"
+            value="{{ defaultBatchNo }}"
+            bind:change="onDefaultBatchChange"
+            right-icon="edit"
+         />
+         <van-cell
+            wx:if="{{ selectedMaterial && selectedMaterial.is_test_material }}"
+            title="测试料原厂型号"
+            value="{{ selectedTestMaterialIdentity && selectedTestMaterialIdentity.supplier_model ? selectedTestMaterialIdentity.supplier_model : (testMaterialIdentityLoading ? '加载中...' : '请选择') }}"
+            is-link
+            required
+            bind:click="showTestMaterialIdentitySheet"
+         />
+         <view wx:if="{{ selectedMaterial && selectedMaterial.is_test_material && testMaterialIdentityNotice }}" class="entry-inline-notice">
+           {{ testMaterialIdentityNotice }}
+         </view>
+         <van-cell
+            title="默认存储区域"
+            value="{{ defaultLocationDisplay || '请选择' }}"
+            is-link
+            bind:click="showLocationSheet"
+            required
+         />
+         <view wx:if="{{ canManageZones }}" class="zone-manage-entry">
+           <text class="zone-manage-link" bindtap="onManageZones">管理库区</text>
+         </view>
+         <van-cell
+            wx:if="{{ defaultRequiresLocationDetail }}"
+            title="详细坐标"
+            value="{{ defaultLocationDetail || '请选择' }}"
+            is-link
+            required
+            bind:click="showLocationDetailSheet"
+         />
+         <van-field
+            wx:else
+            label="详细坐标"
+            placeholder="如: F1、A-01、机台旁"
+            value="{{ defaultLocationDetail }}"
+            bind:change="onDefaultLocationDetailChange"
+         />
+         <van-cell title="默认过期时间" value="{{ defaultIsLongTermValid ? '长期有效' : (defaultExpiry || '未设置') }}" is-link="{{ !defaultIsLongTermValid }}" bind:click="showDatePicker" />
+         <view class="validity-switch-row">
+           <text class="validity-switch-label">设为长期有效</text>
+           <van-switch checked="{{ defaultIsLongTermValid }}" bind:change="onDefaultLongTermChange" size="24" />
+         </view>
+      </van-cell-group>
+    </view>
+  </view>
 
   <!-- 4. List of Items -->
   <view class="list-section mt-3">
-    <view class="px-3 mb-2 text-sm text-secondary flex-row justify-between">
+    <view class="list-header mb-2 text-sm text-secondary flex-row justify-between">
        <text>待入库列表 ({{ list.length }})</text>
        <text class="text-primary" bindtap="clearList" wx:if="{{ list.length > 0 }}">清空</text>
     </view>

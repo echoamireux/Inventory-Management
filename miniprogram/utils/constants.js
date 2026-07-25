@@ -68,6 +68,7 @@ const PACKAGE_TYPES = [
   { name: '卷装' },
   { name: '盒装' }
 ];
+const DEFAULT_CHEMICAL_PACKAGE_TYPE = PACKAGE_TYPES[0].name;
 
 // ========== 默认存储区域 ==========
 const DEFAULT_ZONES = {
@@ -131,7 +132,7 @@ const DEFAULT_FORM = {
   requires_location_detail: false,
   unit: '',
   net_content: '',
-  package_type: '',
+  package_type: DEFAULT_CHEMICAL_PACKAGE_TYPE,
   expiry_date: '',
   is_long_term_valid: false,
   thickness_um: '',
@@ -149,6 +150,7 @@ module.exports = {
   CHEMICAL_UNIT_OPTIONS,
   FILM_UNIT_OPTIONS,
   PACKAGE_TYPES,
+  DEFAULT_CHEMICAL_PACKAGE_TYPE,
   DEFAULT_ZONES,
   STATUS,
   ROLE,

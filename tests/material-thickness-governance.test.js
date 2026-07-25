@@ -10,6 +10,10 @@ const {
   syncFormWithMaterialMaster
 } = require('../miniprogram/utils/material-add-form');
 const {
+  DEFAULT_FORM,
+  DEFAULT_CHEMICAL_PACKAGE_TYPE
+} = require('../miniprogram/utils/constants');
+const {
   resolveFilmThicknessGovernance
 } = require('../cloudfunctions/addMaterial/thickness-governance');
 
@@ -141,6 +145,12 @@ test('material add page and addMaterial cloud function wire the new thickness go
 });
 
 test('product code reset helper clears the single-entry form while preserving tab unit and optional new digits', () => {
+  assert.equal(DEFAULT_FORM.package_type, DEFAULT_CHEMICAL_PACKAGE_TYPE);
+
+  const chemicalResetForm = buildProductCodeResetForm('chemical', '008');
+  assert.equal(chemicalResetForm.unit, 'g');
+  assert.equal(chemicalResetForm.package_type, DEFAULT_CHEMICAL_PACKAGE_TYPE);
+
   const resetForm = buildProductCodeResetForm('film', '009');
 
   assert.deepEqual(resetForm, {

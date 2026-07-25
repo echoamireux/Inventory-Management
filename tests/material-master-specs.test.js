@@ -72,6 +72,8 @@ test('admin material edit page exposes governed master spec fields for chemical 
   assert.match(read('miniprogram/pages/admin/material-edit.wxss'), /\.field-unit[\s\S]*color:\s*#9CA3AF/);
   assert.doesNotMatch(wxml, /保质期/);
   assert.doesNotMatch(js, /shelf_life_days/);
+  assert.match(js, /DEFAULT_CHEMICAL_PACKAGE_TYPE/);
+  assert.match(js, /package_type:\s*DEFAULT_CHEMICAL_PACKAGE_TYPE/);
   assert.match(js, /showPackageTypePicker/);
   assert.match(js, /packageTypeOptions/);
 });

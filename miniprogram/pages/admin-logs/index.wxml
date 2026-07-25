@@ -25,6 +25,16 @@
     <van-dropdown-item value="{{ operatorFilter }}" options="{{ operatorOptions }}" bind:change="onOperatorFilterChange" />
   </van-dropdown-menu>
 
+  <view
+    wx:if="{{ dateFilter === 'custom' }}"
+    class="date-range-bar {{ startDate && endDate ? 'date-range-bar--selected' : '' }}"
+    hover-class="date-range-bar--active"
+    bindtap="onShowDateCalendar"
+  >
+    <text class="date-range-bar__label">自定义日期</text>
+    <text class="date-range-bar__value">{{ dateRangeText || '请选择日期范围' }}</text>
+  </view>
+
   <!-- 日志列表 -->
   <view class="list-container">
     <block wx:if="{{ list.length > 0 }}">
@@ -44,4 +54,18 @@
       已无更多
     </view>
   </view>
+
+  <van-calendar
+    show="{{ showDateCalendar }}"
+    type="range"
+    title="选择日志日期范围"
+    color="#1989fa"
+    min-date="{{ minDate }}"
+    max-date="{{ maxDate }}"
+    default-date="{{ calendarDefaultDate }}"
+    allow-same-day
+    first-day-of-week="1"
+    bind:confirm="onDateCalendarConfirm"
+    bind:close="onDateCalendarClose"
+  />
 </view>

@@ -58,6 +58,43 @@
   padding: 12px;
 }
 
+.date-range-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 12px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.date-range-bar--active {
+  background: #f8fafc;
+}
+
+.date-range-bar__label {
+  flex: none;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.date-range-bar__value {
+  min-width: 0;
+  flex: 1;
+  color: #64748b;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-range-bar--selected .date-range-bar__value {
+  color: #1989fa;
+  font-weight: 600;
+}
+
 .list-container.with-bottom-bar {
   padding-bottom: 80px;
 }

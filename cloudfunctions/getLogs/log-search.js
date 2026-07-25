@@ -22,17 +22,23 @@ const LOG_SEARCH_FIELDS = [
   'note'
 ];
 
-const INBOUND_TYPES = ['inbound', 'create', 'IN', 'CREATE'];
-const OUTBOUND_TYPES = ['outbound', 'OUT'];
-const TRANSFER_TYPES = ['transfer', 'edit', 'update', 'TRANSFER', 'EDIT', 'UPDATE'];
-const DELETE_TYPES = ['delete', 'DELETE'];
+const INBOUND_TYPES = ['inbound'];
+const OUTBOUND_TYPES = ['outbound'];
+const TRANSFER_TYPES = ['transfer'];
+const DELETE_TYPES = ['delete'];
+const ACTION_FILTER_TYPES = ['width_adjust', 'stocktake_adjust', 'inventory_correction'];
 
 function normalizeLogTypeValue(type) {
   return normalizeSearchKeyword(type).toLowerCase();
 }
 
 function normalizeOperatorValue(value) {
-  return normalizeSearchKeyword(value);
+  return String(value == null ? '' : value).trim();
+}
+
+function normalizeOperatorAliases(values = []) {
+  const source = Array.isArray(values) ? values : [values];
+  return Array.from(new Set(source.map(normalizeOperatorValue).filter(Boolean)));
 }
 
 function resolveDateStart(getCstRange, dateFilter, now = new Date()) {
@@ -44,13 +50,70 @@ function resolveDateStart(getCstRange, dateFilter, now = new Date()) {
   return range && range.start ? range.start : null;
 }
 
+function normalizeDateText(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function resolveExplicitDateRange(parseCstDateRange, startDate, endDate) {
+  const normalizedStart = normalizeDateText(startDate);
+  const normalizedEnd = normalizeDateText(endDate);
+  if (!normalizedStart && !normalizedEnd) {
+    return null;
+  }
+
+  if (typeof parseCstDateRange === 'function') {
+    return parseCstDateRange(normalizedStart, normalizedEnd);
+  }
+
+  const start = normalizedStart ? new Date(normalizedStart) : null;
+  const end = normalizedEnd ? new Date(normalizedEnd) : null;
+  return {
+    start: start && !Number.isNaN(start.getTime()) ? start : null,
+    end: end && !Number.isNaN(end.getTime()) ? end : null
+  };
+}
+
+function resolveDateRange({
+  getCstRange,
+  dateFilter,
+  startDate,
+  endDate,
+  parseCstDateRange,
+  now = new Date()
+} = {}) {
+  const explicitRange = resolveExplicitDateRange(parseCstDateRange, startDate, endDate);
+  if (explicitRange) {
+    return explicitRange;
+  }
+
+  const start = resolveDateStart(getCstRange, dateFilter, now);
+  return { start, end: null };
+}
+
+function buildDateRangeCondition(_, params = {}) {
+  const range = resolveDateRange(params);
+  const conditions = [];
+  if (range.start) {
+    conditions.push({ timestamp: _.gte(range.start) });
+  }
+  if (range.end) {
+    conditions.push({ timestamp: _.lte(range.end) });
+  }
+
+  if (!conditions.length) {
+    return null;
+  }
+  return conditions.length === 1 ? conditions[0] : _.and(conditions);
+}
+
 function buildQueryCodeCondition(_, queryCode, getCstRange, now = new Date()) {
   const normalizedQueryCode = normalizeSearchKeyword(queryCode);
   if (!normalizedQueryCode) {
     return null;
   }
+  const normalizedShortcutCode = normalizedQueryCode.toLowerCase();
 
-  if (normalizedQueryCode === 'today_in') {
+  if (normalizedShortcutCode === 'today_in') {
     const todayStart = resolveDateStart(getCstRange, 'today', now);
     return _.and([
       { type: _.in(INBOUND_TYPES) },
@@ -58,7 +121,7 @@ function buildQueryCodeCondition(_, queryCode, getCstRange, now = new Date()) {
     ]);
   }
 
-  if (normalizedQueryCode === 'today_out') {
+  if (normalizedShortcutCode === 'today_out') {
     const todayStart = resolveDateStart(getCstRange, 'today', now);
     return _.and([
       { type: _.in(OUTBOUND_TYPES) },
@@ -94,7 +157,26 @@ function buildTypeCondition(_, typeFilter) {
     return { type: _.in(DELETE_TYPES) };
   }
 
+  if (ACTION_FILTER_TYPES.includes(normalizedType)) {
+    return { action: normalizedType };
+  }
+
   return { type: _.in([normalizedType, normalizedType.toUpperCase()]) };
+}
+
+function buildOperatorCondition(_, operatorFilter, operatorFilterAliases = []) {
+  const normalizedOperator = normalizeOperatorValue(operatorFilter);
+  if (!normalizedOperator || normalizedOperator === 'all') {
+    return null;
+  }
+
+  const aliases = normalizeOperatorAliases([normalizedOperator].concat(operatorFilterAliases));
+  return _.or([
+    { operator: normalizedOperator },
+    { operator_name: normalizedOperator },
+    { operator_id: _.in(aliases) },
+    { _openid: _.in(aliases) }
+  ]);
 }
 
 function buildLogSearchWhere({
@@ -103,9 +185,13 @@ function buildLogSearchWhere({
   queryCode,
   searchVal,
   dateFilter,
+  startDate,
+  endDate,
   typeFilter,
   operatorFilter,
+  operatorFilterAliases,
   getCstRange,
+  parseCstDateRange,
   now = new Date()
 }) {
   const conditions = [];
@@ -120,9 +206,16 @@ function buildLogSearchWhere({
     conditions.push(_.or(LOG_SEARCH_FIELDS.map(field => ({ [field]: searchRegex }))));
   }
 
-  const dateStart = resolveDateStart(getCstRange, dateFilter, now);
-  if (dateStart) {
-    conditions.push({ timestamp: _.gte(dateStart) });
+  const dateCondition = buildDateRangeCondition(_, {
+    getCstRange,
+    dateFilter,
+    startDate,
+    endDate,
+    parseCstDateRange,
+    now
+  });
+  if (dateCondition) {
+    conditions.push(dateCondition);
   }
 
   const typeCondition = buildTypeCondition(_, typeFilter);
@@ -130,12 +223,9 @@ function buildLogSearchWhere({
     conditions.push(typeCondition);
   }
 
-  const normalizedOperator = normalizeOperatorValue(operatorFilter);
-  if (normalizedOperator && normalizedOperator !== 'all') {
-    conditions.push(_.or([
-      { operator: normalizedOperator },
-      { operator_name: normalizedOperator }
-    ]));
+  const operatorCondition = buildOperatorCondition(_, operatorFilter, operatorFilterAliases);
+  if (operatorCondition) {
+    conditions.push(operatorCondition);
   }
 
   if (conditions.length === 0) {
@@ -156,13 +246,14 @@ function matchesQueryCode(record, queryCode, getCstRange, now = new Date()) {
   if (!normalizedQueryCode) {
     return true;
   }
+  const normalizedShortcutCode = normalizedQueryCode.toLowerCase();
 
-  if (normalizedQueryCode === 'today_in') {
+  if (normalizedShortcutCode === 'today_in') {
     const todayStart = resolveDateStart(getCstRange, 'today', now);
     return matchesType(record, 'inbound') && resolveLogTimestamp(record) >= new Date(todayStart).getTime();
   }
 
-  if (normalizedQueryCode === 'today_out') {
+  if (normalizedShortcutCode === 'today_out') {
     const todayStart = resolveDateStart(getCstRange, 'today', now);
     return matchesType(record, 'outbound') && resolveLogTimestamp(record) >= new Date(todayStart).getTime();
   }
@@ -191,35 +282,48 @@ function matchesType(record, typeFilter) {
     return DELETE_TYPES.map(normalizeLogTypeValue).includes(recordType);
   }
 
+  if (ACTION_FILTER_TYPES.includes(normalizedType)) {
+    return normalizeLogTypeValue(record && record.action) === normalizedType;
+  }
+
   return recordType === normalizedType;
 }
 
-function matchesDateFilter(record, dateFilter, getCstRange, now = new Date()) {
-  const dateStart = resolveDateStart(getCstRange, dateFilter, now);
-  if (!dateStart) {
+function matchesDateFilter(record, params = {}) {
+  const range = resolveDateRange(params);
+  const timestamp = resolveLogTimestamp(record);
+  if (!range.start && !range.end) {
     return true;
   }
-
-  return resolveLogTimestamp(record) >= new Date(dateStart).getTime();
+  if (range.start && timestamp < new Date(range.start).getTime()) {
+    return false;
+  }
+  if (range.end && timestamp > new Date(range.end).getTime()) {
+    return false;
+  }
+  return true;
 }
 
-function matchesOperator(record, operatorFilter) {
+function matchesOperator(record, operatorFilter, operatorFilterAliases = []) {
   const normalizedOperator = normalizeOperatorValue(operatorFilter);
   if (!normalizedOperator || normalizedOperator === 'all') {
     return true;
   }
+  const aliases = normalizeOperatorAliases([normalizedOperator].concat(operatorFilterAliases));
 
   return String((record && record.operator) || '').trim() === normalizedOperator
-    || String((record && record.operator_name) || '').trim() === normalizedOperator;
+    || String((record && record.operator_name) || '').trim() === normalizedOperator
+    || aliases.includes(String((record && record.operator_id) || '').trim())
+    || aliases.includes(String((record && record._openid) || '').trim());
 }
 
 function filterLogRecords(records = [], params = {}) {
   return records.filter((record) => (
     matchesQueryCode(record, params.queryCode, params.getCstRange, params.now)
     && matchesSearchFields(record, LOG_SEARCH_FIELDS, params.searchVal)
-    && matchesDateFilter(record, params.dateFilter, params.getCstRange, params.now)
+    && matchesDateFilter(record, params)
     && matchesType(record, params.typeFilter)
-    && matchesOperator(record, params.operatorFilter)
+    && matchesOperator(record, params.operatorFilter, params.operatorFilterAliases)
   ));
 }
 
@@ -233,6 +337,8 @@ module.exports = {
   OUTBOUND_TYPES,
   TRANSFER_TYPES,
   DELETE_TYPES,
+  ACTION_FILTER_TYPES,
+  buildDateRangeCondition,
   buildLogSearchWhere,
   filterLogRecords,
   sortLogRecordsDescending,

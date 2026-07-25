@@ -230,7 +230,7 @@ exports.main = async (event, context) => {
           quantity_change: delta,
           spec_change_unit: unit,
           unit,
-          action: '库存纠错',
+          action: 'inventory_correction',
           description: `库存纠错：原数量 ${correctionRequest.original_quantity} ${unit}，申请数量 ${correctionRequest.requested_quantity} ${unit}，差额 ${delta} ${unit}；原因：${correctionRequest.reason || '未填写'}`,
           operator: (operator && operator.name) || 'Admin',
           operator_id: OPENID,

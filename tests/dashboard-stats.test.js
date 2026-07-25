@@ -108,14 +108,24 @@ test('dashboard treats test-material supplier models as separate inventory ident
   const items = [
     {
       product_code: 'J-999',
-      supplier_model: 'MODEL-A',
+      supplier_model: 'Model A',
+      supplier_model_key: 'MODEL-A',
       is_test_material: true,
       category: 'chemical',
       quantity: { val: 60, unit: 'g' }
     },
     {
       product_code: 'J-999',
+      supplier_model: 'MODEL A',
+      supplier_model_key: 'MODEL-A',
+      is_test_material: true,
+      category: 'chemical',
+      quantity: { val: 20, unit: 'g' }
+    },
+    {
+      product_code: 'J-999',
       supplier_model: 'MODEL-B',
+      supplier_model_key: 'MODEL-B',
       is_test_material: true,
       category: 'chemical',
       quantity: { val: 40, unit: 'g' }
@@ -146,12 +156,6 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
             },
             in(values) {
               return { $in: values };
-            },
-            or(...values) {
-              return { $or: values };
-            },
-            eq(value) {
-              return { $eq: value };
             },
             aggregate: {
               first(value) {
@@ -196,6 +200,9 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
                         && query.type.$in.includes('refill')
                       ) {
                         return { total: 3 };
+                      }
+                      if (query.type === 'outbound') {
+                        return { total: 2 };
                       }
                       return { total: 2 };
                     }
@@ -249,7 +256,9 @@ test('dashboard todayIn counts both inbound and refill logs as inventory-increas
 
   assert.equal(result.success, true);
   assert.equal(result.todayIn, 3);
+  assert.equal(result.todayOut, 2);
   assert.ok(logQueries.some(query => query.type && query.type.$in && query.type.$in.includes('refill')));
+  assert.ok(logQueries.some(query => query.type === 'outbound'));
 });
 
 test('dashboard stats loads all inventory pages before calculating grouped risk counts', async () => {

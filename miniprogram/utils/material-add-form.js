@@ -2,6 +2,9 @@ const {
   getDefaultUnit,
   normalizeUnitInput
 } = require('./material-units');
+const {
+  DEFAULT_CHEMICAL_PACKAGE_TYPE
+} = require('./constants');
 
 const EMPTY_MATERIAL_ADD_FORM = {
   unique_code: '',
@@ -73,7 +76,7 @@ function syncFormWithMaterialMaster(form, activeTab, item, prefix) {
   if (activeTab === 'chemical') {
     const normalizedUnit = normalizeUnitInput('chemical', itemUnit);
     nextForm.unit = normalizedUnit.ok ? normalizedUnit.unit : getDefaultUnit('chemical');
-    nextForm.package_type = item && item.package_type ? item.package_type : '';
+    nextForm.package_type = item && item.package_type ? item.package_type : DEFAULT_CHEMICAL_PACKAGE_TYPE;
 
     let netContent = '';
     if (itemSpecs.net_content !== undefined && itemSpecs.net_content !== null) {
@@ -131,7 +134,8 @@ function buildProductCodeResetForm(activeTab, nextProductCode = '') {
   return {
     ...EMPTY_MATERIAL_ADD_FORM,
     product_code: String(nextProductCode || ''),
-    unit: getDefaultUnit(activeTab)
+    unit: getDefaultUnit(activeTab),
+    package_type: activeTab === 'chemical' ? DEFAULT_CHEMICAL_PACKAGE_TYPE : ''
   };
 }
 

@@ -115,6 +115,31 @@ test('batch entry empty-state copy changes with whether a material template is s
   assert.equal(buildBatchEmptyState(true), '暂无条目，请开始连续扫描标签');
 });
 
+test('batch entry page keeps product-code search and section headings compact and aligned', () => {
+  const pageWxml = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.wxml'),
+    'utf8'
+  );
+  const pageWxss = fs.readFileSync(
+    path.join(__dirname, '../miniprogram/pages/material-add/batch-entry.wxss'),
+    'utf8'
+  );
+
+  assert.match(pageWxml, /class="code-query-wrap"[\s\S]*查询/);
+  assert.match(pageWxml, /预生成标签可直接扫；普通标签先选产品代码/);
+  assert.match(pageWxml, /class="batch-section-title">批量设置/);
+  assert.match(pageWxml, /class="batch-section-desc">应用于所有新扫码项/);
+  assert.match(pageWxml, /class="list-header/);
+  assert.doesNotMatch(pageWxml, /title="批量设置 \(应用于所有新扫码项\)"/);
+
+  assert.match(pageWxss, /\.code-query-wrap[\s\S]*width:\s*132rpx/);
+  assert.match(pageWxss, /\.code-number-input[\s\S]*min-width:\s*220rpx/);
+  assert.match(pageWxss, /\.bulk-settings-card[\s\S]*border-radius:\s*24rpx/);
+  assert.match(pageWxss, /\.batch-section-heading,[\s\S]*\.list-header[\s\S]*padding:\s*0 32rpx/);
+  assert.match(pageWxss, /\.batch-section-title[\s\S]*font-size:\s*26rpx[\s\S]*font-weight:\s*600/);
+  assert.match(pageWxss, /\.list-header[\s\S]*font-size:\s*26rpx[\s\S]*font-weight:\s*600/);
+});
+
 test('film material summaries surface missing governed specs for first-batch completion instead of hard-failing immediately', () => {
   const summary = buildSelectedMaterialSummary({
     _id: 'mat-film-1',

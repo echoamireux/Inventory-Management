@@ -33,7 +33,11 @@ const INVENTORY_TYPE_OPTIONS = [
   { text: '补料', value: 'refill' },
   { text: '领用', value: 'outbound' },
   { text: '纠错', value: 'adjust' },
-  { text: '移库', value: 'transfer' }
+  { text: '修正幅宽', value: 'width_adjust' },
+  { text: '盘点调整', value: 'stocktake_adjust' },
+  { text: '库存纠错', value: 'inventory_correction' },
+  { text: '移库', value: 'transfer' },
+  { text: '删除', value: 'delete' }
 ];
 
 const AUDIT_ACTION_OPTIONS = [
@@ -43,6 +47,9 @@ const AUDIT_ACTION_OPTIONS = [
   { text: '领用', value: 'outbound' },
   { text: '纠错', value: 'adjust' },
   { text: '移库', value: 'transfer' },
+  { text: '修正幅宽', value: 'width_adjust' },
+  { text: '盘点调整', value: 'stocktake_adjust' },
+  { text: '库存纠错', value: 'inventory_correction' },
   { text: '创建', value: 'create' },
   { text: '更新', value: 'update' },
   { text: '启用/停用', value: 'status' },
@@ -50,6 +57,11 @@ const AUDIT_ACTION_OPTIONS = [
   { text: '驳回', value: 'reject' },
   { text: '导出', value: 'export' },
   { text: '导出失败', value: 'export_failed' },
+  { text: '归档', value: 'archive' },
+  { text: '恢复', value: 'restore' },
+  { text: '批量创建', value: 'batch_create' },
+  { text: '批量归档', value: 'batch_archive' },
+  { text: '批量删除', value: 'batch_delete' },
   { text: '作废', value: 'void' }
 ];
 
@@ -58,9 +70,11 @@ const AUDIT_DOMAIN_OPTIONS = [
   { text: '库存', value: 'inventory' },
   { text: '预打印', value: 'preprint' },
   { text: '物料主数据', value: 'material' },
+  { text: '测试料型号', value: 'test_material_identity' },
   { text: '物料审批', value: 'material_request' },
+  { text: '库存纠错', value: 'inventory_correction' },
   { text: '人员权限', value: 'user' },
-  { text: '产品前缀', value: 'product_prefix' },
+  { text: '产品代码前缀', value: 'product_prefix' },
   { text: '项目编码', value: 'project_code' },
   { text: '子类别', value: 'subcategory' },
   { text: '库区坐标', value: 'warehouse' }
@@ -72,6 +86,10 @@ const ACTION_META = {
   outbound: { text: '领用', color: 'warning' },
   adjust: { text: '纠错', color: 'primary' },
   transfer: { text: '移库', color: 'primary' },
+  delete: { text: '删除', color: 'danger' },
+  width_adjust: { text: '修正幅宽', color: 'primary' },
+  stocktake_adjust: { text: '盘点调整', color: 'primary' },
+  inventory_correction: { text: '库存纠错', color: 'primary' },
   create: { text: '创建', color: 'success' },
   update: { text: '更新', color: 'primary' },
   status: { text: '启停', color: 'warning' },
@@ -79,6 +97,11 @@ const ACTION_META = {
   reject: { text: '驳回', color: 'danger' },
   export: { text: '导出', color: 'primary' },
   export_failed: { text: '失败', color: 'danger' },
+  archive: { text: '归档', color: 'warning' },
+  restore: { text: '恢复', color: 'success' },
+  batch_create: { text: '批量创建', color: 'success' },
+  batch_archive: { text: '批量归档', color: 'warning' },
+  batch_delete: { text: '批量删除', color: 'danger' },
   void: { text: '作废', color: 'warning' }
 };
 
@@ -89,11 +112,143 @@ const DOMAIN_TEXT = AUDIT_DOMAIN_OPTIONS.reduce((map, item) => {
   return map;
 }, {});
 
+Object.assign(DOMAIN_TEXT, {
+  test_material_identity: '测试料型号',
+  product_code_prefix: '产品代码前缀',
+  product_prefix: '产品代码前缀',
+  material_request: '物料审批',
+  inventory_correction: '库存纠错',
+  inventory_correction_request: '库存纠错',
+  approval: '审批',
+  system: '系统'
+});
+
+const TARGET_TYPE_TEXT = {
+  material: '物料主数据',
+  test_material_identity: '测试料型号',
+  inventory: '库存记录',
+  preprint_job: '预打印任务',
+  product_prefix: '产品代码前缀',
+  product_code_prefix: '产品代码前缀',
+  project_code: '项目编码',
+  subcategory: '子类别',
+  warehouse: '库区坐标',
+  warehouse_zone: '库区坐标',
+  user: '用户',
+  material_request: '物料审批',
+  inventory_correction_request: '库存纠错'
+};
+
+const AUDIT_SOURCE_TEXT = {
+  material_import: '物料主数据导入',
+  template_import: '模板导入',
+  manual: '手动维护',
+  page: '页面操作'
+};
+
 function resolveSearchValue(detail) {
   if (detail && typeof detail === 'object' && Object.prototype.hasOwnProperty.call(detail, 'value')) {
     return detail.value;
   }
   return typeof detail === 'string' ? detail : '';
+}
+
+function normalizeText(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function looksLikeInternalId(value) {
+  const text = normalizeText(value);
+  return /^o[A-Za-z0-9_-]{20,}$/.test(text) || /^[A-Za-z0-9_-]{28,}$/.test(text);
+}
+
+function resolveOperatorDisplayName(primaryName, fallbackId) {
+  const primary = normalizeText(primaryName);
+  if (primary && !/^system$/i.test(primary) && !looksLikeInternalId(primary)) {
+    return primary;
+  }
+  const fallback = normalizeText(fallbackId);
+  if (fallback && !looksLikeInternalId(fallback)) {
+    return fallback;
+  }
+  return primary && /^system$/i.test(primary) ? '系统' : '未记录姓名';
+}
+
+function resolveActionMeta(action) {
+  const normalized = normalizeText(action);
+  if (ACTION_META[normalized]) {
+    return ACTION_META[normalized];
+  }
+  return { text: '操作', color: 'primary' };
+}
+
+function resolveDomainText(domain) {
+  const normalized = normalizeText(domain);
+  return DOMAIN_TEXT[normalized] || (normalized ? '管理审计' : '管理审计');
+}
+
+function resolveTargetTypeText(targetType, fallbackDomainText = '') {
+  const normalized = normalizeText(targetType);
+  return TARGET_TYPE_TEXT[normalized] || fallbackDomainText || '审计对象';
+}
+
+function resolveAuditDetailText(item = {}, domainText = '', targetTypeText = '') {
+  const detail = item.detail || {};
+  const sourceText = AUDIT_SOURCE_TEXT[normalizeText(detail.source)];
+  if (sourceText) {
+    return `来源：${sourceText}`;
+  }
+
+  const note = normalizeText(detail.note);
+  if (note) {
+    const noteAction = ACTION_META[note];
+    const noteDomain = DOMAIN_TEXT[note] || TARGET_TYPE_TEXT[note] || AUDIT_SOURCE_TEXT[note];
+    return noteAction ? `操作：${noteAction.text}` : (noteDomain || note);
+  }
+
+  const operationId = normalizeText(item.operation_id);
+  if (operationId) {
+    return `操作号：${operationId}`;
+  }
+
+  return `对象：${targetTypeText || domainText || '审计对象'}`;
+}
+
+const DATE_FILTER_VALUES = ['all', 'today', 'week', 'month', 'custom'];
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = part => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getTodayTimestamp() {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+}
+
+function parseLocalDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildCalendarDefaultDate(startDate, endDate) {
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (start && end) {
+    return [start.getTime(), end.getTime()];
+  }
+  const today = getTodayTimestamp();
+  return [today, today];
+}
+
+function normalizeDateFilter(value) {
+  const normalized = String(value || '').trim();
+  return DATE_FILTER_VALUES.includes(normalized) ? normalized : 'all';
 }
 
 Page({
@@ -111,6 +266,13 @@ Page({
 
     // 筛选器
     dateFilter: 'all',
+    startDate: '',
+    endDate: '',
+    dateRangeText: '',
+    showDateCalendar: false,
+    minDate: new Date(2020, 0, 1).getTime(),
+    maxDate: getTodayTimestamp(),
+    calendarDefaultDate: buildCalendarDefaultDate('', ''),
     domainFilter: 'all',
     typeFilter: 'all',
     operatorFilter: 'all',
@@ -119,7 +281,8 @@ Page({
       { text: '全部时间', value: 'all' },
       { text: '今日', value: 'today' },
       { text: '本周', value: 'week' },
-      { text: '本月', value: 'month' }
+      { text: '本月', value: 'month' },
+      { text: '自定义', value: 'custom' }
     ],
     domainOptions: AUDIT_DOMAIN_OPTIONS,
     typeOptions: INVENTORY_TYPE_OPTIONS,
@@ -224,7 +387,71 @@ Page({
 
   // 筛选器变更
   onDateFilterChange(e) {
-    this.setData({ dateFilter: e.detail, page: 1, isEnd: false });
+    const nextFilter = normalizeDateFilter(e.detail);
+    if (nextFilter === 'custom') {
+      this.setData({
+        dateFilter: 'custom',
+        showDateCalendar: true,
+        maxDate: getTodayTimestamp(),
+        calendarDefaultDate: buildCalendarDefaultDate(this.data.startDate, this.data.endDate),
+        page: 1,
+        isEnd: false
+      });
+      return;
+    }
+
+    this.setData({
+      dateFilter: nextFilter,
+      startDate: '',
+      endDate: '',
+      dateRangeText: '',
+      showDateCalendar: false,
+      calendarDefaultDate: buildCalendarDefaultDate('', ''),
+      page: 1,
+      isEnd: false
+    });
+    this.getList(true);
+  },
+
+  onShowDateCalendar() {
+    this.setData({
+      dateFilter: 'custom',
+      showDateCalendar: true,
+      maxDate: getTodayTimestamp(),
+      calendarDefaultDate: buildCalendarDefaultDate(this.data.startDate, this.data.endDate)
+    });
+  },
+
+  onDateCalendarClose() {
+    const hasRange = !!(this.data.startDate && this.data.endDate);
+    this.setData({
+      showDateCalendar: false,
+      ...(hasRange ? {} : { dateFilter: 'all' })
+    });
+  },
+
+  onDateCalendarConfirm(e) {
+    const range = e && e.detail;
+    if (!Array.isArray(range) || range.length !== 2) {
+      wx.showToast({ title: '请选择完整日期范围', icon: 'none' });
+      return;
+    }
+    const startDate = formatDate(range[0]);
+    const endDate = formatDate(range[1]);
+    if (!startDate || !endDate) {
+      wx.showToast({ title: '日期范围无效', icon: 'none' });
+      return;
+    }
+    this.setData({
+      dateFilter: 'custom',
+      startDate,
+      endDate,
+      dateRangeText: `${startDate} 至 ${endDate}`,
+      calendarDefaultDate: buildCalendarDefaultDate(startDate, endDate),
+      showDateCalendar: false,
+      page: 1,
+      isEnd: false
+    });
     this.getList(true);
   },
 
@@ -257,6 +484,8 @@ Page({
       const {
         searchVal,
         dateFilter,
+        startDate,
+        endDate,
         domainFilter,
         typeFilter,
         operatorFilter,
@@ -271,6 +500,8 @@ Page({
           adminOnly: activeTab === 'audit',
           searchVal,
           dateFilter,
+          startDate: dateFilter === 'custom' ? startDate : '',
+          endDate: dateFilter === 'custom' ? endDate : '',
           domainFilter,
           typeFilter,
           operatorFilter,
@@ -295,12 +526,13 @@ Page({
         let typeText = '操作';
         let typeColor = 'primary';
 
-        switch(item.type) {
-          case 'inbound': case 'create': typeText = '入库'; typeColor = 'success'; break;
+        const normalizedType = String(item.type || '').toLowerCase();
+        switch(normalizedType) {
+          case 'inbound': typeText = '入库'; typeColor = 'success'; break;
           case 'refill': typeText = '补料'; typeColor = 'success'; break;
           case 'outbound': typeText = '领用'; typeColor = 'warning'; break;
           case 'adjust': typeText = '纠错'; typeColor = 'primary'; break;
-          case 'edit': case 'update': case 'transfer': typeText = '移库'; typeColor = 'primary'; break;
+          case 'transfer': typeText = '移库'; typeColor = 'primary'; break;
           case 'delete': typeText = '删除'; typeColor = 'danger'; break;
         }
 
@@ -325,10 +557,16 @@ Page({
         qty = Number(qty) || 0;
 
         let sign = '';
-        if (item.type === 'inbound' || item.type === 'create') sign = '+';
-        else if (item.type === 'outbound') sign = '-';
-        else if (item.type === 'refill') sign = '+';
-        else if (item.type === 'adjust') sign = qty > 0 ? '+' : (qty < 0 ? '-' : '');
+        const actionMeta = item.action ? resolveActionMeta(item.action) : null;
+        if (actionMeta && actionMeta.text !== '操作') {
+          typeText = actionMeta.text;
+          typeColor = actionMeta.color;
+        }
+
+        if (normalizedType === 'inbound') sign = '+';
+        else if (normalizedType === 'outbound') sign = '-';
+        else if (normalizedType === 'refill') sign = '+';
+        else if (normalizedType === 'adjust') sign = qty > 0 ? '+' : (qty < 0 ? '-' : '');
 
         return {
           ...item,
@@ -339,7 +577,8 @@ Page({
           _displayName: displayName,
           _sign: sign,
           quantity: Math.abs(qty),
-          unit: item.spec_change_unit || item.unit || ''
+          unit: item.spec_change_unit || item.unit || '',
+          operator: resolveOperatorDisplayName(item.operator || item.operator_name, item.operator_id || item._openid)
         };
       });
 
@@ -364,7 +603,7 @@ Page({
   },
 
   formatAuditLogItem(item = {}) {
-    const actionMeta = ACTION_META[item.action] || { text: item.action || '操作', color: 'primary' };
+    const actionMeta = resolveActionMeta(item.action);
     let timeStr = '';
     if (item.timestamp) {
       const d = new Date(item.timestamp);
@@ -372,27 +611,42 @@ Page({
         timeStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       }
     }
-    const domainText = DOMAIN_TEXT[item.domain] || item.domain || '管理审计';
+    const domainText = resolveDomainText(item.domain);
     const detail = item.detail || {};
-    const targetLabel = item.target_label || item.target_id || item.operation_id || '';
+    const after = item.after || {};
+    const targetTypeText = resolveTargetTypeText(item.target_type, domainText);
+    const rawTargetLabel = item.target_label || item.target_id || item.operation_id || '';
+    const targetLabel = looksLikeInternalId(rawTargetLabel) ? '' : rawTargetLabel;
+    const subjectText = normalizeText(
+      detail.label_material_name
+      || detail.material_name
+      || after.label_material_name
+      || after.material_name
+      || detail.project_name
+      || detail.project_code
+      || detail.product_code
+      || after.product_code
+      || targetTypeText
+    );
     const displayName = [
       domainText,
-      detail.material_name || detail.project_code || detail.product_code || detail.note || ''
+      subjectText && subjectText !== domainText ? subjectText : ''
     ].filter(Boolean).join(' / ');
 
     return {
       ...item,
       type: `audit_${item.action || 'operate'}`,
-      operator: item.actor_name || item.actor_id || '未知',
+      operator: resolveOperatorDisplayName(item.actor_name, item.actor_id),
       _typeText: actionMeta.text,
       _typeColor: actionMeta.color,
       _timeStr: timeStr,
-      _displayCode: targetLabel,
+      _displayCode: targetLabel || domainText,
       _displayName: displayName || '管理审计',
       _sign: '',
-      quantity: 0,
+      _hideQuantity: true,
+      quantity: '',
       unit: '',
-      note: detail.note || item.operation_id || item.target_type || '无备注'
+      note: resolveAuditDetailText(item, domainText, targetTypeText)
     };
   },
 

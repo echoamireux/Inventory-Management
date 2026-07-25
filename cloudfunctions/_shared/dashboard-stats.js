@@ -2,9 +2,9 @@ const { isChemicalLowStock, isFilmLowStock } = require('./low-stock');
 
 function buildDashboardGroupKey(item = {}) {
   const productCode = String(item.product_code || 'UNKNOWN').trim() || 'UNKNOWN';
-  const supplierModel = String(item.supplier_model || '').trim();
-  if (item.is_test_material && supplierModel) {
-    return `${productCode}::test-model::${supplierModel}`;
+  const supplierModelKey = String(item.supplier_model_key || item.supplier_model || '').trim();
+  if (item.is_test_material && supplierModelKey) {
+    return `${productCode}::test-model::${supplierModelKey}`;
   }
   return productCode;
 }

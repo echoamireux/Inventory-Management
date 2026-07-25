@@ -18,7 +18,7 @@
       <view wx:if="{{ item.supplier_model }}" style="font-size: 12px; color: #969799; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">原厂型号：{{ item.supplier_model }}</view>
     </view>
     <!-- 对于移库操作，不显示数量，用 '-' 表示不适用 -->
-    <view class="{{ item._sign === '+' ? 'qty-success' : (item._sign === '-' ? 'qty-danger' : '') }}" style="font-size: 16px; font-weight: 600;">
+    <view wx:if="{{ !item._hideQuantity }}" class="{{ item._sign === '+' ? 'qty-success' : (item._sign === '-' ? 'qty-danger' : '') }}" style="font-size: 16px; font-weight: 600;">
       <block wx:if="{{ item._typeText === '移库' }}">-</block>
       <block wx:else>{{ item._sign || '' }}{{ item.quantity || item.quantity_change || 0 }} {{ item.unit || '' }}</block>
     </view>

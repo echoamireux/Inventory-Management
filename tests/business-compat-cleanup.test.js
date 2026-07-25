@@ -277,7 +277,7 @@ test('editInventory requires admin access for film width correction and logs the
   assert.deepEqual(updatedPayload['dynamic_attrs.width_mm'], 1250);
   assert.equal(updatedPayload['quantity.val'], 250);
   assert.equal(loggedPayload.type, 'adjust');
-  assert.equal(loggedPayload.action, '修正幅宽');
+  assert.equal(loggedPayload.action, 'width_adjust');
   assert.match(loggedPayload.description, /1230/);
   assert.match(loggedPayload.description, /1250/);
   assert.match(loggedPayload.description, /实测纠偏/);
@@ -410,7 +410,7 @@ test('editInventory stocktake adjustment updates chemical current quantity and w
   assert.equal(updatedPayload['quantity.val'], 7.5);
   assert.equal(updatedPayload['dynamic_attrs.weight_kg'], 7.5);
   assert.equal(loggedPayload.type, 'adjust');
-  assert.equal(loggedPayload.action, '盘点调整');
+  assert.equal(loggedPayload.action, 'stocktake_adjust');
   assert.equal(loggedPayload.quantity_change, -2.5);
   assert.match(loggedPayload.description, /10 kg/);
   assert.match(loggedPayload.description, /7.5 kg/);
@@ -549,7 +549,7 @@ test('editInventory stocktake adjustment updates film current length without cha
   assert.equal(updatedPayload['quantity.val'], 96);
   assert.equal(Object.prototype.hasOwnProperty.call(updatedPayload, 'dynamic_attrs.initial_length_m'), false);
   assert.equal(loggedPayload.type, 'adjust');
-  assert.equal(loggedPayload.action, '盘点调整');
+  assert.equal(loggedPayload.action, 'stocktake_adjust');
   assert.equal(loggedPayload.quantity_change, -20);
   assert.match(loggedPayload.description, /100 m/);
   assert.match(loggedPayload.description, /80 m/);

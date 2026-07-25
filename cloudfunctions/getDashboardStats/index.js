@@ -40,6 +40,7 @@ async function loadInventoryItems(pageSize = 100) {
         product_code: true,
         category: true,
         supplier_model: true,
+        supplier_model_key: true,
         is_test_material: true,
         quantity: true,
         dynamic_attrs: true,
@@ -95,7 +96,7 @@ exports.main = async (event, context) => {
     }).count();
 
     const outboundCount = await db.collection('inventory_log').where({
-        type: _.or(_.eq('withdraw'), _.eq('outbound')),
+        type: 'outbound',
         timestamp: _.gte(startOfDayUTC)
     }).count();
 

@@ -1,6 +1,9 @@
 // pages/admin/material-edit.js
 import Toast from '@vant/weapp/toast/toast';
-const { PACKAGE_TYPES } = require('../../utils/constants');
+const {
+  PACKAGE_TYPES,
+  DEFAULT_CHEMICAL_PACKAGE_TYPE
+} = require('../../utils/constants');
 const {
   getAllowedUnits,
   getDefaultUnit,
@@ -54,7 +57,7 @@ Page({
       supplier_model: '',
       is_test_material: false,
       default_unit: '',
-      package_type: '',
+      package_type: DEFAULT_CHEMICAL_PACKAGE_TYPE,
       thickness_um: '',
       width_mm: ''
     },
@@ -145,6 +148,7 @@ Page({
           supplier_model: ''
         } : {}),
         default_unit: getDefaultUnit(inferredCategory),
+        package_type: inferredCategory === 'chemical' ? DEFAULT_CHEMICAL_PACKAGE_TYPE : '',
         product_code: normalizedCode && normalizedCode.ok ? normalizedCode.product_code : '',
         product_code_number: codeNumber,
         ...(testSubcategoryState.form || {})
@@ -524,7 +528,7 @@ Page({
       'form.subcategory_key': '',
       'form.sub_category': '', // 重置子类别
       'form.default_unit': getDefaultUnit(category),
-      'form.package_type': category === 'chemical' ? this.data.form.package_type : '',
+      'form.package_type': category === 'chemical' ? (this.data.form.package_type || DEFAULT_CHEMICAL_PACKAGE_TYPE) : '',
       'form.thickness_um': category === 'film' ? this.data.form.thickness_um : '',
       'form.width_mm': category === 'film' ? this.data.form.width_mm : '',
       'form.product_code': number ? `${codePrefix}-${number}` : '',

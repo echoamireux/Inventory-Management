@@ -118,11 +118,11 @@ Page({
   },
 
   onStatTodayIn() {
-    wx.navigateTo({ url: "/pages/logs/index?filter=today_in" });
+    wx.navigateTo({ url: "/pages/logs/index?dateFilter=today&typeFilter=inbound" });
   },
 
   onStatTodayOut() {
-    wx.navigateTo({ url: "/pages/logs/index?filter=today_out" });
+    wx.navigateTo({ url: "/pages/logs/index?dateFilter=today&typeFilter=outbound" });
   },
 
   onSearch(e) {

@@ -142,6 +142,94 @@ test('home risk entry routes into a real inventory filter instead of a dead stor
   assert.match(groupedCf, /isRisky/);
 });
 
+test('home log shortcuts and log pages expose visible date range filters', () => {
+  const homeIndexJs = read('miniprogram/pages/index/index.js');
+  const logsJs = read('miniprogram/pages/logs/index.js');
+  const logsWxml = read('miniprogram/pages/logs/index.wxml');
+  const logsJson = read('miniprogram/pages/logs/index.json');
+  const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
+  const adminLogsWxml = read('miniprogram/pages/admin-logs/index.wxml');
+  const adminLogsJson = read('miniprogram/pages/admin-logs/index.json');
+  const getLogsCf = read('cloudfunctions/getLogs/index.js');
+
+  assert.match(homeIndexJs, /dateFilter=today&typeFilter=inbound/);
+  assert.match(homeIndexJs, /dateFilter=today&typeFilter=outbound/);
+  assert.doesNotMatch(homeIndexJs, /filter=today_in/);
+  assert.doesNotMatch(homeIndexJs, /filter=today_out/);
+
+  assert.match(logsJs, /options\.filter === 'today_in' \|\| options\.filter === 'today_out'/);
+  assert.match(logsJs, /initialDateFilter = 'today'/);
+  assert.match(logsJs, /initialTypeFilter = options\.filter === 'today_in' \? 'inbound' : 'outbound'/);
+  assert.match(logsJs, /TYPE_TITLE_MAP/);
+  assert.match(logsJs, /outbound:\s*'领用记录'/);
+  assert.match(logsJs, /onTypeFilterChange\(e\)[\s\S]*setNavigationBarTitle/);
+  assert.match(logsJs, /dateOptions:[\s\S]*自定义/);
+  assert.match(logsJs, /startDate: dateFilter === 'custom' \? startDate : ''/);
+  assert.match(logsJs, /endDate: dateFilter === 'custom' \? endDate : ''/);
+  assert.match(logsWxml, /date-range-bar/);
+  assert.match(logsWxml, /van-calendar/);
+  assert.match(logsJson, /van-calendar/);
+
+  assert.match(adminLogsJs, /dateOptions:[\s\S]*自定义/);
+  assert.match(adminLogsJs, /startDate: dateFilter === 'custom' \? startDate : ''/);
+  assert.match(adminLogsJs, /endDate: dateFilter === 'custom' \? endDate : ''/);
+  assert.match(adminLogsWxml, /date-range-bar/);
+  assert.match(adminLogsWxml, /van-calendar/);
+  assert.match(adminLogsJson, /van-calendar/);
+
+  assert.match(getLogsCf, /parseCstDateRange/);
+  assert.match(getLogsCf, /buildDateRangeCondition/);
+  assert.match(getLogsCf, /startDate/);
+  assert.match(getLogsCf, /endDate/);
+});
+
+test('log pages present operator names and audit enums as user-facing Chinese text', () => {
+  const logsJs = read('miniprogram/pages/logs/index.js');
+  const adminLogsJs = read('miniprogram/pages/admin-logs/index.js');
+  const logItemWxml = read('miniprogram/components/log-item/index.wxml');
+  const getLogsCf = read('cloudfunctions/getLogs/index.js');
+  const getOperatorsCf = read('cloudfunctions/getOperators/index.js');
+  const logSearch = read('cloudfunctions/_shared/log-search.js');
+
+  assert.match(logsJs, /resolveOperatorDisplayName/);
+  assert.match(logsJs, /'width_adjust':\s*\{\s*text:\s*'修正幅宽'/);
+  assert.match(logsJs, /'stocktake_adjust':\s*\{\s*text:\s*'盘点调整'/);
+  assert.match(logsJs, /'inventory_correction':\s*\{\s*text:\s*'库存纠错'/);
+  assert.match(adminLogsJs, /test_material_identity:\s*'测试料型号'/);
+  assert.match(adminLogsJs, /product_code_prefix:\s*'产品代码前缀'/);
+  assert.match(adminLogsJs, /width_adjust:\s*\{\s*text:\s*'修正幅宽'/);
+  assert.match(adminLogsJs, /stocktake_adjust:\s*\{\s*text:\s*'盘点调整'/);
+  assert.match(adminLogsJs, /inventory_correction:\s*\{\s*text:\s*'库存纠错'/);
+  assert.match(adminLogsJs, /resolveOperatorDisplayName/);
+  assert.match(adminLogsJs, /_hideQuantity:\s*true/);
+  assert.doesNotMatch(adminLogsJs, /\\u4e00-\\u9fff/);
+  assert.match(logItemWxml, /wx:if="\{\{ !item\._hideQuantity \}\}"/);
+
+  assert.match(getLogsCf, /loadOperatorFilterAliases/);
+  assert.match(getLogsCf, /actor_id:\s*_\.\in\(aliases\)/);
+  assert.match(getLogsCf, /operatorFilterAliases/);
+  assert.match(getOperatorsCf, /looksLikeInternalId/);
+  assert.match(getOperatorsCf, /resolveUserDisplayName/);
+  assert.match(logSearch, /const INBOUND_TYPES = \['inbound'\]/);
+  assert.match(logSearch, /const OUTBOUND_TYPES = \['outbound'\]/);
+  assert.match(logSearch, /const TRANSFER_TYPES = \['transfer'\]/);
+  assert.match(logSearch, /ACTION_FILTER_TYPES = \['width_adjust', 'stocktake_adjust', 'inventory_correction'\]/);
+  assert.match(logSearch, /\{\s*operator_id:\s*_\.\in\(aliases\)\s*\}/);
+});
+
+test('home dashboard cards describe identity and log-count semantics explicitly', () => {
+  const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
+  const dashboardStats = read('cloudfunctions/_shared/dashboard-stats.js');
+  const dashboardCf = read('cloudfunctions/getDashboardStats/index.js');
+
+  assert.match(homeIndexWxml, /在库品项/);
+  assert.match(homeIndexWxml, /预警品项/);
+  assert.match(homeIndexWxml, /今日入库记录/);
+  assert.match(homeIndexWxml, /今日领料记录/);
+  assert.match(dashboardStats, /supplier_model_key\s*\|\|\s*item\.supplier_model/);
+  assert.match(dashboardCf, /supplier_model_key:\s*true/);
+});
+
 test('home and search-driven pages expose consistent search trigger wiring and field descriptions', () => {
   const homeIndexJs = read('miniprogram/pages/index/index.js');
   const homeIndexWxml = read('miniprogram/pages/index/index.wxml');
