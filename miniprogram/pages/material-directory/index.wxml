@@ -50,7 +50,7 @@
 
   <van-empty
     wx:if="{{ !loading && list.length === 0 }}"
-    description="{{ searchVal ? '未找到匹配的已启用物料目录' : '暂无可用物料，先维护测试料型号' }}"
+    description="{{ searchVal ? '未找到匹配的已启用物料目录' : '暂无可用物料，需先在主数据管理中维护物料或测试料型号' }}"
   />
   <view class="list-end-state" wx:if="{{ isEnd && list.length > 0 }}">已无更多</view>
 </view>

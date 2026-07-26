@@ -565,7 +565,12 @@ test('material directory uses unified material cards and includes test identitie
   assert.match(materialDirectoryWxml, /item\.display_title/);
   assert.match(materialDirectoryWxml, /item\.display_name/);
   assert.match(materialDirectoryWxml, /item\.display_meta/);
-  assert.match(materialDirectoryWxml, /暂无可用物料，先维护测试料型号/);
+  // 空状态文案须同时覆盖两类数据源：目录 = 启用的正式料（is_test_material !== true）
+  // + 启用的测试料型号。原文案只提「先维护测试料型号」，在主数据完全为空时会误导
+  // 用户以为只需维护型号，而测试料型号本身还依赖先有测试料代码壳。
+  // 页面对所有活跃用户开放（首页入口 + directoryList 只要求活跃用户），
+  // 故用陈述句而非「请你去维护」—— 普通用户没有主数据管理权限。
+  assert.match(materialDirectoryWxml, /暂无可用物料，需先在主数据管理中维护物料或测试料型号/);
   assert.doesNotMatch(materialDirectoryWxml, /wx:if="\{\{ item\.is_test_identity \}\}"[\s\S]*测试料/);
   assert.doesNotMatch(materialDirectoryWxml, /供应商:/);
   assert.match(materialDirectoryWxss, /\.material-card__top[\s\S]*justify-content:\s*space-between/);
