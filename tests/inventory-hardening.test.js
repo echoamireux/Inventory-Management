@@ -319,3 +319,57 @@ test('inventory risk queries share unit-aware global low-stock thresholds', () =
   assert.match(syncScript, /getDashboardStats\/low-stock\.js/);
   assert.match(syncScript, /getInventoryGrouped\/low-stock\.js/);
 });
+
+// 操作编号的时效自愈：编号缓存在持久化 storage 里，刷新或重启都不清除。
+// 业务失败时前端会主动清编号，但「后端已写失败回执、响应却因网络断开没送达」
+// 这一场景够不着 —— 前端走的是网络异常分支，按设计不清除编号（请求也可能是
+// 成功的，保留编号才能靠幂等回执取回首次结果）。于是重试会一直拿到那条旧失败。
+// 加时效即可自愈，同时不削弱短时间内重试的幂等保护。
+test('operation id is reused within its ttl and regenerated afterwards', () => {
+  const store = new Map();
+  const originalWx = global.wx;
+  global.wx = {
+    getStorageSync: key => store.get(key),
+    setStorageSync: (key, value) => store.set(key, value),
+    removeStorageSync: key => store.delete(key)
+  };
+
+  try {
+    const modulePath = require.resolve('../miniprogram/utils/operation-id.js');
+    delete require.cache[modulePath];
+    // 必须用模块自己的 stableStringify 构造签名：它会对 key 排序，
+    // 与 JSON.stringify 在多键对象上结果不同
+    const { ensureOperationId, stableStringify } = require(modulePath);
+    const payload = { request_id: 'req-1', action: 'approve' };
+
+    // 幂等保护：相同内容短时间内重试必须复用同一个编号
+    const first = ensureOperationId('scope', payload);
+    assert.equal(ensureOperationId('scope', payload), first);
+
+    // 内容变化即换新编号（用户改了输入本就该视作新操作）
+    assert.notEqual(ensureOperationId('scope', { request_id: 'req-1', action: 'reject' }), first);
+
+    // 超过时效后自愈：把创建时间挪到 31 分钟前
+    store.set('operation_id:scope', {
+      id: first,
+      signature: stableStringify(payload),
+      createdAt: Date.now() - 31 * 60 * 1000
+    });
+    assert.notEqual(
+      ensureOperationId('scope', payload), first,
+      '超过时效应生成新编号，否则卡在旧失败回执上的重试无法自愈'
+    );
+
+    // 旧版本写入的缓存没有时间戳：应补上并继续沿用，不能立即作废，
+    // 否则升级瞬间正在进行中的操作会丢掉幂等保护
+    store.set('operation_id:legacy', { id: 'legacy_id_0001', signature: stableStringify(payload) });
+    assert.equal(ensureOperationId('legacy', payload), 'legacy_id_0001');
+    assert.ok(Number.isFinite(store.get('operation_id:legacy').createdAt));
+  } finally {
+    if (originalWx === undefined) {
+      delete global.wx;
+    } else {
+      global.wx = originalWx;
+    }
+  }
+});
