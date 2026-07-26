@@ -233,25 +233,7 @@
 .w-full { width: 100%; }
 .text-lg { font-size: 16px; font-weight: 500; }
 
-/* 强制修复 Vant Dialog 按钮样式 - 配合 styleIsolation: shared 生效 */
-.fix-dialog-style .van-dialog__footer--buttons {
-  text-align: center !important;
-  display: flex !important;
-  justify-content: center !important;
-}
-.fix-dialog-style .van-dialog__button {
-  flex: 1 !important;
-  width: 100% !important;
-  display: block !important;
-}
-.fix-dialog-style .van-button {
-  width: 100% !important;
-  display: block !important;
-}
-.fix-dialog-style .van-button__text {
-  display: block !important;
-  text-align: center !important;
-  width: 100% !important;
-  color: #576B95 !important;
-  font-weight: 500 !important;
-}
+/* Dialog 按钮布局统一在 app.wxss 声明，此处不再覆盖。
+ * 原有的 .fix-dialog-style 段落已于 2026-07-26 移除：该类名从未被任何元素
+ * 引用，选择器所需的祖先类不存在，故从未生效（页面虽配置了
+ * styleIsolation: 'shared'，但缺少承载类名的元素）。 */
