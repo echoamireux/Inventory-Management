@@ -50,6 +50,8 @@ test('unused direct database wrapper and retired cloud functions are removed', (
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/login')), false);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/initMDMCollection')), false);
   assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/exportTestMaterialIdentityTemplate')), false);
+  // searchInventory 于 2026-07-26 下线：无前端调用方，检索能力由 getInventoryGrouped 承担
+  assert.equal(fs.existsSync(path.join(repoRoot, 'cloudfunctions/searchInventory')), false);
 });
 
 test('reports and dynamic templates overwrite operator-scoped stable cloud paths', () => {

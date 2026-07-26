@@ -60,6 +60,9 @@ async function loadTransactionOperator(transaction, openid, fallback) {
   try {
     return await loadOperator(openid, transaction);
   } catch (error) {
+    // 仅为兼容单测中的最小事务替身。`unexpected transaction collection` 由 tests/ 下的
+    // 手写 mock 抛出，不是任何真实 SDK 错误文案；生产环境的 @cloudbase/database
+    // 事务对象支持 collection().where().get() 并透传 transactionId，此分支不会命中。
     if (/unexpected transaction collection/.test(String(error && error.message || ''))) {
       return fallback;
     }
@@ -109,8 +112,12 @@ async function loadTransactionWithdrawCandidates(transaction, selection, request
         ['_id', 'asc']
       ]).skip(skip).limit(limit).get();
     } catch (error) {
-      // Compatibility for minimal local transaction doubles; production Cloud
-      // Database always supports the ordered query used above.
+      // 仅为兼容单测中的最小事务替身。已核实生产依赖链
+      // wx-server-sdk@3.0.4 → @cloudbase/node-sdk@2.10.0 → @cloudbase/database@1.4.1
+      // 的事务实现（dist/commonjs/transaction/index.js）支持 collection().where()，
+      // 且 where/orderBy/limit/skip/get 逐层透传 transactionId，故此分支在生产不会命中。
+      // 注意：同一 SDK 的 Query.update/remove/count 不透传 transactionId，
+      // 事务内禁止使用 where(...).update()/remove()/count()。
       if (selection.unique_code && /where is not a function|unexpected transaction collection/.test(String(error && error.message || ''))) {
         const fallbackQuery = db.collection('inventory').where(where);
         const fallback = await fallbackQuery.limit(1).get();

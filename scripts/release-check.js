@@ -124,7 +124,7 @@ function assertExternalReadiness() {
     fail('核心集合 ACL 尚未确认“仅云函数可读写”');
   }
   const removed = new Set(readiness.removedCloudFunctions || []);
-  for (const legacy of ['login', 'initMDMCollection', 'exportTestMaterialIdentityTemplate']) {
+  for (const legacy of ['login', 'initMDMCollection', 'exportTestMaterialIdentityTemplate', 'searchInventory']) {
     if (!removed.has(legacy)) {
       fail(`旧云函数清理未确认：${legacy}`);
     }

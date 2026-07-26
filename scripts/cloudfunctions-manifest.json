@@ -31,7 +31,6 @@
     "registerUser",
     "removeInventory",
     "removeLog",
-    "searchInventory",
     "submitInventoryCorrectionRequest",
     "updateInventory",
     "userLogin"

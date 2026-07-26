@@ -45,11 +45,25 @@ async function loadOperator(openid) {
   return res.data && res.data[0] ? res.data[0] : null;
 }
 
-async function loadAllInventoryLogs(transaction, inventoryId) {
-  const rows = [];
+const LATER_LOG_PAGE_SIZE = 100;
+// 事务内持锁期间的分页上限。达到上限说明该库存的数量变更日志异常多，
+// 此时保守判定为"存在后续操作"并拒绝自动纠错，而不是继续扩大事务范围。
+const LATER_LOG_MAX_PAGES = 20;
+
+/**
+ * 判断源入库日志之后是否还有影响数量的业务操作。
+ *
+ * 只做存在性判断，因此逐页扫描、命中即返回，不再把该库存的全部日志
+ * 累积进内存后再统一判断，缩短事务持锁时间。
+ *
+ * 判定本身仍走 resolveLogTimestamp / isQuantityAffectingLogType，
+ * 保留其对缺失时间戳（回退 create_time）和日志类型大小写的归一化语义 ——
+ * 这两者无法用数据库查询等价表达，故不下推到 where 条件。
+ */
+async function hasLaterQuantityAffectingLog(transaction, inventoryId, sourceLog, sourceTimestamp) {
   let skip = 0;
 
-  while (true) {
+  for (let page = 0; page < LATER_LOG_MAX_PAGES; page += 1) {
     const query = transaction.collection('inventory_log')
       .where({ inventory_id: inventoryId });
     const res = await applyStableOrder(query, [
@@ -57,18 +71,26 @@ async function loadAllInventoryLogs(transaction, inventoryId) {
       ['_id', 'asc']
     ])
       .skip(skip)
-      .limit(100)
+      .limit(LATER_LOG_PAGE_SIZE)
       .get();
 
     const batch = res.data || [];
-    rows.push(...batch);
-    if (batch.length < 100) {
-      break;
+    const hit = batch.some((log) => {
+      if (!log || log._id === sourceLog._id) {
+        return false;
+      }
+      return resolveLogTimestamp(log) > sourceTimestamp && isQuantityAffectingLogType(log.type);
+    });
+    if (hit) {
+      return true;
     }
-    skip += 100;
+    if (batch.length < LATER_LOG_PAGE_SIZE) {
+      return false;
+    }
+    skip += LATER_LOG_PAGE_SIZE;
   }
 
-  return rows;
+  return true;
 }
 
 exports.main = async (event, context) => {
@@ -179,16 +201,13 @@ exports.main = async (event, context) => {
         return response;
       }
 
-      const allLogs = await loadAllInventoryLogs(transaction, correctionRequest.inventory_id);
       const sourceTimestamp = resolveLogTimestamp(sourceLog);
-      const hasLaterQuantityLogs = allLogs.some((log) => {
-        if (!log || log._id === sourceLog._id) {
-          return false;
-        }
-
-        const logTimestamp = resolveLogTimestamp(log);
-        return logTimestamp > sourceTimestamp && isQuantityAffectingLogType(log.type);
-      });
+      const hasLaterQuantityLogs = await hasLaterQuantityAffectingLog(
+        transaction,
+        correctionRequest.inventory_id,
+        sourceLog,
+        sourceTimestamp
+      );
 
       if (hasLaterQuantityLogs) {
         const response = {

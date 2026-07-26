@@ -17,9 +17,8 @@ cp cloudfunctions/_shared/low-stock.js cloudfunctions/getInventoryGrouped/low-st
 cp cloudfunctions/_shared/low-stock.js cloudfunctions/getDashboardStats/low-stock.js
 
 # 2. Sync Response Helper
-# (Only searchInventory uses it currently, but good to track)
-echo "   -> Updating response.js..."
-cp cloudfunctions/_shared/response.js cloudfunctions/searchInventory/response.js
+# 唯一使用方 searchInventory 已于 2026-07-26 下线（无前端调用方，检索能力由
+# getInventoryGrouped 承担）。_shared/response.js 暂予保留备用，当前无同步目标。
 
 # 3. Sync Auth Helper
 echo "   -> Updating auth.js..."
@@ -47,7 +46,6 @@ cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryGrouped/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getInventoryBatches/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getLogs/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getOperators/auth.js
-cp cloudfunctions/_shared/auth.js cloudfunctions/searchInventory/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/manageProjectCode/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/getProjectUsageReport/auth.js
 cp cloudfunctions/_shared/auth.js cloudfunctions/exportProjectUsageReport/auth.js
@@ -172,7 +170,6 @@ cp cloudfunctions/_shared/search.js cloudfunctions/manageMaterial/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getLogs/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportData/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportLabelData/search.js
-cp cloudfunctions/_shared/search.js cloudfunctions/searchInventory/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/manageTestMaterialIdentity/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/getProjectUsageReport/search.js
 cp cloudfunctions/_shared/search.js cloudfunctions/exportProjectUsageReport/search.js

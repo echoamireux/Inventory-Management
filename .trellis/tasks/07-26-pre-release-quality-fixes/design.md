@@ -200,6 +200,78 @@ npm-debug.log*
 2. **修复成本极低且无副作用** —— 一行规则加一次 `git add`。
 3. **发现窗口稀有** —— 若非恰好编辑了该目录内的文件并核对 `git status`，问题会继续潜伏。
 
+---
+
+# 第二轮：审查剩余四项（C3 / C4 / C6 / C7）
+
+系统尚无业务数据，改动风险处于最低点，故与第一轮同批处理。
+
+## D5. 导入解析前置拦截
+
+三条导入链路（物料导入、库存模板导入、批量入库）都有 100 行上限，但常量分散在 `utils/` 下，且校验发生在 `parseImportTemplateFileBuffer` **之后** —— 几万行的文件会先被整体读入内存解析完，行数上限才生效，拦不住小程序端的卡顿或 OOM。
+
+方案：在解析器**统一入口**加体积拦截，一处覆盖全部链路，优于在每个页面各加一次。
+
+- 新增错误码 `oversizedFile`，与既有六个错误码同级。
+- `MAX_IMPORT_TEMPLATE_FILE_BYTES = 2MB`：100 行模板通常不足 100KB，2MB 留足余量，只拦异常量级文件。
+- `resolveFileByteLength` 兼容 `ArrayBuffer`（`byteLength`）与 `Uint8Array`/字符串（`length`），因调用方传入类型不一。
+- 提示信息含实际体积与上限，便于用户自行判断。
+
+## D6. 纠错审批日志扫描
+
+`loadAllInventoryLogs` 把某库存的全部日志累积进内存后再 `some()` 判断，而实际需求只是**存在性判断**。
+
+### 方案演进（记录以免重复试错）
+
+初版尝试了更激进的优化：数据库侧用 `type: _.in([...])` 过滤掉入库等无关日志，并改按 `timestamp desc` 排序以求首页命中。该方案被两个事实否决：
+
+1. **mock 不兼容** —— `tests/inventory-refill-correction.test.js` 等文件的 `command: {}` 是空对象，没有 `in` 方法，`_.in(...)` 直接抛错，导致 4 个测试失败。改造需触及多处 mock。
+2. **断言冲突** —— `rejects corrections when later quantity-affecting logs only appear on a later page` 末尾断言 `scannedSkips` 为 `[0, 100]`，精确锁定了「首页未命中、次页命中」的分页行为。改降序后首页即命中，该断言失效。
+
+考虑到 C4 的真实风险本就很低（单条库存日志，非全表），为有限收益改动多处 mock 与既有断言不划算。故最终采用保守方案。
+
+### 最终方案
+
+保持 where 条件与 `timestamp asc` 排序完全不变（mock 与断言均不受影响），仅改变控制流：
+
+- 逐页 `some()` 判断，**命中即 return true**，不再累积全部日志。
+- `LATER_LOG_MAX_PAGES = 20`（约 2000 条）作为事务持锁上限；达到上限返回 `true`，即保守判定为「存在后续操作」并拒绝自动纠错 —— 倒向安全侧，与该分支既有的「请手动处理」语义一致。
+- 时间戳与类型判定仍在内存完成，保留 `resolveLogTimestamp` 的 `create_time` 回退、非法值归零，以及 `normalizeLogType` 的大小写归一化。这些语义无法用 where 条件等价表达，下推会造成判定偏移。
+
+## D7. 事务替身垫片注释
+
+四个云函数的 `loadTransactionOperator` / `getTransactionOperator` catch 分支**原本没有任何注释**，`updateInventory` 的 `loadTransactionWithdrawCandidates` 则有一句英文注释。
+
+需澄清的事实：那句 `production Cloud Database always supports the ordered query used above` **是正确的**（SDK 源码已核实）。误导来自「存在兜底」这一事实本身 —— 读者会推断此处存在真实的兼容风险。
+
+方案：统一补充中文注释，写明三点 —— 该错误串仅由 `tests/` 下手写 mock 抛出、不是任何真实 SDK 文案、生产分支不会命中。`updateInventory` 处额外记录完整依赖链与 `Query.update/remove/count` 不透传 transactionId 的维护约束。
+
+**不删除兜底**：13 处单测 mock 依赖它，删除需连带改造全部 mock，与「消除注释误导」这点收益完全不成比例。
+
+## D8. searchInventory 下线
+
+该函数 133 行、鉴权完整，但前端零调用方，检索能力已由 `getInventoryGrouped` 承担。
+
+关联点比预期多，逐一处理：
+
+| 位置 | 处理 |
+|---|---|
+| `cloudfunctions/searchInventory/`（6 文件） | 删除 |
+| `scripts/cloudfunctions-manifest.json` | 移除条目 |
+| `cloudfunctions/sync_shared.sh` | 移除 3 条 `cp`（auth/response/search） |
+| `README.md` 云函数清单 | 移除条目 |
+| `tests/material-master-specs.test.js` | 删除专项测试；从只读鉴权列表移除 |
+| `tests/deployment-hardening.test.js` | **新增**防复活断言 |
+| `scripts/release-check.js` | 加入废弃函数清单 |
+| `scripts/release-readiness.example.json` | 同步加入 |
+
+两个易被忽略的点：
+
+- **`sync_shared.sh` 带 `set -euo pipefail`**，指向已删目录的 `cp` 会中断整个脚本，必须同步清理，否则 `npm run sync:shared` 直接失败。
+- **`response.js` 的唯一使用方就是它**。该共享文件不在 `deploy-preflight.js` 的必查清单内，且已无任何 `require('./response')`。予以保留备用，但同步段落改为注释说明现状。
+
+加入发布门槛的取舍：这会使发布人已生成的 `release-readiness.json` 失效，需补一项 `searchInventory` 并在云端执行删除。选择加入，因为这正是该门槛的设计意图 —— 确保废弃函数不在云端残留（多余的攻击面）。代价是发布人多一步确认动作，收益是云端状态与代码库保持一致。
+
 ## Rollout / rollback
 
 三项修改互相独立，无共享状态，可单独回退：

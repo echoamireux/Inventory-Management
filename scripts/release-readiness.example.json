@@ -61,6 +61,7 @@
   "removedCloudFunctions": [
     "login",
     "initMDMCollection",
-    "exportTestMaterialIdentityTemplate"
+    "exportTestMaterialIdentityTemplate",
+    "searchInventory"
   ]
 }

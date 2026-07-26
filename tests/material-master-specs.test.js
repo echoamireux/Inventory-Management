@@ -670,8 +670,7 @@ test('read-only inventory cloud functions require active users on the backend', 
   [
     'cloudfunctions/getDashboardStats/index.js',
     'cloudfunctions/getInventoryGrouped/index.js',
-    'cloudfunctions/getInventoryBatches/index.js',
-    'cloudfunctions/searchInventory/index.js'
+    'cloudfunctions/getInventoryBatches/index.js'
   ].forEach((relPath) => {
     const file = read(relPath);
     assert.match(file, /assertActiveUserAccess/);
@@ -823,14 +822,6 @@ test('inventory grouped and operators queries do not keep a silent aggregate 100
   assert.doesNotMatch(groupedCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
   assert.doesNotMatch(operatorsCf, /\.group\([\s\S]*?\)\s*\.limit\(1000\)\s*\.end\(\)/);
   assert.match(labelExportCf, /\.lookup\([\s\S]*?\)\s*\.limit\(selectedIds\.length\)\s*\.end\(\)/);
-});
-
-test('searchInventory suggestions use material_name as the primary material name field', () => {
-  const searchInventoryCf = read('cloudfunctions/searchInventory/index.js');
-
-  assert.match(searchInventoryCf, /item\.material_name\s*\|\|\s*item\.name/);
-  assert.match(searchInventoryCf, /\{\s*material_name:\s*keywordRegExp\s*\}/);
-  assert.doesNotMatch(searchInventoryCf, /\{\s*name:\s*keywordRegExp\s*\}/);
 });
 
 test('search-backed inventory, master-data, and log queries share escaped keyword matching with broadened field coverage', () => {

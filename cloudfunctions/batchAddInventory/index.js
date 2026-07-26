@@ -55,6 +55,9 @@ async function loadTransactionOperator(transaction, openid, fallback) {
   try {
     return await loadOperator(openid, transaction);
   } catch (error) {
+    // 仅为兼容单测中的最小事务替身。`unexpected transaction collection` 由 tests/ 下的
+    // 手写 mock 抛出，不是任何真实 SDK 错误文案；生产环境的 @cloudbase/database
+    // 事务对象支持 collection().where().get() 并透传 transactionId，此分支不会命中。
     if (/unexpected transaction collection/.test(String(error && error.message || ''))) {
       return fallback;
     }

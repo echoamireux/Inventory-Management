@@ -39,6 +39,38 @@
 - [ ] D4. 将 `miniprogram/pages/logs/` 四个源文件纳入版本控制
 - [ ] D5. 核对 `app.json` 的 29 个注册页面在版本库中全部存在
 
+### E. 导入解析前置拦截（D5）
+
+- [ ] E1. `miniprogram/utils/import-file-parser.js` 新增错误码 `oversizedFile`、常量 `MAX_IMPORT_TEMPLATE_FILE_BYTES`、helper `resolveFileByteLength`
+- [ ] E2. 在 `parseImportTemplateFileBuffer` 开头（`detectFileType` **之前**）加体积校验
+- [ ] E3. `resolveImportTemplateErrorMessage` 补 `oversizedFile` 分支
+- [ ] E4. 确认三条导入链路都经由该入口，无需逐页面改动
+
+### F. 纠错审批日志扫描（D6）
+
+- [ ] F1. `approveInventoryCorrectionRequest/index.js` 将 `loadAllInventoryLogs` 改为 `hasLaterQuantityAffectingLog`，逐页判断、命中即返回
+- [ ] F2. 加 `LATER_LOG_PAGE_SIZE` / `LATER_LOG_MAX_PAGES`，达上限保守返回 `true`
+- [ ] F3. **保持 where 条件与 `timestamp asc` 排序不变** —— 不要下推 type 过滤、不要改降序（见 design.md 方案演进）
+- [ ] F4. 调用点改为 await 新函数，删除原内存 `some()` 判断
+- [ ] F5. 确认 `scannedSkips` 为 `[0, 100]` 的既有断言仍通过
+
+### G. 事务替身垫片注释（D7）
+
+- [ ] G1. 为 `addMaterial` / `batchAddInventory` / `importInventoryTemplate` / `updateInventory` 四处 catch 补中文注释
+- [ ] G2. `updateInventory` 的 `loadTransactionWithdrawCandidates` 英文注释改写，补依赖链与维护约束
+- [ ] G3. **不删除任何兜底代码**
+
+### H. 下线 searchInventory（D8）
+
+- [ ] H1. 逐文件 `git rm` 六个源文件（`git rm -r` 会被安全策略拦截）
+- [ ] H2. `cloudfunctions-manifest.json` 移除条目
+- [ ] H3. `sync_shared.sh` 移除三条 `cp`，Response Helper 段落改注释
+- [ ] H4. README 云函数清单移除条目
+- [ ] H5. `tests/material-master-specs.test.js` 删除专项测试 + 从只读鉴权列表移除
+- [ ] H6. `tests/deployment-hardening.test.js` 增加防复活断言
+- [ ] H7. `release-check.js` 与 `release-readiness.example.json` 加入废弃清单
+- [ ] H8. 执行 `npm run sync:shared` 确认退出码 0
+
 ## Validation commands
 
 ```bash
@@ -87,7 +119,16 @@ git diff --stat
 
 ## Post-delivery（交付后由发布人执行）
 
-1. 生成 `scripts/release-readiness.json`：复制 `scripts/release-readiness.example.json`，全部 `false` 改 `true`，确认 `environment` 为 `production`、`aclCloudFunctionOnly` 为 `true`、`removedCloudFunctions` 含三项
-2. `npm run release:check` 跑三道门禁
-3. 测试环境端到端走查：注册 → 审批 → 入库（单条/批量/模板）→ 查询 → 领料（扫码/按代码）→ 纠错申请 → 审批 → 导出 → 标签打印
-4. 上传审核
+1. **在云开发控制台删除 `searchInventory` 云函数**（第二轮新增动作）
+2. 在 `scripts/release-readiness.json` 的 `removedCloudFunctions` 数组补入 `"searchInventory"` —— 未补齐时 `release:check` 会明确失败于「旧云函数清理未确认：searchInventory」，这是设计意图
+3. `npm run release:check` 跑三道门禁
+4. **重新上传两个云函数**：`adminUpdateUserStatus`（第一轮 R1）、`approveInventoryCorrectionRequest`（第二轮 R6）
+5. 重新上传小程序代码包
+6. 测试环境端到端走查：注册 → 审批 → 入库（单条/批量/模板）→ 查询 → 领料（扫码/按代码）→ 纠错申请 → 审批 → 导出 → 标签打印
+7. 上传审核
+
+### 第二轮改动的重点验证项
+
+- **导入**：正常 100 行内模板应照常导入；可另备一个超大 xlsx 验证是否给出体积超限提示而非卡死
+- **纠错审批**：对一条有后续领用记录的库存提交纠错并审批，应仍拒绝并提示「已有后续业务操作」；对无后续操作的库存审批应正常通过
+- **检索**：确认首页与库存页的搜索功能正常（`searchInventory` 下线后由 `getInventoryGrouped` 承担）

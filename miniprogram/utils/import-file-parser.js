@@ -6,8 +6,27 @@ const IMPORT_TEMPLATE_ERROR_CODES = {
   missingSheet: 'missing_sheet',
   headerMismatch: 'header_mismatch',
   legacyRuntimeMismatch: 'legacy_runtime_mismatch',
-  emptyDataRows: 'empty_data_rows'
+  emptyDataRows: 'empty_data_rows',
+  oversizedFile: 'oversized_file'
 };
+
+// 各导入链路的行数上限均为 100 行，对应的 .xlsx 模板通常不足 100KB。
+// 这里留出充裕余量，只拦截明显超出正常模板量级的文件：行数校验发生在解析之后，
+// 若不在解析前拦截，几万行的文件会先被整体读入内存，导致小程序端卡顿甚至 OOM。
+const MAX_IMPORT_TEMPLATE_FILE_BYTES = 2 * 1024 * 1024;
+
+function resolveFileByteLength(fileContent) {
+  if (!fileContent) {
+    return 0;
+  }
+  if (typeof fileContent.byteLength === 'number') {
+    return fileContent.byteLength;
+  }
+  if (typeof fileContent.length === 'number') {
+    return fileContent.length;
+  }
+  return 0;
+}
 
 const TEMPLATE_PROTOCOLS = {
   inventory_import: ['inventory-import-v2'],
@@ -668,10 +687,28 @@ function resolveImportTemplateErrorMessage(error, options = {}) {
     return error.message || fallback;
   }
 
+  if (error.code === IMPORT_TEMPLATE_ERROR_CODES.oversizedFile) {
+    return error.message || fallback;
+  }
+
   return error.message || fallback;
 }
 
 function parseImportTemplateFileBuffer(fileContent, options = {}) {
+  // 必须先于解析执行：行数上限在解析完成后才校验，拦不住超大文件的解析开销。
+  const byteLength = resolveFileByteLength(fileContent);
+  if (byteLength > MAX_IMPORT_TEMPLATE_FILE_BYTES) {
+    throw buildImportTemplateError(
+      IMPORT_TEMPLATE_ERROR_CODES.oversizedFile,
+      `文件大小 ${(byteLength / 1024 / 1024).toFixed(1)}MB 超过 ${MAX_IMPORT_TEMPLATE_FILE_BYTES / 1024 / 1024}MB 上限，请确认使用系统导出的模板并拆分数据后再上传`,
+      {
+        fileName: String(options.fileName || ''),
+        byteLength,
+        maxBytes: MAX_IMPORT_TEMPLATE_FILE_BYTES
+      }
+    );
+  }
+
   const extension = detectFileType(fileContent, options.fileName);
 
   if (extension === '.xlsx') {

@@ -190,8 +190,6 @@
   产品聚合库存查询
 - `getInventoryBatches`
   批次聚合查询
-- `searchInventory`
-  标签与库存检索
 - `updateInventory`
   领用扣减
 - `batchAddInventory`

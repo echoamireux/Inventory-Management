@@ -86,14 +86,20 @@ grep -n "_transactionId" dist/commonjs/query.js         # → where/orderBy/limi
 - `operation_receipts` + SHA256 签名的幂等机制完整。
 - 35 个云函数除注册/登录外全部校验身份与角色，OPENID 均取自 `cloud.getWXContext()`，无客户端信任。
 
-### 本次不处理的待办（供后续迭代）
+### 审查发现的其余四项（第二轮已全部处理）
 
-| 编号 | 问题 | 定性 |
-|---|---|---|
-| C3 | 三条导入链路均有 100 行上限（常量在 `utils/`），但 `template-import/index.js:277` 先解析整个 Excel 再校验行数，超大文件仍可能卡住小程序端 | 低-中 |
-| C4 | `approveInventoryCorrectionRequest/index.js:52-69` 在事务内 `while(true)` 分页拉取某库存全部日志，数据增长后延长持锁时间 | 中，**唯一与数据量增长相关的性能隐患** |
-| C6 | 多个云函数 `loadTransactionOperator` 的 catch 只匹配 `unexpected transaction collection` —— 该字符串仅存在于自家单测 mock，生产是死代码，且其注释断言与官方文档矛盾，曾误导审查 | 低，但有误导性 |
-| C7 | `searchInventory` 是活代码（133 行、有完整鉴权）但无任何前端调用方，疑似已被 `getInventoryGrouped` 取代；其内 3 处 `console.log` 随之保留 | 低 |
+审查原本把这四项列为"上线后迭代"。因系统尚无业务数据、改动风险处于最低点，发布人决定在同一批次内一并处理，见 R5–R8。
+
+| 编号 | 问题 | 原定性 | 处理 |
+|---|---|---|---|
+| C3 | 三条导入链路均有 100 行上限（常量在 `utils/`），但解析发生在校验之前，超大文件仍可能卡住小程序端 | 低-中 | R5 |
+| C4 | `approveInventoryCorrectionRequest` 在事务内 `while(true)` 分页拉取某库存全部日志 | 中 | R6 |
+| C6 | 四个云函数的 `loadTransactionOperator` catch 只匹配 `unexpected transaction collection`，生产是死代码且缺少说明 | 低，但有误导性 | R7 |
+| C7 | `searchInventory` 是活代码但无任何前端调用方 | 低 | R8 |
+
+**对 C4 原定性的更正**：审查报告称其为「唯一与数据量增长相关的真实性能隐患」，此定性偏重。该查询按 `inventory_id` 过滤，拉取的是**单条库存**的日志而非全表；一条库存的日志量为「1 条入库 + N 次领用/补料」，领完即转 `used`，正常业务下 `while` 循环仅执行一次。真实风险远低于报告描述。
+
+**对 C6 原定性的更正**：审查称 `updateInventory` 那句注释「production Cloud Database always supports the ordered query used above」具误导性。经 SDK 源码核实，**该断言本身是正确的**。真正的问题是「存在兜底」这一事实本身暗示了并不存在的兼容风险，而注释未说明该分支在生产为死代码。因此处理方式是把注释写明确，而非删除兜底。
 
 ## Requirements
 
@@ -132,6 +138,35 @@ grep -n "_transactionId" dist/commonjs/query.js         # → where/orderBy/limi
 - `miniprogram/pages/material-add/batch-entry.js` 的 `onUnload` 需一并清理 `suggestionTimer`（当前仅清理了 `testMaterialIdentitySearchTimer`）。
 - `app.js` 身份校验重试无次数上限一项**不修改** —— 已确认 `wx.showModal` 成功回调为异步执行、调用栈已释放，不存在堆栈溢出风险，仅是用户可反复点击重试，属可接受行为。
 
+### R5. 导入必须在解析前拦截超大文件
+
+- 在解析器统一入口 `parseImportTemplateFileBuffer` 增加文件体积上限，**先于**解析执行。
+- 上限需明显高于 100 行模板的正常体积，只拦截异常量级的文件。
+- 新增独立错误码并给出可操作的中文提示（含实际体积与上限）。
+- 三条导入链路（物料导入、库存模板导入、批量入库）均通过该入口，一处生效即全覆盖。
+
+### R6. 库存纠错审批不得在事务内无界拉取日志
+
+- 「是否存在更晚的数量变更日志」是存在性判断，命中后必须立即返回，不再累积全部日志。
+- 必须有分页上限；达到上限时保守判定为「存在后续操作」并拒绝自动纠错，不得继续扩大事务范围。
+- 判定语义必须保持不变：仍由 `resolveLogTimestamp`（含 `create_time` 回退与非法时间戳归零）与 `isQuantityAffectingLogType`（含大小写归一化）在内存中完成。这两者无法用数据库查询等价表达，**不得下推到 where 条件**。
+- 既有测试对分页行为的断言（`scannedSkips` 为 `[0, 100]`）必须继续成立。
+
+### R7. 事务替身兼容垫片必须有明确说明
+
+- 四个云函数（`addMaterial` / `batchAddInventory` / `importInventoryTemplate` / `updateInventory`）的 `loadTransactionOperator`（或 `getTransactionOperator`）catch 分支需加注释，说明该错误串仅由单测 mock 抛出、生产不会命中。
+- `updateInventory` 中原有的英文注释改为中文并补全依据（具体 SDK 版本链、透传行为），同时写明 `Query.update/remove/count` 不透传 transactionId 这一维护约束。
+- **不删除兜底代码** —— 13 处单测 mock 依赖它，删除需连带改造全部 mock，成本与收益不成比例。
+
+### R8. 下线无调用方的 searchInventory
+
+- 删除 `cloudfunctions/searchInventory/` 全部源文件。
+- 同步清理：`cloudfunctions-manifest.json`、`sync_shared.sh` 的三条 `cp`、README 云函数清单、引用该函数的两处测试断言。
+- 在 `tests/deployment-hardening.test.js` 增加防复活断言，与 `login` 等既有废弃函数一致。
+- 加入 `release-check.js` 的废弃函数清单与 `release-readiness.example.json`，确保云端删除被纳入发布门槛。
+- `sync_shared.sh` 必须仍能正常执行（该脚本带 `set -euo pipefail`，指向已删目录的 `cp` 会中断整个脚本）。
+- `_shared/response.js` 予以保留（其唯一使用方虽已下线，但属通用 helper，删除超出本次范围）。
+
 ## Acceptance Criteria
 
 - [ ] `npm test` 全部通过，且测试总数相比基线 566 有增加（新增 R1 的覆盖用例）。
@@ -142,6 +177,9 @@ grep -n "_transactionId" dist/commonjs/query.js         # → where/orderBy/limi
 - [ ] `app.json` 注册的 29 个页面在版本库中全部存在。
 - [ ] 不修改任何事务逻辑、权限模型、库存数量模型。
 - [ ] 不提交 `scripts/release-readiness.json`。
+- [ ] `npm run sync:shared` 执行成功（退出码 0）且不产生意外文件变更。
+- [ ] 全仓库对 `searchInventory` 的残留引用仅剩注释、防复活断言与废弃函数清单三类。
+- [ ] `npm run release:check` 在发布人补齐 `removedCloudFunctions` 前，应明确失败于「旧云函数清理未确认：searchInventory」—— 这是设计意图，用于提示云端删除动作尚未完成。
 
 ## Notes
 
