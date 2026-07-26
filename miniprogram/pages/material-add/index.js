@@ -1000,14 +1000,12 @@ Page({
 
              // MDM 强管控：如果没有匹配到任何结果 -> 检查是否为归档物料 or 阻断
              if (!list || list.length === 0) {
-                  // Check Archive Status with Debug Logs
+                  // Check Archive Status
                   try {
-                      console.log('[Debug] Checking status for:', keyword);
                       const checkRes = await wx.cloud.callFunction({
                           name: 'manageMaterial',
                           data: { action: 'checkStatus', data: { product_code: keyword } }
                       });
-                      console.log('[Debug] checkStatus res:', checkRes);
 
                       if (checkRes.result.success && checkRes.result.isArchived) {
                           return {

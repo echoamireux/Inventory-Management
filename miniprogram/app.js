@@ -106,7 +106,7 @@ App({
       }
 
     } catch (err) {
-      console.error('身份校验对失败:', err);
+      console.error('身份校验失败:', err);
       wx.showModal({
         title: '身份校验失败',
         content: '请检查网络连接或确认云函数已部署后重试。',

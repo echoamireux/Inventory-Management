@@ -149,7 +149,23 @@ test('the last active super administrator cannot be demoted', async () => {
   assert.equal(state[0].role, 'super_admin');
 });
 
+// 目标必须是 super-2 而非 super-1：mock 的操作人 OPENID 是 openid-super-1，
+// 选中 super-1 会命中「不能降低当前登录账号的权限」的自我保护，与本用例
+// 「非最后一名超管可以被降级」的意图无关。
 test('a super administrator can be demoted when another active super administrator remains', async () => {
+  const { db, state } = createUserDb([
+    { _id: 'super-1', _openid: 'openid-super-1', role: 'super_admin', status: 'active' },
+    { _id: 'super-2', _openid: 'openid-super-2', role: 'super_admin', status: 'active' }
+  ]);
+  const mod = loadAdminUpdateUserStatus(db);
+
+  const result = await mod.main({ action: 'updateRole', userId: 'super-2', role: 'admin' });
+
+  assert.equal(result.success, true);
+  assert.equal(state.find(item => item._id === 'super-2').role, 'admin');
+});
+
+test('a super administrator cannot demote themselves even when another one remains', async () => {
   const { db, state } = createUserDb([
     { _id: 'super-1', _openid: 'openid-super-1', role: 'super_admin', status: 'active' },
     { _id: 'super-2', _openid: 'openid-super-2', role: 'super_admin', status: 'active' }
@@ -158,8 +174,9 @@ test('a super administrator can be demoted when another active super administrat
 
   const result = await mod.main({ action: 'updateRole', userId: 'super-1', role: 'admin' });
 
-  assert.equal(result.success, true);
-  assert.equal(state.find(item => item._id === 'super-1').role, 'admin');
+  assert.equal(result.success, false);
+  assert.match(result.msg, /不能降低当前登录账号的权限/);
+  assert.equal(state.find(item => item._id === 'super-1').role, 'super_admin');
 });
 
 test('an active super administrator can promote another active user for a safe handover', async () => {

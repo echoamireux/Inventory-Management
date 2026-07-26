@@ -43,7 +43,8 @@ miniprogram/env.local.js
 .env.*
 scripts/release-readiness.json
 
-logs
+# 仅忽略仓库根目录的运行日志目录；不带前导斜杠会误伤 miniprogram/pages/logs/ 等业务代码目录
+/logs
 *.log
 npm-debug.log*
 

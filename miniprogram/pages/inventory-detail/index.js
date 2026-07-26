@@ -344,7 +344,6 @@ Page({
   },
 
   onEdit() {
-      console.log('onEdit triggered', this.data.id);
       if (!this.data.id) {
           wx.showToast({ title: 'ID Missing', icon: 'none' });
           return;

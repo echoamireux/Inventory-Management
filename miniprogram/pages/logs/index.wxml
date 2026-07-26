@@ -1,0 +1,66 @@
+<!--pages/logs/index.wxml-->
+<!-- 操作日志页面 -->
+<view class="page-container">
+  <!-- 搜索栏 -->
+  <!-- 搜索栏 -->
+  <view class="search-transparent">
+    <van-search
+        value="{{ searchVal }}"
+        placeholder="日志：产品代码/物料名/原厂型号/项目等"
+        shape="round"
+        bind:search="onSearch"
+        bind:change="onSearchChange"
+        bind:clear="onClear"
+        custom-class="search-compact"
+    />
+  </view>
+
+  <van-dropdown-menu active-color="#1989fa">
+    <van-dropdown-item value="{{ dateFilter }}" options="{{ dateOptions }}" bind:change="onDateFilterChange" />
+    <van-dropdown-item value="{{ typeFilter }}" options="{{ typeOptions }}" bind:change="onTypeFilterChange" />
+    <van-dropdown-item value="{{ operatorFilter }}" options="{{ operatorOptions }}" bind:change="onOperatorFilterChange" />
+  </van-dropdown-menu>
+
+  <view
+    wx:if="{{ dateFilter === 'custom' }}"
+    class="date-range-bar {{ startDate && endDate ? 'date-range-bar--selected' : '' }}"
+    hover-class="date-range-bar--active"
+    bindtap="onShowDateCalendar"
+  >
+    <text class="date-range-bar__label">自定义日期</text>
+    <text class="date-range-bar__value">{{ dateRangeText || '请选择日期范围' }}</text>
+  </view>
+
+  <!-- 日志列表 -->
+  <view class="list-container">
+    <block wx:if="{{ logList.length > 0 }}">
+      <view wx:for="{{ logList }}" wx:key="_id">
+        <log-item item="{{ item }}" mode="compact" bind:requestcorrection="onRequestCorrection" />
+      </view>
+    </block>
+
+    <van-empty wx:if="{{ !loading && logList.length === 0 }}" description="暂无操作记录" />
+
+    <view wx:if="{{ loading }}" class="loading-container">
+      <van-loading size="24px" vertical>加载中...</van-loading>
+    </view>
+
+    <view wx:if="{{ isEnd && logList.length > 0 }}" class="list-end-state">
+      已无更多
+    </view>
+  </view>
+
+  <van-calendar
+    show="{{ showDateCalendar }}"
+    type="range"
+    title="选择日志日期范围"
+    color="#1989fa"
+    min-date="{{ minDate }}"
+    max-date="{{ maxDate }}"
+    default-date="{{ calendarDefaultDate }}"
+    allow-same-day
+    first-day-of-week="1"
+    bind:confirm="onDateCalendarConfirm"
+    bind:close="onDateCalendarClose"
+  />
+</view>

@@ -294,6 +294,10 @@ Page({
           clearTimeout(this.testMaterialIdentitySearchTimer);
           this.testMaterialIdentitySearchTimer = null;
       }
+      // 页面已进入卸载流程，只清定时器，不再 setData
+      if (this.data.suggestionTimer) {
+          clearTimeout(this.data.suggestionTimer);
+      }
   },
 
   async loadPrefixOptions(category = this.data.activeTab, preferredPrefix = '') {

@@ -160,6 +160,9 @@ async function updateUserRole(userId, role, operator, operatorOpenid) {
       if ((activeSuperAdminRes.data || []).length <= 1) {
         return { success: false, msg: '系统必须至少保留一名激活的超级管理员' };
       }
+      if (targetUser._openid === operatorOpenid) {
+        return { success: false, msg: '不能降低当前登录账号的权限，请由其他超级管理员操作' };
+      }
     }
 
     await targetRef.update({
