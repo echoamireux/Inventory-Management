@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-07-26
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~266 | Active |
+| `journal-1.md` | ~362 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-07-26 | 人员权限页弹窗交互与样式修复 | `fc654d6`, `bf8e6d4`, `bc2cbb2`, `5cb75f4` | `codex/test-material-identity-governance` |
 | 6 | 2026-07-26 | 上线前代码审查与两轮质量修复 | `26d6eb5`, `0e8fa47`, `d57248a` | `codex/test-material-identity-governance` |
 | 5 | 2026-07-25 | 上线前一致性风险修复 | `ed6b7a2` | `codex/test-material-identity-governance` |
 | 4 | 2026-07-25 | 测试料型号远程分页搜索收尾 | `7fe4385` | `codex/test-material-identity-governance` |

@@ -264,3 +264,99 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: 人员权限页弹窗交互与样式修复
+
+**Date**: 2026-07-26
+**Task**: 人员权限页弹窗交互与样式修复
+**Branch**: `codex/test-material-identity-governance`
+
+### Summary
+
+修复 action-sheet 取消按钮无响应（缺 bind:cancel）、Dialog 按钮不等分、危险操作红色确认按钮被全局 !important 覆盖三个缺陷。初版仅移除破坏性覆盖后实机仍偏移，经浏览器复现对照后改为显式声明等分。同步反转了一个锁定错误实现的测试，并清理 material-import 中同源的死代码。
+
+### Main Changes
+
+### 背景
+
+上线前走查「人员与权限管理」页发现两个界面缺陷，排查中又牵出第三个。三者中后两个同源。同批走查确认：超管修改自己角色会被正确拒绝，任务 `07-26-pre-release-quality-fixes` 的 R1 防护生效。
+
+### 缺陷与根因
+
+**一、action-sheet 取消按钮点击无反应**
+
+`user-manage/index.wxml` 设了 `cancel-text` 渲染出取消按钮，却只绑定 `bind:select` 与 `bind:close`，缺 `bind:cancel`。vant action-sheet 是受控组件，`show` 全靠外部改，而点取消触发的是 `cancel`（`action-sheet/index.js:68` 的 `$emit('cancel')`），没有处理器就复位不了 `show`。点遮罩和关闭图标走的是 `close`，所以表现为「只有取消按钮没反应」。
+
+全项目 14 处 `van-action-sheet` 仅此一处受影响 —— 其余均未设 `cancel-text`，不渲染取消按钮。
+
+**二、Dialog 确认按钮偏移**
+
+`app.wxss` 中一段注释为「全局修复 Vant Dialog 按钮样式」的覆盖即问题源。它以 `!important` 重定义 `.van-dialog__button` 却丢掉了 vant 原生的 `flex: 1`，破坏等分。同段另有两条无效规则：`.van-dialog__footer--buttons` 在 vant 模板中不存在；`.van-dialog__button .van-button__text` 是跨组件后代选择器，小程序样式隔离下不生效。
+
+关键前提：`common/component.js:45` 设 `addGlobalClass: true`，vant 组件允许全局样式穿透，故 app.wxss 确实作用到组件内部。另注意 `van-dialog__button` 是通过 **`class`**（非 `custom-class`）设在 `<van-button>` 组件节点上的。
+
+**三、危险操作的红色确认按钮被强制成蓝色**
+
+`.van-dialog__confirm { color: #1989FA !important }` 压过 van-button 的内联 style，使 `confirmButtonColor` 失效。影响四处，其中三处为危险操作：禁用账号 `#dc2626`、删除/归档物料两处 `#ee0a24`。
+
+### 一次做法修正（本次最值得记录的部分）
+
+初版（`fc654d6`）只移除了破坏布局的覆盖，依赖 vant 原生 `footer:flex` + `button:flex-1` 恢复等分。**实机验证仍偏移。**
+
+为定位原因，用浏览器复现了 vant 的真实 DOM 结构与样式做对照，实测原生规则在标准 flex 下结果完全正确：两按钮各 160/320、文字中心零偏移，加不加 `min-width:0` 相同。**故问题不在 CSS 逻辑，而在「依赖组件库内部实现」这一做法本身不够稳妥。**
+
+佐证：该布局在本项目已出现过两次失败的修复尝试（本次移除的 app.wxss 段落，以及 material-import 的 `.fix-dialog-style` 段落）。反复出问题的地方不该继续赌组件库内部实现。
+
+改为显式声明（`bf8e6d4`），只做等分这一件事：
+
+```css
+.van-dialog__footer { display: flex !important; }
+.van-dialog__button { flex: 1 1 0 !important; min-width: 0 !important; }
+```
+
+与原生等价但不依赖其实现。`flex-basis: 0` 配 `min-width: 0` 防止按钮被文字长度撑开（「取消」2 字与「确认执行」4 字并排的场景）。
+
+### 一个实用判据
+
+判断样式改动是否真正编译生效，看「禁用账号」确认按钮**是否为红色**，而非看居中。原因：被覆盖的 `#1989FA` 与业务设定的 `#2563eb` 同为蓝色、肉眼难辨；`#dc2626` 红色一目了然。本次即靠该判据确认改动已生效。
+
+### 测试的处置
+
+原有测试 `global Vant dialog buttons are centered with flex layout` **逐条断言那段错误覆盖必须存在**，包括那条不存在的类名 —— 当初加样式的人写了测试把错误实现锁死。
+
+改写为守护正确约束：若 app.wxss 声明 `.van-dialog__button` 则必须保留 `flex` 等分，同时禁止三条历史错误（不存在的 `footer--buttons` 类、跨组件后代选择器、按钮颜色覆盖），并锁定 vant 原生布局以便组件库升级时提示复核。另补一条守护 action-sheet 的 `cancel-text` 与 `bind:cancel` 成对出现。
+
+### 顺带清理
+
+`material-import/index.wxss` 的 `.fix-dialog-style` 段落（21 行）为纯死代码：类名全项目无引用，选择器所需祖先类不存在，从未生效（页面虽配 `styleIsolation: 'shared'`，但缺承载元素）。已移除，避免后续排查再被误导 —— 本次即因其与 app.wxss 覆盖段高度相似而一度纳入怀疑。
+
+清理后全项目仅存两条 Dialog 按钮样式，均在 app.wxss。
+
+### 交付状态
+
+三项验收均已实机验证通过。`npm test` 567/567、`preflight:deploy` 通过。无云函数改动，仅需重新上传小程序代码包。
+
+app.wxss 原位置留有维护约束注释：改动必须保留 flex 等分、不得覆盖按钮 color、改前先比对 vant 原生定义。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc654d6` | (see git log) |
+| `bf8e6d4` | (see git log) |
+| `bc2cbb2` | (see git log) |
+| `5cb75f4` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
