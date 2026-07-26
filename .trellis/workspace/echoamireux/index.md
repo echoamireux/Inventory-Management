@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-07-26
+- **Total Sessions**: 8
+- **Last Active**: 2026-07-27
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~362 | Active |
+| `journal-1.md` | ~472 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-07-27 | 上线前 13 项缺陷修复（含 4 个阻断项） | `bf2643a`, `460cf42`, `9c83e09`, `9c1a97a`, `56d87ee`, `80b9265`, `8999004`, `184eb6c`, `ea71046`, `89655d3` | `codex/test-material-identity-governance` |
 | 7 | 2026-07-26 | 人员权限页弹窗交互与样式修复 | `fc654d6`, `bf8e6d4`, `bc2cbb2`, `5cb75f4` | `codex/test-material-identity-governance` |
 | 6 | 2026-07-26 | 上线前代码审查与两轮质量修复 | `26d6eb5`, `0e8fa47`, `d57248a` | `codex/test-material-identity-governance` |
 | 5 | 2026-07-25 | 上线前一致性风险修复 | `ed6b7a2` | `codex/test-material-identity-governance` |
