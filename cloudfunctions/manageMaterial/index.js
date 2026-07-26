@@ -1108,6 +1108,21 @@ async function updateMaterial(data, openid) {
         }
         throw new Error('该物料已产生库存记录，默认单位已锁定，不能修改');
       }
+
+      // 无库存并不代表可以随意改身份字段：测试料的型号库以 product_code 与
+      // identity_key 关联代码壳，改了代码壳而型号记录仍挂旧值，会让全部已维护
+      // 型号失联，该测试料从此无法入库（入库时按新代码查不到任何型号）。
+      // 型号库的迁移涉及重算 identity_key 并可能与既有记录撞唯一键，风险高于
+      // 收益，故直接阻断并引导先处理型号。
+      if (identityChanged) {
+        const identityRes = await transaction.collection('test_material_identities')
+          .where({ material_id: id })
+          .limit(1)
+          .get();
+        if (identityRes.data && identityRes.data.length > 0) {
+          throw new Error('该测试料已维护原厂型号，产品代码等身份字段已锁定；如需修改请先删除其全部型号');
+        }
+      }
     }
 
     await materialRef.update({ data: updateData });
@@ -1376,11 +1391,20 @@ async function batchDeleteMaterials(data, openid) {
           .where({ material_id: id })
           .limit(1)
           .get();
+        // 测试料的型号库以 material_id 关联代码壳。物理删除代码壳会留下无法修复的
+        // 孤儿型号（型号记录仍挂着已不存在的 material_id 与 product_code）。
+        // 与「有库存历史则归档」同理，有型号时也改为归档而非物理删除 ——
+        // 既保住型号关联，又不必阻断整批操作。
+        const identityRes = await transaction.collection('test_material_identities')
+          .where({ material_id: id })
+          .limit(1)
+          .get();
         prepared.push({
           id,
           materialRef,
           material: materialRes.data,
           hasHistory: !!(historyRes.data && historyRes.data.length > 0)
+            || !!(identityRes.data && identityRes.data.length > 0)
         });
       }
 

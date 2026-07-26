@@ -420,7 +420,12 @@ async function updateIdentity(event, openid) {
     sub_category: resolvedSubcategory.sub_category,
     supplier: Object.prototype.hasOwnProperty.call(event, 'supplier') ? event.supplier : oldRecord.supplier,
     supplier_model: event.supplier_model || event.supplierModel || oldRecord.supplier_model,
-    supplier_model_key: event.supplier_model_key || event.supplierModelKey || oldRecord.supplier_model_key,
+    // 不得回落到 oldRecord.supplier_model_key：normalizeTestMaterialIdentityRecord
+    // 会优先采用传入的 key（record.supplier_model_key || supplierModel），沿用旧 key
+    // 会让改名后的记录仍挂在旧的 supplier_model_key / identity_key 上 —— 显示值与
+    // 唯一键脱节，可以建出两条实质同型号的记录，绕过唯一性约束。
+    // 前端只提交 supplier_model，此处留空即由新型号重新派生 key。
+    supplier_model_key: event.supplier_model_key || event.supplierModelKey || '',
     status: oldRecord.status || 'active'
   });
   if (!candidate.supplier_model_key) {

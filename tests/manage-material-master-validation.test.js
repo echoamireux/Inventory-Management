@@ -25,6 +25,7 @@ function createManageMaterialModule({
   existingMaterial = null,
   materialsById = null,
   inventoryRecords = [],
+  testMaterialIdentities = [],
   onAdd = () => {},
   onUpdate = () => {},
   onRemove = () => {}
@@ -104,6 +105,27 @@ function createManageMaterialModule({
         return {
           where(query = {}) {
             const matches = inventoryRecords.filter(record => Object.entries(query).every(
+              ([key, value]) => record[key] === value
+            ));
+            return {
+              limit() {
+                return this;
+              },
+              async get() {
+                return { data: matches.map(item => ({ ...item })) };
+              },
+              async count() {
+                return { total: matches.length };
+              }
+            };
+          }
+        };
+      }
+
+      if (name === 'test_material_identities') {
+        return {
+          where(query = {}) {
+            const matches = testMaterialIdentities.filter(record => Object.entries(query).every(
               ([key, value]) => record[key] === value
             ));
             return {
@@ -380,4 +402,85 @@ test('manageMaterial batch deletion is atomic when any selected material is stil
 
   assert.equal(result.success, false);
   assert.deepEqual(removedIds, []);
+});
+
+// H4 回归：测试料的型号库以 material_id / product_code 关联代码壳。此前改代码壳的
+// 身份字段只检查 inventory，若该测试料已维护型号但暂无库存，改完后型号记录仍挂着
+// 旧 product_code 与旧 identity_key，与新壳失配 —— 该测试料从此无法入库。
+test('manageMaterial update locks identity fields once test-material identities exist', async () => {
+  const updatedMaterials = [];
+  const manageMaterial = createManageMaterialModule({
+    existingMaterial: {
+      _id: 'mat-test',
+      product_code: 'J-900',
+      material_name: '测试料-化材',
+      category: 'chemical',
+      subcategory_key: 'builtin:chemical:test',
+      sub_category: '测试料',
+      default_unit: 'g',
+      package_type: '瓶',
+      is_test_material: true
+    },
+    inventoryRecords: [],                                   // 无库存，旧逻辑会放行
+    testMaterialIdentities: [{ _id: 'identity-1', material_id: 'mat-test' }],
+    onUpdate(data) {
+      updatedMaterials.push(data);
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'update',
+    data: {
+      id: 'mat-test',
+      product_code: '901',                                  // 改产品代码
+      material_name: '测试料-化材',
+      category: 'chemical',
+      subcategory_key: 'builtin:chemical:test',
+      sub_category: '测试料',
+      default_unit: 'g',
+      package_type: '瓶',
+      is_test_material: true
+    }
+  });
+
+  assert.equal(result.success, false);
+  assert.match(result.msg, /已维护原厂型号/);
+  assert.equal(updatedMaterials.length, 0, '被阻断时不得写入 materials');
+});
+
+// H5 回归：批量删除此前只看 inventory，无库存历史即物理删除代码壳，
+// 留下挂着不存在 material_id 的孤儿型号。改为「有型号则归档」，
+// 与「有库存历史则归档」同一处理，既保住关联又不阻断整批操作。
+test('manageMaterial batch deletion archives instead of removing shells that still own identities', async () => {
+  const removedIds = [];
+  const updatedMaterials = [];
+  const manageMaterial = createManageMaterialModule({
+    materialsById: {
+      'mat-with-identity': {
+        _id: 'mat-with-identity',
+        product_code: 'J-900',
+        material_name: '测试料',
+        category: 'chemical',
+        is_test_material: true
+      }
+    },
+    inventoryRecords: [],                                   // 无任何库存历史
+    testMaterialIdentities: [{ _id: 'identity-1', material_id: 'mat-with-identity' }],
+    onRemove(id) {
+      removedIds.push(id);
+    },
+    onUpdate(data) {
+      updatedMaterials.push(data);
+    }
+  });
+
+  const result = await manageMaterial.main({
+    action: 'batchDelete',
+    data: { ids: ['mat-with-identity'], archive_reason: '批量删除归档' }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(removedIds.length, 0, '有型号的代码壳不得被物理删除');
+  assert.equal(result.archived, 1, '应改为归档');
+  assert.equal(updatedMaterials[0].status, 'archived');
 });
