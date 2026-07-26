@@ -633,35 +633,15 @@ page {
 }
 
 
-/* ========== 全局修复 Vant Dialog 按钮样式 ========== */
-/* 强制按钮区域居中 */
-.van-dialog__footer {
-  text-align: center !important;
-}
-.van-dialog__footer--buttons {
-  display: flex !important;
-  justify-content: center !important;
-}
-.van-dialog__button {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  min-height: 50px !important;
-  line-height: 1.2 !important;
-}
-.van-button {
-  text-align: center !important;
-}
-.van-dialog__button .van-button__text {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-/* 确认按钮使用标准蓝色 */
-.van-dialog__confirm {
-  color: #1989FA !important;
-}
+/* ========== Vant Dialog 按钮样式：不要在此覆盖 ==========
+ * 这里曾有一段「强制按钮区域居中」的全局覆盖，已于 2026-07-26 移除。
+ * vant 原生布局本就正确：footer 为 flex，.van-dialog__button 有 flex:1 等分，
+ * .van-button 自带 justify-content:center。原覆盖重定义 .van-dialog__button 时
+ * 丢掉了 flex:1，反而导致确认按钮偏移；另有两条选择器（.van-dialog__footer--buttons、
+ * .van-dialog__button .van-button__text）在 vant 模板与小程序样式隔离下根本不生效，
+ * 而 .van-dialog__confirm 的 !important 颜色会压过业务传入的 confirmButtonColor，
+ * 使「禁用账号」「删除物料」等危险操作的红色确认按钮变蓝。
+ *
+ * 注意 vant 组件均为 addGlobalClass:true，此文件的样式会穿透进组件内部，
+ * 覆盖前请先确认 miniprogram_npm/@vant/weapp/dialog/index.wxss 的原生定义。
+ */

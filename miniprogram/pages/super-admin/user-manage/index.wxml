@@ -89,5 +89,6 @@
     close-on-click-action
     bind:select="onUserActionSelect"
     bind:close="onUserActionsClose"
+    bind:cancel="onUserActionsClose"
   />
 </view>

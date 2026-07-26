@@ -626,15 +626,34 @@ test('audit hardening fixes admin page bindings, material add dialog mount, and 
   assert.doesNotMatch(approvalCenterJs, /wx\.switchTab/);
 });
 
-test('global Vant dialog buttons are centered with flex layout', () => {
-  const appWxss = read('miniprogram/app.wxss');
+test('global styles keep hands off vant dialog button layout', () => {
+  // 剥离注释后再断言，避免 app.wxss 中解释性注释里的类名造成误判
+  const appRules = read('miniprogram/app.wxss').replace(/\/\*[\s\S]*?\*\//g, '');
 
-  assert.match(appWxss, /\.van-dialog__footer--buttons\s*\{[\s\S]*?display:\s*flex/);
-  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?display:\s*flex/);
-  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?align-items:\s*center/);
-  assert.match(appWxss, /\.van-dialog__button\s*\{[\s\S]*?justify-content:\s*center/);
-  assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?display:\s*flex/);
-  assert.match(appWxss, /\.van-dialog__button\s+\.van-button__text\s*\{[\s\S]*?justify-content:\s*center/);
+  // 重定义该类会丢掉 vant 原生的 flex:1，使两个按钮不再等分，确认按钮视觉偏移
+  assert.doesNotMatch(appRules, /\.van-dialog__button\s*\{/);
+  // vant 模板中不存在该类名，写了也不会生效
+  assert.doesNotMatch(appRules, /\.van-dialog__footer--buttons\s*\{/);
+  // !important 会压过 van-button 的内联 style，使业务传入的 confirmButtonColor 失效，
+  // 「禁用账号」「删除物料」等危险操作的红色确认按钮会被强制成蓝色
+  assert.doesNotMatch(appRules, /\.van-dialog__confirm\s*\{/);
+
+  // vant 原生的等分居中布局是上述约束成立的前提，升级组件库时若被改动需同步复核
+  const dialogWxss = read('miniprogram/miniprogram_npm/@vant/weapp/dialog/index.wxss');
+  assert.match(dialogWxss, /\.van-dialog__footer\{display:flex\}/);
+  assert.match(dialogWxss, /\.van-dialog__button\{flex:1\}/);
+});
+
+test('user management action sheet handles cancel as well as close', () => {
+  const wxml = read('miniprogram/pages/super-admin/user-manage/index.wxml');
+  const actionSheet = wxml.match(/<van-action-sheet[\s\S]*?\/>/);
+
+  assert.ok(actionSheet, 'user-manage 页应存在 van-action-sheet');
+  // 设了 cancel-text 就会渲染取消按钮，而点击它触发的是 cancel 而非 close，
+  // 缺少 bind:cancel 时受控的 show 不会复位，面板点不掉
+  assert.match(actionSheet[0], /cancel-text/);
+  assert.match(actionSheet[0], /bind:cancel=/);
+  assert.match(actionSheet[0], /bind:close=/);
 });
 
 test('shared components rely on apply-shared styles instead of importing app.wxss', () => {
