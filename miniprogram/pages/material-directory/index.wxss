@@ -68,3 +68,10 @@
 .search-transparent {
   padding: 8px 0;
 }
+
+/* vant 给 .van-empty__description 设了 padding: 0 60px，叠加全局 .van-empty 的
+ * 左右 20px 后，375px 屏幕上文字只剩 215px 可用（约 15 个汉字就换行）。
+ * 这里收窄到 24px，使空状态文案能单行展示，不至于断在词组中间。 */
+.van-empty__description {
+  padding: 0 24px !important;
+}
