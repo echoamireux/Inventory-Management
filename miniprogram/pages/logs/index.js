@@ -527,7 +527,7 @@ Page({
       });
     });
 
-    wx.showLoading({ title: '提交中...' });
+    wx.showLoading({ title: '提交中' });
     try {
       const {
         ensureOperationId,

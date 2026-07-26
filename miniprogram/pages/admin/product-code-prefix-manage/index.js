@@ -128,7 +128,7 @@ Page({
     }
 
     this.setData({ formSubmitting: true, formPrefixError: '' });
-    wx.showLoading({ title: '创建中...' });
+    wx.showLoading({ title: '创建中' });
     try {
       await createProductCodePrefix(prefix, category);
       Toast.success('创建成功');
@@ -148,7 +148,7 @@ Page({
 
     const nextStatus = record.status === 'disabled' ? 'active' : 'disabled';
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
-    wx.showLoading({ title: `${actionLabel}中...` });
+    wx.showLoading({ title: `${actionLabel}中` });
     try {
       await setProductCodePrefixStatus(record.prefix, nextStatus);
       Toast.success(`${actionLabel}成功`);
@@ -177,7 +177,7 @@ Page({
     list[index] = list[nextIndex];
     list[nextIndex] = temp;
 
-    wx.showLoading({ title: '排序中...' });
+    wx.showLoading({ title: '排序中' });
     try {
       await reorderProductCodePrefixes(list.map(item => item.prefix));
       this.setData({ prefixes: list });

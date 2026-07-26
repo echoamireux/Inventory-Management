@@ -74,7 +74,7 @@ Page({
           return;
         }
 
-        wx.showLoading({ title: '创建中...' });
+        wx.showLoading({ title: '创建中' });
         try {
           await createSubcategory(name, this.data.category);
           Toast.success('创建成功');
@@ -110,7 +110,7 @@ Page({
           return;
         }
 
-        wx.showLoading({ title: '保存中...' });
+        wx.showLoading({ title: '保存中' });
         try {
           await renameSubcategory(subcategory.subcategory_key, nextName);
           Toast.success('已重命名');
@@ -134,7 +134,7 @@ Page({
     const nextStatus = subcategory.status === 'disabled' ? 'active' : 'disabled';
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
 
-    wx.showLoading({ title: `${actionLabel}中...` });
+    wx.showLoading({ title: `${actionLabel}中` });
     try {
       await setSubcategoryStatus(subcategory.subcategory_key, nextStatus);
       Toast.success(`${actionLabel}成功`);
@@ -166,7 +166,7 @@ Page({
     list[index] = list[nextIndex];
     list[nextIndex] = temp;
 
-    wx.showLoading({ title: '排序中...' });
+    wx.showLoading({ title: '排序中' });
     try {
       await reorderSubcategories(list.map(item => item.subcategory_key));
       this.setData({ subcategories: list });

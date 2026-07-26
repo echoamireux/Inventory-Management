@@ -214,7 +214,7 @@ Page({
     }
 
     this.setData({ loading: true });
-    wx.showLoading({ title: '正在导出报表...', mask: true });
+    wx.showLoading({ title: '导出报表', mask: true });
 
     try {
         const { searchVal, activeTab } = this.data;

@@ -160,7 +160,7 @@ Page({
     canManageZones: false,
     showDate: false,
     currentDate: new Date().getTime(),
-    minDate: new Date().getTime(),
+    minDate: new Date(2000, 0, 1).getTime(),
     maxDate: new Date(9999, 11, 31).getTime(),
     isScanning: false
   },
@@ -227,7 +227,7 @@ Page({
           ? task.completedChunkIndexes.slice()
           : [];
       saveBatchTask(BATCH_TASK_SCOPE, task);
-      wx.showLoading({ title: '分批提交中...', mask: true });
+      wx.showLoading({ title: '分批提交', mask: true });
 
       const result = await runChunkedBatchTask({
           items: task.items,
@@ -889,7 +889,7 @@ Page({
 
       try {
           if (!silent) {
-              Toast.loading({ message: '查询物料中...', forbidClick: true });
+              Toast.loading({ message: '查询物料', forbidClick: true });
           }
           const material = await this.fetchMaterialByCode(normalizedCode.product_code);
           Toast.clear();
@@ -1115,7 +1115,7 @@ Page({
           return;
       }
 
-      Toast.loading({ message: '校验标签中...', forbidClick: true });
+      Toast.loading({ message: '校验标签', forbidClick: true });
       try {
           const existsRes = await wx.cloud.callFunction({
               name: 'getInventoryRecord',

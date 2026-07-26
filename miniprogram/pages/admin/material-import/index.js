@@ -105,14 +105,14 @@ Page({
     }
 
     this.setData({ exportingTemplate: true });
-    Toast.loading({ message: '正在生成模板...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成模板', forbidClick: true, duration: 0 });
 
     try {
       const result = normalizeTemplateExportResult(await wx.cloud.callFunction({
         name: 'exportMaterialTemplate'
       }));
 
-      Toast.loading({ message: '正在打开模板...', forbidClick: true, duration: 0 });
+      Toast.loading({ message: '打开模板', forbidClick: true, duration: 0 });
       let localFilePath = '';
       if (result.fileContentBase64) {
         localFilePath = await persistBase64File({
@@ -361,7 +361,7 @@ Page({
     if (!confirmed) return;
 
     this.setData({ importing: true });
-    Toast.loading({ message: '导入中...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '导入中', forbidClick: true, duration: 0 });
 
     try {
       const res = await wx.cloud.callFunction({

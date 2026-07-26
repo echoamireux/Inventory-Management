@@ -24,7 +24,7 @@ Page({
   },
 
   async getList() {
-    wx.showLoading({ title: '加载中...' });
+    wx.showLoading({ title: '加载中' });
     try {
       const res = await wx.cloud.callFunction({
         name: 'adminUpdateUserStatus',
@@ -88,7 +88,7 @@ Page({
           }
 
           done(false); // Keep open
-          wx.showLoading({ title: '处理中...' });
+          wx.showLoading({ title: '处理中' });
 
           try {
             await wx.cloud.callFunction({
@@ -124,7 +124,7 @@ Page({
       confirmButtonText: '批准加入',
       confirmButtonColor: '#2C68FF' // Brand Color
     }).then(async () => {
-        wx.showLoading({ title: '处理中...' });
+        wx.showLoading({ title: '处理中' });
         try {
             await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',

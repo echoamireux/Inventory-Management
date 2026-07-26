@@ -141,7 +141,7 @@ Page({
       return;
     }
 
-    wx.showLoading({ title: '创建中...' });
+    wx.showLoading({ title: '创建中' });
     try {
       await createZone(name, this.data.createForm.scope);
       Toast.success('创建成功');
@@ -176,7 +176,7 @@ Page({
           return;
         }
 
-        wx.showLoading({ title: '保存中...' });
+        wx.showLoading({ title: '保存中' });
         try {
           await renameZone(zone.zone_key, nextName);
           Toast.success('已重命名');
@@ -200,7 +200,7 @@ Page({
     const nextStatus = zone.status === 'disabled' ? 'active' : 'disabled';
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
 
-    wx.showLoading({ title: `${actionLabel}中...` });
+    wx.showLoading({ title: `${actionLabel}中` });
     try {
       await setZoneStatus(zone.zone_key, nextStatus);
       Toast.success(`${actionLabel}成功`);
@@ -232,7 +232,7 @@ Page({
     list[index] = list[nextIndex];
     list[nextIndex] = temp;
 
-    wx.showLoading({ title: '排序中...' });
+    wx.showLoading({ title: '排序中' });
     try {
       await reorderZones(list.map(item => item.zone_key));
       this.setData({ zones: list });
@@ -266,7 +266,7 @@ Page({
           return;
         }
 
-        wx.showLoading({ title: '创建中...' });
+        wx.showLoading({ title: '创建中' });
         try {
           await createLocationDetail(zone.zone_key, name);
           Toast.success('创建成功');
@@ -303,7 +303,7 @@ Page({
           return;
         }
 
-        wx.showLoading({ title: '保存中...' });
+        wx.showLoading({ title: '保存中' });
         try {
           await renameLocationDetail(detail.detail_key, name);
           Toast.success('已重命名');
@@ -328,7 +328,7 @@ Page({
     const nextStatus = detail.status === 'disabled' ? 'active' : 'disabled';
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
 
-    wx.showLoading({ title: `${actionLabel}中...` });
+    wx.showLoading({ title: `${actionLabel}中` });
     try {
       await setLocationDetailStatus(detail.detail_key, nextStatus);
       Toast.success(`${actionLabel}成功`);
@@ -362,7 +362,7 @@ Page({
     details[detailIndex] = details[nextIndex];
     details[nextIndex] = temp;
 
-    wx.showLoading({ title: '排序中...' });
+    wx.showLoading({ title: '排序中' });
     try {
       await reorderLocationDetails(zone.zone_key, details.map(item => item.detail_key));
       zones[zoneIndex] = { ...zone, details };

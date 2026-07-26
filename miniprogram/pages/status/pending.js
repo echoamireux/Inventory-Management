@@ -14,7 +14,7 @@ Page({
   },
 
   onRefresh() {
-    wx.showLoading({ title: '检查中...' });
+    wx.showLoading({ title: '检查中' });
     const app = getApp();
     app.checkUserStatus().then(() => {
         wx.hideLoading();

@@ -217,7 +217,7 @@ Page({
   },
 
   async openSingleLabelDetail(item) {
-    wx.showLoading({ title: '打开详情...' });
+    wx.showLoading({ title: '打开详情' });
 
     try {
       const result = await this.queryBatchLabels(item, 2);

@@ -241,11 +241,11 @@ function applyRangeValidations(sheet, spec) {
     allowBlank: true,
     showInputMessage: true,
     promptTitle: '填写提示',
-    prompt: '若不是长期有效，请按 YYYY-MM-DD 填写不早于当天的过期日期。',
+    prompt: '若不是长期有效，请按 YYYY-MM-DD 填写合法过期日期；历史/延保物料可填写早于今天的实际日期。',
     showErrorMessage: true,
     errorStyle: 'stop',
     errorTitle: '日期无效',
-    error: '请输入有效的 YYYY-MM-DD 日期，且不能早于当天。',
+    error: '请输入有效的 YYYY-MM-DD 日期。',
     formulae: [spec.validationFormulae.expiryDate]
   });
 

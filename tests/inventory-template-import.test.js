@@ -380,6 +380,33 @@ test('inventory import preview resolves governed chemical rows against current m
   assert.equal(preview.quantity_summary, '2 kg');
 });
 
+test('inventory import preview and payload allow historical expiry dates for extended-use stock', () => {
+  const material = {
+    _id: 'mat-j-001',
+    product_code: 'J-001',
+    category: 'chemical',
+    material_name: '丙酮分析纯',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    supplier: '',
+    supplier_model: ''
+  };
+  const preview = buildInventoryImportPreviewRow({
+    rowIndex: 4,
+    values: ['L000302', 'J', '001', '化材', 'AC240302', '防爆柜01', 'A02', '2', '桶装', '', '', '', '国药', 'IPA-99', '', '2026-03-25', '']
+  }, buildContext({
+    materialsByCode: new Map([
+      ['J-001', material]
+    ])
+  }));
+  const payload = buildInventoryImportPayload(preview, material);
+
+  assert.equal(preview.error, '');
+  assert.equal(preview.expiry_date, '2026-03-25');
+  assert.equal(payload.inventoryData.expiry_date instanceof Date, true);
+  assert.equal(payload.inventoryData.expiry_date.toISOString().slice(0, 10), '2026-03-25');
+});
+
 test('inventory import preview accepts active multi-letter product code prefixes from context', () => {
   const preview = buildInventoryImportPreviewRow({
     rowIndex: 4,

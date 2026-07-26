@@ -121,7 +121,7 @@ Page({
       : [];
     saveBatchTask(TEMPLATE_BATCH_TASK_SCOPE, task);
     this.setData({ importing: true });
-    Toast.loading({ message: '分批入库中...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '分批入库', forbidClick: true, duration: 0 });
 
     const result = await runChunkedBatchTask({
       items: task.items,
@@ -188,14 +188,14 @@ Page({
     }
 
     this.setData({ exportingTemplate: true });
-    Toast.loading({ message: '正在生成模板...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成模板', forbidClick: true, duration: 0 });
 
     try {
       const result = normalizeInventoryTemplateExportResult(await wx.cloud.callFunction({
         name: 'exportInventoryTemplate'
       }));
 
-      Toast.loading({ message: '正在打开模板...', forbidClick: true, duration: 0 });
+      Toast.loading({ message: '打开模板', forbidClick: true, duration: 0 });
       let localFilePath = '';
       if (result.fileContentBase64) {
         localFilePath = await persistBase64File({

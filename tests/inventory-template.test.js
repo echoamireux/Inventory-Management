@@ -110,7 +110,8 @@ test('inventory template workbook keeps category-driven zone validation compatib
   assert.match(sheetXml, /<formula1>INDIRECT\(\$D4&amp;&quot;_前缀&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>INDIRECT\(\$D4&amp;&quot;_库区&quot;\)<\/formula1>/);
   assert.match(sheetXml, /<formula1>化材_包装形式<\/formula1>/);
-  assert.match(sheetXml, /<formula1>OR\(P4=&quot;&quot;,AND\(ISNUMBER\(P4\),P4&gt;=TODAY\(\)\)\)<\/formula1>/);
+  assert.match(sheetXml, /<formula1>OR\(P4=&quot;&quot;,ISNUMBER\(P4\)\)<\/formula1>/);
+  assert.doesNotMatch(sheetXml, /TODAY\(\)/);
 });
 
 test('inventory template workbook uses three-tier headers and governed hints aligned with the template columns', async () => {
@@ -163,6 +164,7 @@ test('inventory template workbook uses three-tier headers and governed hints ali
   assert.match(String(helpSheet.getCell('A8').value || ''), /字段说明/);
   assert.match(String(helpSheet.getCell('A9').value || ''), /标签编号\*/);
   assert.match(helpText, /YYYY-MM-DD/);
+  assert.match(helpText, /历史\/延保物料/);
   assert.match(helpText, /默认单位由系统按主数据自动带出/);
   assert.match(helpText, /膜材厚度/);
   assert.match(helpText, /未配置明细坐标的库区可留空或填写现场坐标/);

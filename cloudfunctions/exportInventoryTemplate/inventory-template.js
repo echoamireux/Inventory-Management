@@ -132,7 +132,7 @@ function buildInventoryTemplateSpec({
     validationFormulae: {
       codePrefix: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_前缀")`,
       zone: `INDIRECT($D${TEMPLATE_DATA_START_ROW}&"_库区")`,
-      expiryDate: `OR(P${TEMPLATE_DATA_START_ROW}="",AND(ISNUMBER(P${TEMPLATE_DATA_START_ROW}),P${TEMPLATE_DATA_START_ROW}>=TODAY()))`
+      expiryDate: `OR(P${TEMPLATE_DATA_START_ROW}="",ISNUMBER(P${TEMPLATE_DATA_START_ROW}))`
     },
     definedNames: {
       chemicalZones: {
@@ -183,7 +183,7 @@ function buildInventoryTemplateSpec({
       '类别*：必填。只能选择“化材”或“膜材”。',
       '生产批号* / 存储区域*：必填。存储区域必须从当前系统启用库区中选择。',
       '详细坐标：防爆柜等配置了明细坐标的库区必须选择 F1-F5 等系统坐标；未配置明细坐标的库区可留空或填写现场坐标。',
-      '过期日期 / 长期有效：二选一；过期日期请按 YYYY-MM-DD 填写，且必须是合法日期并且不能早于当天。',
+      '过期日期 / 长期有效：二选一；过期日期请按 YYYY-MM-DD 填写，且必须是合法日期；历史/延保物料可填写实际过期日期。',
       '默认单位由系统按主数据自动带出，本模板无需填写单位。',
       '净含量：仅化材必填；膜材请留空。',
       '包装形式：仅化材选填；膜材请留空。',

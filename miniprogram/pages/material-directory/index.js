@@ -99,7 +99,7 @@ Page({
       loading: true,
       requestId: currentRequestId
     });
-    if (refresh) Toast.loading({ message: '加载中...', forbidClick: true });
+    if (refresh) Toast.loading({ message: '加载中', forbidClick: true });
 
     try {
       const page = refresh ? 1 : this.data.page;

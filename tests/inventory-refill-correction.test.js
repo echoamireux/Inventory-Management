@@ -990,7 +990,19 @@ test('single stock-in rejects non-active users before attempting any inventory w
   assert.match(result.msg, /仅已激活用户可执行入库/);
 });
 
-test('single stock-in rejects expiry dates earlier than today on the backend', async () => {
+test('single stock-in accepts historical expiry dates for extended-use stock', async () => {
+  const inventoryAdds = [];
+  const inventoryLogs = [];
+  const operationReceipts = new Map();
+  const material = {
+    _id: 'mat-1',
+    product_code: 'J-001',
+    category: 'chemical',
+    material_name: '丙酮',
+    sub_category: '溶剂',
+    default_unit: 'kg',
+    status: 'active'
+  };
   const mod = loadModuleWithMocks('../cloudfunctions/addMaterial/index.js', {
     'wx-server-sdk': {
       init() {},
@@ -1022,6 +1034,99 @@ test('single stock-in rejects expiry dates earlier than today on the backend', a
               };
             }
             throw new Error(`should not access collection: ${name}`);
+          },
+          runTransaction(fn) {
+            return fn({
+              collection(name) {
+                if (name === 'users') {
+                  return {
+                    where() {
+                      return {
+                        limit() {
+                          return {
+                            async get() {
+                              return {
+                                data: [{ role: 'user', status: 'active', name: '日期校验员' }]
+                              };
+                            }
+                          };
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'operation_receipts') {
+                  return createOperationReceiptCollection(operationReceipts);
+                }
+
+                if (name === 'inventory') {
+                  return {
+                    where() {
+                      return {
+                        async get() {
+                          return { data: [] };
+                        }
+                      };
+                    },
+                    async add({ data }) {
+                      inventoryAdds.push(data);
+                      return { _id: 'inv-historical-expiry' };
+                    }
+                  };
+                }
+
+                if (name === 'materials') {
+                  return {
+                    where() {
+                      return {
+                        async get() {
+                          return { data: [material] };
+                        }
+                      };
+                    },
+                    doc() {
+                      return {
+                        async update() {
+                          return {};
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'preprinted_labels') {
+                  return {
+                    where() {
+                      return {
+                        async get() {
+                          return { data: [] };
+                        }
+                      };
+                    }
+                  };
+                }
+
+                if (name === 'inventory_log') {
+                  return {
+                    async add({ data }) {
+                      inventoryLogs.push(data);
+                      return { _id: `log-${inventoryLogs.length}` };
+                    }
+                  };
+                }
+
+                if (name === 'audit_events') {
+                  return {
+                    async add() {
+                      return { _id: 'audit-historical-expiry' };
+                    }
+                  };
+                }
+
+                throw new Error(`unexpected transaction collection: ${name}`);
+              }
+            });
           }
         };
       }
@@ -1064,8 +1169,12 @@ test('single stock-in rejects expiry dates earlier than today on the backend', a
     operation_id: 'op_single_expiry_001'
   });
 
-  assert.equal(result.success, false);
-  assert.match(result.msg, /过期日期不能早于当天/);
+  assert.equal(result.success, true);
+  assert.equal(inventoryAdds.length, 1);
+  assert.equal(inventoryAdds[0].expiry_date instanceof Date, true);
+  assert.equal(inventoryAdds[0].expiry_date.toISOString().slice(0, 10), '2026-03-25');
+  assert.equal(inventoryLogs.length, 1);
+  assert.equal(inventoryLogs[0].type, 'inbound');
 });
 
 test('batch stock-in rejects non-active users before loading material data', async () => {

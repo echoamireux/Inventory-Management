@@ -823,7 +823,7 @@ Page({
   async createAndExportPreprintJob(intent = {}) {
     const { preprintForm, templateType } = this.data;
     this.setData({ creatingPreprint: true });
-    Toast.loading({ message: '正在生成标签...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成标签', forbidClick: true, duration: 0 });
     try {
       const cloudRes = await wx.cloud.callFunction({
         name: 'exportLabelData',
@@ -863,7 +863,7 @@ Page({
       });
       await this.loadRecentPreprintJobs();
 
-      Toast.loading({ message: '正在导出 Excel...', forbidClick: true, duration: 0 });
+      Toast.loading({ message: '导出中', forbidClick: true, duration: 0 });
       const exportResult = normalizeLabelExportResult({ result: createResult });
       await this.downloadAndOpenWorkbook(exportResult);
       Toast.success(createResult.reused ? '已重新导出原批 Excel' : '已生成并打开 Excel');
@@ -906,7 +906,7 @@ Page({
     }
 
     this.setData({ exportingPreprint: true });
-    Toast.loading({ message: '正在生成文件...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成文件', forbidClick: true, duration: 0 });
     try {
       await this.exportPreprintJobById(preprintForm.lastJobId, templateType);
       Toast.success('文件已打开');
@@ -1017,7 +1017,7 @@ Page({
       return;
     }
     this.setData({ exportingPreprint: true });
-    Toast.loading({ message: '正在生成文件...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成文件', forbidClick: true, duration: 0 });
     try {
       const result = normalizeLabelExportResult(await wx.cloud.callFunction({
         name: 'exportLabelData',
@@ -1066,7 +1066,7 @@ Page({
     }
 
     this.setData({ voidingPreprint: true });
-    Toast.loading({ message: '正在作废标签...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '作废标签', forbidClick: true, duration: 0 });
     try {
       const res = await wx.cloud.callFunction({
         name: 'exportLabelData',
@@ -1225,7 +1225,7 @@ Page({
   },
 
   async downloadAndOpenWorkbook(result) {
-    Toast.loading({ message: '正在下载文件...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '下载文件', forbidClick: true, duration: 0 });
     const downRes = await wx.cloud.downloadFile({
       fileID: result.fileID
     });
@@ -1259,7 +1259,7 @@ Page({
     }
 
     this.setData({ exporting: true });
-    Toast.loading({ message: '正在生成文件...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成文件', forbidClick: true, duration: 0 });
 
     try {
       const result = normalizeLabelExportResult(await wx.cloud.callFunction({

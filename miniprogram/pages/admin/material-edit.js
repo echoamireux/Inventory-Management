@@ -316,7 +316,7 @@ Page({
   },
 
   async loadMaterial(id) {
-    Toast.loading({ message: '加载中...', forbidClick: true });
+    Toast.loading({ message: '加载中', forbidClick: true });
     try {
       const res = await wx.cloud.callFunction({
         name: 'manageMaterial',
@@ -721,7 +721,7 @@ Page({
       return;
     }
     this.setData({ submitting: true });
-    Toast.loading({ message: '保存中...', forbidClick: true });
+    Toast.loading({ message: '保存中', forbidClick: true });
 
     try {
       const action = isEdit ? 'update' : 'create';

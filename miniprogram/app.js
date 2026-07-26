@@ -1,5 +1,11 @@
 // app.js
 const { USER_STATUS } = require('./utils/constants');
+const DialogModule = require('@vant/weapp/dialog/dialog');
+const Dialog = DialogModule.default || DialogModule;
+
+Dialog.setDefaultOptions({
+  confirmButtonColor: '#2C68FF'
+});
 
 App({
   onLaunch: function () {
@@ -51,7 +57,7 @@ App({
 
   async checkUserStatus() {
     // 显示全局加载
-    wx.showLoading({ title: '身份校验中...', mask: true });
+    wx.showLoading({ title: '身份校验', mask: true });
 
     try {
       // 1. 调用 userLogin 云函数 (获取完整状态)

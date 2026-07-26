@@ -375,7 +375,7 @@ Page({
     }
 
     this.setData({ exporting: true });
-    Toast.loading({ message: '正在生成报表...', forbidClick: true, duration: 0 });
+    Toast.loading({ message: '生成报表', forbidClick: true, duration: 0 });
     try {
       const res = await wx.cloud.callFunction({
         name: 'exportProjectUsageReport',
@@ -385,7 +385,7 @@ Page({
       if (!result.success || !result.fileID) {
         throw new Error(result.msg || '导出失败');
       }
-      Toast.loading({ message: '正在打开文件...', forbidClick: true, duration: 0 });
+      Toast.loading({ message: '打开文件', forbidClick: true, duration: 0 });
       const downRes = await wx.cloud.downloadFile({
         fileID: result.fileID
       });

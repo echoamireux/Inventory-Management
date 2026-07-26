@@ -339,7 +339,7 @@ Page({
       return;
     }
 
-    Toast.loading({ message: "查询中...", forbidClick: true });
+    Toast.loading({ message: "查询中", forbidClick: true });
 
     try {
       // 1. 查询库存
@@ -455,7 +455,7 @@ Page({
     const { withdrawItem, withdrawMode } = this.data;
 
     this.setData({ showWithdrawDialog: false }); // 先关闭，后续用 Loading
-    Toast.loading({ message: "处理中...", forbidClick: true });
+    Toast.loading({ message: "处理中", forbidClick: true });
 
     try {
       const app = getApp();
@@ -698,7 +698,7 @@ Page({
       return;
     }
 
-    wx.showLoading({ title: "加载批次..." });
+    wx.showLoading({ title: "加载批次" });
     try {
       const res = await wx.cloud.callFunction({
         name: 'getInventoryBatches',

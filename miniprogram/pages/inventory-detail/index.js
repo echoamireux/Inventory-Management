@@ -297,7 +297,7 @@ Page({
       }
 
       this.setData({ showWithdrawDialog: false });
-      Toast.loading({ message: '提交中...', forbidClick: true });
+      Toast.loading({ message: '提交中', forbidClick: true });
 
       try {
           const app = getApp();
@@ -413,7 +413,7 @@ Page({
       }
 
       this.setData({ adjustingWidth: true });
-      Toast.loading({ message: '保存中...', forbidClick: true });
+      Toast.loading({ message: '保存中', forbidClick: true });
 
       try {
           const app = getApp();
@@ -505,7 +505,7 @@ Page({
       }
 
       this.setData({ adjustingStocktake: true });
-      Toast.loading({ message: '保存中...', forbidClick: true });
+      Toast.loading({ message: '保存中', forbidClick: true });
 
       try {
           const app = getApp();

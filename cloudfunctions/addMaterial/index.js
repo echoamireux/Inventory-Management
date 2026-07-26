@@ -149,18 +149,6 @@ function normalizeExplicitExpiryDate(value) {
     };
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const normalizedDate = new Date(parsed.getTime());
-  normalizedDate.setHours(0, 0, 0, 0);
-  if (normalizedDate.getTime() < today.getTime()) {
-    return {
-      ok: false,
-      msg: '过期日期不能早于当天'
-    };
-  }
-
   return {
     ok: true,
     value: parsed

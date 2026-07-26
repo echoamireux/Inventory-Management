@@ -33,7 +33,7 @@ Page({
   },
 
   async getList() {
-    wx.showLoading({ title: '加载中...' });
+    wx.showLoading({ title: '加载中' });
     try {
       const res = await wx.cloud.callFunction({
         name: 'adminUpdateUserStatus',
@@ -158,7 +158,7 @@ Page({
   },
 
   async executeUserMutation(targetUser, selectedAction) {
-    Toast.loading({ message: '执行中...', forbidClick: true });
+    Toast.loading({ message: '执行中', forbidClick: true });
     try {
       const data = selectedAction.actionType === 'role'
         ? {

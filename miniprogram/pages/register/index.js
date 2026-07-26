@@ -45,7 +45,7 @@ Page({
     // 手机号虽是选填，但若填了如果想校验格式可以在这里加逻辑，暂时略过
 
     this.setData({ loading: true });
-    wx.showLoading({ title: '提交中...' });
+    wx.showLoading({ title: '提交中' });
 
     try {
       // 1. 调用云函数注册 (安全分配角色)

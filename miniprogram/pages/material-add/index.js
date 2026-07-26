@@ -193,7 +193,7 @@ Page({
     showSubCategorySheet: false,
 
     currentDate: new Date().getTime(),
-    minDate: new Date().getTime(),
+    minDate: new Date(2000, 0, 1).getTime(),
     maxDate: new Date(9999, 11, 31).getTime(),
     canManageZones: false,
     isManager: false,

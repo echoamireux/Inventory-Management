@@ -215,7 +215,7 @@ Page({
   /* Logic Handlers */
 
   async handleMaterialAction(id, action, reason = '') {
-      wx.showLoading({ title: '处理中...' });
+      wx.showLoading({ title: '处理中' });
       try {
           const res = await wx.cloud.callFunction({
               name: 'approveMaterialRequest',
@@ -245,7 +245,7 @@ Page({
   },
 
   async handleUserAction(id, action, reason = '') {
-      wx.showLoading({ title: '处理中...' });
+      wx.showLoading({ title: '处理中' });
       try {
           const res = await wx.cloud.callFunction({
               name: 'adminUpdateUserStatus',
@@ -272,7 +272,7 @@ Page({
   },
 
   async handleCorrectionAction(id, action, reason = '') {
-      wx.showLoading({ title: '处理中...' });
+      wx.showLoading({ title: '处理中' });
       try {
           const payload = {
               request_id: id,

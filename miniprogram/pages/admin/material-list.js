@@ -517,7 +517,7 @@ Page({
 
   // 检查并分类处理
   async checkAndProcessBatch(ids) {
-      Toast.loading({ message: '检查中...', forbidClick: true });
+      Toast.loading({ message: '检查中', forbidClick: true });
 
       try {
           // 调用云函数检查每个物料的历史记录
@@ -592,7 +592,7 @@ Page({
   },
 
   async doBatchDelete(ids, reason) {
-      Toast.loading({ message: '处理中...', forbidClick: true });
+      Toast.loading({ message: '处理中', forbidClick: true });
 
       try {
           const res = await wx.cloud.callFunction({
@@ -637,7 +637,7 @@ Page({
           title: '还原确认',
           message: `确定要还原这 ${ids.length} 个物料吗？\n还原后将立即生效。`
       }).then(async () => {
-          Toast.loading('还原中...');
+          Toast.loading('还原中');
 
           let successCount = 0;
           for (const id of ids) {
@@ -666,7 +666,7 @@ Page({
       const item = this.data.list.find(i => i._id === id);
 
       // 先检查是否有历史记录
-      Toast.loading({ message: '检查中...', forbidClick: true });
+      Toast.loading({ message: '检查中', forbidClick: true });
 
       try {
           const res = await wx.cloud.callFunction({

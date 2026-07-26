@@ -313,15 +313,7 @@ function normalizeDateInput(value) {
     };
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   parsed.setHours(0, 0, 0, 0);
-  if (parsed.getTime() < today.getTime()) {
-    return {
-      ok: false,
-      msg: '过期日期不能早于当天'
-    };
-  }
 
   const year = parsed.getFullYear();
   const month = String(parsed.getMonth() + 1).padStart(2, '0');

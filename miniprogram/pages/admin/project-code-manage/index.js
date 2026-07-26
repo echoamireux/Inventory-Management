@@ -143,7 +143,7 @@ Page({
     }
 
     this.setData({ formSubmitting: true });
-    wx.showLoading({ title: mode === 'create' ? '创建中...' : '保存中...' });
+    wx.showLoading({ title: mode === 'create' ? '创建中' : '保存中' });
     try {
       if (mode === 'create') {
         await createProjectCode(projectCode, projectName);
@@ -170,7 +170,7 @@ Page({
     const nextStatus = project.status === 'disabled' ? 'active' : 'disabled';
     const actionLabel = nextStatus === 'active' ? '启用' : '停用';
 
-    wx.showLoading({ title: `${actionLabel}中...` });
+    wx.showLoading({ title: `${actionLabel}中` });
     try {
       await setProjectCodeStatus(project.project_code, nextStatus);
       Toast.success(`${actionLabel}成功`);
@@ -200,7 +200,7 @@ Page({
     list[index] = list[nextIndex];
     list[nextIndex] = temp;
 
-    wx.showLoading({ title: '排序中...' });
+    wx.showLoading({ title: '排序中' });
     try {
       await reorderProjectCodes(list.map(item => item.project_code));
       this.setData({ projects: list });

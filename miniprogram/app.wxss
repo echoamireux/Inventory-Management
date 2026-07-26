@@ -634,7 +634,7 @@ page {
 
 
 /* ========== Vant Dialog 按钮等分 ==========
- * 只声明「两个按钮等分」这一件事，其余一律交给 vant 原生实现。
+ * 只声明「按钮等分 + 文字居中」这两件事，其余一律交给 vant 原生实现。
  *
  * 背景：此处曾有一段「强制按钮区域居中」的大段覆盖，已于 2026-07-26 移除。
  * 那段覆盖重定义 .van-dialog__button 时丢掉了原生的 flex:1，反而破坏等分；
@@ -643,9 +643,11 @@ page {
  * 以及一条 .van-dialog__confirm 的 !important 颜色，会压过业务传入的
  * confirmButtonColor，使「禁用账号」「删除物料」等危险操作的红色确认按钮变蓝。
  *
- * 下面两条与 vant 原生等价（footer:flex + button:flex-1），显式写出是为了
+ * 下面样式与 vant 原生等价（footer:flex + button:flex-1），显式写出是为了
  * 不依赖组件库内部实现，且 flex-basis 取 0 配合 min-width:0，避免按钮被
  * 文字长度撑开导致左右不等宽（「取消」2 字与「确认执行」4 字并排时的表现）。
+ * 同时补齐 align/justify/text-align，避免单按钮提示弹窗在部分机型或调试器
+ * 下出现文字视觉偏左。
  *
  * 维护约束：
  * - 修改本段必须保留 flex 等分，不要只写 display/align 而丢掉 flex。
@@ -658,6 +660,10 @@ page {
   display: flex !important;
 }
 .van-dialog__button {
+  display: flex !important;
   flex: 1 1 0 !important;
   min-width: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
 }

@@ -628,14 +628,20 @@ test('audit hardening fixes admin page bindings, material add dialog mount, and 
 
 test('global dialog button styles keep the equal-width flex split', () => {
   // 剥离注释后再断言，避免 app.wxss 中解释性注释里的类名造成误判
+  const appJs = read('miniprogram/app.js');
   const appRules = read('miniprogram/app.wxss').replace(/\/\*[\s\S]*?\*\//g, '');
 
   const buttonRule = appRules.match(/\.van-dialog__button\s*\{[^}]*\}/);
   assert.ok(buttonRule, 'app.wxss 应显式声明 .van-dialog__button 的等分布局');
   // 关键约束：曾有一版覆盖只写了 display/align/justify 却丢掉 flex，
   // 导致两个按钮不再等分、确认按钮视觉偏移
+  assert.match(buttonRule[0], /display:\s*flex/);
   assert.match(buttonRule[0], /flex:\s*1/);
+  assert.match(buttonRule[0], /align-items:\s*center/);
+  assert.match(buttonRule[0], /justify-content:\s*center/);
+  assert.match(buttonRule[0], /text-align:\s*center/);
   assert.match(appRules, /\.van-dialog__footer\s*\{[^}]*display:\s*flex/);
+  assert.match(appJs, /Dialog\.setDefaultOptions\(\{\s*confirmButtonColor:\s*['"]#2C68FF['"]/);
 
   // vant 模板中不存在该类名，写了也不会生效
   assert.doesNotMatch(appRules, /\.van-dialog__footer--buttons\s*\{/);
@@ -650,6 +656,31 @@ test('global dialog button styles keep the equal-width flex split', () => {
   const dialogWxss = read('miniprogram/miniprogram_npm/@vant/weapp/dialog/index.wxss');
   assert.match(dialogWxss, /\.van-dialog__footer\{display:flex\}/);
   assert.match(dialogWxss, /\.van-dialog__button\{flex:1\}/);
+});
+
+test('loading overlay copy stays compact enough for one-line display', () => {
+  const files = [
+    'miniprogram/app.js',
+    ...walkFiles(path.join(__dirname, '../miniprogram/pages'))
+      .filter(filePath => filePath.endsWith('.js'))
+      .map(filePath => path.relative(path.join(__dirname, '..'), filePath)),
+    ...walkFiles(path.join(__dirname, '../miniprogram/components'))
+      .filter(filePath => filePath.endsWith('.js'))
+      .map(filePath => path.relative(path.join(__dirname, '..'), filePath))
+  ];
+
+  files.forEach(relPath => {
+    const loadingLines = read(relPath)
+      .split('\n')
+      .filter(line => /(?:Toast\.loading|wx\.showLoading)/.test(line));
+    loadingLines.forEach(line => {
+      assert.doesNotMatch(
+        line,
+        /正在|\.{3}|…/,
+        `${relPath} 的 loading 文案应保持短动作词，避免在小方块内换行：${line.trim()}`
+      );
+    });
+  });
 });
 
 test('user management action sheet handles cancel as well as close', () => {

@@ -130,14 +130,18 @@ test('material import page only accepts xlsx uploads while preserving local prev
   assert.doesNotMatch(pageWxml, /\.csv/);
 });
 
-test('material add pages expose an explicit future max date so template import and manual entry stay aligned', () => {
+test('material add pages expose explicit historical min and future max dates so template import and manual entry stay aligned', () => {
   const materialAddJs = read('miniprogram/pages/material-add/index.js');
   const materialAddWxml = read('miniprogram/pages/material-add/index.wxml');
   const batchEntryJs = read('miniprogram/pages/material-add/batch-entry.js');
   const batchEntryWxml = read('miniprogram/pages/material-add/batch-entry.wxml');
 
+  assert.match(materialAddJs, /minDate:\s*new Date\(2000, 0, 1\)\.getTime\(\)/);
+  assert.match(materialAddWxml, /min-date="{{ minDate }}"/);
   assert.match(materialAddJs, /maxDate:/);
   assert.match(materialAddWxml, /max-date="{{ maxDate }}"/);
+  assert.match(batchEntryJs, /minDate:\s*new Date\(2000, 0, 1\)\.getTime\(\)/);
+  assert.match(batchEntryWxml, /min-date="{{ minDate }}"/);
   assert.match(batchEntryJs, /maxDate:/);
   assert.match(batchEntryWxml, /max-date="{{ maxDate }}"/);
 });

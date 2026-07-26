@@ -93,7 +93,7 @@ Page({
   },
 
   async fetchDetail(id) {
-    wx.showLoading({ title: '加载中...' });
+    wx.showLoading({ title: '加载中' });
     try {
       const res = await wx.cloud.callFunction({
         name: 'getInventoryRecord',
