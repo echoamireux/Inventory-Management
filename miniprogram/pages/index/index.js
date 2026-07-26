@@ -256,6 +256,9 @@ Page({
         product_code: batch.product_code,
         material_name: batch.material_name,
         batch_number: batch.batch_number,
+        // 测试料按批次领用时后端需据此定位原厂型号；漏传会导致
+        // loadTestMaterialIdentityForSelection 拿到空型号并直接拒绝领用
+        supplier_model: batch.supplier_model,
         recommendedBatchNumber: String(batch.recommendedBatchNumber || batch.batch_number || '').trim(),
         category: category,
         totalQuantity: totalQty,

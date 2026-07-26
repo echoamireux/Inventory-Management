@@ -325,3 +325,34 @@ test('approval-center material tab paginates beyond one hundred records', async 
   assert.equal(result.pageSize, 50);
   assert.equal(result.isEnd, true);
 });
+
+// B4 回归：审批/驳回后曾用 _.remove() 删除 pending_key。但云开发唯一索引把
+// 「字段不存在」视为 null，且官方文档明确「不允许存在两个或以上的该字段为空/
+// 不存在该字段的记录」，而控制台并不提供 sparse 选项。于是第一条审批成功后，
+// 第二条审批就会撞 duplicate key。改为写入以记录 _id 为基础的唯一占位值。
+test('approval releases pending_key with a unique placeholder instead of removing it', () => {
+  for (const relPath of [
+    'cloudfunctions/approveMaterialRequest/index.js',
+    'cloudfunctions/approveInventoryCorrectionRequest/index.js'
+  ]) {
+    const source = read(relPath);
+    const fnBody = source.match(/function clearPendingKeyUpdate\([\s\S]*?\n\}/);
+
+    assert.ok(fnBody, `${relPath} 应存在 clearPendingKeyUpdate`);
+    // 退化一：改回删除字段
+    assert.doesNotMatch(
+      fnBody[0], /_\.remove\(\)/,
+      `${relPath}：不得用 _.remove() 移除 pending_key，会让第二次审批撞唯一索引`
+    );
+    // 退化二：写了固定值而非唯一值（固定值同样会互撞）
+    assert.match(
+      fnBody[0], /pending_key:\s*`done:\$\{/,
+      `${relPath}：应写入以记录 id 为基础的唯一占位值`
+    );
+    // 退化三：调用点忘记传 id —— 会写成 "done:undefined"，多条依旧冲突
+    assert.doesNotMatch(
+      source, /clearPendingKeyUpdate\(\s*\)/,
+      `${relPath}：所有调用点都必须传入记录 id`
+    );
+  }
+});

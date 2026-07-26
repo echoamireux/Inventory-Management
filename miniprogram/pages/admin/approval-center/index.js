@@ -217,18 +217,24 @@ Page({
   async handleMaterialAction(id, action, reason = '') {
       wx.showLoading({ title: '处理中' });
       try {
+          const payload = {
+              request_id: id,
+              action: action,
+              reject_reason: reason
+          };
+          const operationScope = `approveMaterialRequest:${id}:${action}`;
           const res = await wx.cloud.callFunction({
               name: 'approveMaterialRequest',
               data: {
-                  request_id: id,
-                  action: action,
-                  reject_reason: reason
+                  ...payload,
+                  operation_id: ensureOperationId(operationScope, payload, 'approve')
               }
           });
 
           wx.hideLoading();
 
           if (res.result && res.result.success) {
+              clearOperationId(operationScope);
               if (action === 'approve') {
                   getApp().globalData.masterDataChangedAt = Date.now();
               }

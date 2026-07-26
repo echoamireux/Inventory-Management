@@ -359,7 +359,12 @@ exports.main = async (event, context) => {
           : Number(item.quantity && item.quantity.val) || 0;
 
         let deduct = Math.min(currentStock, remainingNeed);
-        deduct = Math.floor(deduct * PRECISION) / PRECISION;
+        // 必须与 parseChemicalQuantity 的 Math.round 口径一致：二进制浮点下
+        // 2.01*1000 = 2009.9999999999998，用 Math.floor 会少扣 0.001，残留量
+        // 最终触发下方的「库存不足」误判（0.001~100.000 区间内有 741 个数值受影响）。
+        // deduct 取自 min(currentStock, remainingNeed)，两者均已是 3 位精度规范值，
+        // round 不会超过实际库存。
+        deduct = roundNumber(deduct);
         if (deduct <= 0) {
           continue;
         }

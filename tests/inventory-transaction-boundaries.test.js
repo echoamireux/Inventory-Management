@@ -115,13 +115,13 @@ function createHarness({ candidates, transactionUser }) {
     }
   });
 
-  async function withdraw(operationId = 'withdraw_boundary_001') {
+  async function withdraw(operationId = 'withdraw_boundary_001', withdrawAmount = 1) {
     const originalError = console.error;
     try {
       console.error = () => {};
       return await mod.main({
         product_code: 'J-001',
-        withdraw_amount: 1,
+        withdraw_amount: withdrawAmount,
         project_code: project.project_code,
         operation_id: operationId
       });
@@ -219,4 +219,35 @@ test('withdrawal can reach the 500th candidate but never reads the 501st', async
   assert.match(blocked.msg, /库存范围过大/);
   assert.equal(overLimitHarness.updatedIds.length, 0);
   assert.equal(overLimitHarness.getCandidateRowsRead(), 500);
+});
+
+// B1 回归：扣减侧曾用 Math.floor(deduct * 1000) / 1000 截断，而解析侧用 Math.round，
+// 两边口径不一致。二进制浮点下 2.01 * 1000 = 2009.9999999999998，floor 会少扣 0.001，
+// 残留量最终触发「库存不足」误判。0.001~100.000 区间内共 741 个数值受影响。
+test('withdrawal deducts three-decimal amounts without floating-point truncation', async () => {
+  // 这些数值在 floor 口径下全部会失败：一位小数 32.3，两位小数 2.01，三位小数 1.001
+  for (const amount of [2.01, 1.001, 32.3]) {
+    const harness = createHarness({
+      candidates: [buildCandidate(1, 100)],
+      transactionUser: { _openid: 'openid-user', role: 'user', status: 'active', name: '领料人' }
+    });
+
+    const res = await harness.withdraw(`withdraw_precision_${String(amount).replace('.', '_')}`, amount);
+
+    assert.equal(res.success, true, `领用 ${amount} 应当成功，实际：${res.msg || ''}`);
+    assert.deepEqual(harness.updatedIds, ['inventory-0001']);
+  }
+});
+
+test('withdrawal can empty a batch whose stock has a three-decimal tail', async () => {
+  // 全额领用带三位小数尾数的批次：floor 口径下会残留 0.001 而报「库存不足」
+  const harness = createHarness({
+    candidates: [buildCandidate(1, 1.001)],
+    transactionUser: { _openid: 'openid-user', role: 'user', status: 'active', name: '领料人' }
+  });
+
+  const res = await harness.withdraw('withdraw_precision_exact', 1.001);
+
+  assert.equal(res.success, true, `全额领用应当成功，实际：${res.msg || ''}`);
+  assert.deepEqual(harness.updatedIds, ['inventory-0001']);
 });

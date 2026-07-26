@@ -25,8 +25,13 @@ const db = cloud.database();
 
 const _ = db.command;
 
-function clearPendingKeyUpdate() {
-  return typeof _?.remove === 'function' ? { pending_key: _.remove() } : {};
+// 审批/驳回后释放 pending 语义。
+// 不能用 _.remove() 删除字段：云开发唯一索引把「字段不存在」视为 null，且明确
+// 「不允许存在两个或以上的该字段为空/不存在该字段的记录」，而控制台并不提供
+// sparse 选项。若移除字段，第二条被处理的申请就会撞 duplicate key 导致审批失败。
+// 改为写入以记录 _id 为基础的唯一占位值，既解除 pending 占位又维持索引唯一性。
+function clearPendingKeyUpdate(requestId) {
+  return { pending_key: `done:${requestId}` };
 }
 
 function applyStableOrder(query, sorts = []) {
@@ -144,7 +149,7 @@ exports.main = async (event, context) => {
         await requestRef.update({
           data: {
             status: 'rejected',
-            ...clearPendingKeyUpdate(),
+            ...clearPendingKeyUpdate(request_id),
             reject_reason: reject_reason || '',
             operator_id: OPENID,
             operator_name: (operator && operator.name) || 'Admin',
@@ -265,7 +270,7 @@ exports.main = async (event, context) => {
       await requestRef.update({
         data: {
           status: 'approved',
-          ...clearPendingKeyUpdate(),
+          ...clearPendingKeyUpdate(request_id),
           operator_id: OPENID,
           operator_name: (operator && operator.name) || 'Admin',
           updated_at: db.serverDate()
