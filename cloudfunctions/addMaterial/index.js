@@ -14,7 +14,8 @@ const {
   buildChemicalRefillUpdate,
   parseChemicalQuantity,
   parsePositiveIntegerMeters,
-  buildInventoryIdentityKey
+  buildInventoryIdentityKey,
+  buildInventoryLogIdentityFields
 } = require('./inventory-quantity');
 const {
   isTestMaterial,
@@ -339,6 +340,11 @@ exports.main = async (event, context) => {
             category,
             product_code: productCode,
             unique_code: normalizedUniqueCode,
+            ...buildInventoryLogIdentityFields({
+              supplier_model: refillSupplierModel,
+              supplier_model_key: refillSupplierModelKey,
+              batch_number: existingInventory.batch_number
+            }),
             quantity_change: normalizedQuantityVal,
             spec_change_unit: existingInventory.quantity && existingInventory.quantity.unit
               ? existingInventory.quantity.unit
@@ -599,6 +605,10 @@ exports.main = async (event, context) => {
             material_name: materialName,
             category, // Added for Log Display Logic
             product_code: productCode, // Added for Log Display Logic
+            // 四个入库写入点中此前唯有这里漏写 unique_code，导致标签维度的
+            // 操作历史看不到「初始录入」，其上的纠错入口也随之不可达
+            unique_code: normalizedUniqueCode,
+            ...buildInventoryLogIdentityFields(invData),
             quantity_change: logQuantityChange,
             spec_change_unit: logUnit,
             unit: logUnit,

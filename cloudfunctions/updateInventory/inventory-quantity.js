@@ -206,8 +206,28 @@ function applyFilmQuantityDelta(existingInventory = {}, delta) {
   };
 }
 
+/**
+ * 构造 inventory_log 的身份与批次字段。
+ *
+ * 这三个字段此前从未被任何写入点写入，但 getLogs 的搜索字段清单、
+ * getProjectUsageReport 的分组键、exportProjectUsageReport 的导出列
+ * 以及 log-item 组件的展示都依赖它们 —— 结果是这三个维度的日志搜索
+ * 恒为空、项目用料汇总把同一产品代码下不同原厂型号的测试料合并成一行。
+ *
+ * 统一由本函数构造，避免 10 个写入点各写各的再次漏字段。
+ * source 可以是 inventory 记录、material 记录或已组装的 inventoryData。
+ */
+function buildInventoryLogIdentityFields(source = {}) {
+  return {
+    supplier_model: normalizeText(source.supplier_model),
+    supplier_model_key: normalizeText(source.supplier_model_key),
+    batch_number: normalizeText(source.batch_number)
+  };
+}
+
 module.exports = {
   QUANTITY_AFFECTING_LOG_TYPES,
+  buildInventoryLogIdentityFields,
   parseChemicalQuantity,
   parsePositiveIntegerMeters,
   normalizeLogType,

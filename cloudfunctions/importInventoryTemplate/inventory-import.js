@@ -1419,6 +1419,10 @@ function buildInventoryImportPayload(item = {}, material = {}, options = {}) {
       category,
       product_code: productCode,
       unique_code: uniqueCode,
+      // 身份与批次字段：日志搜索、项目用料汇总与导出列都依赖它们
+      supplier_model: inventoryData.supplier_model || '',
+      supplier_model_key: inventoryData.supplier_model_key || '',
+      batch_number: inventoryData.batch_number || '',
       quantity_change: logQuantityChange,
       spec_change_unit: logUnit,
       unit: logUnit,

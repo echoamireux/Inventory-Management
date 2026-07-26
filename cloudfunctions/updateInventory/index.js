@@ -16,7 +16,8 @@ const {
 const {
   assertConsistentChemicalUnits,
   parseChemicalQuantity,
-  parsePositiveIntegerMeters
+  parsePositiveIntegerMeters,
+  buildInventoryLogIdentityFields
 } = require('./inventory-quantity');
 const {
   buildOperationReceiptContext,
@@ -413,6 +414,7 @@ exports.main = async (event, context) => {
           category: item.category,
           product_code: item.product_code,
           unique_code: item.unique_code,
+          ...buildInventoryLogIdentityFields(item),
           type: 'outbound',
           quantity_change: -deduct,
           unit: isFilm ? 'm' : (item.quantity.unit || 'kg'),

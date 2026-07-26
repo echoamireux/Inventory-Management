@@ -450,3 +450,72 @@ test('all governed master-data mutations write business changes and audit events
     );
   }
 });
+
+// F1 回归：四个入库写入点中，addMaterial 的 inboundLog 曾唯独漏写 unique_code。
+// 后果是 log-search 按 _.or([{unique_code}, {inventory_id}]) 检索时两个字段都对不上，
+// 标签详情页的操作历史里永远没有「初始录入」，挂在 type==='inbound' 上的
+// 「发起纠错申请」入口也随之在标签维度不可达。
+test('single stock-in log carries unique_code like every other inbound path', () => {
+  const source = read('cloudfunctions/addMaterial/index.js');
+  const inboundLog = source.match(/const inboundLog = \{[\s\S]*?\n {6}\};/);
+
+  assert.ok(inboundLog, 'addMaterial 应存在 inboundLog');
+  assert.match(inboundLog[0], /unique_code:/, 'inboundLog 必须写入 unique_code');
+});
+
+// F2 回归：inventory_log 的 10 个写入点此前从未写入 supplier_model /
+// supplier_model_key / batch_number，而 getLogs 的搜索字段清单、
+// getProjectUsageReport 的分组键、exportProjectUsageReport 的导出列都依赖它们 ——
+// 结果是这三个维度的日志搜索恒为空，且项目用料汇总把同一产品代码下不同原厂型号
+// 的测试料合并成一行，直接抵消测试料身份治理的意义。
+test('shared helper builds the inventory log identity fields', () => {
+  const { buildInventoryLogIdentityFields } = require('../cloudfunctions/_shared/inventory-quantity.js');
+
+  assert.deepEqual(
+    buildInventoryLogIdentityFields(),
+    { supplier_model: '', supplier_model_key: '', batch_number: '' },
+    '缺失来源时应返回空串而非 undefined，避免写入 undefined 字段'
+  );
+  assert.deepEqual(
+    buildInventoryLogIdentityFields({
+      supplier_model: ' AB-100 ',
+      supplier_model_key: 'ab-100',
+      batch_number: 'B001',
+      irrelevant: 'x'
+    }),
+    { supplier_model: 'AB-100', supplier_model_key: 'ab-100', batch_number: 'B001' },
+    '应规范化文本并只取这三个字段'
+  );
+});
+
+test('every inventory_log write point carries the identity and batch fields', () => {
+  // 直接构造日志对象的写入点：必须显式带上三个字段（或经共享 helper 展开）
+  const directWriters = [
+    ['cloudfunctions/addMaterial/index.js', 2],                       // inboundLog + refillLog
+    ['cloudfunctions/updateInventory/index.js', 1],                   // 出库 logs.push
+    ['cloudfunctions/approveInventoryCorrectionRequest/index.js', 1], // correctionLog
+    ['cloudfunctions/editInventory/index.js', 3],                     // 幅宽 / 盘点 / 移库
+    ['cloudfunctions/importInventoryTemplate/index.js', 1]            // 补料 refillLog
+  ];
+
+  for (const [relPath, expected] of directWriters) {
+    const source = read(relPath);
+    const hits = (source.match(/buildInventoryLogIdentityFields\(/g) || []).length;
+    assert.equal(
+      hits, expected,
+      `${relPath} 应有 ${expected} 处调用 buildInventoryLogIdentityFields，实际 ${hits} 处`
+    );
+  }
+
+  // 经共享构造器产出 logData 的写入点：字段写在构造器里
+  for (const relPath of [
+    'cloudfunctions/_shared/batch-add.js',
+    'cloudfunctions/importInventoryTemplate/inventory-import.js'
+  ]) {
+    const logData = read(relPath).match(/logData: \{[\s\S]*?\n {4}\}/);
+    assert.ok(logData, `${relPath} 应存在 logData 构造`);
+    for (const field of ['supplier_model', 'supplier_model_key', 'batch_number']) {
+      assert.match(logData[0], new RegExp(`${field}:`), `${relPath} 的 logData 缺少 ${field}`);
+    }
+  }
+});

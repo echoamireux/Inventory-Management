@@ -276,6 +276,10 @@ function buildBatchInventoryPayload(rawItem, material, rowIndex, options = {}) {
       category: material.category,
       product_code: material.product_code,
       unique_code: uniqueCode,
+      // 身份与批次字段：日志搜索、项目用料汇总与导出列都依赖它们
+      supplier_model: inventoryData.supplier_model || '',
+      supplier_model_key: inventoryData.supplier_model_key || '',
+      batch_number: inventoryData.batch_number || '',
       quantity_change: material.category === 'film'
         ? inventoryData.dynamic_attrs.current_length_m
         : inventoryData.quantity.val,

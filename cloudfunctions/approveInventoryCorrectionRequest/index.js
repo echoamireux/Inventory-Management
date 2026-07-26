@@ -6,7 +6,8 @@ const {
   isQuantityAffectingLogType,
   resolveLogTimestamp,
   applyChemicalQuantityDelta,
-  applyFilmQuantityDelta
+  applyFilmQuantityDelta,
+  buildInventoryLogIdentityFields
 } = require('./inventory-quantity');
 const {
   buildOperationReceiptContext,
@@ -250,6 +251,7 @@ exports.main = async (event, context) => {
           category,
           product_code: correctionRequest.product_code || inventory.product_code || '',
           unique_code: correctionRequest.unique_code || inventory.unique_code || '',
+          ...buildInventoryLogIdentityFields(inventory),
           type: 'adjust',
           quantity_change: delta,
           spec_change_unit: unit,

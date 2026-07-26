@@ -3,7 +3,8 @@ const { assertActiveUserAccess, assertActiveInventoryAccess } = require('./auth'
 const {
   isChemicalRefillEligible,
   buildChemicalRefillUpdate,
-  parseChemicalQuantity
+  parseChemicalQuantity,
+  buildInventoryLogIdentityFields
 } = require('./inventory-quantity');
 const {
   isInventoryTemplateGroupHeaderRow,
@@ -711,6 +712,8 @@ async function submitRows(items = [], openid, operatorName, operationId) {
             category: item.category === 'film' ? 'film' : 'chemical',
             product_code: String(item.product_code || '').trim(),
             unique_code: uniqueCode,
+            // 补料写入已有记录，身份与批次取自该记录
+            ...buildInventoryLogIdentityFields(currentInventory),
             quantity_change: refillQuantity,
             spec_change_unit: (currentInventory.quantity && currentInventory.quantity.unit) || item.quantity_unit || '',
             unit: (currentInventory.quantity && currentInventory.quantity.unit) || item.quantity_unit || '',

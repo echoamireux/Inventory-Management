@@ -17,7 +17,8 @@ const {
 } = require('./operation-receipts');
 const {
   parseChemicalQuantity,
-  parsePositiveIntegerMeters
+  parsePositiveIntegerMeters,
+  buildInventoryLogIdentityFields
 } = require('./inventory-quantity');
 const { writeInventoryAuditEvent } = require('./audit-events');
 
@@ -225,6 +226,7 @@ exports.main = async (event, context) => {
               category: item.category,
               product_code: item.product_code,
               unique_code: item.unique_code,
+              ...buildInventoryLogIdentityFields(item),
               type: 'adjust',
               quantity_change: 0,
               action: 'width_adjust',
@@ -265,6 +267,7 @@ exports.main = async (event, context) => {
               category: item.category,
               product_code: item.product_code,
               unique_code: item.unique_code,
+              ...buildInventoryLogIdentityFields(item),
               type: 'adjust',
               quantity_change: delta,
               action: 'stocktake_adjust',
@@ -311,6 +314,7 @@ exports.main = async (event, context) => {
             category: item.category,
             product_code: item.product_code,
             unique_code: item.unique_code,
+            ...buildInventoryLogIdentityFields(item),
             type: 'transfer',
             quantity_change: 0,
             action: 'transfer',
