@@ -98,13 +98,37 @@ vant 原生布局本就正确完整：
 
 ## Acceptance Criteria
 
-- [ ] 点「管理」→ 点底部「取消」，操作面板正常关闭。
-- [ ] 「设为管理员」确认弹窗中，「取消」与「确认执行」左右等分且各自居中。
-- [ ] 「禁用账号」确认弹窗的确认按钮显示为红色。
-- [ ] `Dialog.alert` 单按钮弹窗布局正常。
-- [ ] `npm test` 全部通过。
-- [ ] `npm run preflight:deploy` 通过。
-- [ ] 仅改动 `user-manage/index.wxml` 与 `app.wxss` 两个文件，无云函数改动。
+- [x] 点「管理」→ 点底部「取消」，操作面板正常关闭。**已实机验证通过。**
+- [x] 「设为管理员」确认弹窗中，「取消」与「确认执行」左右等分且各自居中。**已实机验证通过。**
+- [x] 「禁用账号」确认弹窗的确认按钮显示为红色。**已实机验证通过 —— 该项同时是「样式改动是否真正编译生效」的判据**：`#1989FA` 与业务设定的 `#2563eb` 同为蓝色、肉眼难辨，而 `#dc2626` 红色一目了然。
+- [x] `Dialog.alert` 单按钮弹窗布局正常。
+- [x] `npm test` 全部通过（567/567）。
+- [x] `npm run preflight:deploy` 通过。
+- [x] 仅改动 `user-manage/index.wxml`、`app.wxss` 与对应测试，无云函数改动。
+
+## 实施记录
+
+分两次提交，第二次修正了第一次的做法：
+
+| 提交 | 内容 |
+|---|---|
+| `fc654d6` | 补 `bind:cancel`；移除 app.wxss 中破坏布局的整段覆盖，依赖 vant 原生 `footer:flex` + `button:flex-1` |
+| `bf8e6d4` | 实机验证发现仅移除覆盖后按钮仍偏移，改为在 app.wxss **显式声明**等分 |
+
+第二次调整的依据：用浏览器复现 vant 真实 DOM 结构与样式做对照，原生规则在标准 flex 下结果正确（两按钮各 160/320、文字中心零偏移，加不加 `min-width:0` 相同）。故问题不在 CSS 逻辑，而在「依赖组件库内部实现」这一做法本身不够稳妥 —— 该布局在本项目已出现过两次失败的修复尝试。
+
+最终 app.wxss 中只保留两条，与 vant 原生等价但不依赖其实现：
+
+```css
+.van-dialog__footer { display: flex !important; }
+.van-dialog__button { flex: 1 1 0 !important; min-width: 0 !important; }
+```
+
+## 遗留观察（未处理）
+
+`miniprogram/pages/admin/material-import/index.wxss:237-257` 的 `.fix-dialog-style` 段落（21 行）是同类的历史修复尝试，且为**纯死代码**：类名 `fix-dialog-style` 在全项目 wxml / js / json 中从未被任何元素引用，选择器所需的祖先类不存在，因此从未生效。该页面虽已配置 `styleIsolation: 'shared'`（`index.js:36-37`，即注释所述前提成立），但缺少承载类名的元素。
+
+清理无风险，但属另一页面、不影响功能，故未在本任务内处理。留待后续迭代或单独确认。
 
 ## Notes
 
