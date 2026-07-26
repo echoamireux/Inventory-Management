@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
-- **Last Active**: 2026-07-25
+- **Total Sessions**: 6
+- **Last Active**: 2026-07-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~173 | Active |
+| `journal-1.md` | ~266 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-07-26 | 上线前代码审查与两轮质量修复 | `26d6eb5`, `0e8fa47`, `d57248a` | `codex/test-material-identity-governance` |
 | 5 | 2026-07-25 | 上线前一致性风险修复 | `ed6b7a2` | `codex/test-material-identity-governance` |
 | 4 | 2026-07-25 | 测试料型号远程分页搜索收尾 | `7fe4385` | `codex/test-material-identity-governance` |
 | 3 | 2026-07-25 | 统一物料管理与导入模板收尾 | `60e3502`, `2590b60` | `codex/test-material-identity-governance` |
