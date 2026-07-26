@@ -241,6 +241,8 @@ Page({
               wx.showToast({ title: '操作成功', icon: 'success' });
               this.fetchMaterials(true);
           } else {
+              // 同上：审批的 payload 固定，失败后必须清除编号才能重试
+              clearOperationId(operationScope);
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }
       } catch(err) {
@@ -301,6 +303,10 @@ Page({
               wx.showToast({ title: '操作成功', icon: 'success' });
               this.fetchCorrections(true);
           } else {
+              // 审批最容易被过期的失败回执卡住：payload 只有 request_id 与 action，
+              // 用户无法通过修改输入换到新的操作编号。失败后清除，使外部条件恢复
+              // （如库存状态变化）后能重新审批。网络异常走 catch 且不清除。
+              clearOperationId(operationScope);
               wx.showToast({ title: res.result.msg || '操作失败', icon: 'none' });
           }
       } catch(err) {

@@ -1124,3 +1124,25 @@ test('inventory import payload aligns film specs with preprinted label snapshots
     /与预生成标签规格不一致/
   );
 });
+
+// H7 回归：seenUniqueCodes 曾定义在 runTransaction 之外。事务遇写冲突会自动重试并
+// 重新执行回调，第二轮会把自己第一轮登记过的标签当成「本次提交内重复」，整批入库
+// 以误判失败。表现为随机失败、重试有时又好，排查成本很高。
+test('template import resets the in-batch duplicate guard on transaction retry', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'cloudfunctions/importInventoryTemplate/index.js'),
+    'utf8'
+  );
+
+  const runTxIndex = source.indexOf('return db.runTransaction(');
+  const setIndex = source.indexOf('const seenUniqueCodes = new Set();');
+
+  assert.ok(runTxIndex > -1, '应存在 runTransaction 调用');
+  assert.ok(setIndex > -1, '应存在 seenUniqueCodes 定义');
+  assert.ok(
+    setIndex > runTxIndex,
+    'seenUniqueCodes 必须在 runTransaction 回调内初始化，否则事务重试会误判标签重复'
+  );
+});

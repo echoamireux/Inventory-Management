@@ -591,9 +591,12 @@ async function submitRows(items = [], openid, operatorName, operationId) {
   ]);
   const zoneMapsByCategory = buildZoneMapsByCategory(zoneRecords);
   const locationDetailMapByZone = buildLocationDetailMapByZone(locationDetailRecords);
-  const seenUniqueCodes = new Set();
 
   return db.runTransaction(async (transaction) => {
+    // 必须在事务回调内初始化：事务遇到写冲突会自动重试并重新执行本回调，
+    // 若 Set 建在回调外，第二轮会把自己第一轮登记过的标签当成「本次提交内重复」，
+    // 整批入库以误判失败。表现为随机失败、重试有时又好，排查成本很高。
+    const seenUniqueCodes = new Set();
     const transactionOperator = await getTransactionOperator(transaction, openid, { name: operatorName, status: 'active', role: 'user' });
     const transactionAuthResult = assertInventoryWriteAccess(transactionOperator, '用户状态或角色已变化，请重新登录后重试');
     if (!transactionAuthResult.ok) {

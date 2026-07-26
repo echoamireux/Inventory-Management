@@ -1738,6 +1738,12 @@ Page({
         clearOperationId(operationScope);
         this.setData({ showSuccessDialog: true });
       } else {
+        // 业务失败也要清除操作编号：编号在同一提交内容下会被缓存复用，而云端会把
+        // 失败响应作为幂等结果留存，不清除的话用户即使等外部条件恢复（如别人补了货）
+        // 再重试，拿到的仍是那条过期的失败提示。
+        // 只在拿到明确响应时清除 —— 网络异常走下面的 catch 且不清除，因为那种情况下
+        // 请求可能已在服务端成功，保留编号才能靠幂等回执取回首次结果。
+        clearOperationId(operationScope);
         throw new Error(res.result.msg || 'Unknown Error');
       }
 
@@ -1914,6 +1920,9 @@ Page({
               wx.showToast({ title: '申请已提交', icon: 'success' });
               this.setData({ showRequestPopup: false, showRequestUnitSheet: false });
           } else {
+              // 业务失败同样清除操作编号，否则用户重试会拿到云端留存的过期失败回执。
+              // 网络异常走 catch 分支且不清除 —— 那时请求可能已在服务端成功。
+              clearOperationId('addMaterialRequest:submit');
               wx.showToast({ title: result.msg || '提交失败', icon: 'none' });
           }
 
