@@ -626,19 +626,27 @@ test('audit hardening fixes admin page bindings, material add dialog mount, and 
   assert.doesNotMatch(approvalCenterJs, /wx\.switchTab/);
 });
 
-test('global styles keep hands off vant dialog button layout', () => {
+test('global dialog button styles keep the equal-width flex split', () => {
   // 剥离注释后再断言，避免 app.wxss 中解释性注释里的类名造成误判
   const appRules = read('miniprogram/app.wxss').replace(/\/\*[\s\S]*?\*\//g, '');
 
-  // 重定义该类会丢掉 vant 原生的 flex:1，使两个按钮不再等分，确认按钮视觉偏移
-  assert.doesNotMatch(appRules, /\.van-dialog__button\s*\{/);
+  const buttonRule = appRules.match(/\.van-dialog__button\s*\{[^}]*\}/);
+  assert.ok(buttonRule, 'app.wxss 应显式声明 .van-dialog__button 的等分布局');
+  // 关键约束：曾有一版覆盖只写了 display/align/justify 却丢掉 flex，
+  // 导致两个按钮不再等分、确认按钮视觉偏移
+  assert.match(buttonRule[0], /flex:\s*1/);
+  assert.match(appRules, /\.van-dialog__footer\s*\{[^}]*display:\s*flex/);
+
   // vant 模板中不存在该类名，写了也不会生效
   assert.doesNotMatch(appRules, /\.van-dialog__footer--buttons\s*\{/);
-  // !important 会压过 van-button 的内联 style，使业务传入的 confirmButtonColor 失效，
+  // 跨组件边界的后代选择器，在小程序样式隔离下不生效
+  assert.doesNotMatch(appRules, /\.van-dialog__button\s+\.van-button__text\s*\{/);
+  // !important 颜色会压过 van-button 的内联 style，使业务传入的 confirmButtonColor 失效，
   // 「禁用账号」「删除物料」等危险操作的红色确认按钮会被强制成蓝色
   assert.doesNotMatch(appRules, /\.van-dialog__confirm\s*\{/);
+  assert.doesNotMatch(appRules, /\.van-dialog__cancel\s*\{/);
 
-  // vant 原生的等分居中布局是上述约束成立的前提，升级组件库时若被改动需同步复核
+  // 上述声明与 vant 原生等价；组件库升级若改动原生布局，需同步复核本段
   const dialogWxss = read('miniprogram/miniprogram_npm/@vant/weapp/dialog/index.wxss');
   assert.match(dialogWxss, /\.van-dialog__footer\{display:flex\}/);
   assert.match(dialogWxss, /\.van-dialog__button\{flex:1\}/);
