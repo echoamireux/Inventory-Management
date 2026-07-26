@@ -169,17 +169,24 @@ grep -n "_transactionId" dist/commonjs/query.js         # → where/orderBy/limi
 
 ## Acceptance Criteria
 
-- [ ] `npm test` 全部通过，且测试总数相比基线 566 有增加（新增 R1 的覆盖用例）。
-- [ ] `npm run preflight:deploy` 通过。
-- [ ] 超管对自己执行降级操作返回明确的拒绝提示；对他人执行降级不受影响。
-- [ ] `grep -rn "console\.log" miniprogram/ --include="*.js" | grep -v miniprogram_npm | grep -v "\.min\.js"` 结果中不再包含 `[Debug]`、`[Logs] Mapped List`、`onEdit triggered` 三类调试输出。
-- [ ] `git ls-files miniprogram/pages/logs/` 返回四个源文件；`git check-ignore miniprogram/pages/logs/index.js` 退出码为 1（不再被忽略）。
-- [ ] `app.json` 注册的 29 个页面在版本库中全部存在。
-- [ ] 不修改任何事务逻辑、权限模型、库存数量模型。
-- [ ] 不提交 `scripts/release-readiness.json`。
-- [ ] `npm run sync:shared` 执行成功（退出码 0）且不产生意外文件变更。
-- [ ] 全仓库对 `searchInventory` 的残留引用仅剩注释、防复活断言与废弃函数清单三类。
-- [ ] `npm run release:check` 在发布人补齐 `removedCloudFunctions` 前，应明确失败于「旧云函数清理未确认：searchInventory」—— 这是设计意图，用于提示云端删除动作尚未完成。
+- [x] `npm test` 全部通过。**最终 566/566**。基线为 566；第一轮新增 R1 覆盖用例后为 567，第二轮下线 `searchInventory` 时删除其专项测试，净数持平。（原验收条目写作「总数相比基线有增加」，仅适用于第一轮，此处按两轮合并后的实际情况修订。）
+- [x] `npm run preflight:deploy` 通过。
+- [x] 超管对自己执行降级操作返回明确的拒绝提示；对他人执行降级不受影响。
+- [x] `grep -rn "console\.log" miniprogram/ --include="*.js" | grep -v miniprogram_npm | grep -v "\.min\.js"` 结果中不再包含 `[Debug]`、`[Logs] Mapped List`、`onEdit triggered` 三类调试输出。
+- [x] `git ls-files miniprogram/pages/logs/` 返回四个源文件；`git check-ignore miniprogram/pages/logs/index.js` 退出码为 1（不再被忽略）。
+- [x] `app.json` 注册的 29 个页面在版本库中全部存在。
+- [x] 不修改任何事务逻辑、权限模型、库存数量模型。
+- [x] 不提交 `scripts/release-readiness.json`。
+- [x] `npm run sync:shared` 执行成功（退出码 0）且不产生意外文件变更。
+- [x] 全仓库对 `searchInventory` 的残留引用仅剩注释、防复活断言与废弃函数清单三类。
+- [x] `npm run release:check` 在发布人补齐 `removedCloudFunctions` 前，明确失败于「旧云函数清理未确认：searchInventory」；补齐后通过。**已确认两种状态均符合预期。**
+
+## 交付状态（2026-07-26）
+
+- 工作提交：`26d6eb5`（第一轮 R1–R4）、`0e8fa47`（第二轮 R5–R8）
+- 发布人已完成：云端删除 `searchInventory`、重新上传 `adminUpdateUserStatus` 与 `approveInventoryCorrectionRequest`、补齐 `release-readiness.json`
+- `npm run release:check` **三道门禁全部通过**：566 测试 + 发布预检 + 环境配置与正式库门槛（集合 18/18、索引 35/35、ACL、废弃函数 4 项）
+- **待发布人执行**：测试环境端到端走查。重点为搜索（`getInventoryGrouped` 接替下线的 `searchInventory`，本次影响面最大）、纠错审批拒绝/通过两条分支、超管角色调整的自我保护
 
 ## Notes
 
