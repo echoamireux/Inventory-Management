@@ -184,6 +184,50 @@ function buildPreprintDailyUsageId(operatorOpenid, dateKey) {
     .slice(0, 32);
 }
 
+/**
+ * 只读预检配额与频控，不消耗额度。
+ *
+ * 供「作废重做」在执行作废动作之前调用：作废是不可逆的，而 voidPreprintLabels
+ * 并不退还已消耗的配额。若沿用「先作废、再由 reservePreprintJob 校验」的顺序，
+ * 一旦配额或频控命中，用户就会落到「原批已废、新批没有、配额也没退」的境地。
+ *
+ * 与 consumePreprintQuota 共用同一套阈值判断；正式的消耗仍在事务内完成，
+ * 这里只负责提前拦截，因此并发下的最终裁决权仍属事务内那一次。
+ */
+async function checkPreprintQuotaAvailable(operatorOpenid, count) {
+  const now = new Date();
+  const nowTime = now.getTime();
+  const dateKey = formatCstDateKey(now);
+  const usageId = buildPreprintDailyUsageId(operatorOpenid, dateKey);
+
+  let currentUsage = {};
+  try {
+    const usageRes = await db.collection('preprint_daily_usage').doc(usageId).get();
+    currentUsage = (usageRes && usageRes.data) || {};
+  } catch (_error) {
+    currentUsage = {};
+  }
+
+  const currentTotal = Number(currentUsage.total_count) || 0;
+  const recentTaskTimes = (currentUsage.recent_task_times || [])
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && nowTime - value < PREPRINT_BURST_WINDOW_MS);
+
+  if (currentTotal + count > MAX_DAILY_PREPRINT_LABELS) {
+    return {
+      ok: false,
+      msg: `每人每天最多预生成 ${MAX_DAILY_PREPRINT_LABELS} 个标签，请明天再生成或联系管理员`
+    };
+  }
+  if (recentTaskTimes.length >= MAX_PREPRINT_TASKS_PER_10_MINUTES) {
+    return {
+      ok: false,
+      msg: `10 分钟内最多创建 ${MAX_PREPRINT_TASKS_PER_10_MINUTES} 次标签预生成任务，请稍后再试`
+    };
+  }
+  return { ok: true };
+}
+
 async function consumePreprintQuota(transaction, operatorOpenid, count) {
   const now = new Date();
   const nowTime = now.getTime();
@@ -654,6 +698,17 @@ async function createPreprintJob(data = {}, operator = {}, operatorOpenid = '') 
   });
 
   if (preprintMode === 'voidAndRecreate') {
+    // 必须先于作废动作校验配额与频控：作废不可逆且不退还已用额度，
+    // 若等到 reservePreprintJob 才发现超限，用户会落到「原批已废、新批没有」的境地。
+    const quotaCheck = await checkPreprintQuotaAvailable(operatorOpenid, count);
+    if (!quotaCheck.ok) {
+      return {
+        success: false,
+        code: 'PREPRINT_QUOTA_EXCEEDED',
+        msg: quotaCheck.msg
+      };
+    }
+
     const previousJobId = normalizeText(data.previousJobId || data.previous_job_id);
     const voidResult = await voidPreprintLabels({ jobId: previousJobId }, operatorOpenid, operator);
     if (!voidResult.success) {

@@ -251,3 +251,34 @@ test('withdrawal can empty a batch whose stock has a three-decimal tail', async 
   assert.equal(res.success, true, `全额领用应当成功，实际：${res.msg || ''}`);
   assert.deepEqual(harness.updatedIds, ['inventory-0001']);
 });
+
+// H1 回归：数据库分页按 expiry_date 升序，但「长期有效」的库存根本不写该字段，
+// 其排序位置没有任何官方承诺；本地比较器 sortInventoryAllocationCandidates 则明确
+// 规定「有有效期在前、无有效期在后」。两者方向一旦相反，而候选又超过单页容量时，
+// 首页可能全是长期有效批次且量已够 —— 旧实现「够量即返回」会直接停下，
+// 临期批次连读都读不到，FEFO 静默退化成「先扣长期有效的」。
+// 修复后改为读满候选再统一排序，因此必须跨页拿到临期批次。
+test('withdrawal keeps FEFO across pages when the first page is already enough', async () => {
+  // 构造 150 条候选：前 100 条（首页）为长期有效且总量已远超需求，
+  // 第 101 条起才是临期批次。旧实现会在首页结束时返回，扣光长期有效批次。
+  const longTerm = Array.from({ length: 100 }, (_, index) => {
+    const candidate = buildCandidate(index + 1, 5, { create_time: new Date(2026, 0, 1) });
+    delete candidate.expiry_date;              // 长期有效不写该字段
+    return candidate;
+  });
+  const nearExpiry = buildCandidate(101, 5, { expiry_date: '2026-07-01' });
+
+  const harness = createHarness({
+    // 刻意把临期批次放在数组末尾，模拟数据库把无 expiry_date 的记录排在前面
+    candidates: [...longTerm, nearExpiry],
+    transactionUser: { _openid: 'openid-user', role: 'user', status: 'active', name: '领料人' }
+  });
+
+  const result = await harness.withdraw('withdraw_fefo_cross_page', 1);
+
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    harness.updatedIds, ['inventory-0101'],
+    '应优先扣减临期批次 inventory-0101，而不是首页的长期有效批次'
+  );
+});

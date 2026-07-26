@@ -80,13 +80,41 @@ function checkInventoryExpiring(item = {}) {
   return days <= EXPIRY_ALERT_DAYS;
 }
 
+function resolveInventoryExpiryDays(item = {}) {
+  const expirySource = item.expiry_date || (item.dynamic_attrs && item.dynamic_attrs.expiry_date);
+  if (!expirySource) {
+    return null;
+  }
+
+  const expiryDate = new Date(expirySource);
+  if (Number.isNaN(expiryDate.getTime())) {
+    return null;
+  }
+
+  return Math.ceil((expiryDate.getTime() - Date.now()) / ONE_DAY_MS);
+}
+
+/**
+ * 过期状态分两档：已过期（diffDays <= 0）与临期（0 < diffDays <= 30）。
+ *
+ * 此前两者共用「即将过期」一个徽标 —— checkInventoryExpiring 用 days <= 30 判定，
+ * 已过期的天数是负数同样命中。于是过期三个月的试剂和还有 20 天到期的长得一模一样，
+ * 全系统只有库存详情页会额外写一句「(已过期)」。而 FEFO 恰好优先推荐最早过期的批次，
+ * 用户在领料链路上看不出自己拿到的是过期品。
+ *
+ * 业务规则：实验室确实会使用过期物料，因此**不禁止领用**，只让状态可见。
+ */
 function getInventoryExpiryAlertState(item = {}) {
-  const isExpiring = checkInventoryExpiring(item);
+  const days = resolveInventoryExpiryDays(item);
+  const isExpired = days !== null && days <= 0;
+  const isExpiring = days !== null && days <= EXPIRY_ALERT_DAYS;
 
   return {
+    isExpired,
+    // 保持字段语义向后兼容：已过期同样算作需要提醒
     isExpiring,
-    expiryBadgeText: isExpiring ? '即将过期' : '',
-    rowTone: isExpiring ? 'warning' : 'brand'
+    expiryBadgeText: isExpired ? '已过期' : (isExpiring ? '即将过期' : ''),
+    rowTone: isExpired ? 'danger' : (isExpiring ? 'warning' : 'brand')
   };
 }
 
@@ -183,10 +211,17 @@ function getInventoryQuantityDisplayState(item = {}, material = {}) {
   const quantityUnit = String(quantity.unit || '').trim() || 'kg';
 
   return {
+    // 展示保留 2 位即可，够读
     displayQuantity: roundNumber(quantityVal, 2),
     displayUnit: quantityUnit,
     baseLengthM: 0,
-    availableInputStock: roundNumber(quantityVal, 2)
+    // 可领用上限必须保留 3 位，与后端存储精度一致。
+    // 降到 2 位会把 (0, 0.005) 的尾数抹成 0，而领料弹窗按
+    // `withdrawNum > stockNum` 拦截，于是任何正数输入都被拒绝；
+    // 与此同时唯一能把状态置为 used 的路径是出库时 newStock === 0，
+    // 盘点与纠错都要求数量大于 0、删除入口已停用 ——
+    // 该标签既领不空也清不掉，会永远留在库存列表与 FEFO 候选集里。
+    availableInputStock: roundNumber(quantityVal, 3)
   };
 }
 

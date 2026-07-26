@@ -142,9 +142,24 @@ test('label-level expiry alert follows detail-page wording and only marks row to
   });
 
   assert.deepEqual(state, {
+    isExpired: false,
     isExpiring: true,
     expiryBadgeText: '即将过期',
     rowTone: 'warning'
+  });
+});
+
+// 已过期与临期必须可区分：此前两者共用「即将过期」徽标（days <= 30 对负数同样成立），
+// 而 FEFO 恰好优先推荐最早过期的批次，用户在领料链路上看不出拿到的是过期品。
+// 业务规则为「允许领用过期物料」，故此处只负责让状态可见，不做拦截。
+test('label-level expiry alert distinguishes expired from near-expiry', () => {
+  const expired = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  assert.deepEqual(getInventoryExpiryAlertState({ expiry_date: expired }), {
+    isExpired: true,
+    isExpiring: true,
+    expiryBadgeText: '已过期',
+    rowTone: 'danger'
   });
 });
 
@@ -157,6 +172,7 @@ test('label-level expiry alert does not add an extra CST offset on the frontend'
     assert.deepEqual(getInventoryExpiryAlertState({
       expiry_date: justOutsideThirtyDays
     }), {
+      isExpired: false,
       isExpiring: false,
       expiryBadgeText: '',
       rowTone: 'brand'

@@ -95,7 +95,6 @@ function buildWithdrawCandidateWhere({ unique_code, product_code, batch_no, supp
 async function loadTransactionWithdrawCandidates(transaction, selection, requestedNeed) {
   const where = buildWithdrawCandidateWhere(selection);
   const items = [];
-  let available = 0;
   let skip = 0;
   let scanned = 0;
 
@@ -129,14 +128,29 @@ async function loadTransactionWithdrawCandidates(transaction, selection, request
     }
     const fetchedRows = res.data || [];
     scanned += fetchedRows.length;
-    const batch = sortInventoryAllocationCandidates(fetchedRows);
-    items.push(...batch);
-    available += batch.reduce((total, item) => total + getAvailableAllocationStock(item), 0);
+    // 先只累积原始行，翻完再统一排序。
+    // 不能按页排序后拼接，也不能「够量即返回」：数据库分页按 expiry_date 升序，
+    // 而「长期有效」的库存根本不写该字段，其排序位置没有任何官方承诺；本地比较器
+    // sortInventoryAllocationCandidates 则明确规定「有有效期在前、无有效期在后」。
+    // 两者方向一旦相反，首页就可能全是长期有效批次且量已够，函数直接返回，
+    // 临期批次连读都读不到 —— FEFO 静默退化成「先扣长期有效的」。
+    items.push(...fetchedRows);
 
-    if (available >= requestedNeed || selection.unique_code || fetchedRows.length < limit) {
-      return items;
+    if (selection.unique_code || fetchedRows.length < limit) {
+      return sortInventoryAllocationCandidates(items);
     }
     skip += limit;
+  }
+
+  // 已读满扫描上限。此时基于完整候选集判断：够量则照常分配，
+  // 不够才说明筛选范围过大（原实现在这里一律抛错，会误伤"恰好读满上限且够量"的情况）。
+  const sortedCandidates = sortInventoryAllocationCandidates(items);
+  const totalAvailable = sortedCandidates.reduce(
+    (total, item) => total + getAvailableAllocationStock(item),
+    0
+  );
+  if (totalAvailable >= requestedNeed) {
+    return sortedCandidates;
   }
 
   throw new Error('库存范围过大，请增加批次或标签筛选');

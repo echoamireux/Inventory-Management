@@ -94,3 +94,29 @@ test('multi-row stock-in aggregates preprint job usage before updating each job 
     assert.match(source, /used_count:\s*_\.inc\(usedCount\)/);
   }
 });
+
+// H8 回归：作废重做曾按「先作废原批、再由 reservePreprintJob 校验配额」的顺序执行。
+// 作废不可逆，且 voidPreprintLabels 并不退还已消耗的额度，因此配额或频控一旦命中，
+// 用户就会落到「原批已作废、新批未生成、配额也没退」的境地。
+test('void-and-recreate checks the preprint quota before voiding the original job', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'cloudfunctions/exportLabelData/index.js'),
+    'utf8'
+  );
+
+  const branchIndex = source.indexOf("preprintMode === 'voidAndRecreate'");
+  assert.ok(branchIndex > -1, '应存在 voidAndRecreate 分支');
+
+  const branchBody = source.slice(branchIndex, branchIndex + 1400);
+  const quotaIndex = branchBody.indexOf('checkPreprintQuotaAvailable(');
+  const voidIndex = branchBody.indexOf('voidPreprintLabels(');
+
+  assert.ok(quotaIndex > -1, '作废重做必须先做配额预检');
+  assert.ok(voidIndex > -1, '分支内应存在作废调用');
+  assert.ok(
+    quotaIndex < voidIndex,
+    '配额预检必须早于作废动作，否则超限时原批已不可逆作废而新批未生成'
+  );
+});
