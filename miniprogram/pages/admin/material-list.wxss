@@ -7,6 +7,7 @@
 }
 
 .status-tabs {
+  --tabs-line-height: 38px;
   background: #ffffff;
   border-top: 1rpx solid #f1f5f9;
 }
@@ -23,6 +24,16 @@
   gap: 14rpx;
   padding: 16rpx 24rpx;
   overflow: hidden;
+}
+
+.top-bar--after-status {
+  gap: 10rpx;
+  padding-top: 0;
+  padding-bottom: 14rpx;
+}
+
+.top-bar--after-status .count-text {
+  line-height: 32rpx;
 }
 
 .count-wrap {
@@ -244,19 +255,14 @@
 /* 操作按钮区 */
 .card-actions {
   display: flex;
-  flex-direction: row;
   align-items: center;
   flex-shrink: 0;
   margin-left: 16rpx;
-  padding: 4rpx;
-  border: 1rpx solid #e5e7eb;
-  border-radius: 999rpx;
-  background: #f8fafc;
 }
 
 .card-action {
-  min-width: 56rpx;
-  padding: 8rpx 14rpx;
+  min-width: 64rpx;
+  padding: 8rpx 16rpx;
   border-radius: 999rpx;
   font-size: 22rpx;
   line-height: 30rpx;
@@ -264,18 +270,10 @@
   text-align: center;
 }
 
-.card-action--edit {
-  color: #2563eb;
-}
-
 .card-action--archive {
-  color: #ef4444;
-}
-
-.card-action-divider {
-  width: 1rpx;
-  height: 24rpx;
-  background: #e5e7eb;
+  color: #dc2626;
+  background: #fff5f5;
+  border: 1rpx solid #fecaca;
 }
 
 /* 批量操作栏 */

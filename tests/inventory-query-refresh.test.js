@@ -565,6 +565,7 @@ test('material directory uses unified material cards and includes test identitie
   assert.match(materialDirectoryWxml, /item\.display_title/);
   assert.match(materialDirectoryWxml, /item\.display_name/);
   assert.match(materialDirectoryWxml, /item\.display_meta/);
+  assert.match(materialDirectoryWxml, /暂无可用物料，先维护测试料型号/);
   assert.doesNotMatch(materialDirectoryWxml, /wx:if="\{\{ item\.is_test_identity \}\}"[\s\S]*测试料/);
   assert.doesNotMatch(materialDirectoryWxml, /供应商:/);
   assert.match(materialDirectoryWxss, /\.material-card__top[\s\S]*justify-content:\s*space-between/);
@@ -583,13 +584,19 @@ test('master data and test identity pages keep count/actions and loading states 
   const identityManageWxss = read('miniprogram/pages/admin/test-material-identity-manage/index.wxss');
 
   assert.match(materialListWxss, /\.top-bar[\s\S]*flex-direction:\s*column/);
+  assert.match(materialListWxml, /top-bar--after-status/);
+  assert.match(materialListWxss, /\.status-tabs[\s\S]*--tabs-line-height:\s*38px/);
+  assert.match(materialListWxss, /\.top-bar--after-status[\s\S]*padding-top:\s*0/);
+  assert.match(materialListWxss, /\.top-bar--after-status \.count-text[\s\S]*line-height:\s*32rpx/);
   assert.match(materialListWxss, /\.count-text[\s\S]*text-overflow:\s*ellipsis/);
   assert.match(materialListWxss, /\.top-actions[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(materialListWxss, /\.top-actions[\s\S]*width:\s*100%/);
-  assert.match(materialListWxml, /class="card-action card-action--edit"[\s\S]*编辑/);
   assert.match(materialListWxml, /class="card-action card-action--archive"[\s\S]*归档/);
+  assert.doesNotMatch(materialListWxml, /card-action--edit/);
+  assert.doesNotMatch(materialListWxml, /card-action-divider/);
   assert.doesNotMatch(materialListWxml, /custom-style="margin-bottom: 8rpx;"[\s\S]*归档/);
-  assert.match(materialListWxss, /\.card-actions[\s\S]*border-radius:\s*999rpx/);
+  assert.match(materialListWxss, /\.card-action\s*\{[\s\S]*border-radius:\s*999rpx/);
+  assert.match(materialListWxss, /\.card-action--archive[\s\S]*background:\s*#fff5f5/);
   assert.match(materialListWxss, /\.card-action\s*\{[\s\S]*font-size:\s*22rpx/);
   assert.match(materialListWxss, /\.loading-state[\s\S]*align-items:\s*center/);
   assert.match(materialListWxss, /\.loading-state[\s\S]*justify-content:\s*center/);

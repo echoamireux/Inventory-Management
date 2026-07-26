@@ -32,7 +32,7 @@
     background="#eef6ff"
   />
 
-  <view class="top-bar">
+  <view class="top-bar {{ activeTab === 'materials' && !hasSearchKeyword ? 'top-bar--after-status' : '' }}">
     <view class="count-wrap">
       <text wx:if="{{ hasSearchKeyword }}" class="count-text">全局搜索结果：{{ total }} 项物料 · {{ identityTotal }} 个型号</text>
       <text wx:elif="{{ activeTab === 'materials' }}" class="count-text">
@@ -83,8 +83,6 @@
         </view>
 
         <view class="card-actions" wx:if="{{ !isEditMode && activeTab === 'materials' && materialStatus === 'active' && !hasSearchKeyword }}">
-          <text class="card-action card-action--edit" catch:tap="onEdit" data-id="{{ item._id }}">编辑</text>
-          <text class="card-action-divider"></text>
           <text class="card-action card-action--archive" catch:tap="onArchive" data-id="{{ item._id }}">归档</text>
         </view>
       </view>

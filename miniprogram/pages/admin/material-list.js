@@ -660,14 +660,6 @@ Page({
       }).catch(() => {});
   },
 
-  // 兼容旧的单点编辑入口
-  onEdit(e) {
-      const id = e.currentTarget.dataset.id;
-      wx.navigateTo({
-         url: `/pages/admin/material-edit?id=${id}`,
-      });
-  },
-
   // 单个归档入口 - 带理由输入
   async onArchive(e) {
       const id = e.currentTarget.dataset.id;
