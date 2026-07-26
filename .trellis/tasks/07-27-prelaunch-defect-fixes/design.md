@@ -105,11 +105,49 @@ function buildInventoryLogIdentityFields(source = {}) {
 
 三项同源：主数据变更未级联到 `test_material_identities`。
 
-### D6. H3 — 编辑型号时同步 key
+### D6. H3 — 编辑型号时同步 key（含实施中发现的连带回归）
 
 `manageTestMaterialIdentity:423` 更新原厂型号时只改 `supplier_model` 显示值，未重算 `supplier_model_key` 与 `identity_key`。后果：显示值与唯一键不一致，唯一性约束被绕过（可建出两条实质同型号的记录）。
 
 **方案**：更新时按同一套规范化规则重算两个 key 并一并写入。须复用既有的 key 生成逻辑，不要另写一套。
+
+#### 实施中发现：仅重算 key 会引入新的回归
+
+领用时是拿**型号库的当前 `supplier_model_key`** 去匹配库存的：
+
+```js
+// updateInventory / buildWithdrawCandidateWhere
+if (supplier_model_key) {
+  where.supplier_model_key = supplier_model_key;
+}
+```
+
+而库存记录里存的是**入库当时**的 key。因此一旦改名导致 key 变化：
+
+| 时点 | `inventory.supplier_model_key` | 型号库的 key | 领用结果 |
+|---|---|---|---|
+| 入库时 | `ab-100` | `ab-100` | 正常 |
+| 改名为 AB-200 后（**仅重算 key**） | `ab-100` | `ab-200` | **匹配不到，那批货领不出来** |
+
+即：修复了唯一性绕过，却让历史库存失联 —— 换了一个同样严重的问题。而编辑路径原本**没有任何库存检查**。
+
+**补充方案**：在 `identity_key` 将要变化时，先检查是否已有库存按旧 key 落库，有则阻断：
+
+```js
+if (candidate.identity_key !== current.identity_key) {
+  const relatedInventoryRes = await transaction.collection('inventory')
+    .where({ product_code: current.product_code, supplier_model_key: current.supplier_model_key })
+    .limit(1).get();
+  if (relatedInventoryRes.data && relatedInventoryRes.data.length > 0) {
+    throw new Error('该原厂型号已产生库存记录，不能修改型号；如需变更请新建型号');
+  }
+  // ... 原有的唯一性冲突检查
+}
+```
+
+**为何是阻断而非级联更新库存**：`supplier_model_key` 由 `supplier_model` 规范化派生，规范化后 key 仍不变的改动（仅调整大小写/空格）根本走不到这个分支；真正会改变 key 的等于**换了一个型号**，而历史库存是按旧型号入库的客观事实，不应被追溯改写。语义上应新建型号而非改名。
+
+这与 D7（改产品代码时阻断）的处理一致。
 
 ### D7. H4 — 改产品代码时处理型号
 

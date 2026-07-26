@@ -476,6 +476,22 @@ async function updateIdentity(event, openid) {
       throw new Error('测试料型号不存在');
     }
     if (candidate.identity_key !== current.identity_key) {
+      // 库存按入库当时的 supplier_model_key 落库，而领用是拿型号库的当前 key 去
+      // 匹配库存（updateInventory 的 buildWithdrawCandidateWhere）。一旦改名导致
+      // key 变化，已入库的记录就会与型号库失配 —— 那批货再也领不出来。
+      // 规范化后 key 不变的改动（例如只调整了大小写或空格）不会走到这里，
+      // 真正会变 key 的等于换了一个型号，此时应新建而非改名。
+      const relatedInventoryRes = await transaction.collection('inventory')
+        .where({
+          product_code: current.product_code,
+          supplier_model_key: current.supplier_model_key
+        })
+        .limit(1)
+        .get();
+      if (relatedInventoryRes.data && relatedInventoryRes.data.length > 0) {
+        throw new Error('该原厂型号已产生库存记录，不能修改型号；如需变更请新建型号');
+      }
+
       const duplicateRes = await transaction.collection('test_material_identities')
         .where({ identity_key: candidate.identity_key })
         .limit(1)
